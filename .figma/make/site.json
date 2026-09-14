@@ -1,0 +1,10 @@
+{
+  "description": "Enables users to create and manage team identities on farq.sa, streamlining collaboration and enhancing group organization.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Cairo', system-ui, sans-serif;
+  --color-farq: #123F3A;
+  --color-farq-700: #0e3229;
+  --color-farq-500: #1a5c54;
+  --color-farq-400: #267a6e;
+  --color-farq-100: #e0efec;
+  --color-farq-50: #f0faf7;
+  --color-mint: #CFF5DC;
+  --color-mint-700: #1a7a45;
+  --color-warm: #FAFAF8;
+}
+
+html, body {
+  font-family: 'Cairo', system-ui, sans-serif;
+  direction: rtl;
+  background-color: #FAFAF8;
+  color: #0D1F1D;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: #d1d5db transparent;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes progress-in {
+  from { width: 0; }
+  to { width: var(--target-w); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s ease both;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}

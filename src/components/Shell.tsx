@@ -1,0 +1,218 @@
+import { useState } from 'react'
+import type { AppView } from '../types'
+import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon } from '../icons'
+import { NotificationsDrawer } from './NotificationsDrawer'
+
+interface ShellProps {
+  view: AppView
+  navigate: (v: AppView) => void
+  children: React.ReactNode
+}
+
+const NAV = [
+  {
+    id: 'home' as AppView,
+    label: 'الرئيسية',
+    Icon: HomeIcon,
+    active: (v: AppView) => v === 'home',
+  },
+  {
+    id: 'rfq-list' as AppView,
+    label: 'طلبات التسعير',
+    Icon: FileIcon,
+    active: (v: AppView) => ['rfq-list', 'create-upload', 'create-proposals', 'rfq-detail', 'rfq-closed', 'sent', 'sent-failure'].includes(v),
+  },
+  {
+    id: 'offers' as AppView,
+    label: 'العروض',
+    Icon: InboxIcon,
+    badge: '7',
+    active: (v: AppView) => ['offers', 'offer-detail', 'comparison', 'award', 'award-success'].includes(v),
+  },
+  {
+    id: 'supplier-management' as AppView,
+    label: 'الموردون',
+    Icon: UsersIcon,
+    active: (v: AppView) => ['supplier-management', 'supplier-detail'].includes(v),
+  },
+  {
+    id: 'settings' as AppView,
+    label: 'الإعدادات',
+    Icon: SettingsIcon,
+    active: (v: AppView) => v === 'settings' || v === 'access-denied',
+  },
+]
+
+const CREATE_STEPS = [
+  { n: 1, label: 'ارفع الكراسة',        views: ['create-upload'] as AppView[] },
+  { n: 2, label: 'الموردون المقترحون',  views: ['create-proposals'] as AppView[] },
+  { n: 3, label: 'إرسال الطلب',         views: [] as AppView[] },
+]
+
+const isCreateFlow = (v: AppView) => v === 'create-upload' || v === 'create-proposals'
+const getStep = (v: AppView) => v === 'create-upload' ? 1 : v === 'create-proposals' ? 2 : 3
+
+export function Shell({ view, navigate, children }: ShellProps) {
+  const [showNotifs, setShowNotifs] = useState(false)
+  const inCreate = isCreateFlow(view)
+  const step = getStep(view)
+
+  return (
+    <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex fixed top-0 right-0 bottom-0 w-60 bg-[#123F3A] flex-col z-50">
+        <div className="flex items-center gap-3 px-5 py-6 border-b border-white/10">
+          <div className="w-9 h-9 rounded-xl bg-[#CFF5DC] flex items-center justify-center flex-shrink-0">
+            <span className="text-[#123F3A] font-black text-base">ف</span>
+          </div>
+          <div>
+            <div className="text-white font-bold text-xl leading-none tracking-tight">فرق</div>
+            <div className="text-white/40 text-xs mt-0.5">بناء</div>
+          </div>
+        </div>
+
+        <nav className="flex-1 py-3 overflow-y-auto">
+          {NAV.map(({ id, label, Icon, badge, active }) => {
+            const isActive = active(view)
+            return (
+              <button
+                key={id}
+                onClick={() => navigate(id)}
+                className={`w-full flex items-center gap-3 px-5 py-3 text-right transition-colors ${
+                  isActive ? 'bg-white/12 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                <span className="text-sm font-medium">{label}</span>
+                {badge && (
+                  <span className="me-auto bg-[#CFF5DC] text-[#123F3A] text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                    {badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+
+          <div className="mt-4 mx-3 border-t border-white/10 pt-4">
+            <button
+              onClick={() => navigate('supplier')}
+              className="w-full flex items-center gap-2 px-3 py-2 text-right text-white/30 hover:text-white/60 transition-colors text-xs"
+            >
+              <span className="text-[10px]">↗</span>
+              بوابة الموردين
+            </button>
+          </div>
+        </nav>
+
+        <div className="px-5 py-4 border-t border-white/10">
+          <button
+            onClick={() => setShowNotifs(true)}
+            className="flex items-center gap-2 w-full mb-3 text-white/50 hover:text-white/80 transition-colors py-1"
+          >
+            <div className="relative flex-shrink-0">
+              <BellIcon className="w-4 h-4" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#CFF5DC] rounded-full" />
+            </div>
+            <span className="text-xs">الإشعارات</span>
+            <span className="me-auto bg-[#CFF5DC]/20 text-[#CFF5DC] text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">3</span>
+          </button>
+          <button
+            onClick={() => navigate('settings')}
+            className="flex items-center gap-3 w-full"
+          >
+            <div className="w-8 h-8 rounded-full bg-[#CFF5DC] flex items-center justify-center flex-shrink-0">
+              <span className="text-[#123F3A] font-bold text-sm">م</span>
+            </div>
+            <div className="min-w-0 text-right">
+              <div className="text-white text-sm font-semibold leading-none">محمد العمري</div>
+              <div className="text-white/40 text-xs mt-0.5">مدير المشتريات</div>
+            </div>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="lg:mr-60">
+        {/* Mobile header */}
+        <header className="lg:hidden sticky top-0 z-40 bg-[#123F3A] px-4 py-3 flex items-center justify-between">
+          <button onClick={() => navigate('home')} className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#CFF5DC] flex items-center justify-center">
+              <span className="text-[#123F3A] font-black text-xs">ف</span>
+            </div>
+            <span className="text-white font-bold text-base">فرق | بناء</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowNotifs(true)} className="text-white/60 p-1 relative">
+              <BellIcon className="w-5 h-5" />
+              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-[#CFF5DC] rounded-full" />
+            </button>
+            <button onClick={() => navigate('settings')}>
+              <div className="w-7 h-7 rounded-full bg-[#CFF5DC] flex items-center justify-center">
+                <span className="text-[#123F3A] font-bold text-xs">م</span>
+              </div>
+            </button>
+          </div>
+        </header>
+
+        {/* Mobile bottom nav */}
+        <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
+          {NAV.slice(0, 4).map(({ id, label, Icon, active }) => {
+            const isActive = active(view)
+            return (
+              <button
+                key={id}
+                onClick={() => navigate(id)}
+                className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors relative ${
+                  isActive ? 'text-[#123F3A]' : 'text-neutral-400'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-[10px] font-medium">{label.split(' ')[0]}</span>
+                {id === 'offers' && (
+                  <span className="absolute top-1.5 left-[calc(50%+7px)] w-4 h-4 bg-[#123F3A] text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                    7
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Create flow step header */}
+        {inCreate && (
+          <div className="bg-white border-b border-neutral-100 px-6 py-4 sticky top-0 lg:top-0 z-30">
+            <div className="max-w-3xl">
+              <div className="flex items-center">
+                {CREATE_STEPS.map((s, i) => (
+                  <div key={s.n} className="flex items-center flex-1 last:flex-none">
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all ${
+                        step > s.n ? 'bg-[#123F3A] text-white' :
+                        step === s.n ? 'bg-[#123F3A] text-white ring-[3px] ring-[#CFF5DC]' :
+                        'bg-neutral-100 text-neutral-400'
+                      }`}>
+                        {step > s.n ? '✓' : s.n}
+                      </div>
+                      <span className={`text-sm font-semibold whitespace-nowrap hidden sm:block ${step >= s.n ? 'text-[#123F3A]' : 'text-neutral-400'}`}>
+                        {s.label}
+                      </span>
+                    </div>
+                    {i < CREATE_STEPS.length - 1 && (
+                      <div className={`flex-1 h-px mx-3 transition-colors ${step > s.n ? 'bg-[#123F3A]' : 'bg-neutral-200'}`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <main className="pb-20 lg:pb-0">{children}</main>
+      </div>
+
+      {showNotifs && (
+        <NotificationsDrawer onClose={() => setShowNotifs(false)} navigate={navigate} />
+      )}
+    </div>
+  )
+}
