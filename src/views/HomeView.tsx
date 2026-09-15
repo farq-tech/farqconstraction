@@ -2,6 +2,8 @@ import { useState, useRef } from 'react'
 import type { NavProps } from '../types'
 import { RECENT_RFQS } from '../data'
 import { UploadIcon, ArrowRightIcon } from '../icons'
+import ConstructionStatusChip from '@/components/ConstructionStatusChip'
+import { env } from '@/lib/env'
 
 const STATUS_CONFIG = {
   active: { label: 'بانتظار العروض', className: 'bg-amber-50 text-amber-700' },
@@ -22,6 +24,10 @@ export function HomeView({ navigate }: NavProps) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-8 py-10">
+      <div className="mb-6">
+        <ConstructionStatusChip />
+      </div>
+
       {/* Hero */}
       <div className="mb-10">
         <h1 className="text-4xl lg:text-5xl font-black text-[#0D1F1D] leading-tight mb-3">
@@ -30,6 +36,11 @@ export function HomeView({ navigate }: NavProps) {
         <p className="text-lg text-neutral-500 leading-relaxed max-w-xl">
           ارفع كراسة الشروط والمواصفات، ونقرأ البنود ونقترح الموردين المناسبين لكل بند.
         </p>
+        {env.allowPrototypeChrome ? (
+          <p className="mt-3 text-xs font-semibold text-amber-700">
+            قائمة الطلبات أدناه واجهة تجريبية فقط — المصدر الإنتاجي هو واجهة Construction API.
+          </p>
+        ) : null}
       </div>
 
       {/* Upload zone */}
