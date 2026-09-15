@@ -1,3 +1,9 @@
+/**
+ * PROTOTYPE FIXTURES ONLY.
+ * Never treat these as production/server truth.
+ * Production path must read projects/BOQ/RFQs/suppliers from Construction API + DB.
+ * Gated by VITE_ALLOW_PROTOTYPE_CHROME for UI chrome review during strangler migration.
+ */
 import type { BOQItem, RFQSummary, SupplierEntry } from './types'
 
 export const BOQ_ITEMS: BOQItem[] = [
