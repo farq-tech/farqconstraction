@@ -636,15 +636,33 @@ export function SendModal({
 
     try {
       touchActivity({ step: 'مطابقة البنود مع كتالوج Farq…', channel: 'SETUP', index: 0, total: 0 })
+      // Only the lines that still have no spec id are worth asking about.
+      // `buildRfqLinesFromItems` reads `item.farqSpecId` first and falls back to
+      // `specIdForLine` only when it is empty, so re-asking about a line the
+      // upload already resolved cannot change the RFQ — it just pays for a
+      // second multi-megabyte answer on the screen the buyer is waiting on.
+      // What remains is what the fallback is actually for: an upload whose match
+      // call failed, and lines past the upload's 80-line match cap.
+      const needSpecId = readyItems.filter((item) => !item.farqSpecId)
       const matchPayload = {
-        lines: readyItems.map((item) => ({
+        lines: needSpecId.map((item) => ({
           line_key: item.lineKey || `line-${item.id}`,
           name_ar: item.name,
           quantity: parseQty(item.qty),
           uom: item.unit || 'عدد',
+          // The tender's technical column, which the upload sends and this call
+          // used to drop even though the item carries it. Without it the fallback
+          // answers a poorer question than the upload did and can name a
+          // different material: on a hot/cold water line it returned pvc-pipe
+          // where the upload, reading the spec, returned ppr-pipes — a pool of
+          // suppliers that cannot quote the item. Sending it makes both calls ask
+          // the same thing, so they cannot disagree.
+          spec: item.spec,
         })),
       }
-      const matched = await matchConstructionBoqCatalog(matchPayload).catch(() => null)
+      const matched = needSpecId.length
+        ? await matchConstructionBoqCatalog(matchPayload).catch(() => null)
+        : null
       touchActivity({ step: 'اكتملت المطابقة — تجهيز البنود…', channel: 'SETUP' })
       const matchRows = matched?.rows || matched?.matches || []
       const byKey = new Map(matchRows.map((row) => [row.line_key, row]))
