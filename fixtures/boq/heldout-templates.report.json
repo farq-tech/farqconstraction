@@ -1,0 +1,56 @@
+{
+  "label": "templates",
+  "measured_at": "2026-09-16T11:03:52.288Z",
+  "provenance": {
+    "ontology_payload": "/Users/m4pro/farq/api/data/construction/procurement-ontology.data.json",
+    "ontology_version": "cpo-v3",
+    "ontology_payload_sha256_16": "3788f9af91cbdfed",
+    "ontology_fingerprint": null,
+    "repo_payload_sha256_16": "4750053d720aacec",
+    "repo_payload_version_note": "repo tree is cpo-v4 in progress; NOT used for these numbers",
+    "resolver_code_rev": "0ef8b2d",
+    "api_code_rev": "f2a61a93c",
+    "ai_calls": 0
+  },
+  "set": {
+    "path": "fixtures/boq/heldout-b3-10.templates.flat.txt",
+    "lines": 827
+  },
+  "three_levels": {
+    "A_specific_intent": {
+      "n": 8,
+      "pct": 0.97
+    },
+    "B_family_resolved": {
+      "n": 647,
+      "pct": 78.23,
+      "method": {
+        "ontology": 364,
+        "semantic_recovery": 283
+      }
+    },
+    "C_true_unknown": {
+      "n": 172,
+      "pct": 20.8,
+      "metadata": {
+        "ai_eligible": 172,
+        "rejected": 0
+      }
+    }
+  },
+  "A_confidence_distribution": {
+    "A>=0.9": 8,
+    "A0.8-0.9": 0,
+    "A<0.8": 0
+  },
+  "top_families_A": [
+    [
+      "hvac_equipment",
+      6
+    ],
+    [
+      "fire_fighting",
+      2
+    ]
+  ]
+}

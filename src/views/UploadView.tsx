@@ -3,6 +3,16 @@ import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
 import { parseBoqFile, resolveBoqCardFields } from '../lib/parseBoq'
 import type { BoqParseStage } from '../lib/parseBoq'
+import {
+  BoqEtaTracker,
+  hasAnyCalibration,
+  loadBoqCalibration,
+  recordBoqRun,
+  type BoqEtaLeg,
+  type BoqEtaPhase,
+  type BoqEtaUnit,
+  type BoqEtaView,
+} from '../lib/boqEta'
 import { beginBoqUpload, clearParsedBoq, setParsedBoq, upsertDraftRfq } from '../store/session'
 import { useProcurement } from '../procurementContext'
 
@@ -28,6 +38,225 @@ const SLOW_HINT_AFTER_S = 15
 
 type Phase = 'idle' | 'processing' | 'done' | 'error'
 
+const PHASE_LABEL: Record<BoqEtaPhase, string> = {
+  'local-read': 'قراءة الملف على جهازك',
+  'server-read': 'قراءة الملف على الخادم',
+  analyze: 'تحليل البنود',
+  match: 'مطابقة الموردين',
+}
+
+const LEG_LABEL: Record<BoqEtaLeg, string> = {
+  hash: 'بصمة الملف',
+  extract: 'استخراج نص الصفحات على جهازك',
+  table: 'قراءة أعمدة جدول الكميات',
+  'api-parse': 'انتظار خدمة قراءة PDF على الخادم',
+  resolve: 'استخراج البنود من النص',
+  'match-remote': 'طلب مطابقة البنود على الخادم',
+  'match-catalog': 'تنزيل دليل الموردين',
+  'match-pools': 'ترشيح الموردين لكل نية شراء',
+  'match-rank': 'ترتيب الموردين لكل بند',
+}
+
+const UNIT_LABEL: Record<BoqEtaUnit, { one: string; many: string }> = {
+  page: { one: 'صفحة', many: 'صفحة' },
+  pool: { one: 'نية', many: 'نية' },
+  line: { one: 'بند', many: 'بندًا' },
+}
+
+/** Arabic counts read wrong with a bare number; 2 and 3–10 take their own forms. */
+function arSeconds(total: number): string {
+  const n = Math.max(0, Math.round(total))
+  if (n === 0) return 'أقل من ثانية'
+  if (n >= 90) {
+    const m = Math.floor(n / 60)
+    const rest = n % 60
+    const minutes = m === 1 ? 'دقيقة' : m === 2 ? 'دقيقتين' : m <= 10 ? `${m} دقائق` : `${m} دقيقة`
+    return rest ? `${minutes} و${arSeconds(rest)}` : minutes
+  }
+  if (n === 1) return 'ثانية واحدة'
+  if (n === 2) return 'ثانيتين'
+  if (n <= 10) return `${n} ثوانٍ`
+  return `${n} ثانية`
+}
+
+function secondsOf(ms: number | null): number | null {
+  return ms === null ? null : Math.max(0, Math.round(ms / 1000))
+}
+
+/**
+ * A live countdown rounds up: 400ms left must read as a second, never as «0»,
+ * because a zero beside a spinner is the broken promise this whole panel exists
+ * to avoid. Zero is reserved for "finishing right now".
+ */
+function countdownLabel(ms: number): string {
+  if (ms <= 0) return 'أقل من ثانية'
+  return arSeconds(Math.ceil(ms / 1000))
+}
+
+/**
+ * Bar slices for legs that report real progress. The endpoints are as
+ * hand-picked as the stage percentages they sit inside, but the movement within
+ * a slice is driven only by work actually finished — pages extracted, intents
+ * filtered, lines ranked. Opaque legs get no slice, so the bar holds still while
+ * a single request is outstanding instead of drifting to look busy.
+ */
+const LEG_BAR_SPAN: Partial<Record<BoqEtaLeg, [number, number]>> = {
+  extract: [35, 55],
+  'match-pools': [80, 88],
+  'match-rank': [88, 96],
+}
+
+/**
+ * The countdown, and the four things it is allowed to say:
+ *   - a number, when throughput has actually been measured;
+ *   - "no estimate yet", while it is still measuring;
+ *   - "this stage reports no progress, here is its ceiling", for a bare request;
+ *   - "we passed our estimate", once a published number ran out.
+ * It never freezes and never restarts to look better. The elapsed counter above
+ * it keeps running in every one of those states.
+ */
+function EtaPanel({ eta, hasHistory }: { eta: BoqEtaView; hasHistory: boolean }) {
+  const legCap = secondsOf(eta.legCapMs)
+  const phaseLabel = eta.phase ? PHASE_LABEL[eta.phase] : 'المعالجة'
+  const legLabel = eta.leg ? LEG_LABEL[eta.leg] : ''
+  const unit = eta.unit
+  const measured =
+    unit && eta.done !== null && eta.total !== null
+      ? `${eta.done} من ${eta.total} ${eta.total === 1 ? UNIT_LABEL[unit].one : UNIT_LABEL[unit].many}`
+      : null
+  const nextPhases = eta.remainingPhases.map((p) => PHASE_LABEL[p]).join(' ثم ')
+
+  const tone = eta.overdue
+    ? 'border-amber-200 bg-amber-50'
+    : eta.remainingMs !== null
+      ? 'border-[#123F3A]/15 bg-[#f0faf7]'
+      : 'border-neutral-200 bg-neutral-50'
+
+  return (
+    <div className={`mt-4 rounded-xl border px-4 py-3 animate-fade-up ${tone}`}>
+      {eta.overdue ? (
+        <>
+          <div className="text-sm font-bold text-amber-800">تجاوزنا الوقت المتوقع</div>
+          <div className="mt-1 text-xs text-amber-800 leading-relaxed">
+            {eta.brokenEstimateMs !== null
+              ? `قدّرنا ${arSeconds(secondsOf(eta.brokenEstimateMs)!)} لمرحلة «${phaseLabel}» وتجاوزناها بـ ${arSeconds(secondsOf(eta.overdueByMs) ?? 0)}.`
+              : `تجاوزنا تقديرنا لمرحلة «${phaseLabel}».`}{' '}
+            العمل ما زال جاريًا ومضى {arSeconds(secondsOf(eta.elapsedMs)!)} على القراءة. لن نعيد ضبط
+            العد التنازلي ولن نعرض رقمًا جديدًا لا نستطيع إثباته.
+          </div>
+        </>
+      ) : eta.remainingMs !== null ? (
+        <>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-xs text-neutral-500">متوقّع لإنهاء «{phaseLabel}»</span>
+            <span className="text-xl font-black text-[#123F3A] tabular-nums">
+              {countdownLabel(eta.remainingMs)}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-neutral-600 leading-relaxed">
+            {eta.basis === 'in-run' && eta.ratePerSec && unit
+              ? `مقيس داخل هذه القراءة: ${formatRate(eta.ratePerSec, unit)}.`
+              : eta.basis === 'history-fit'
+                ? `مبني على قياس ${eta.historySamples} قراءات سابقة على هذا الجهاز${eta.lines ? ` مقيسة على ${eta.lines} بندًا` : ''}.`
+                : eta.basis === 'history-ratio'
+                  ? 'مبني على قياس قراءة واحدة سابقة فقط — تقدير خشن قد يبتعد كثيرًا.'
+                  : ''}
+            {eta.revisedUp && eta.firstPromisedMs !== null
+              ? ` حدّثنا التقدير للأعلى: كان ${arSeconds(secondsOf(eta.firstPromisedMs)!)} ثم قِسنا سرعة أبطأ.`
+              : ''}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="text-sm font-bold text-[#0D1F1D]">لا تقدير بعد</div>
+          <div className="mt-1 text-xs text-neutral-600 leading-relaxed">
+            {eta.leg === null
+              ? 'ننتقل بين مرحلتين الآن.'
+              : eta.legKind === 'opaque'
+                ? `«${legLabel}» طلب واحد لا يُبلّغ عن تقدّمه من الداخل، فلا يوجد ما نقيسه لنقدّر مدته.${
+                    legCap ? ` يتوقف عند ${arSeconds(legCap)} كحد أقصى ثم نكمل بما لدينا.` : ''
+                  }`
+                : eta.phase === 'match' && eta.lines === null
+                  ? 'لا نستطيع تقدير مطابقة الموردين قبل معرفة عدد البنود — سنقدّر بعد استخراجها.'
+                  : `نقيس السرعة الفعلية لهذا الملف الآن${measured ? ` (${measured})` : ''}؛ نعرض رقمًا حين يكفي القياس.`}
+            {!hasHistory
+              ? ' هذه أول كراسة تُقرأ على هذا الجهاز، فلا قياس سابق نبني عليه. نقيس هذه القراءة لتقدير ما بعدها.'
+              : ''}
+          </div>
+        </>
+      )}
+
+      <div className="mt-2 pt-2 border-t border-black/5 text-[11px] text-neutral-500 leading-relaxed">
+        المرحلة الحالية: {legLabel || 'بين مرحلتين'}
+        {measured && !eta.overdue ? ` — ${measured}` : ''}
+        {eta.overdue && measured ? ` — أنجزنا ${measured} حتى الآن` : ''}
+        {legCap ? `. سقفها ${arSeconds(legCap)}` : ''}
+        {nextPhases ? `. يتبعها: ${nextPhases}` : '. لا مرحلة بعدها'}
+        {eta.phase !== 'match' && eta.remainingPhases.includes('match')
+          ? '. مدة المطابقة تعتمد على عدد البنود، ولا تُقدَّر قبل استخراجها'
+          : ''}
+      </div>
+    </div>
+  )
+}
+
+function formatRate(rate: number, unit: BoqEtaUnit): string {
+  const label = UNIT_LABEL[unit].one
+  const shown = rate >= 10 ? Math.round(rate) : Math.round(rate * 10) / 10
+  return `${shown} ${label}/ث`
+}
+
+/**
+ * The honest summary of one read. `expected` is the booklet's own numbering, so
+ * `read < expected` is not an opinion — the document says how many items it has.
+ */
+type ReadReport = {
+  read: number
+  expected: number | null
+  unreadable: number
+  issues: string[]
+  skippedTables: string[]
+  matchApiFailed: boolean
+  matchApiError?: string
+  source: string
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  'pdf-table': 'قراءة أعمدة الجدول بالإحداثيات',
+  'pdf-text': 'قراءة نصية للأسطر',
+  'waiting-hall-curated': 'جدول محفوظ لكراسة صالات الانتظار',
+  empty: 'لا مصدر',
+}
+
+/**
+ * Shown whenever the booklet numbers more items than we read. It says the count
+ * first, because returning 31 of 68 lines as though they were the booklet is
+ * what turned a parser defect into wrong RFQs instead of a visible error.
+ */
+function PartialReadPanel({ report }: { report: ReadReport }) {
+  const expected = report.expected ?? report.read + report.unreadable
+  return (
+    <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-right" dir="rtl">
+      <div className="text-sm font-bold text-red-800">
+        قراءة ناقصة: قرأنا {report.read} من {expected} بندًا
+      </div>
+      <div className="text-xs text-red-700 mt-1 leading-relaxed">
+        لم نقرأ {report.unreadable} بندًا، ولم نخمّن لها كمية أو وحدة. لا ترسل طلب عرض سعر على هذه
+        الكراسة قبل مراجعة البنود الناقصة — الأرقام أدناه تخص ما قرأناه فقط.
+      </div>
+      {report.issues.length > 0 && (
+        <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+          {report.issues.slice(0, 12).map((issue, i) => (
+            <li key={i} className="text-[11px] text-red-700 leading-relaxed">
+              • {issue}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function UploadView({ navigate }: NavProps) {
   const { setDraftBoq } = useProcurement()
   const [phase, setPhase] = useState<Phase>('idle')
@@ -40,7 +269,14 @@ export function UploadView({ navigate }: NavProps) {
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  /** How much of the booklet we actually read, and why the rest is missing. */
+  const [readReport, setReadReport] = useState<ReadReport | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  /** Expected-time-to-finish, recomputed only from work `parseBoqFile` reports. */
+  const [eta, setEta] = useState<BoqEtaView | null>(null)
+  /** False on the very first read of a device: there is no history to estimate from. */
+  const [hasHistory, setHasHistory] = useState(false)
+  const etaRef = useRef<BoqEtaTracker | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   /** Kept so «أعد المحاولة» retries the same booklet instead of asking again. */
   const lastFileRef = useRef<File | null>(null)
@@ -49,7 +285,13 @@ export function UploadView({ navigate }: NavProps) {
 
   useEffect(() => {
     if (phase !== 'processing') return
-    const id = window.setInterval(() => setElapsed((s) => s + 1), 1000)
+    const id = window.setInterval(() => {
+      setElapsed((s) => s + 1)
+      // The countdown ticks on the same clock as the elapsed counter, so it can
+      // reach zero and turn into an honest overrun instead of stalling at 1.
+      const tracker = etaRef.current
+      if (tracker) setEta(tracker.view())
+    }, 1000)
     return () => window.clearInterval(id)
   }, [phase])
 
@@ -70,6 +312,13 @@ export function UploadView({ navigate }: NavProps) {
     setItems([])
     setProjectName('')
     setErrorMsg('')
+    setReadReport(null)
+
+    const calibration = loadBoqCalibration()
+    setHasHistory(hasAnyCalibration(calibration))
+    const tracker = new BoqEtaTracker({ calibration })
+    etaRef.current = tracker
+    setEta(tracker.view())
 
     let watchdog: number | undefined
     try {
@@ -81,6 +330,25 @@ export function UploadView({ navigate }: NavProps) {
           setActiveStage(id)
           setCompletedStages(STAGES.slice(0, i).map((s) => s.id))
           setProgress((p) => Math.max(p, STAGES[i]!.progress))
+        },
+        onWork: (event) => {
+          if (!current()) return
+          tracker.note(event)
+          setEta(tracker.view())
+        },
+        onRead: (facts) => {
+          if (!current()) return
+          // Before matching starts, not after: the owner should not wait out the
+          // longest leg believing a partial read is a complete one.
+          setReadReport({
+            read: facts.read,
+            expected: facts.expectedLineCount ?? null,
+            unreadable: facts.unreadableLineCount,
+            issues: facts.readIssues ?? [],
+            skippedTables: facts.skippedTables ?? [],
+            matchApiFailed: false,
+            source: 'pdf-table',
+          })
         },
       })
       const result = await new Promise<Awaited<typeof parsed>>((resolve, reject) => {
@@ -102,6 +370,10 @@ export function UploadView({ navigate }: NavProps) {
         setDraftBoq(null)
         setItems([])
         setProgress(35)
+        // A read that found nothing says nothing about how long a real one takes,
+        // so its timings are deliberately not folded into the calibration.
+        tracker.finish()
+        setEta(tracker.view())
         setPhase('error')
         setErrorMsg(
           result.matchWarning ||
@@ -113,7 +385,23 @@ export function UploadView({ navigate }: NavProps) {
       setCompletedStages(STAGES.map((s) => s.id))
       setActiveStage(null)
       setRecognized(result.items.length)
+      // What the booklet contains versus what we read. Kept as its own state so
+      // the screen can refuse to call a partial read a complete one.
+      setReadReport({
+        read: result.items.length,
+        expected: result.expectedLineCount ?? null,
+        unreadable: result.unreadableLineCount ?? 0,
+        issues: result.readIssues ?? [],
+        skippedTables: result.skippedTables ?? [],
+        matchApiFailed: Boolean(result.matchApiFailed),
+        matchApiError: result.matchApiError,
+        source: result.source,
+      })
       setProgress(100)
+      // Measured durations of this run are the only basis the next one will have.
+      tracker.finish()
+      recordBoqRun(tracker)
+      setEta(tracker.view())
       setItems(result.items)
       setProjectName(result.projectName)
       if (result.matchWarning) {
@@ -162,6 +450,8 @@ export function UploadView({ navigate }: NavProps) {
       setItems([])
       setActiveStage(null)
       setProgress(35)
+      tracker.finish()
+      setEta(tracker.view())
       setPhase('error')
       setErrorMsg(err instanceof Error ? err.message : 'تعذّرت قراءة الملف')
     } finally {
@@ -179,6 +469,8 @@ export function UploadView({ navigate }: NavProps) {
     setDraftBoq(null)
     runIdRef.current += 1
     lastFileRef.current = null
+    etaRef.current = null
+    setEta(null)
     setElapsed(0)
     setPhase('idle')
     setFileName('')
@@ -189,9 +481,23 @@ export function UploadView({ navigate }: NavProps) {
     setItems([])
     setProjectName('')
     setErrorMsg('')
+    setReadReport(null)
   }
 
+  // Stage transitions set the floor; a measured leg may raise it within its own
+  // slice. Nothing here moves on a timer.
+  const span = eta?.leg ? LEG_BAR_SPAN[eta.leg] : undefined
+  const displayProgress =
+    span && eta?.legFraction !== null && eta?.legFraction !== undefined && phase === 'processing'
+      ? Math.max(progress, Math.round(span[0] + (span[1] - span[0]) * eta.legFraction))
+      : progress
+
   const readyCount = items.filter((i) => i.status === 'ready').length
+  /**
+ * The booklet numbers its own items, so this is a fact rather than a guess, and
+ * everything on the screen below reads differently because of it.
+ */
+  const partialRead = Boolean(readReport && readReport.unreadable > 0)
   const searchingCount = items.filter((i) => i.status === 'searching').length
   const supplierCount = new Set(items.flatMap((i) => i.suppliers.map((s) => s.id))).size
 
@@ -253,7 +559,11 @@ export function UploadView({ navigate }: NavProps) {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-[#0D1F1D] text-sm truncate">{fileName}</div>
               <div className="text-xs text-neutral-400 mt-0.5">
-                {phase === 'processing' ? `جاري المعالجة… ${elapsed} ثانية` : 'اكتملت المعالجة'}
+                {phase === 'processing'
+                  ? `جاري المعالجة… مضى ${arSeconds(elapsed)}`
+                  : partialRead
+                    ? 'انتهت المعالجة بقراءة ناقصة'
+                    : 'اكتملت المعالجة'}
               </div>
             </div>
           </div>
@@ -261,12 +571,16 @@ export function UploadView({ navigate }: NavProps) {
           <div className="px-6 py-5">
             <div className="flex justify-between items-center mb-3">
               <span className="text-sm font-semibold text-[#0D1F1D]">
-                {phase === 'processing' ? 'فرق يقرأ الكراسة…' : 'تمت قراءة الكراسة'}
+                {phase === 'processing'
+                  ? 'فرق يقرأ الكراسة…'
+                  : partialRead
+                    ? 'قرأنا جزءًا من الكراسة'
+                    : 'تمت قراءة الكراسة'}
               </span>
-              <span className="text-sm font-bold text-[#123F3A]">{progress}%</span>
+              <span className="text-sm font-bold text-[#123F3A]">{displayProgress}%</span>
             </div>
             <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden mb-4">
-              <div className="h-full rounded-full bg-[#123F3A] transition-all duration-300" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full bg-[#123F3A] transition-all duration-300" style={{ width: `${displayProgress}%` }} />
             </div>
 
             <div className="space-y-3">
@@ -295,7 +609,21 @@ export function UploadView({ navigate }: NavProps) {
               })}
             </div>
 
-            {phase === 'processing' && recognized > 0 && (
+            {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} />}
+
+            {phase === 'processing' && partialRead && readReport && (
+              <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 animate-fade-up text-right" dir="rtl">
+                <div className="text-xs font-bold text-red-800">
+                  قراءة ناقصة: قرأنا {readReport.read} من {readReport.expected ?? readReport.read + readReport.unreadable} بندًا
+                </div>
+                <div className="text-[11px] text-red-700 mt-1 leading-relaxed">
+                  المطابقة الجارية الآن تخص المقروء فقط، و{readReport.unreadable} بندًا لن تظهر في النتيجة.
+                  العدّ التنازلي أدناه يقدّر وقت إكمال المطابقة، لا وقت قراءة ما تعذّر.
+                </div>
+              </div>
+            )}
+
+            {phase === 'processing' && !partialRead && recognized > 0 && (
               <div className="mt-4 text-sm text-neutral-500 animate-fade-up">
                 تم التعرف على <span className="font-bold text-[#123F3A]">{recognized}</span> بندًا
               </div>
@@ -304,8 +632,8 @@ export function UploadView({ navigate }: NavProps) {
             {phase === 'processing' && elapsed >= SLOW_HINT_AFTER_S && (
               <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 animate-fade-up">
                 <div className="text-xs text-amber-700 leading-relaxed">
-                  ما زال العمل جاريًا — مطابقة الموردين على كراسة كبيرة قد تستغرق نحو دقيقة.
-                  سنعرض خطأً واضحًا إذا لم تكتمل، ولن نستخدم كراسة سابقة.
+                  ما زال العمل جاريًا. العملية كلها تتوقف عند {arSeconds(UPLOAD_WATCHDOG_MS / 1000)} بخطأ
+                  واضح، ولن نستخدم كراسة سابقة.
                 </div>
                 <button
                   onClick={reset}
@@ -315,6 +643,16 @@ export function UploadView({ navigate }: NavProps) {
                 </button>
               </div>
             )}
+
+            {phase === 'done' && (
+              <div className="mt-4 text-xs text-neutral-500 leading-relaxed">
+                {partialRead ? 'توقفت القراءة' : 'اكتملت القراءة'} في {arSeconds(elapsed)}.
+                {eta?.overranEarlier
+                  ? ' تجاوزنا تقديرًا في الطريق — حفظنا الزمن الفعلي حتى يكون تقدير المرة القادمة أقرب.'
+                  : ' حفظنا زمن هذه القراءة لتقدير المرة القادمة.'}
+                {readReport?.source ? ` المصدر: ${SOURCE_LABEL[readReport.source] ?? readReport.source}.` : ''}
+              </div>
+            )}
           </div>
 
           {phase === 'done' && (
@@ -322,11 +660,29 @@ export function UploadView({ navigate }: NavProps) {
               {projectName && (
                 <div className="text-sm font-semibold text-[#0D1F1D] mb-3 truncate">{projectName}</div>
               )}
-              <div className="bg-[#f0faf7] rounded-xl p-4 mb-5">
+              {partialRead && readReport && <PartialReadPanel report={readReport} />}
+
+              {readReport?.matchApiFailed && (
+                <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-right" dir="rtl">
+                  <div className="text-sm font-bold text-amber-800">مطابقة الموردين لم تعمل على الخادم</div>
+                  <div className="text-xs text-amber-700 mt-1 leading-relaxed">
+                    الاقتراحات أدناه من مطابقة محلية بالكلمات فقط، وهي أضعف. السبب:{' '}
+                    {readReport.matchApiError || 'غير معروف'}
+                  </div>
+                </div>
+              )}
+
+              <div className={`rounded-xl p-4 mb-5 ${partialRead ? 'bg-red-50' : 'bg-[#f0faf7]'}`}>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <div className="text-2xl font-black text-[#123F3A]">{items.length}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">بندًا</div>
+                    <div className="text-2xl font-black text-[#123F3A]">
+                      {partialRead && readReport
+                        ? `${items.length}/${readReport.expected ?? items.length + readReport.unreadable}`
+                        : items.length}
+                    </div>
+                    <div className="text-xs text-neutral-500 mt-0.5">
+                      {partialRead ? 'بندًا مقروءًا من الكراسة' : 'بندًا'}
+                    </div>
                   </div>
                   <div>
                     <div className="text-2xl font-black text-amber-600">{searchingCount}</div>
@@ -375,7 +731,9 @@ export function UploadView({ navigate }: NavProps) {
                 onClick={() => navigate('create-proposals')}
                 className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
               >
-                عرض الموردين المقترحين ({readyCount} بندًا جاهزًا)
+                {partialRead
+                  ? `عرض الموردين للبنود المقروءة فقط (${readyCount} من ${readReport?.expected ?? items.length})`
+                  : `عرض الموردين المقترحين (${readyCount} بندًا جاهزًا)`}
               </button>
               <button
                 onClick={reset}
@@ -405,6 +763,12 @@ export function UploadView({ navigate }: NavProps) {
               <div className="text-sm font-bold text-red-700 mb-1">تعذّرت قراءة الملف</div>
               <div className="text-xs text-red-600 leading-relaxed">
                 {errorMsg || 'يبدو أن الملف تالف أو بصيغة غير مدعومة أو لا يحتوي جدول كميات.'}
+              </div>
+              {/* The countdown owes him a closing number even when the read failed. */}
+              <div className="mt-2 text-xs text-red-500 leading-relaxed">
+                توقفت المحاولة بعد {arSeconds(elapsed)}
+                {eta?.leg ? ` عند «${LEG_LABEL[eta.leg]}»` : ''}. لا عد تنازلي الآن، ولم نحفظ زمن هذه
+                المحاولة لأن قراءة فاشلة لا تقيس شيئًا.
               </div>
             </div>
             <div className="space-y-2">

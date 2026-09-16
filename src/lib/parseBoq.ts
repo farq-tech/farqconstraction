@@ -1,8 +1,20 @@
 import type { BOQItem, Supplier } from '../types'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
+import type { BoqWorkProgress } from './boqEta'
+import {
+  extractBoqTable,
+  foldPdfText,
+  pageTextRows,
+  unreadableCount,
+  type BoqTableResult,
+  type PdfGlyph,
+} from './boqPdfTable'
 
 function normalizeAr(text: string): string {
+  // NFKC first: printed Etimad booklets arrive as Arabic Presentation Forms-B
+  // (U+FB50–U+FEFF), where `ﺣﺪﻳﺪي` is not `حديدي` and every gate below misses.
   return String(text || '')
+    .normalize('NFKC')
     .replace(/[ً-ْـ]/g, '')
     .replace(/[أإآٱ]/g, 'ا')
     .replace(/ة/g, 'ه')
@@ -395,6 +407,32 @@ const CLIENT_EXTRACT_TIMEOUT_MS = 60_000
 export type BoqParseStage = 'open' | 'read' | 'analyze' | 'match'
 export type BoqParseProgress = (stage: BoqParseStage) => void
 
+const noWork: BoqWorkProgress = () => {}
+
+/**
+ * Hand the main thread back mid-loop so a countdown built on these ticks can
+ * actually repaint. Without it the ranking stage is one blocking block: the
+ * screen would show a stale number for the whole stage and then jump, which is
+ * indistinguishable from the frozen bar this screen used to have.
+ */
+function yieldToUi(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0)
+  })
+}
+
+/** Cap the number of yields so a 10,219-line booklet does not pay for 400 of them. */
+function chunkSize(total: number): number {
+  return Math.max(16, Math.ceil(total / 48))
+}
+
+/**
+ * Mirrors `CATALOG_FETCH_TIMEOUT_MS` in `api/constructionSuppliers` (45s), which
+ * is module-private there. Only used to tell the owner the ceiling on a wait we
+ * cannot measure from the inside — never to drive control flow.
+ */
+const CATALOG_FETCH_CAP_MS = 45_000
+
 /**
  * Reject a leg that neither resolves nor rejects. `Promise.race` leaves the
  * loser pending, which is fine — it holds no UI state.
@@ -426,7 +464,14 @@ function pdfScanNoTextError(): Error {
   return Object.assign(new Error(PDF_SCAN_NO_TEXT), { code: 'PDF_SCAN_NO_TEXT' as const })
 }
 
-async function extractPdfText(file: File): Promise<string> {
+/** What one PDF read yields: flattened text for the text parsers, plus the
+ * column-aware table when the document actually carries one. */
+export type PdfExtract = {
+  text: string
+  table: BoqTableResult | null
+}
+
+async function extractPdfText(file: File, work: BoqWorkProgress = noWork): Promise<PdfExtract> {
   // Keep a master copy — pdf.js workers transfer/detach the ArrayBuffer passed as `data`.
   const master = new Uint8Array(await file.arrayBuffer())
   if (!master.byteLength) {
@@ -442,7 +487,10 @@ async function extractPdfText(file: File): Promise<string> {
         getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: unknown[] }> }>
       }>
     },
-  ): Promise<{ text: string; empty: boolean }> => {
+  ): Promise<{ text: string; table: BoqTableResult | null; empty: boolean }> => {
+    // A retry on the legacy engine restarts this leg: the new engine has its own
+    // speed, so any rate measured from the first one is void.
+    work({ kind: 'start', leg: 'extract', unit: 'page', capMs: CLIENT_EXTRACT_TIMEOUT_MS })
     // Fresh clone per attempt so a prior worker transfer cannot break the next engine.
     const data = master.slice()
     const doc = await getDocument({
@@ -452,20 +500,50 @@ async function extractPdfText(file: File): Promise<string> {
       useWorkerFetch: false,
       verbosity: 0,
     }).promise
+    // Page count is only knowable after the document opens, so it arrives as a
+    // zero-progress tick rather than being guessed from the file size.
+    work({ kind: 'tick', leg: 'extract', done: 0, total: doc.numPages })
     const parts: string[] = []
+    const pages: Array<{ page: number; glyphs: PdfGlyph[] }> = []
+    let lastTickAt = 0
     for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
       const page = await doc.getPage(pageNum)
       const content = await page.getTextContent()
-      const strs = content.items
-        .map((item) =>
-          item && typeof item === 'object' && 'str' in item ? String((item as { str: unknown }).str) : '',
-        )
-        .filter(Boolean)
-      parts.push(strs.join(' '))
-      parts.push(strs.join('\t'))
+      // Positions, not just strings: this booklet's table has no drawn column
+      // rules, so x is the only thing that tells a quantity from a structural
+      // code, and y is the only thing that tells one item from the next.
+      const glyphs: PdfGlyph[] = []
+      for (const item of content.items) {
+        if (!item || typeof item !== 'object' || !('str' in item)) continue
+        const cell = item as { str?: unknown; width?: unknown; transform?: unknown }
+        const str = String(cell.str ?? '')
+        if (!str) continue
+        const transform = Array.isArray(cell.transform) ? (cell.transform as number[]) : null
+        glyphs.push({
+          str,
+          x: Number(transform?.[4] ?? 0),
+          y: Number(transform?.[5] ?? 0),
+          width: Number(cell.width ?? 0),
+        })
+      }
+      pages.push({ page: pageNum, glyphs })
+      // One line per visual row. A page-per-line stream made every anchored row
+      // pattern fail, which is why a real 68-item booklet read as zero items.
+      for (const line of pageTextRows(glyphs)) parts.push(line)
+      // Real booklets run a few ms/page, so every page would be a wasted render.
+      const at = Date.now()
+      if (pageNum === doc.numPages || at - lastTickAt >= 120) {
+        lastTickAt = at
+        work({ kind: 'tick', leg: 'extract', done: pageNum, total: doc.numPages })
+      }
     }
+    work({ kind: 'end', leg: 'extract' })
     const text = parts.join('\n')
-    return { text, empty: !text.trim() }
+    work({ kind: 'start', leg: 'table', unit: 'page' })
+    const table = extractBoqTable(pages)
+    work({ kind: 'tick', leg: 'table', done: pages.length, total: pages.length })
+    work({ kind: 'end', leg: 'table' })
+    return { text, table: table.rows.length || table.issues.length ? table : null, empty: !text.trim() }
   }
 
   // 1) Modern build + Vite-resolved worker URL (fixes Figma Make / preview worker 404).
@@ -488,7 +566,7 @@ async function extractPdfText(file: File): Promise<string> {
     }
     const result = await collectText((src) => pdfjs.getDocument(src as never))
     if (result.empty) throw pdfScanNoTextError()
-    return result.text
+    return { text: result.text, table: result.table }
   } catch (e) {
     // Loaded fine but no glyphs — legacy will not invent a text layer; surface scan error.
     if (isPdfScanNoTextError(e)) throw e
@@ -509,7 +587,7 @@ async function extractPdfText(file: File): Promise<string> {
     }
     const result = await collectText((src) => legacy.getDocument(src as never))
     if (result.empty) throw pdfScanNoTextError()
-    return result.text
+    return { text: result.text, table: result.table }
   } catch (e) {
     if (isPdfScanNoTextError(e)) throw e
     errors.push(`pdfjs-legacy: ${e instanceof Error ? e.message : String(e)}`)
@@ -518,12 +596,20 @@ async function extractPdfText(file: File): Promise<string> {
   throw new Error(`تعذّر استخراج نص PDF (${errors.join(' | ')})`)
 }
 
-async function extractPlainText(file: File): Promise<string> {
+async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Promise<PdfExtract> {
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-    return extractPdfText(file)
+    return extractPdfText(file, work)
   }
-  // Excel/CSV fallback: read as text (works for simple CSV exports)
-  return file.text()
+  // Excel/CSV fallback: read as text (works for simple CSV exports). One blob
+  // read with no progress to report — declared opaque rather than faked.
+  // These archives are a different shape entirely: standard encoding, one item
+  // per line, named headers. They keep the text path, untouched by the columns.
+  work({ kind: 'start', leg: 'extract', opaque: true, capMs: CLIENT_EXTRACT_TIMEOUT_MS })
+  try {
+    return { text: await file.text(), table: null }
+  } finally {
+    work({ kind: 'end', leg: 'extract' })
+  }
 }
 
 /** Cap UI proposals so a 10k+ directory response cannot freeze the tab. */
@@ -581,14 +667,33 @@ function mapApiSuppliers(
     })
 }
 
-async function matchViaFarqBoqApi(lines: ParsedLine[]): Promise<Map<string, {
-  farqSpecId?: string | null
-  suppliers: Supplier[]
-}>> {
+/** Result of the remote match, with its failure kept instead of swallowed. */
+type RemoteMatch = {
+  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[] }>
+  /** Set when the request itself failed, so the screen can stop looking normal. */
+  error?: string
+}
+
+async function matchViaFarqBoqApi(
+  lines: ParsedLine[],
+  work: BoqWorkProgress = noWork,
+): Promise<RemoteMatch> {
   const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[] }>()
-  if (!lines.length) return out
+  if (!lines.length) return { hits: out }
+  let error: string | undefined
   try {
-    const { matchConstructionBoqCatalog } = await import('../api/constructionClient')
+    const { matchConstructionBoqCatalog, CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS } = await import(
+      '../api/constructionClient'
+    )
+    // One request, one response: the API reports no intermediate progress, so
+    // this leg can only be bounded by its own timeout, never measured.
+    work({
+      kind: 'start',
+      leg: 'match-remote',
+      opaque: true,
+      capMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
+      lines: lines.length,
+    })
     const matched = await matchConstructionBoqCatalog({
       lines: lines.slice(0, MATCH_API_LINE_CAP).map((line) => ({
         line_key: lineKeyFor(line),
@@ -604,21 +709,37 @@ async function matchViaFarqBoqApi(lines: ParsedLine[]): Promise<Map<string, {
         suppliers: mapApiSuppliers(row.suppliers || []),
       })
     }
-  } catch {
-    // Fall through to local keyword matching.
+  } catch (err) {
+    // Local keyword matching still runs, but a failed match is a fact about the
+    // result and is reported, not hidden: a silent `catch` here left the screen
+    // looking like a normal successful read.
+    error = err instanceof Error ? err.message : String(err)
+    console.warn('Farq BOQ match API failed — falling back to local keyword match', err)
+  } finally {
+    work({ kind: 'end', leg: 'match-remote' })
   }
-  return out
+  return { hits: out, error }
 }
 
-export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
+export async function matchSuppliersForItems(
+  lines: ParsedLine[],
+  opts: { onWork?: BoqWorkProgress } = {},
+): Promise<{
   items: BOQItem[]
   catalogLoaded: boolean
+  /** Remote match request failure, if any — surfaced, never swallowed. */
+  matchApiError?: string
 }> {
+  const work = opts.onWork ?? noWork
   const cleanLines = sanitizeBoqLines(lines)
-  const apiHits = await matchViaFarqBoqApi(cleanLines)
+  const remote = await matchViaFarqBoqApi(cleanLines, work)
+  const apiHits = remote.hits
 
   let catalog: Awaited<ReturnType<typeof listConstructionSuppliers>>['suppliers'] = []
   let catalogLoaded = false
+  // ~6MB directory behind a 60s in-memory TTL: the second read of a session is
+  // free and the first is a single download with no progress events.
+  work({ kind: 'start', leg: 'match-catalog', opaque: true, capMs: CATALOG_FETCH_CAP_MS })
   try {
     const result = await listConstructionSuppliers({
       limit: MATCH_CATALOG_SCORE_CAP,
@@ -628,12 +749,20 @@ export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
     catalog = result.suppliers
       .slice(0, MATCH_CATALOG_SCORE_CAP)
     catalogLoaded = catalog.length > 0
-  } catch {
+  } catch (err) {
     catalog = []
     catalogLoaded = false
+    // `catalogLoaded: false` already reaches the screen; the reason should too.
+    console.warn('Supplier directory unavailable — local keyword match will be weak', err)
+  } finally {
+    work({ kind: 'end', leg: 'match-catalog' })
   }
 
   // Intent → shared pool (one catalog scan per unique intent), then per-line rank.
+  // The leg opens before the dynamic import so the chunk load and the intent
+  // resolution are attributed to it, instead of leaving the screen in a gap with
+  // no named stage at all.
+  work({ kind: 'start', leg: 'match-pools', unit: 'pool', lines: cleanLines.length })
   const {
     resolveProcurementIntentBatch,
     scoreSupplierAgainstProfile,
@@ -641,7 +770,11 @@ export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
   const batch = resolveProcurementIntentBatch(
     cleanLines.map((line) => ({ id: line.id, name: line.name })),
   )
+  // Pool count is a product of intent resolution, so it arrives as a zero tick.
+  work({ kind: 'tick', leg: 'match-pools', done: 0, total: batch.pools.length })
   const poolSuppliers = new Map<string, typeof catalog>()
+  const poolChunk = chunkSize(batch.pools.length)
+  let poolsDone = 0
   for (const pool of batch.pools) {
     const scored = catalog
       .map((s) => {
@@ -663,13 +796,22 @@ export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
       .sort((a, b) => b.score - a.score)
       .map((x) => x.s)
     poolSuppliers.set(pool.pool_key, scored)
+    poolsDone += 1
+    if (poolsDone % poolChunk === 0 || poolsDone === batch.pools.length) {
+      work({ kind: 'tick', leg: 'match-pools', done: poolsDone, total: batch.pools.length })
+      await yieldToUi()
+    }
   }
+  work({ kind: 'end', leg: 'match-pools' })
 
   const profileByLineId = new Map(
     batch.lines.map((row) => [row.line_id, row.profile]),
   )
 
-  const items = cleanLines.map((line) => {
+  work({ kind: 'start', leg: 'match-rank', unit: 'line', total: cleanLines.length, lines: cleanLines.length })
+  const lineChunk = chunkSize(cleanLines.length)
+  const items: BOQItem[] = []
+  for (const line of cleanLines) {
     const api = apiHits.get(lineKeyFor(line))
     const apiSuppliers = api?.suppliers || []
     const profile = profileByLineId.get(String(line.id))
@@ -730,7 +872,7 @@ export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
 
     const suppliers = [...apiSuppliers, ...catalogExtras].slice(0, MATCH_SUPPLIERS_PER_LINE)
 
-    return {
+    items.push({
       id: line.id,
       name: line.name,
       qty: line.qty,
@@ -741,10 +883,16 @@ export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
       suppliers,
       farqSpecId: api?.farqSpecId || undefined,
       lineKey: lineKeyFor(line),
-    }
-  })
+    })
 
-  return { items, catalogLoaded }
+    if (items.length % lineChunk === 0 || items.length === cleanLines.length) {
+      work({ kind: 'tick', leg: 'match-rank', done: items.length, total: cleanLines.length })
+      await yieldToUi()
+    }
+  }
+  work({ kind: 'end', leg: 'match-rank' })
+
+  return { items, catalogLoaded, matchApiError: remote.error }
 }
 
 export type ParseBoqResult = {
@@ -752,11 +900,26 @@ export type ParseBoqResult = {
   projectName: string
   /** Content-hash / upload identity — lines are bound to this document only. */
   documentId: string
-  source: 'pdf-text' | 'waiting-hall-curated' | 'empty'
+  source: 'pdf-table' | 'pdf-text' | 'waiting-hall-curated' | 'empty'
   rawLineCount: number
   /** True when Farq API was unreachable / returned no directory during match. */
   matchDegraded?: boolean
   matchWarning?: string
+  /** True when the supplier-match request itself failed (not the directory). */
+  matchApiFailed?: boolean
+  matchApiError?: string
+  /**
+   * Items the booklet itself numbers, when it numbers them. `read` is what we
+   * produced. Unequal means a partial read, and the caller must say so with the
+   * count: returning 31 of 68 lines as though they were the booklet is what
+   * turned a parser defect into wrong RFQs instead of a visible error.
+   */
+  expectedLineCount?: number | null
+  unreadableLineCount?: number
+  /** Arabic, user-facing reasons — one per item we could not read. */
+  readIssues?: string[]
+  /** Tables found in the document that were deliberately not read as items. */
+  skippedTables?: string[]
 }
 
 /** SHA-256 hex of file bytes — stable document identity for this upload. */
@@ -785,11 +948,17 @@ export function resolveParsedLines(input: {
   apiLines?: ParsedLine[]
   text?: string
   fileName: string
+  /** Column-aware read of a real table, when the document carried one. */
+  table?: BoqTableResult | null
 }): {
   lines: ParsedLine[]
   source: ParseBoqResult['source']
   projectName: string
+  /** How many column-read rows the API could describe, so a booklet read
+   *  without its technical text is visible rather than assumed. */
+  specsFromApi: number
 } {
+  let specsFromApi = 0
   let lines = Array.isArray(input.apiLines) ? [...input.apiLines] : []
   let source: ParseBoqResult['source'] = lines.length > 0 ? 'pdf-text' : 'empty'
   let projectName = input.fileName.replace(/\.[^.]+$/, '')
@@ -809,6 +978,36 @@ export function resolveParsedLines(input: {
     } else if (lines.length === 0 && clientBest.length > 0) {
       lines = clientBest
       source = 'pdf-text'
+    }
+
+    // Coordinates outrank reading order, and a longer list does not win on
+    // length. A text heuristic or an API row set can hold more rows and still be
+    // wrong in the way that matters: on the reference booklet the text path
+    // produced 31 rows whose quantities were structural codes. Measured here
+    // once: with one page of that booklet removed, the column reader returned 51
+    // correct items and reported the 17 it could not see, while the text path
+    // returned 52 — and preferring the longer list threw away both the correct
+    // values and the report of what was missing.
+    //
+    // The column reader is preferred whenever it read most of the numbering the
+    // booklet itself prints. Below that it is not a better reader of this
+    // document, so the text path stands and the column reader's complaints are
+    // carried out as warnings rather than dropped.
+    const tableLines = tableRowsToLines(input.table)
+    const expected = input.table?.expectedCount ?? 0
+    const tableShare = expected > 0 ? tableLines.length / expected : tableLines.length > 0 ? 1 : 0
+    if (tableLines.length > 0 && tableShare >= TABLE_PREFERENCE_SHARE) {
+      // Winning on values is not the same as carrying everything. The quantities
+      // table prints no specification column — the technical text sits in a
+      // separate section pages later — so the column reader's rows arrive
+      // specless, and a specless line matches by name alone. That is what turns
+      // ppr-pipes into pvc-pipe: a different material with different suppliers.
+      // The API reads that section, and on the reference booklet the two agree
+      // on all 68 quantities, so its text is attached rather than its rows.
+      const withSpecs = withApiSpecs(tableLines, input.apiLines)
+      specsFromApi = withSpecs.filter((line, i) => line.spec !== tableLines[i]?.spec).length
+      lines = withSpecs
+      source = 'pdf-table'
     }
 
     const titleMatch =
@@ -837,8 +1036,72 @@ export function resolveParsedLines(input: {
     source = 'pdf-text'
   }
 
-  return { lines, source, projectName }
+  return { lines, source, projectName, specsFromApi }
 }
+
+/**
+ * Attaches the API's technical specification text to rows the column reader
+ * owns. Values are never taken from the API here — only the text the quantities
+ * table does not carry.
+ *
+ * Deliberately not keyed on the API's item number: its rows inherit a page-27
+ * aggregate that collides on number 1, and the collision cascades so every
+ * later row is numbered one too high. Keyed on the name instead, and attached
+ * only where exactly one API row carries that name AND states the same
+ * quantity. A specification belonging to the row above is worse than none:
+ * it reads as certain and sends a supplier the wrong item's dimensions.
+ */
+function withApiSpecs(lines: ParsedLine[], apiLines: ParsedLine[] | undefined): ParsedLine[] {
+  if (!apiLines?.length) return lines
+  const key = (name: string) => normalizeAr(name).replace(/\s+/g, '')
+  const qty = (value: string | number) => String(value ?? '').replace(/[,\s،]/g, '')
+  const candidates = new Map<string, ParsedLine[]>()
+  for (const line of apiLines) {
+    if (!String(line.spec || '').trim()) continue
+    const k = key(line.name)
+    if (!k) continue
+    const list = candidates.get(k)
+    if (list) list.push(line)
+    else candidates.set(k, [line])
+  }
+  if (!candidates.size) return lines
+  return lines.map((line) => {
+    const list = candidates.get(key(line.name))
+    if (list?.length !== 1) return line
+    const [match] = list
+    if (qty(match.qty) !== qty(line.qty)) return line
+    const spec = String(match.spec || '').trim()
+    const existing = String(line.spec || '').trim()
+    // The structural code stays, behind the text a supplier can actually quote.
+    return { ...line, spec: existing ? `${spec} · ${existing}` : spec }
+  })
+}
+
+/** Table rows as BOQ lines. The structural code travels as a spec, never as a
+ * quantity — reading it as the quantity is what asked suppliers for 2,085 عدد
+ * of a handrail whose real quantity is 385 م ط. */
+function tableRowsToLines(table: BoqTableResult | null | undefined): ParsedLine[] {
+  if (!table?.rows?.length) return []
+  return table.rows.map((row) => {
+    const spec = [row.spec, row.code ? `رمز إنشائي ${row.code}` : '', row.category]
+      .filter(Boolean)
+      .join(' · ')
+    return {
+      id: row.id,
+      name: row.name,
+      qty: row.qty,
+      unit: row.unit,
+      spec: spec || undefined,
+    }
+  })
+}
+
+/**
+ * How much of a booklet's own numbering the column reader must recover before
+ * its rows are preferred over the text path. A partial column read is still
+ * reported item by item; this only decides which reader owns the result.
+ */
+const TABLE_PREFERENCE_SHARE = 0.6
 
 /** Farq parse-pdf always prefixes rows with this header (see api boq-pdf.js). */
 const FARQ_BOQ_HEADER = ['اسم المادة', 'الكمية', 'الوحدة', 'المواصفة الفنية', 'موقع التوريد', 'ملاحظات']
@@ -1107,15 +1370,37 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
   return sanitizeBoqLines(out)
 }
 
+/** What the booklet contains versus what we read, as soon as that is known. */
+export type BoqReadFacts = {
+  read: number
+  expectedLineCount: number | null
+  unreadableLineCount: number
+  readIssues?: string[]
+  skippedTables?: string[]
+}
+
 export async function parseBoqFile(
   file: File,
-  opts: { onStage?: BoqParseProgress } = {},
+  opts: {
+    onStage?: BoqParseProgress
+    onWork?: BoqWorkProgress
+    /**
+     * Fires once the lines are known, before supplier matching starts. Matching
+     * is the long leg, and the owner should not spend it believing a partial
+     * read is a complete one.
+     */
+    onRead?: (facts: BoqReadFacts) => void
+  } = {},
 ): Promise<ParseBoqResult> {
   const stage = opts.onStage ?? (() => {})
+  const work = opts.onWork ?? noWork
   stage('open')
+  work({ kind: 'start', leg: 'hash', opaque: true })
   const documentId = await hashDocumentId(file)
+  work({ kind: 'end', leg: 'hash' })
   let apiLines: ParsedLine[] = []
   let text = ''
+  let table: BoqTableResult | null = null
   let extractError = ''
 
   const isPdf =
@@ -1130,7 +1415,13 @@ export async function parseBoqFile(
     // A worker chunk that 404s (or goes stale across an HMR reload) leaves that
     // promise pending forever — the whole upload then hangs with a clean console.
     // This is the only unbounded await in the flow, so it gets a hard cap.
-    text = await withDeadline(extractPlainText(file), CLIENT_EXTRACT_TIMEOUT_MS, PDF_EXTRACT_TIMEOUT)
+    const extract = await withDeadline(
+      extractPlainText(file, work),
+      CLIENT_EXTRACT_TIMEOUT_MS,
+      PDF_EXTRACT_TIMEOUT,
+    )
+    text = extract.text
+    table = extract.table
   } catch (err) {
     extractError = err instanceof Error ? err.message : String(err)
     console.warn('BOQ extract failed', err)
@@ -1138,11 +1429,26 @@ export async function parseBoqFile(
 
   const clientLooksLikeScan = isPdfScanNoTextError(extractError)
 
+  // A complete column read does not need the API's rows — measured on the
+  // reference booklet, the two agree on all 68 quantities — but it does need its
+  // specification text, which the quantities table never prints. So the call is
+  // still made, on a shorter leash: here we are only waiting for text that makes
+  // matching specific, and 68 correctly-valued specless lines beat a longer wait.
+  const tableIsComplete = Boolean(
+    table &&
+      table.rows.length > 0 &&
+      table.issues.length === 0 &&
+      table.expectedCount === table.rows.length,
+  )
+
   // Optional API enrichment — capped wait so a hung job cannot strand UploadView.
   // Scanned PDFs: give Farq tender extract (OCR when enabled) more time before giving up.
   if (isPdf) {
     let apiTimer: ReturnType<typeof setTimeout> | undefined
-    const apiWaitMs = clientLooksLikeScan ? 45_000 : 12_000
+    const apiWaitMs = clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
+    // A scan gets the longer wait because OCR is its only chance of any lines at
+    // all — the owner must be told which of the two ceilings he is sitting under.
+    work({ kind: 'start', leg: 'api-parse', opaque: true, capMs: apiWaitMs })
     try {
       const { parseConstructionBoqPdf } = await import('../api/constructionClient')
       const apiOrTimeout = await Promise.race([
@@ -1161,16 +1467,53 @@ export async function parseBoqFile(
       }
     } finally {
       if (apiTimer) clearTimeout(apiTimer)
+      work({ kind: 'end', leg: 'api-parse' })
     }
   }
 
   stage('analyze')
+  work({ kind: 'start', leg: 'resolve' })
   const resolved = resolveParsedLines({
     apiLines,
     text,
+    table,
     fileName: file.name,
   })
-  const { lines, source, projectName } = resolved
+  const { lines, source, projectName, specsFromApi } = resolved
+  work({ kind: 'end', leg: 'resolve' })
+
+  // What the booklet says it contains versus what we produced. Reported on every
+  // path below, including the failure paths, so a partial read can never reach
+  // the screen dressed as a complete one.
+  // Also when nothing was read at all: if the column reader saw a table and
+  // failed on every row, that is the most useful thing we know about the file.
+  const usedTable = table && (source === 'pdf-table' || lines.length === 0)
+  // When the text path won, the column reader's complaints still travel — as a
+  // warning, so a table it could not read is never simply forgotten.
+  const shelvedTableNote =
+    table && !usedTable && table.issues.length
+      ? `قرأنا هذا الملف بالمسار النصي. قارئ الأعمدة رأى جدولًا ولم يكمله (${table.rows.length} من ${table.expectedCount ?? '؟'}).`
+      : ''
+  // The quantities table carries no technical column; that text comes from the
+  // API. Without it every line matches on its name alone, which is how a
+  // «ماسورة» finds the wrong material — so its absence is stated, not assumed.
+  const specNote =
+    source === 'pdf-table' && specsFromApi < lines.length
+      ? `المواصفات الفنية وصلت لـ ${specsFromApi} من ${lines.length} بندًا؛ الباقي سيُطابق بالاسم والكمية فقط.`
+      : ''
+  const expectedLineCount = usedTable ? table!.expectedCount : null
+  const unreadableLineCount = usedTable ? unreadableCount(table!) : 0
+  const readIssues = usedTable ? table!.issues.map((issue) => issue.detail) : []
+  const skippedTables = usedTable
+    ? table!.otherTables.map((t) => `صفحة ${t.page}: جدول آخر لم نقرأه كبنود — «${t.header}»`)
+    : []
+  const readFacts = {
+    expectedLineCount,
+    unreadableLineCount,
+    readIssues: readIssues.length ? readIssues : undefined,
+    skippedTables: skippedTables.length ? skippedTables : undefined,
+  }
+  opts.onRead?.({ read: lines.length, ...readFacts })
 
   // Explicit empty — never invent lines from another document / prior session.
   if (lines.length === 0) {
@@ -1181,20 +1524,24 @@ export async function parseBoqFile(
         : text.trim()
           ? ` (نص مستخرج ${text.length} حرفًا لكن بلا بنود مجدولة)`
           : ' (لا نص مستخرج من الملف)'
+    const tableDetail = readIssues.length
+      ? ` وجدنا جدولًا في الصفحات ${table?.pages.join('، ') || '؟'} لكن تعذّرت قراءة صفوفه: ${readIssues[0]}`
+      : ''
     return {
       items: [],
       projectName,
       documentId,
       source: 'empty',
       rawLineCount: 0,
-      matchWarning: `لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة.${detail}`,
+      ...readFacts,
+      matchWarning: `لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة.${detail}${tableDetail}`,
     }
   }
 
   // Supplier matching must never wipe successfully parsed lines.
   stage('match')
   try {
-    const matched = await matchSuppliersForItems(lines)
+    const matched = await matchSuppliersForItems(lines, { onWork: work })
     const ready = matched.items.filter((i) => i.suppliers.length > 0).length
     return {
       items: matched.items,
@@ -1202,12 +1549,24 @@ export async function parseBoqFile(
       documentId,
       source,
       rawLineCount: lines.length,
-      matchDegraded: !matched.catalogLoaded,
-      matchWarning: !matched.catalogLoaded
-        ? 'تعذر الاتصال بـ Farq API (:3000). شغّل الـ API ثم أعد رفع الكراسة.'
-        : ready === 0
-          ? 'قُرئت البنود لكن لم يُعثر على موردين مطابقين. تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'
-          : undefined,
+      ...readFacts,
+      matchDegraded: !matched.catalogLoaded || Boolean(matched.matchApiError),
+      matchApiFailed: Boolean(matched.matchApiError),
+      matchApiError: matched.matchApiError,
+      matchWarning:
+        [
+          !matched.catalogLoaded
+            ? 'تعذر الاتصال بـ Farq API (:3000). شغّل الـ API ثم أعد رفع الكراسة.'
+            : matched.matchApiError
+              ? `فشلت مطابقة الموردين على الـ API (${matched.matchApiError}). الاقتراحات أدناه من مطابقة محلية بالكلمات فقط.`
+              : ready === 0
+                ? 'قُرئت البنود لكن لم يُعثر على موردين مطابقين. تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'
+                : '',
+          shelvedTableNote,
+          specNote,
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined,
     }
   } catch (err) {
     console.warn('Supplier match failed after successful parse — keeping lines', err)
@@ -1227,7 +1586,10 @@ export async function parseBoqFile(
       documentId,
       source,
       rawLineCount: lines.length,
+      ...readFacts,
       matchDegraded: true,
+      matchApiFailed: true,
+      matchApiError: err instanceof Error ? err.message : String(err),
       matchWarning: 'قُرئت البنود، لكن تعذّرت مطابقة الموردين. يمكنك المتابعة وإعادة المطابقة لاحقًا.',
     }
   }

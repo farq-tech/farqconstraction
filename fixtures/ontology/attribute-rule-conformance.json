@@ -1,0 +1,189 @@
+{
+  "note": "Generated from src/lib/procurementOntology.ts by attributeRuleConformance.test.ts. The line resolver owns the attribute-clause rule; the API map builder must reproduce these answers.",
+  "cases": [
+    {
+      "text": "وصلة PPR Elbow مقاس 50 مم ربط Solvent Cement",
+      "term": "solvent",
+      "note": "solvent inside a ربط clause",
+      "normalized": "وصله ppr elbow مقاس 50 مم ربط solvent cement",
+      "term_index": 30,
+      "decides": false
+    },
+    {
+      "text": "VCD Opposed Blade مادة Aluminium",
+      "term": "aluminium",
+      "note": "aluminium inside a مادة clause",
+      "normalized": "vcd opposed blade ماده aluminium",
+      "term_index": 23,
+      "decides": false
+    },
+    {
+      "text": "Backflow Preventer توصيل Lug",
+      "term": "lug",
+      "note": "lug inside a توصيل clause",
+      "normalized": "backflow preventer توصيل lug",
+      "term_index": 25,
+      "decides": false
+    },
+    {
+      "text": "مقياس ضغط تفاضلي مقاس 100 مم",
+      "term": "مقياس ضغط",
+      "note": "term starts before the clause opens",
+      "normalized": "مقياس ضغط تفاضلي مقاس 100 مم",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "صمام مقاس 100 مم ضغط 16 بار",
+      "term": "ضغط",
+      "note": "bare value word inside a clause",
+      "normalized": "صمام مقاس 100 مم ضغط 16 بار",
+      "term_index": 17,
+      "decides": false
+    },
+    {
+      "text": "مقاس 100 مم",
+      "term": "مقاس",
+      "note": "keyword at position 0 opens no clause",
+      "normalized": "مقاس 100 مم",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "وصلة PPR Elbow مقاس 50 مم ربط Solvent Cement",
+      "term": "وصلة",
+      "note": "the product still decides",
+      "normalized": "وصله ppr elbow مقاس 50 مم ربط solvent cement",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "كابل نحاس XLPE مقاس 4x16 مم2 جهد 0.6/1kV",
+      "term": "كابل نحاس",
+      "note": "product before size and voltage",
+      "normalized": "كابل نحاس xlpe مقاس 4x16 مم2 جهد 0 6 1kv",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "بلاط سقف مستعار ألياف معدنية 600x600",
+      "term": "معدن",
+      "note": "mineral fibre must not read as metal",
+      "normalized": "بلاط سقف مستعار الياف معدنيه 600x600",
+      "term_index": -1,
+      "decides": false
+    },
+    {
+      "text": "بلاط سقف مستعار مادة ألياف معدنية",
+      "term": "ألياف معدنية",
+      "note": "material clause, fibre named inside it",
+      "normalized": "بلاط سقف مستعار ماده الياف معدنيه",
+      "term_index": 21,
+      "decides": false
+    },
+    {
+      "text": "صاج معدني مجلفن سماكة 0.7 مم",
+      "term": "صاج معدني",
+      "note": "genuine metal sheet still decides",
+      "normalized": "صاج معدني مجلفن سماكه 0 7 مم",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "مؤسسة الكابلات الوطنية كابلات نحاس XLPE",
+      "term": "كابلات",
+      "note": "supplier name, no clause",
+      "normalized": "موسسه الكابلات الوطنيه كابلات نحاس xlpe",
+      "term_index": 6,
+      "decides": true
+    },
+    {
+      "text": "فلتر أولي لمكنسة ماكيتا مقاس 100 مم",
+      "term": "فلتر",
+      "note": "product word before a size clause",
+      "normalized": "فلتر اولي لمكنسه ماكيتا مقاس 100 مم",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "مضخة حريق مطابق NFPA 20",
+      "term": "مضخة حريق",
+      "note": "compliance clause after the product",
+      "normalized": "مضخه حريق مطابق nfpa 20",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "لوحة كهربائية درجة حماية IP65 مادة صلب",
+      "term": "صلب",
+      "note": "steel only as a material value",
+      "normalized": "لوحه كهرباييه درجه حمايه ip65 ماده صلب",
+      "term_index": 35,
+      "decides": false
+    },
+    {
+      "text": "عزل مواسير تكييف سماكة 25 مم",
+      "term": "مواسير",
+      "note": "product-head case with a clause too",
+      "normalized": "عزل مواسير تكييف سماكه 25 مم",
+      "term_index": 4,
+      "decides": true
+    },
+    {
+      "text": "أدوات ربط حديد التسليح rebar tying tools",
+      "term": "حديد",
+      "note": "tool maker only mentions steel",
+      "normalized": "ادوات ربط حديد التسليح rebar tying tools",
+      "term_index": 10,
+      "decides": false
+    },
+    {
+      "text": "مندوب توصيل مغاسل سيارات",
+      "term": "مغاسل",
+      "note": "car-wash delivery rep is not sanitaryware",
+      "normalized": "مندوب توصيل مغاسل سيارات",
+      "term_index": 12,
+      "decides": false
+    },
+    {
+      "text": "شركه بنود السعوديه لتطوير وتشغيل شبكات الاعمال",
+      "term": "شبكات",
+      "note": "business networks, not PA networks",
+      "normalized": "شركه بنود السعوديه لتطوير وتشغيل شبكات الاعمال",
+      "term_index": 33,
+      "decides": false
+    },
+    {
+      "text": "كابل تيار خفيف 2x1.5",
+      "term": "تيار خفيف",
+      "note": "ELV cable: a BOQ line, not a supplier quirk",
+      "normalized": "كابل تيار خفيف 2x1 5",
+      "term_index": 5,
+      "decides": false
+    },
+    {
+      "text": "أنظمة تيار خفيف",
+      "term": "تيار خفيف",
+      "note": "ELV systems",
+      "normalized": "انظمه تيار خفيف",
+      "term_index": 6,
+      "decides": false
+    },
+    {
+      "text": "معدات السلامة على الطرق مراقبة حركة المرور road safety equipment",
+      "term": "safety",
+      "note": "حركة opens a clause over the rest of a list",
+      "normalized": "معدات السلامه علي الطرق مراقبه حركه المرور road safety equipment",
+      "term_index": 48,
+      "decides": false
+    },
+    {
+      "text": "Alrashed Building Material Steel Metals Wood Rebar",
+      "term": "wood",
+      "note": "a company name is not a description",
+      "normalized": "alrashed building material steel metals wood rebar",
+      "term_index": 40,
+      "decides": false
+    }
+  ]
+}

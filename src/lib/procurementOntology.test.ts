@@ -15,12 +15,243 @@ import {
   resolveOntology,
   resolveOntologyBatch,
   termIndex,
+  ARCHETYPES,
   FAMILIES,
   FACET_DEFS,
   SECTORS,
 } from './procurementOntology'
 
 const resolve = (name: string) => resolveOntology(name)
+
+/**
+ * CONFIDENT-WRONG REGRESSION SUITE.
+ *
+ * Measuring 10,219 real general-contracting tender lines produced 434
+ * resolutions that were confident AND wrong — they reached a supplier pool that
+ * cannot supply the item. That is worse than an honest Level C: a wrong pool
+ * sends a real RFQ to the wrong vendor, while a C says the engine does not know.
+ *
+ * All eight error families share ONE shape: a term that is legitimately strong
+ * or weak for its family fired on a line whose surrounding words said the item
+ * was something else. They are evidence that the three-tier rule was not being
+ * applied consistently, not eight unrelated bugs. Each case below asserts the
+ * WRONG answer is gone, and separately that the RIGHT answer still resolves —
+ * a guard that silences a term everywhere would pass the first half alone.
+ *
+ * Strings are real lines from the catalogue, kept verbatim.
+ */
+describe('confident-wrong: a term must not decide against its own context', () => {
+  it('a 0.45 mm gypsum stud is not structural steel', () => {
+    for (const line of [
+      'توريد قطاع Stud مجلفن عرض 100 مم سماكة 0.45 مم',
+      'توريد قطاع Track مجلفن عرض 70 مم سماكة 0.6 مم',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).not.toBe('structural_steel')
+      expect(r.intent).not.toBe('structural_steel_section')
+      expect(r.sector).not.toBe('STRUCTURAL_METALS')
+    }
+  })
+
+  it('but a real steel section still resolves — the guard is not a mute button', () => {
+    for (const line of [
+      'توريد قطاع فولاذ إنشائي HEA 100',
+      'توريد زاوية فولاذ غير متساوية L100×100×10 مم',
+      'توريد قطاع RHS مستطيل 100×100×10 مم',
+      'توريد قطاع حديد IPE 200 درجة S275',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).toBe('structural_steel')
+      expect(r.poolable).toBe(true)
+    }
+  })
+
+  it('a fibre optic cable is not a power cable', () => {
+    for (const line of [
+      'توريد كابل ألياف OM3 Multimode عدد 12 Core نوع Indoor LSZH',
+      'توريد كابل ألياف OS2 Singlemode عدد 24 Core نوع Outdoor Armored',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).not.toBe('power_cables')
+    }
+  })
+
+  it('but a real power cable still resolves', () => {
+    for (const line of [
+      'توريد كابل نحاس XLPE/SWA مقاس 4×50 مم² جهد 0.6/1 kV',
+      'توريد كابل تحكم 12×1.5 مم² مدرع',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).toBe('power_cables')
+      expect(r.poolable).toBe(true)
+    }
+  })
+
+  it('pipe insulation is insulation, and a pipe hanger is a hanger — neither is a pipe', () => {
+    for (const line of [
+      'توريد عزل Elastomeric لمواسير قطر 108 مم سماكة 13 مم',
+      'توريد Clevis Hanger لمواسير DN100',
+      'توريد حامل مواسير مجلفن DN50',
+      // The support trade names the product six ways; each is still a support.
+      'توريد Pipe Shoe لمواسير DN100',
+      'توريد Riser Clamp لمواسير DN125',
+      'توريد Roller Support لمواسير DN50',
+      'توريد Split Ring Hanger لمواسير DN15',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).not.toBe('pipes_fittings')
+    }
+  })
+
+  it('separating conduit from water pipe must not hand it to the roofing trade', () => {
+    // Found only after the conduit fix landed: «Twinwall» is polycarbonate
+    // roofing sheet in the envelope trade and HDPE conduit in the electrical
+    // one. One fix uncovering the next is the expected shape here.
+    for (const line of [
+      'توريد ماسورة كهرباء HDPE Twinwall قطر 110 مم',
+      'توريد ماسورة كهرباء PVC Heavy Duty قطر 20 مم',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).not.toBe('translucent_roofing')
+      expect(r.sector).not.toBe('BUILDING_ENVELOPE')
+    }
+  })
+
+  it('but real polycarbonate roofing still resolves', () => {
+    const r = resolve('توريد لوح بولي كربونيت Twinwall سماكة 10 مم')
+    expect(r.family).toBe('translucent_roofing')
+    expect(r.poolable).toBe(true)
+  })
+
+  it('but the product-head rule is positional: a pre-insulated PIPE is still a pipe', () => {
+    const r = resolve('توريد ماسورة فولاذية معزولة قطر 100 مم')
+    expect(r.family).toBe('pipes_fittings')
+  })
+
+  it('electrical conduit is not a water pipe', () => {
+    for (const line of [
+      'توريد ماسورة كهرباء EMT Steel قطر 110 مم',
+      'توريد ماسورة كهرباء EMT Steel قطر 20 مم',
+    ]) {
+      const r = resolve(line)
+      expect(r.sector).not.toBe('MEP_WATER')
+      expect(r.family).not.toBe('pipes_fittings')
+    }
+  })
+
+  it('but a real water pipe still resolves', () => {
+    for (const line of [
+      'توريد ماسورة HDPE PN16 قطر 110 مم',
+      'توريد ماسورة فولاذ كربوني DN100 Schedule 40',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).toBe('pipes_fittings')
+      expect(r.poolable).toBe(true)
+    }
+  })
+
+  it('«fire» as an ADJECTIVE does not make a board into fire fighting equipment', () => {
+    for (const line of [
+      'توريد لوح MDF سماكة 12 مم فئة FR مقاوم للحريق',
+      'توريد لوح جبس مقاوم للحريق سماكة 15 مم',
+    ]) {
+      const r = resolve(line)
+      expect(r.sector).not.toBe('FIRE')
+      expect(r.family).not.toBe('fire_fighting')
+    }
+  })
+
+  it('but real fire fighting equipment still resolves', () => {
+    for (const line of [
+      'توريد طفاية حريق بودرة جاف 6 كجم',
+      'توريد رشاش حريق Pendent 68 درجة',
+      'توريد حنفية حريق Pillar Hydrant قطر 4 بوصة',
+    ]) {
+      const r = resolve(line)
+      expect(r.sector).toBe('FIRE')
+      expect(r.poolable).toBe(true)
+    }
+  })
+
+  it('a plumbing socket coupler is not a socket wrench', () => {
+    for (const line of [
+      'توريد وصلة UPVC Socket Coupler مقاس 110 مم',
+      'توريد وصلة PPR Socket مقاس 32 مم',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).not.toBe('hand_tools')
+    }
+  })
+
+  it('but a real socket set still resolves to hand tools', () => {
+    const r = resolve('توريد طقم لقم Socket Set مقاس 1/2 بوصة عدد 24 قطعة')
+    expect(r.family).toBe('hand_tools')
+  })
+
+  it('an irrigation filter is not a respirator filter', () => {
+    for (const line of [
+      'توريد Filter Disc مقاس 1 بوصة',
+      'توريد فلتر ري شبكي مقاس 2 بوصة',
+    ]) {
+      const r = resolve(line)
+      expect(r.intent).not.toBe('respirator_filter')
+      expect(r.family).not.toBe('respiratory_protection')
+    }
+  })
+
+  it('but a real respirator filter still resolves', () => {
+    for (const line of [
+      'توريد فلتر جسيمات P3 لقناع التنفس',
+      'توريد مرشح غازات ABEK1 لكمامة نصف وجه',
+    ]) {
+      const r = resolve(line)
+      expect(r.family).toBe('respiratory_protection')
+    }
+  })
+
+  it('an electrical enclosure is not steel sheet, and an energy meter is not a flow meter', () => {
+    const enclosure = resolve('توريد لوحة فارغة Enclosure Sheet Steel IP55 مقاس 1000×1200×400 مم')
+    expect(enclosure.family).not.toBe('metal_sheet_coil')
+
+    for (const line of ['توريد Energy Meter Class 0.5S اتصال BACnet IP', 'توريد Digital Ammeter اتصال BACnet IP']) {
+      const r = resolve(line)
+      expect(r.family).not.toBe('flow_instrumentation')
+    }
+  })
+
+  it('but real sheet steel and a real flow meter still resolve', () => {
+    expect(resolve('توريد صاج مجلفن GI سماكة 0.5 مم طلاء G90').family).toBe('metal_sheet_coil')
+    expect(resolve('توريد عداد تصرف Electromagnetic Flowmeter DN100').family).toBe('flow_instrumentation')
+  })
+})
+
+describe('the three-tier rule, applied consistently', () => {
+  it('a term may not serve as its own context', () => {
+    // Both of these decided as `weak_with_context` only because the family
+    // listed the same word in weak_terms and context_terms.
+    for (const line of ['توريد لوح MDF فئة FR مقاوم للحريق', 'توريد Filter Disc مقاس 1 بوصة']) {
+      const r = resolve(line)
+      if (r.debug.decided_by === 'weak_with_context' && r.debug.matched_term) {
+        const term = normalizeProcurementText(r.debug.matched_term)
+        expect(r.search_terms.filter((t) => normalizeProcurementText(t) === term).length).toBeLessThan(2)
+      }
+    }
+  })
+
+  it('a guarded term still yields search vocabulary rather than vanishing', () => {
+    // Accuracy must not cost searchability: a blocked term becomes a Level B/C
+    // with terms to search on, never an empty resolution.
+    for (const line of [
+      'توريد قطاع Stud مجلفن عرض 100 مم سماكة 0.45 مم',
+      'توريد كابل ألياف OM3 Multimode عدد 12 Core',
+      'توريد عزل Elastomeric لمواسير قطر 108 مم سماكة 13 مم',
+    ]) {
+      const r = resolve(line)
+      expect(r.search_terms.length).toBeGreaterThan(0)
+      expect(r.raw).toBe(line)
+    }
+  })
+})
 
 /**
  * Regression guard for a MISLABELLING bug measured on RFQ ELE-RFQ-51D17AF6, a
@@ -78,6 +309,224 @@ describe('mislabelling guard: PPE lines must never become a wood panel', () => {
       for (const archetype of [...r.preferred_archetypes, ...r.allowed_archetypes]) {
         expect(archetype).not.toMatch(/wood|timber|panel|clad|خشب/i)
       }
+    }
+  })
+})
+
+/**
+ * Phase 2 built `intent_supplier_map` on `intent_key` and found SAFETY_PPE had
+ * no intents at all, so the owner's most common family could only ever reach
+ * keyword retrieval. These assert the family now serves the map structurally.
+ */
+describe('SAFETY_PPE resolves to intents, not only to a family', () => {
+  it.each(PPE_LINES_FROM_RFQ)('%s carries an intent the supplier map can key', (line) => {
+    const r = resolve(line)
+    expect(r.level_code).toBe('A')
+    expect(r.intent).toBeTruthy()
+    expect(isKnownIntentId(r.intent!)).toBe(true)
+    expect(r.pool_key).toBe(r.intent)
+    expect(r.poolable).toBe(true)
+  })
+
+  it('the ten lines spread across intents instead of collapsing onto one', () => {
+    const intents = PPE_LINES_FROM_RFQ.map((line) => resolve(line).intent)
+    // Two protective-clothing items legitimately differ (coverall vs vest), so
+    // the count proves the split is real rather than one bucket for all PPE.
+    expect(new Set(intents).size).toBe(PPE_LINES_FROM_RFQ.length)
+  })
+
+  it('every PPE family declares at least one intent', () => {
+    const ppe = FAMILIES.filter((f) => f.sector === 'SAFETY_PPE')
+    const protective = ppe.filter((f) => /protection|clothing|footwear/.test(f.id))
+    expect(protective.length).toBeGreaterThanOrEqual(8)
+    for (const family of protective) {
+      const own = (family.intents || []).length
+      const nested = (family.categories || []).reduce((n, c) => n + (c.intents || []).length, 0)
+      expect(own + nested).toBeGreaterThan(0)
+    }
+  })
+})
+
+/**
+ * The owner approved the Phase 2 map build on a promise of ID stability, and a
+ * rebuild is only safe if growth is additive. This is the frozen cpo-v2 intent
+ * surface: a rename or removal fails here rather than silently emptying a map
+ * partition that the sibling lane already built rows for.
+ */
+const CPO_V2_INTENT_IDS = [
+  'access_controller', 'air_filtration', 'barcode_scanners', 'biometric_reader',
+  'card_printers', 'card_reader', 'cctv_camera', 'column_cladding',
+  'document_scanners', 'electrical_tester', 'electromagnetic_lock',
+  'environmental_meter', 'fire_extinguisher', 'fire_hydrant', 'fire_pump_set',
+  'fire_sprinkler', 'hvac_damper', 'industrial_pump', 'keyboards_peripherals',
+  'kvm_console', 'label_printers', 'laser_distance_meter', 'level_alignment',
+  'nvr', 'precision_gauge', 'printers', 'ptz_camera', 'rescue_kit',
+  'rescue_tripod', 'rescue_winch', 'rfid_credentials', 'rope_grab',
+  'structural_steel_section', 'surface_cladding', 'survey_instrument',
+  'thermal_imaging', 'thermal_security_camera', 'turnstile_gate',
+  'vav_terminal', 'vms',
+]
+
+/**
+ * The cpo-v3 addition: the 24 PPE intents, which is the surface the Phase 2 map
+ * was last built against. cpo-v4 must keep every one of these too.
+ */
+const CPO_V3_ADDED_INTENT_IDS = [
+  'breathing_apparatus', 'bump_cap', 'coverall', 'ear_muff', 'ear_plug',
+  'face_shield', 'fall_arrest_hardware', 'hearing_protector', 'hi_vis_vest',
+  'lanyard_shock_absorber', 'lifeline_anchor', 'respirator_filter',
+  'respirator_mask', 'rubber_boot', 'safety_boot', 'safety_eyewear',
+  'safety_gloves', 'safety_harness', 'safety_helmet',
+  'self_retracting_lifeline', 'weather_protective_clothing',
+  'welding_face_shield', 'welding_gloves', 'work_apron',
+]
+
+describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
+  it('keeps every cpo-v2 intent id', () => {
+    const current = listIntentIds()
+    expect(CPO_V2_INTENT_IDS.filter((id) => !current.includes(id))).toEqual([])
+  })
+
+  it('keeps every cpo-v3 intent id', () => {
+    const current = listIntentIds()
+    expect(CPO_V3_ADDED_INTENT_IDS.filter((id) => !current.includes(id))).toEqual([])
+  })
+
+  it('renames nothing — the two frozen surfaces were 40 then 64 intents', () => {
+    expect(CPO_V2_INTENT_IDS).toHaveLength(40)
+    expect(CPO_V2_INTENT_IDS.length + CPO_V3_ADDED_INTENT_IDS.length).toBe(64)
+    expect(listIntentIds().length).toBeGreaterThan(64)
+  })
+
+  it('publishes a version the sibling lane can compare against', () => {
+    expect(ONTOLOGY_VERSION).toBe('cpo-v6')
+  })
+
+  it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
+    const current = listIntentIds()
+    for (const id of ['empty_enclosure', 'irrigation_emitter', 'fire_sprinkler', 'linear_drainage', 'paving_block']) {
+      expect(current).toContain(id)
+    }
+  })
+
+  it('every id is unique, so no map partition can collide', () => {
+    const ids = listIntentIds()
+    expect(new Set(ids).size).toBe(ids.length)
+    const families = listFamilyIds()
+    expect(new Set(families).size).toBe(families.length)
+  })
+})
+
+/**
+ * Errors the coverage work itself introduced. Adding the electrical and new
+ * families took confident-wrong from 0 back to 4.65% — a different error set at
+ * the same rate as the one P0 removed — and none of it was visible to a
+ * cross-trade check, because family and department were both right. These fix
+ * that class and hold it fixed.
+ */
+describe('confident-wrong: coverage must not reintroduce errors', () => {
+  it('cable TYPE decides, not cable CONSTRUCTION', () => {
+    // Cu/PVC and Cu/XLPE describe conductor and insulation, and control, MV and
+    // fire-rated cable all share them. Only the function word may decide.
+    const expected: Array<[string, string]> = [
+      ['توريد كابل Cu/PVC Control 10C×0.75 مم²', 'control_cable'],
+      ['توريد كابل MV Cu/XLPE/CTS/PVC 1C×120 مم² جهد 11kV', 'mv_power_cable'],
+      ['توريد كابل Fire Resistant LSZH PH120 2C×1.5 مم²', 'fire_resistant_cable'],
+      ['توريد كابل Al/XLPE/PVC 1C×1.5 مم² 0.6/1kV', 'lv_power_cable'],
+      ['توريد Instrumentation Cable 1 Pair×0.5 مم² Individual+Overall Shielded', 'instrumentation_cable'],
+    ]
+    for (const [line, intent] of expected) {
+      const r = resolve(line)
+      expect(r.family).toBe('power_cables')
+      expect(r.intent).toBe(intent)
+    }
+  })
+
+  it('the product-head rule holds for materials as well as objects', () => {
+    // Basalt FIBRE is not a basalt slab; an elastomeric PAINT is not pipe
+    // insulation. In both the leading word is the product.
+    const fibre = resolve('توريد ألياف بازلت 12 مم عبوة 20 كجم')
+    expect(fibre.intent).toBe('concrete_fiber')
+    const paint = resolve('توريد دهان خارجي Elastomeric عبوة 20 لتر')
+    expect(paint.family).toBe('paints_coatings')
+    expect(paint.intent).not.toBe('pipe_duct_insulation')
+  })
+
+  it('superscript units normalize, so a cable cross-section is visible', () => {
+    // «مم²» never matched the «مم2» vocabulary, hiding the strongest evidence
+    // that a line is a cable at all — on every cable line in the catalogue.
+    expect(normalizeProcurementText('كابل 4×50 مم²')).toContain('مم2')
+    expect(normalizeProcurementText('خرسانة 10 م³')).toContain('م3')
+    expect(termIndex(normalizeProcurementText('توريد كابل 1C×1.5 مم²'), 'مم2')).toBeGreaterThan(0)
+  })
+
+  it('every new sector and family reaches at least one supplier archetype', () => {
+    // A family that reaches no archetype is not coverage: it resolves and then
+    // has nowhere to send an RFQ.
+    for (const family of FAMILIES) {
+      const preferred = family.preferred_archetypes ?? []
+      const allowed = family.allowed_archetypes ?? []
+      expect(
+        preferred.length + allowed.length,
+        `${family.id} declares no archetype`,
+      ).toBeGreaterThan(0)
+      for (const archetype of [...preferred, ...allowed]) {
+        expect(Object.keys(ARCHETYPES), `${family.id} -> ${archetype}`).toContain(archetype)
+      }
+    }
+  })
+
+  it('every family belongs to a sector that exists', () => {
+    for (const family of FAMILIES) {
+      expect(Object.keys(SECTORS), `${family.id}`).toContain(family.sector)
+    }
+  })
+})
+
+/**
+ * Gap 2. Every PPE family allows `industrial_tools_supplier`, which is why a
+ * tools company receiving PPE was never vetoed. A hard veto would be wrong:
+ * the real multi-trade safety firms («أدوات سلامة») classify as tools suppliers
+ * TOO, so vetoing the archetype removes legitimate vendors. Ranking is the
+ * answer, and these assert ranking actually separates them.
+ */
+describe('PPE tools-supplier handling is ranking, not veto', () => {
+  const MULTI_TRADE = 'مؤسسة أدوات سلامة ومهمات وقاية'
+  const BARE_TOOLS = 'AP Tools أدوات ومعدات صناعية'
+  const WOOD = 'القاسم ألمنيوم حديد دربزين أخشاب'
+
+  it('a multi-trade safety firm is PREFERRED despite being a tools supplier', () => {
+    const profile = resolve('قبعة حماية')
+    const evaluation = evaluateSupplier(MULTI_TRADE, profile)
+    expect(evaluation.archetypes).toContain('industrial_tools_supplier')
+    expect(evaluation.verdict).toBe('PREFERRED')
+  })
+
+  it('a bare tools supplier survives but never outranks a PPE supplier', () => {
+    for (const line of PPE_LINES_FROM_RFQ) {
+      const profile = resolve(line)
+      const bare = evaluateSupplier(BARE_TOOLS, profile)
+      // Not vetoed — a tools house can genuinely stock gloves and helmets.
+      expect(bare.verdict).toBe('ALLOWED')
+
+      const ranked = rankSuppliers([BARE_TOOLS, MULTI_TRADE], (s) => s, profile)
+      expect(ranked[0].candidate).toBe(MULTI_TRADE)
+      expect(ranked[ranked.length - 1].candidate).toBe(BARE_TOOLS)
+    }
+  })
+
+  it('industrial_tools_supplier is never a hard conflict for PPE', () => {
+    for (const line of PPE_LINES_FROM_RFQ) {
+      expect(resolve(line).hard_conflicts).not.toContain('industrial_tools_supplier')
+    }
+  })
+
+  it('a wood supplier is dropped from every PPE line by structure, not keywords', () => {
+    for (const line of PPE_LINES_FROM_RFQ) {
+      const profile = resolve(line)
+      // No PPE archetype and no PPE vocabulary, so it yields no signal at all.
+      expect(evaluateSupplier(WOOD, profile).verdict).toBe('NO_MATCH')
+      expect(rankSuppliers([WOOD], (s) => s, profile)).toEqual([])
     }
   })
 })
@@ -1006,5 +1455,442 @@ describe('batch pooling and levels', () => {
       expect(Array.isArray(pool.soft_conflicts)).toBe(true)
       expect(pool.hard_conflicts.length + pool.soft_conflicts.length).toBeGreaterThan(0)
     }
+  })
+})
+
+/**
+ * A HELD-OUT CORPUS OF 81,752 LINES FOUND WHAT AN OWN-FIXTURE AUDIT CANNOT.
+ *
+ * Its most valuable finding was not a missing family, it was a shape: the
+ * engine knew the English word for a concept and not the Arabic one, and the
+ * two words sat in DIFFERENT TIERS. `sprinkler` was strong and decided alone;
+ * «رشاش» was weak and never decided. The consequence was the worst arrangement
+ * available — every irrigation pop-up head became a FIRE sprinkler at 0.90
+ * confidence, while real fire sprinklers written in Arabic reached Level A zero
+ * times out of 1,008 rows. 70% of all Level A in that corpus was wrong from
+ * this single gap.
+ *
+ * The rule these tests hold is TIER PARITY: a concept's right to decide must
+ * not depend on which language the buyer writes in. Where parity alone would
+ * merely relocate the error — because both trades really do sell the thing —
+ * the shared word is guarded by trade and the other trade claims it positively.
+ */
+describe('tier parity: a concept decides in Arabic or it does not decide at all', () => {
+  it('a fire sprinkler written in Arabic reaches the same intent as the English one', () => {
+    const arabic = resolveOntology('توريد رشاش Pendent K5.6 درجة 93°C')
+    const english = resolveOntology('Supply Sprinkler Pendent K5.6 rated 93C')
+    expect(arabic.intent).toBe('fire_sprinkler')
+    expect(english.intent).toBe('fire_sprinkler')
+    // Parity is about the PRIVILEGE, not just the outcome: both must be Level A
+    // and poolable, or the Arabic buyer is still a second-class user.
+    expect(arabic.level_code).toBe('A')
+    expect(arabic.level_code).toBe(english.level_code)
+    expect(arabic.poolable).toBe(true)
+  })
+
+  it('the Arabic plural is a different token and must be listed as one', () => {
+    // «رشاشات» does not contain «رشاش» as a WORD, so phrase matching cannot
+    // reach it by inflection. The ontology already spells plurals out
+    // («قطاعات», «مسامير», «طفايات»); omitting this one was an oversight.
+    const plural = resolveOntology('توريد وتركيب رشاشات حريق نوع pendent')
+    expect(plural.intent).toBe('fire_sprinkler')
+    expect(plural.poolable).toBe(true)
+  })
+
+  it('an irrigation sprinkler is not a fire sprinkler, in either language', () => {
+    for (const line of [
+      'توريد Pop-Up Sprinkler نطاق 5 م',
+      'رشاش حدائق نطاق 3 متر',
+      'Gear Drive Sprinkler arc adjustable',
+      'Impact Sprinkler brass 1/2 inch',
+      'رشاش مسطحات خضراء',
+    ]) {
+      const r = resolveOntology(line)
+      expect(r.family, line).toBe('irrigation_systems')
+      expect(r.intent, line).toBe('irrigation_emitter')
+    }
+  })
+
+  it('irrigation CLAIMS its sprinklers rather than merely losing them', () => {
+    // Guarding the fire side only removes a wrong answer. If landscape had no
+    // positive vocabulary the line would fall to an honest-but-useless C and
+    // never reach an irrigation supplier, which is not a fix.
+    const r = resolveOntology('Pop-Up Sprinkler 4 inch with nozzle')
+    expect(r.level_code).toBe('A')
+    expect(r.poolable).toBe(true)
+  })
+
+  it('the guard reads the trade, not merely the presence of a word', () => {
+    // «توريد» contains the letters of «ري» and «حريق» ends in them; a
+    // substring-based guard would blank every fire sprinkler line in the file.
+    const r = resolveOntology('توريد رشاش حريق UL FM K8.0')
+    expect(r.intent).toBe('fire_sprinkler')
+  })
+})
+
+/**
+ * The same corpus reported a second finding — generic joint words (`elbow`,
+ * `coupling`, `flange`, `nut`) pulled into `pipes_fittings` regardless of
+ * sector, 73% of its confident-wrong lines. It is the SAME defect as the
+ * sprinkler one: a bare word that several trades legitimately use, granted the
+ * right to decide by whichever family happened to claim it first.
+ */
+describe('a joint word belongs to the trade that names the assembly', () => {
+  it('electrical containment keeps its own elbows, couplings and tees', () => {
+    for (const [line, family] of [
+      ['Cable Ladder Elbow 300mm Hot Dip Galvanized', 'cable_accessories'],
+      ['توريد كوع تراي كابلات 300 مم', 'cable_accessories'],
+      ['EMT Coupling 25mm Steel', 'cable_accessories'],
+      ['PVC Conduit Coupling 20mm', 'cable_accessories'],
+      ['Cable Tray Tee 200mm', 'cable_accessories'],
+    ] as const) {
+      expect(resolveOntology(line).family, line).toBe(family)
+    }
+  })
+
+  it('a nut is a fastener even when its name begins with a fitting word', () => {
+    // "Coupling Nut" and "Flange Nut" are real fastener SKUs. English puts the
+    // head noun LAST in a compound, so the coupling here is the thread form and
+    // the product is the nut.
+    for (const line of ['Coupling Nut M12 Galvanized', 'Flange Nut M16 Zinc Plated']) {
+      expect(resolveOntology(line).family, line).toBe('fasteners')
+    }
+  })
+
+  it('plumbing still owns the joints that really are plumbing', () => {
+    for (const line of [
+      'كوع upvc قطر 110 مم ضغط 6 بار',
+      'Elbow 90 deg PPR 32mm',
+      'Coupling HDPE 63mm electrofusion',
+      'Flange Adaptor DI DN200 PN16',
+      'تي متساوي حديد مجلفن 2 انش',
+    ]) {
+      expect(resolveOntology(line).family, line).toBe('pipes_fittings')
+    }
+  })
+})
+
+/**
+ * "Resolved" was not "usable". The corpus found five sectors 100% unusable and
+ * one category — electrical enclosures, 7,824 rows — that matched a known word,
+ * produced family = null and poolable = false, and still counted as coverage.
+ * A line that names no family cannot name a supplier, so these assert the
+ * property that matters: POOLABLE, not merely resolved.
+ */
+describe('the largest unusable groups now reach a supplier pool', () => {
+  const mustPool: Array<[string, string, string]> = [
+    ['توريد electrical enclosure ss316 مقاس 400x300x200 مم ip66', 'switchgear_panels', 'empty_enclosure'],
+    ['Electrical Enclosure Mild Steel 800x600x300 IP65', 'switchgear_panels', 'empty_enclosure'],
+    ['توريد قطاعات باردة التشكيل C 200x75x20 مم', 'structural_steel', 'cold_formed_section'],
+    ['Cold Formed Section Z 250x75x2.5mm galvanized', 'structural_steel', 'cold_formed_section'],
+    ['توريد Track Light LED 30W 3000K', 'lighting', 'track_light'],
+    ['كشاف تراك لايت 20 واط', 'lighting', 'track_light'],
+    ['توريد سقف معدني مستعار الومنيوم 600x600', 'interior_systems', 'metal_ceiling'],
+    ['اسقف معدنيه شرائح المنيوم', 'interior_systems', 'metal_ceiling'],
+    ['مصرف خطي خرساني بولمر 150 مم', 'precast_drainage', 'linear_drainage'],
+  ]
+
+  for (const [line, family, intent] of mustPool) {
+    it(`pools: ${line.slice(0, 44)}`, () => {
+      const r = resolveOntology(line)
+      expect(r.family).toBe(family)
+      expect(r.intent).toBe(intent)
+      expect(r.poolable).toBe(true)
+    })
+  }
+
+  it('an enclosure that really is a server rack still goes to the IT lane', () => {
+    expect(resolveOntology('19 inch Server Rack Enclosure 42U 800x1000').family).toBe('racks_enclosures')
+    expect(resolveOntology('Network Rack Enclosure 27U glass door').family).toBe('racks_enclosures')
+  })
+
+  it('Arabic puts adjectives inside a phrase, so the phrase cannot be the only route', () => {
+    // «سقف معدني مستعار» never matched the family term «سقف مستعار», because a
+    // two-word term needs the words adjacent and Arabic inserts the adjective
+    // between them. The concept needs a term at its own head.
+    expect(resolveOntology('توريد سقف معدني مستعار الومنيوم 600x600').poolable).toBe(true)
+  })
+})
+
+/**
+ * The last two of the seven adjudicated held-out cells. Both are the contested
+ * word again, one level further out: a channel-support system's accessories
+ * carry names that the WAREHOUSE and RIGGING trades also use for their own
+ * products. The line already says which system it belongs to.
+ */
+describe('a strut accessory belongs to the support trade, not the warehouse', () => {
+  it('a cantilever arm on a strut channel is a bracket, not pallet racking', () => {
+    const r = resolveOntology('توريد Cantilever Arm 300mm لنظام Strut 41×21 مم تشطيب Zinc')
+    expect(r.family).toBe('pipe_supports')
+    expect(r.poolable).toBe(true)
+  })
+
+  it('a beam clamp on a strut channel is a fixing, not lifting gear', () => {
+    const r = resolveOntology('توريد Beam Clamp لنظام Strut 41×21 مم تشطيب Zinc')
+    expect(r.family).toBe('pipe_supports')
+    expect(r.poolable).toBe(true)
+  })
+
+  it('but real racking and real rigging keep their own words', () => {
+    expect(resolveOntology('Cantilever Rack Arm 1000mm for pallet racking').family).toBe('storage_racking')
+    expect(resolveOntology('Pallet Rack Beam 2700mm 1500kg UDL').family).toBe('storage_racking')
+    expect(resolveOntology('Beam Clamp 2 Ton for lifting hoist WLL').family).toBe('lifting_gear')
+    expect(resolveOntology('Chain Sling 2 leg 3 ton with shackle').family).toBe('lifting_gear')
+  })
+})
+
+/**
+ * RATCHETS, so the two defect shapes cannot come back quietly.
+ *
+ * The sprinkler inversion was not caught by any test, any fixture or any
+ * cross-trade sweep — it took a 81,752-line held-out corpus to surface one
+ * missing Arabic tier. That is too expensive a detector for a defect that is
+ * visible in the ontology file itself, so these encode the shapes directly:
+ * `npm run ontology:language` prints them, and these keep the counts from
+ * drifting upward as vocabulary is added.
+ */
+describe('language and trade-contest ratchets', () => {
+  const ARABIC = /[\u0621-\u064A]/
+  const bare = (t: string) => t.trim().split(/\s+/).length === 1
+  /** An international designation (RHS, MCCB, LVT) has no Arabic form to miss. */
+  const isDesignation = (t: string) => {
+    if (/[0-9]/.test(t)) return true
+    const letters = t.replace(/[^a-z]/gi, '')
+    return letters.length < 5 || (letters.match(/[aeiou]/gi) || []).length < 2
+  }
+
+  type Node = { path: string; strong: string[]; weak: string[]; sector: string }
+  const nodes: Node[] = []
+  for (const family of FAMILIES) {
+    const push = (path: string, n: { strong_terms?: string[]; weak_terms?: string[] }) =>
+      nodes.push({ path, strong: n.strong_terms ?? [], weak: n.weak_terms ?? [], sector: family.sector })
+    push(family.id, family)
+    for (const intent of family.intents ?? []) push(`${family.id}/${intent.id}`, intent)
+    for (const category of family.categories ?? []) {
+      push(`${family.id}/${category.id}`, category)
+      for (const intent of category.intents ?? []) push(`${family.id}/${category.id}/${intent.id}`, intent)
+    }
+  }
+
+  it('every concept that decides in English also decides in Arabic, or is a designation', () => {
+    const offenders = nodes.filter((n) => {
+      const deciding = [...n.strong, ...n.weak]
+      if (!deciding.length) return false
+      return !deciding.some((t) => ARABIC.test(t)) && deciding.some((t) => /[a-z]/i.test(t) && !isDesignation(t))
+    })
+    // `kvm` / `rack console` are the trade's own words in Arabic tenders too.
+    expect(offenders.map((n) => n.path)).toEqual(['it_peripherals/rack_management_peripherals'])
+  })
+
+  it('fire and irrigation hold tier parity on the word they share', () => {
+    const fire = nodes.find((n) => n.path.endsWith('/fire_sprinkler'))!
+    // The defect was `sprinkler` strong and «رشاش» weak. Both must now decide.
+    expect(fire.strong).toContain('sprinkler')
+    expect(fire.strong).toContain('رشاش')
+    expect(fire.weak).not.toContain('رشاش')
+  })
+
+  it('a bare word claimed by two trades does not grow unguarded', () => {
+    const guarded = new Set<string>()
+    const collect = (n: { term_guards?: Array<{ terms: string[] }> }) => {
+      for (const g of n.term_guards ?? []) for (const t of g.terms) guarded.add(t.toLowerCase())
+    }
+    for (const family of FAMILIES) {
+      collect(family)
+      for (const intent of family.intents ?? []) collect(intent)
+      for (const category of family.categories ?? []) {
+        collect(category)
+        for (const intent of category.intents ?? []) collect(intent)
+      }
+    }
+    const claims = new Map<string, Set<string>>()
+    for (const n of nodes) {
+      for (const term of [...n.strong, ...n.weak]) {
+        if (!bare(term)) continue
+        const key = term.toLowerCase()
+        if (!claims.has(key)) claims.set(key, new Set())
+        claims.get(key)!.add(n.sector)
+      }
+    }
+    const contested = [...claims.entries()].filter(([t, s]) => s.size > 1 && !guarded.has(t))
+    // A RATCHET, not a target: 34 is where cpo-v6 stands, and each remaining
+    // one is a real risk waiting for a line from the other trade. Adding
+    // vocabulary must not add contested words without also guarding them.
+    expect(contested.length).toBeLessThanOrEqual(34)
+  })
+})
+
+/**
+ * cpo-v6. Two findings drove this round, and they are the same finding seen
+ * from two sides: the ontology knew catalogue and MEP products while real
+ * booklet lines are civil and architectural, and a stray adjective could name
+ * a product whenever the product itself was unknown.
+ */
+describe('attribute clauses describe the product, they do not name it', () => {
+  // A BOQ line names the product, then lists attributes behind explicit
+  // keywords. Matching inside those clauses was the whole of a 5.84%
+  // confident-wrong rate on truly held-out batches, and it had the perverse
+  // property that a MORE detailed line resolved WORSE.
+  const cases: Array<[string, string, string]> = [
+    ['pipes_fittings', 'pipe_fitting', 'توريد وصلة PP-RCT Tee Equal مقاس 50 مم PN20 ربط Solvent Cement'],
+    ['pipes_fittings', 'pipe_fitting', 'توريد وصلة UPVC Elbow 90 مقاس 110 مم PN10 ربط Solvent Cement'],
+    ['hvac_equipment', 'volume_control_damper', 'توريد VCD Opposed Blade مقاس 600×400 مم مادة Aluminium تشغيل 24V Actuator'],
+    ['valves', 'backflow_preventer', 'توريد Backflow Preventer DN80 PN16 جسم Carbon Steel توصيل Lug'],
+    ['floor_tiling', 'resilient_flooring', 'توريد Static Dissipative Vinyl Sheet سماكة 2 مم لون Grey'],
+  ]
+  for (const [family, intent, line] of cases) {
+    it(`a joining method, material or connection type cannot win: ${line.slice(0, 44)}`, () => {
+      const hit = resolveOntology(line)
+      expect(hit.family).toBe(family)
+      expect(hit.intent).toBe(intent)
+    })
+  }
+
+  it('the rule restricts deciding, never corroborating', () => {
+    // «مادة Aluminium» must not NAME a product, yet it is legitimate evidence
+    // for a weak term that already named one. Context reads the whole line.
+    const hit = resolveOntology('توريد بلاطة سقف 600×600 مم مادة Galvanized Steel سماكة 0.6 مم')
+    expect(hit.intent).toBe('metal_ceiling')
+    expect(hit.poolable).toBe(true)
+  })
+
+  it('an attribute word inside a real product name still decides', () => {
+    // The rule is positional: a term may decide if its match STARTS outside
+    // every clause. «مقياس ضغط» starts at «مقياس», before «ضغط» opens one.
+    expect(resolveOntology('مقياس ضغط 0-10 بار').family).toBe('flow_instrumentation')
+    expect(resolveOntology('صمام تخفيض ضغط DN50').family).toBe('valves')
+    expect(resolveOntology('صاج مجلفن سماكة 2 مم').family).toBe('metal_sheet_coil')
+    expect(resolveOntology('كابل نحاس مقاس 4 مم2').family).toBe('power_cables')
+  })
+
+  it('a term buried in a clause still proves the line speaks known vocabulary', () => {
+    // Losing the right to decide must not cost the semantic-recovery signal,
+    // or an honest Level B would be demoted to a false unknown.
+    const hit = resolveOntology('توريد صندوق معدني عام مقاس 300x200 مم مادة Solvent Resistant')
+    expect(hit.level_code).not.toBe('C')
+  })
+})
+
+describe('a fix bound to one phrasing is not a fix', () => {
+  // The previous round keyed the metal-ceiling split on the Arabic «معدني» and
+  // the defect returned the moment a batch wrote `Galvanized Steel`. The
+  // discriminator is the MATERIAL, in whatever language it arrives.
+  const metal = [
+    'توريد بلاطة سقف 600×600 مم مادة Galvanized Steel سماكة 0.6 مم',
+    'توريد بلاطة سقف معدني 600×600 مم',
+    'ceiling tile aluminium 600x600',
+    'بلاطة سقف مجلفن',
+  ]
+  for (const line of metal) {
+    it(`a metal tile reaches the roll-former: ${line.slice(0, 40)}`, () => {
+      expect(resolveOntology(line).intent).toBe('metal_ceiling')
+    })
+  }
+
+  const mineral = ['توريد بلاطة سقف Mineral Fiber 600×600 مم', 'بلاطة سقف مستعار', 'acoustic tile 600x600']
+  for (const line of mineral) {
+    it(`a mineral-fibre tile keeps its own supplier: ${line.slice(0, 40)}`, () => {
+      expect(resolveOntology(line).intent).toBe('acoustic_ceiling_tile')
+    })
+  }
+})
+
+describe('the corrugated drainage pipe is not plumbing', () => {
+  // 90 rows that sat in `pipes_fittings` because «ماسوره» is that family's
+  // strong term and nothing else competed. SN ring stiffness plus a corrugated
+  // wall is a buried gravity-drainage designation.
+  for (const line of [
+    'توريد ماسورة HDPE Corrugated قطر 400 مم SN8 وصلة Socket Rubber Ring',
+    'توريد ماسورة HDPE Corrugated قطر 600 مم SN8 وصلة Welded Coupler',
+    'ماسورة مضلعة تصريف 300 مم',
+  ]) {
+    it(`reaches a drainage extruder: ${line.slice(0, 42)}`, () => {
+      const hit = resolveOntology(line)
+      expect(hit.family).toBe('precast_drainage')
+      expect(hit.intent).toBe('buried_drainage_pipe')
+    })
+  }
+
+  it('pressure plumbing pipe is untouched', () => {
+    expect(resolveOntology('توريد ماسورة PPR قطر 25 مم PN20').family).toBe('pipes_fittings')
+    expect(resolveOntology('ماسورة كهرباء EMT قطر 25 مم').intent).toBe('electrical_conduit')
+  })
+})
+
+describe('the civil and architectural families the booklet register needs', () => {
+  // Real booklet lines are two words long and civil. «خرسانة جاهزة» — the most
+  // common item in general contracting anywhere — resolved to C while a
+  // `ready_mix_supplier` archetype had existed since the first version, so the
+  // supply side was modelled and the demand side never was.
+  const expected: Array<[string, string]> = [
+    ['خرسانة جاهزة', 'ready_mix_concrete'],
+    ['خرسانة مسلحة C35', 'ready_mix_concrete'],
+    ['خرسانة عادية', 'ready_mix_concrete'],
+    ['لياسة', 'plaster_render'],
+    ['طرطشة', 'plaster_render'],
+    ['بلاستر اسمنتي', 'plaster_render'],
+    ['جبس بورد', 'interior_systems'],
+    ['لوح جبس 12.5 مم', 'interior_systems'],
+    ['بحص', 'aggregates_fill'],
+    ['رمل مغسول', 'aggregates_fill'],
+    ['ركام خشن', 'aggregates_fill'],
+    ['درابزين', 'metal_grating_walkway'],
+    ['balustrade glass', 'metal_grating_walkway'],
+    ['غرفة تفتيش', 'precast_drainage'],
+    ['مظلات مواقف سيارات', 'shade_structures'],
+    ['سواتر', 'shade_structures'],
+    ['برجولة', 'shade_structures'],
+    ['فتحات تهوية', 'hvac_equipment'],
+    ['شبك تهوية', 'hvac_equipment'],
+    ['غطاء فاصل حركة', 'movement_joint_systems'],
+  ]
+  for (const [line, family] of expected) {
+    it(`«${line}» keys a pool`, () => {
+      const hit = resolveOntology(line)
+      expect(hit.family).toBe(family)
+      expect(hit.poolable).toBe(true)
+    })
+  }
+
+  it('a grade is a facet, not an intent', () => {
+    // A batching plant that mixes C25 mixes C40, so splitting per grade would
+    // fragment one supplier pool into twenty.
+    const grades = ['C25', 'C30', 'C35', 'C40'].map((g) => resolveOntology(`خرسانة جاهزة ${g}`))
+    expect(new Set(grades.map((g) => g.intent)).size).toBe(1)
+  })
+
+  it('an archetype is reused when the supply side already modelled the trade', () => {
+    const readyMix = FAMILIES.find((f) => f.id === 'ready_mix_concrete')!
+    expect(readyMix.preferred_archetypes).toContain('ready_mix_supplier')
+    const plaster = FAMILIES.find((f) => f.id === 'plaster_render')!
+    expect(plaster.preferred_archetypes).toContain('cement_supplier')
+  })
+
+  it('one phrasing belongs to one family', () => {
+    // «بلاستر» sat in both cement_binders and the new rendering family, which
+    // made the winner depend on scoring rather than on meaning.
+    const claims = FAMILIES.filter((f) =>
+      [...(f.strong_terms ?? []), ...(f.weak_terms ?? [])].some((t) => t === 'بلاستر' || t === 'plaster'),
+    )
+    expect(claims.map((f) => f.id)).toEqual(['plaster_render'])
+  })
+})
+
+describe('«ألياف معدنية» is mineral fibre, not metal', () => {
+  // Caught by the intent-level audit, not the cross-trade sweep: family and
+  // department were both right, which is exactly the class that hides.
+  for (const line of [
+    'توريد بلاطة سقف ألياف معدنية مقاس 600×600 مم حافة Tegular',
+    'بلاطة سقف صوف معدني',
+    'mineral fibre ceiling tile 600x600',
+  ]) {
+    it(`reaches the mineral-fibre distributor: ${line.slice(0, 44)}`, () => {
+      expect(resolveOntology(line).intent).toBe('acoustic_ceiling_tile')
+    })
+  }
+
+  it('a perforated aluminium tile is still a metal ceiling', () => {
+    // Acoustically rated, but the trade is a roll-former either way.
+    expect(resolveOntology('توريد بلاطة سقف ألمنيوم مثقب مقاس 600×600 مم حافة Tegular').intent).toBe('metal_ceiling')
   })
 })

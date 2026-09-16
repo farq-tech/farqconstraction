@@ -1,0 +1,137 @@
+Subject: [PATCH] perf(construction): hash the taxonomy_candidates join, and settle
+ the evidence tie it exposed
+
+Base revision: 4cd39bf3a ("chore(api): document the construction rate limit at its
+measured value") — the live API revision. Applies with `git apply` against that
+revision alone; it carries nothing else from the working tree.
+
+WHAT IT CHANGES
+Two edits in matchSuppliers, both in one SQL string.
+
+1. `taxonomy_candidates` joined `supplier_specialties` to `requested` on an OR of
+   three equalities (farq_spec_id, lower(subcategory), lower(category)). Postgres
+   cannot hash an OR join, so it nested-looped the whole specialty directory once
+   per requested family. The new `requested_specialty_keys` CTE folds the three
+   spellings into one hashable column and the join becomes an equi-join.
+
+   `select distinct` in that CTE is load-bearing, not tidiness. Production has
+   families whose farq_spec_id equals their own lower(category) or
+   lower(subcategory) — 30 of each were found. Without `distinct` those families
+   would match a specialty twice and duplicate a pair the OR form emitted once,
+   which would change jsonb_agg array lengths downstream. With it, a specialty
+   string equals at most one key per family, so every qualifying pair is produced
+   exactly once and the left join to category_map multiplies rows identically.
+
+2. A deterministic tie-break on the `distinct on (supplier_id, item_id)` inside
+   `strongest_unfiltered`. Its ORDER BY ended at observed_at, so two specialty
+   rows tying on status, confidence AND observed_at left the surviving evidence
+   row decided by join order. This is a latent defect that predates the patch:
+   any plan change could have altered those excerpts. It is included here because
+   the rewrite cannot be proven identical while it stands — without it the rewrite
+   moves 3 excerpts, which would read as a regression it did not cause.
+
+MEASURED, ON THIS REVISION
+Speed — the five supplier windows an 80-line booklet issues:
+  window 1  189 rows  6529 ms -> 814 ms
+  window 2  134 rows  5281 ms -> 791 ms
+  window 3  172 rows  5582 ms -> 854 ms
+  window 4  203 rows  5458 ms -> 841 ms
+  window 5  129 rows  1172 ms -> 699 ms
+  total SQL  24.02 s -> 4.00 s  (6.01x), every window byte-identical.
+
+Blast radius — the query text is one string and every consumer reaches it, so all
+of them were compared, not the one that motivated the change. 51 call shapes were
+captured from this revision's own code: 11 item groups (including the families
+whose farq_spec_id equals their own lower(category)/lower(subcategory), and the
+groups that reach every veto branch inside the rewritten CTE) x 5 caller shapes
+(the booklet path with coverage preserved and 12 candidates per family; the
+/suppliers/match page path at 3; the include_inferred variant the send gates use;
+and the spare-parts path).
+
+  Join rewrite, against pristine + the same tie-break:
+    51 of 51 shapes BYTE-IDENTICAL across 16,593 supplier rows — same columns,
+    same row order as the query produced it, same match_evidence arrays.
+
+  Whole patch, against what production runs today:
+    6 supplier rows of 16,593 differ, in `evidence_excerpt` ALONE.
+    Zero change to (item_id, status, confidence), matched_item_ids, evidence
+    grades, match scores, coverage counts or supplier ordering.
+    Those 6 are rows where two evidence candidates tie on status, confidence and
+    observed_at; the excerpt shown becomes the stable one of two equally valid
+    strings rather than whichever the planner happened to feed first.
+
+TESTS, on this revision
+Measured pristine vs patched, same machine, same database:
+  all construction suites   666 pass / 14 fail  BEFORE
+                            666 pass / 14 fail  AFTER
+  Identical totals and an identical list of failing suites — no test changed
+  state. The 14 are pre-existing and unrelated (migration-file text assertions,
+  ontology data, supplier_category_map confidences, extraction benchmark, inbox).
+
+The eight suites that actually reach this query all pass on the patched revision:
+  boq-catalog-matching 9, boq-directory-matching 15, boq-recovery 3,
+  boq-supplier-coverage-sql 1, platform-contracts 12, registry-file-search 8,
+  supplier-discovery 12, write-role-gates 6.
+
+diff --git a/api/lib/construction/supabase-repository.js b/api/lib/construction/supabase-repository.js
+index 78c657066..1a7288e03 100755
+--- a/api/lib/construction/supabase-repository.js
++++ b/api/lib/construction/supabase-repository.js
+@@ -1640,6 +1640,31 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+           join construction.suppliers supplier on supplier.id=specialty.supplier_id and supplier.active=true
+           where specialty.active=true and specialty.confidence >= 0.85
+             and lower(specialty.specialty_id) <> 'general-supply'
++        ), requested_specialty_keys as (
++          /*
++           * The three specialty spellings a requested family answers to, as one
++           * hashable column. taxonomy_candidates used to express this as an OR
++           * of three equalities, which Postgres cannot hash: it nested-looped
++           * the whole supplier_specialties CTE once per requested family. For
++           * the five windows an 80-line booklet issues, that was 24.02s of SQL
++           * against 4.00s here for byte-identical rows.
++           *
++           * distinct is what makes the row counts identical rather than merely
++           * similar. Production has families whose farq_spec_id equals their own
++           * lower(category) or lower(subcategory); without it those families
++           * would match a specialty twice and duplicate the pair the OR form
++           * emitted once. With it, a specialty string equals at most one key per
++           * family, so every qualifying pair is produced exactly once — and the
++           * left join to category_map below multiplies rows the same way in both
++           * forms.
++           */
++          select distinct item_id, key from (
++            select id as item_id, farq_spec_id as key from requested
++            union all
++            select id, lower(subcategory) from requested where subcategory is not null
++            union all
++            select id, lower(category) from requested
++          ) spellings
+         ), capability_candidates as (
+           select
+             capability.supplier_id, capability.item_id, capability.match_status,
+@@ -1673,9 +1698,8 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+             specialties.source_observed_at as observed_at,
+             requested.farq_spec_id
+           from supplier_specialties specialties
+-          join requested on specialties.specialty = requested.farq_spec_id
+-            or (requested.subcategory is not null and specialties.specialty = lower(requested.subcategory))
+-            or specialties.specialty = lower(requested.category)
++          join requested_specialty_keys spelling on spelling.key = specialties.specialty
++          join requested on requested.id = spelling.item_id
+           left join category_map on category_map.category in (
+             requested.farq_spec_id, lower(coalesce(requested.subcategory, '')), lower(requested.category)
+           )
+@@ -1901,7 +1925,12 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+               when 'SPECIALTY_INFERRED' then 1
+               else 0
+             end desc,
+-            candidate.confidence desc, candidate.observed_at desc
++            candidate.confidence desc, candidate.observed_at desc,
++            -- Two specialty rows can tie on status, confidence and observed_at,
++            -- which left the surviving evidence row's excerpt decided by join
++            -- order. Break the tie on the evidence's own identity so the winner
++            -- is stable no matter how the planner feeds this CTE.
++            candidate.evidence_kind, candidate.evidence_excerpt, candidate.evidence_url
+         ), coverage_ranked as (
+           select candidate.*, row_number() over (
+             partition by candidate.item_id

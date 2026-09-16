@@ -8,7 +8,14 @@ import {
   type SupplierImportOutcome,
   type SupplierImportResult,
 } from '../api/constructionClient'
-import { parseSupplierCsv, supplierCsvTemplate, SupplierCsvError } from '../lib/supplierImportCsv'
+import { parseSupplierCsv, supplierCsvTemplate } from '../lib/supplierImportCsv'
+import { SupplierSheetError, type SupplierSheetParse } from '../lib/supplierImportSheet'
+import {
+  isExcelFilename,
+  isLegacyExcelFilename,
+  readSupplierWorkbook,
+  type SupplierWorkbook,
+} from '../lib/supplierImportExcel'
 import { UploadIcon, XIcon } from '../icons'
 
 /**
@@ -63,46 +70,89 @@ export function SupplierImportModal({
   const [preview, setPreview] = useState<SupplierImportResult | null>(null)
   const [result, setResult] = useState<SupplierImportResult | null>(null)
   const [unreadable, setUnreadable] = useState<number[]>([])
+  const [workbook, setWorkbook] = useState<SupplierWorkbook | null>(null)
+  const [headerRow, setHeaderRow] = useState(1)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const readFile = useCallback(async (file: File) => {
-    setBusy(true)
-    setError(null)
-    try {
-      if (/\.xlsx?$/i.test(file.name)) {
-        throw new SupplierCsvError(
-          'ملفات Excel غير مدعومة هنا بعد. افتح الملف في Excel ثم «حفظ باسم» ← CSV UTF-8، وارفعه.',
-        )
-      }
-      const parsed = parseSupplierCsv(await file.text())
-      const mapped: SupplierImportInput[] = parsed.rows.map((row) => ({
-        name_ar: row.name_ar || row.name_en,
-        name_en: row.name_en || undefined,
-        city: row.city || undefined,
-        email: row.email || undefined,
-        whatsapp: row.whatsapp || undefined,
-        contact_name: row.contact_name || undefined,
-        supplied_items: row.supplied_items || undefined,
-        cr_number: row.cr_number || undefined,
-      }))
-      setFilename(file.name)
-      setLabel((current) => current || file.name.replace(/\.[^.]+$/, ''))
-      setRows(mapped)
-      setUnreadable(parsed.unreadableRowNumbers)
-      // Only the first chunk is previewed when a file exceeds the server cap;
-      // saying so is better than silently planning part of the file.
-      const plan = await dryRunSupplierImport(mapped.slice(0, SUPPLIER_IMPORT_CHUNK), {
-        filename: file.name,
-        label: file.name.replace(/\.[^.]+$/, ''),
-      })
-      setPreview(plan)
-      setStage('PREVIEW')
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'تعذّر قراءة الملف.')
-    } finally {
-      setBusy(false)
-    }
+  /** Map a parsed sheet onto the API shape and ask what it would do. */
+  const planParse = useCallback(async (parsed: SupplierSheetParse, name: string) => {
+    const mapped: SupplierImportInput[] = parsed.rows.map((row) => ({
+      // The line the owner sees in Excel, so «صف 7» in a rejection points there.
+      row_number: row.rowNumber,
+      name_ar: row.name_ar || row.name_en,
+      name_en: row.name_en || undefined,
+      city: row.city || undefined,
+      email: row.email || undefined,
+      whatsapp: row.whatsapp || undefined,
+      contact_name: row.contact_name || undefined,
+      supplied_items: row.supplied_items || undefined,
+      cr_number: row.cr_number || undefined,
+    }))
+    const batchLabel = name.replace(/\.[^.]+$/, '')
+    setFilename(name)
+    setLabel((current) => current || batchLabel)
+    setRows(mapped)
+    setUnreadable(parsed.unreadableRowNumbers)
+    setHeaderRow(parsed.headerRowNumber)
+    // Only the first chunk is previewed when a file exceeds the server cap;
+    // saying so is better than silently planning part of the file.
+    const plan = await dryRunSupplierImport(mapped.slice(0, SUPPLIER_IMPORT_CHUNK), {
+      filename: name,
+      label: batchLabel,
+    })
+    setPreview(plan)
+    setStage('PREVIEW')
   }, [])
+
+  const readFile = useCallback(
+    async (file: File) => {
+      setBusy(true)
+      setError(null)
+      try {
+        if (isLegacyExcelFilename(file.name)) {
+          // read-excel-file handles the XML format only; the 1997 binary one
+          // would fail deep inside the unzip with nothing he could act on.
+          throw new SupplierSheetError(
+            'صيغة ‎.xls‎ القديمة غير مدعومة. افتح الملف في Excel ثم «حفظ باسم» ← ‎.xlsx‎ وارفعه.',
+          )
+        }
+        if (isExcelFilename(file.name)) {
+          const book = await readSupplierWorkbook(file)
+          setWorkbook(book)
+          await planParse(book.sheets[book.selected]!.parse!, file.name)
+          return
+        }
+        setWorkbook(null)
+        await planParse(parseSupplierCsv(await file.text()), file.name)
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'تعذّر قراءة الملف.')
+      } finally {
+        setBusy(false)
+      }
+    },
+    [planParse],
+  )
+
+  /** Re-plan from another tab of the workbook already in memory. */
+  const chooseSheet = useCallback(
+    async (position: number) => {
+      if (!workbook) return
+      const index = workbook.sheets.findIndex((sheet) => sheet.position === position)
+      const sheet = workbook.sheets[index]
+      if (!sheet?.parse) return
+      setBusy(true)
+      setError(null)
+      try {
+        setWorkbook({ ...workbook, selected: index })
+        await planParse(sheet.parse, filename)
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'تعذّر قراءة الورقة.')
+      } finally {
+        setBusy(false)
+      }
+    },
+    [workbook, filename, planParse],
+  )
 
   const commit = useCallback(async () => {
     setBusy(true)
@@ -153,7 +203,7 @@ export function SupplierImportModal({
             <h2 className="text-lg font-black text-[#0D1F1D]">رفع قائمة موردين</h2>
             <p className="text-[11px] text-neutral-400 mt-0.5">
               {stage === 'PICK'
-                ? 'ملف CSV — سنعرض ما سيحدث قبل الحفظ'
+                ? 'ملف Excel أو CSV — سنعرض ما سيحدث قبل الحفظ'
                 : stage === 'PREVIEW'
                   ? 'معاينة فقط — لم يُحفظ أي شيء بعد'
                   : 'تم الحفظ'}
@@ -180,16 +230,16 @@ export function SupplierImportModal({
               >
                 <UploadIcon className="w-6 h-6 text-[#123F3A]" />
                 <span className="font-bold text-sm text-[#0D1F1D]">
-                  {busy ? 'جارٍ القراءة…' : 'اختر ملف CSV'}
+                  {busy ? 'جارٍ القراءة…' : 'اختر ملف Excel أو CSV'}
                 </span>
                 <span className="text-[11px] text-neutral-400">
-                  يدعم العربية وترميز UTF-8 وفواصل «,» و«؛»
+                  ‎.xlsx‎ مباشرةً، أو CSV بالعربية وترميز UTF-8 وفواصل «,» و«؛»
                 </span>
               </button>
               <input
                 ref={fileInput}
                 type="file"
-                accept=".csv,text/csv,.tsv,.xlsx,.xls"
+                accept=".xlsx,.csv,text/csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="hidden"
                 onChange={(event) => {
                   const file = event.target.files?.[0]
@@ -228,9 +278,46 @@ export function SupplierImportModal({
                 ))}
               </div>
 
+              {workbook && (
+                <div className="rounded-2xl border border-neutral-100 bg-neutral-50 px-4 py-3 space-y-2">
+                  <div className="text-[11px] text-neutral-600 leading-relaxed">
+                    قرأنا الورقة{' '}
+                    <span className="font-black text-[#0D1F1D]">
+                      «{workbook.sheets[workbook.selected]!.name}»
+                    </span>
+                    {workbook.sheets.length > 1 && <> من أصل {workbook.sheets.length} أوراق في الملف</>}
+                    {headerRow > 1 && <> — صف العناوين هو الصف {headerRow}</>}. أرقام الصفوف أدناه هي
+                    نفسها التي تراها في Excel.
+                  </div>
+                  {workbook.sheets.length > 1 && stage === 'PREVIEW' && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {workbook.sheets.map((sheet, index) => (
+                        <button
+                          key={sheet.position}
+                          disabled={!sheet.parse || busy}
+                          onClick={() => void chooseSheet(sheet.position)}
+                          title={sheet.error || undefined}
+                          className={`text-[10px] px-2 py-1 rounded-full font-bold transition-colors ${
+                            index === workbook.selected
+                              ? 'bg-[#123F3A] text-white'
+                              : sheet.parse
+                                ? 'bg-white border border-neutral-200 text-neutral-600 hover:border-[#123F3A]/40'
+                                : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {sheet.name}
+                          {!sheet.parse && ' — لا موردين'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="text-[11px] text-neutral-500">
-                قرأنا {rows.length.toLocaleString('ar-SA')} صفًا من «{filename}». المطابقة تتم مقابل كل
-                موردي حسابك، بعد توحيد الهمزة والألف والتاء المربوطة في الأسماء.
+                قرأنا {rows.length.toLocaleString('ar-SA')} صفًا من «{filename}».
+                {!workbook && headerRow > 1 && <> صف العناوين هو الصف {headerRow}.</>} المطابقة تتم مقابل
+                كل موردي حسابك، بعد توحيد الهمزة والألف والتاء المربوطة في الأسماء.
                 {unreadable.length > 0 && (
                   <span className="text-amber-700 font-semibold">
                     {' '}
@@ -324,6 +411,9 @@ export function SupplierImportModal({
                   setStage('PICK')
                   setPreview(null)
                   setRows([])
+                  setWorkbook(null)
+                  setHeaderRow(1)
+                  setUnreadable([])
                 }}
                 className="px-5 py-3 border border-neutral-200 text-neutral-600 font-semibold rounded-xl hover:bg-neutral-50 transition-colors text-sm"
               >

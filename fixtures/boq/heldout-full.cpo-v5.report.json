@@ -1,0 +1,128 @@
+{
+  "label": "full",
+  "measured_at": "2026-09-16T11:44:08.232Z",
+  "provenance": {
+    "ontology_payload": "/Volumes/Extreme SSD/cunstraction/farqconstraction/src/lib/procurementOntology.data.json",
+    "ontology_version": "cpo-v5",
+    "ontology_payload_sha256_16": "97eb29e8e68a6036",
+    "ontology_fingerprint": null,
+    "repo_payload_sha256_16": "97eb29e8e68a6036",
+    "repo_payload_version_note": "repo tree is cpo-v4 in progress; NOT used for these numbers",
+    "resolver_code_rev": null,
+    "api_code_rev": null,
+    "ai_calls": 0
+  },
+  "set": {
+    "path": "fixtures/boq/heldout-b3-10.full.flat.txt",
+    "lines": 81752
+  },
+  "three_levels": {
+    "A_specific_intent": {
+      "n": 61588,
+      "pct": 75.34
+    },
+    "B_family_resolved": {
+      "n": 17364,
+      "pct": 21.24,
+      "method": {
+        "ontology": 9879,
+        "semantic_recovery": 7485
+      }
+    },
+    "C_true_unknown": {
+      "n": 2800,
+      "pct": 3.42,
+      "metadata": {
+        "ai_eligible": 2800,
+        "rejected": 0
+      }
+    }
+  },
+  "A_confidence_distribution": {
+    "A>=0.9": 61588,
+    "A0.8-0.9": 0,
+    "A<0.8": 0
+  },
+  "top_families_A": [
+    [
+      "cable_accessories",
+      15079
+    ],
+    [
+      "fasteners",
+      10569
+    ],
+    [
+      "switchgear_panels",
+      9170
+    ],
+    [
+      "pipes_fittings",
+      5984
+    ],
+    [
+      "structural_steel",
+      4914
+    ],
+    [
+      "power_cables",
+      4851
+    ],
+    [
+      "lighting",
+      1848
+    ],
+    [
+      "pipe_supports",
+      1756
+    ],
+    [
+      "precast_drainage",
+      1215
+    ],
+    [
+      "structured_cabling",
+      1104
+    ],
+    [
+      "valves",
+      1024
+    ],
+    [
+      "fire_fighting",
+      1008
+    ],
+    [
+      "hvac_equipment",
+      658
+    ],
+    [
+      "paving",
+      504
+    ],
+    [
+      "road_furniture",
+      504
+    ],
+    [
+      "interior_systems",
+      500
+    ],
+    [
+      "racks_enclosures",
+      468
+    ],
+    [
+      "irrigation_systems",
+      306
+    ],
+    [
+      "network_switching",
+      84
+    ],
+    [
+      "floor_tiling",
+      42
+    ]
+  ]
+}

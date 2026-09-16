@@ -25,6 +25,9 @@ const server = await createServer({
   configFile: './vite.config.ts',
   server: { middlewareMode: true },
   appType: 'custom',
+  // stdout must stay parseable: the sibling lanes pipe this straight into
+  // JSON.parse, and Vite otherwise prints config warnings onto it.
+  logLevel: 'silent',
 })
 
 try {

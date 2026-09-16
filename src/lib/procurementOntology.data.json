@@ -1,187 +1,538 @@
 {
-  "version": "cpo-v2",
+  "version": "cpo-v6",
   "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
   "learning": { "promote_after_occurrences": 5 },
-
   "archetypes": {
-    "structural_steel_supplier": { "label_ar": "موردو الحديد الإنشائي", "patterns": ["حديد انشائي", "قطاعات حديد", "فولاذ", "structural steel", "steel sections", "مصنع حديد", "steel stockist", "stockist"] },
-    "metal_trading": { "label_ar": "تجارة المعادن", "patterns": ["تجاره معادن", "معادن", "metal trading", "metals", "steel trading", "steel distributor"] },
-    "rebar_supplier": { "label_ar": "موردو حديد التسليح", "patterns": ["حديد تسليح", "اسياخ حديد", "rebar", "reinforcement steel"] },
-    "ready_mix_supplier": { "label_ar": "الخرسانة الجاهزة", "patterns": ["خرسانه", "خرسانه جاهزه", "ready mix", "readymix", "concrete", "صبه جاهزه", "بلوك"] },
-    "cladding_supplier": { "label_ar": "موردو الكلادينج والتجليد", "patterns": ["كلادينج", "تجليد", "كسوه", "cladding", "الوكبوند", "acp panels", "تلبيس"] },
-    "fitout_contractor": { "label_ar": "مقاولو التشطيبات", "patterns": ["تشطيبات", "تشطيب", "fit out", "fitout", "ديكور", "ديكورات", "interior fit", "اعمال داخليه"] },
-    "joinery_supplier": { "label_ar": "النجارة والأعمال الخشبية", "patterns": ["نجاره", "اعمال خشبيه", "joinery", "carpentry", "اثاث خشبي", "خشب", "mdf"] },
-    "interior_finishing": { "label_ar": "التشطيبات الداخلية", "patterns": ["تشطيبات داخليه", "interior finishing", "جبس", "اسقف مستعاره", "قواطع"] },
-    "paint_only_supplier": { "label_ar": "موردو الدهانات فقط", "patterns": ["دهانات", "دهان", "طلاء", "بويات", "بويه", "paints", "paint", "coatings only"] },
-    "waterproofing_supplier": { "label_ar": "العزل", "patterns": ["عزل", "waterproofing", "ممبرين", "insulation", "عزل مايي", "عزل حراري"] },
-    "flooring_supplier": { "label_ar": "الأرضيات", "patterns": ["ارضيات", "بلاط", "سيراميك", "بورسلان", "flooring", "tiles", "رخام", "marble"] },
-    "general_building_materials": { "label_ar": "مواد البناء العامة", "patterns": ["مواد بناء", "building materials", "مقاولات عامه", "general contracting", "مواد انشاييه"] },
-    "general_trading": { "label_ar": "تجارة عامة", "patterns": ["تجاره عامه", "general trading", "مؤسسه تجاريه", "trading est", "trading company"] },
-    "warehouse_equipment_supplier": { "label_ar": "تجهيزات المستودعات", "patterns": ["رفوف", "مستودعات", "racking", "shelving", "storage systems", "warehouse", "تخزين"] },
-    "material_handling_supplier": { "label_ar": "معدات المناولة", "patterns": ["مناوله", "رافعات شوكيه", "forklift", "material handling", "معدات مناوله", "pallet truck"] },
-    "lifting_equipment_supplier": { "label_ar": "معدات الرفع", "patterns": ["معدات رفع", "اوناش", "crane", "lifting", "hoist", "سلاسل رفع", "rigging"] },
-    "weighing_supplier": { "label_ar": "الموازين", "patterns": ["ميزان", "موازين", "scales", "weighing", "weighbridge"] },
-    "pump_supplier": { "label_ar": "المضخات", "patterns": ["مضخات", "مضخه", "pumps", "pumping"] },
-    "valve_supplier": { "label_ar": "المحابس والصمامات", "patterns": ["محابس", "صمامات", "valves", "valve"] },
-    "pipe_fittings_supplier": { "label_ar": "المواسير والوصلات", "patterns": ["مواسير", "انابيب", "pipes", "fittings", "وصلات", "piping"] },
-    "water_treatment_supplier": { "label_ar": "معالجة المياه", "patterns": ["معالجه مياه", "تحليه", "water treatment", "فلاتر مياه", "reverse osmosis"] },
-    "hvac_supplier": { "label_ar": "التكييف والتهوية", "patterns": ["تكييف", "تهويه", "hvac", "تبريد", "air conditioning", "chiller", "ventilation"] },
-    "plumbing_only_supplier": { "label_ar": "السباكة فقط", "patterns": ["سباكه", "plumbing", "اعمال صحيه"] },
-    "sanitary_ware_supplier": { "label_ar": "الأدوات الصحية", "patterns": ["ادوات صحيه", "اطقم حمامات", "sanitary ware", "خلاطات", "مغاسل"] },
-    "fire_fighting_supplier": { "label_ar": "مكافحة الحريق", "patterns": ["مكافحه الحريق", "اطفاء", "fire fighting", "fire protection", "حريق", "طفايات", "sprinkler"] },
-    "fire_alarm_supplier": { "label_ar": "أنظمة إنذار الحريق", "patterns": ["انذار", "fire alarm", "كشف الحريق", "انظمه انذار", "detection systems"] },
-    "electrical_distributor": { "label_ar": "موزعو المواد الكهربائية", "patterns": ["مواد كهرباييه", "كهرباييه", "electrical", "كهرباء", "electric supplies", "electrical distribution"] },
-    "switchgear_supplier": { "label_ar": "لوحات التوزيع", "patterns": ["لوحات كهرباييه", "switchgear", "لوحات توزيع", "panel boards", "mdb", "mcc"] },
-    "cable_supplier": { "label_ar": "الكابلات", "patterns": ["كابلات", "كيابل", "cables", "اسلاك", "wires", "wiring"] },
-    "generator_supplier": { "label_ar": "المولدات", "patterns": ["مولدات", "generators", "genset", "مولدات ديزل", "diesel generator"] },
-    "ups_supplier": { "label_ar": "أنظمة الطاقة الاحتياطية", "patterns": ["ups", "انظمه طاقه", "بطاريات", "batteries", "power systems", "طاقه احتياطيه", "power protection"] },
-    "lighting_supplier": { "label_ar": "الإنارة", "patterns": ["اناره", "اضاءه", "lighting", "مصابيح", "led lighting", "luminaire"] },
-    "transformer_supplier": { "label_ar": "المحولات", "patterns": ["محولات", "transformers", "transformer"] },
-    "safety_equipment_supplier": { "label_ar": "معدات السلامة", "patterns": ["سلامه", "safety", "مهمات سلامه", "وقايه", "معدات سلامه", "safety equipment", "industrial safety"] },
-    "ppe_supplier": { "label_ar": "مهمات الوقاية الشخصية", "patterns": ["مهمات وقايه", "ppe", "personal protective", "ملابس عمل", "workwear", "احذيه سلامه", "قفازات"] },
-    "industrial_tools_supplier": { "label_ar": "العدد والأدوات الصناعية", "patterns": ["عدد وادوات", "ادوات", "tools", "hardware", "معدات صناعيه", "industrial supplies", "toolings"] },
-    "welding_supplier": { "label_ar": "اللحام", "patterns": ["لحام", "welding", "الكترودات", "electrodes", "welding supplies"] },
-    "gas_equipment_supplier": { "label_ar": "الغازات ومعداتها", "patterns": ["غازات", "gases", "اسطوانات", "cylinders", "اكسجين", "oxygen", "acetylene"] },
-    "cleaning_equipment_supplier": { "label_ar": "معدات النظافة", "patterns": ["نظافه", "cleaning", "تنظيف", "غسالات ضغط", "cleaning equipment"] },
-    "instrumentation_supplier": { "label_ar": "أجهزة القياس والمعايرة", "patterns": ["اجهزه قياس", "قياس", "instruments", "instrumentation", "معايره", "calibration", "اجهزه فحص", "test equipment"] },
-    "data_center_integrator": { "label_ar": "مكاملو مراكز البيانات", "patterns": ["مراكز البيانات", "data center", "datacenter", "حلول مراكز بيانات", "dc solutions"] },
-    "cybersecurity_integrator": { "label_ar": "مكاملو الأمن السيبراني", "patterns": ["امن سيبراني", "cybersecurity", "cyber security", "امن معلومات", "information security", "infosec"] },
-    "network_integrator": { "label_ar": "مكاملو الشبكات", "patterns": ["شبكات", "networks", "networking", "اتصالات", "telecom", "حلول شبكات", "تيار خفيف"] },
-    "it_hardware_supplier": { "label_ar": "موردو أجهزة الحاسب", "patterns": ["حاسب", "كمبيوتر", "computers", "تقنيه المعلومات", "information technology", "اجهزه حاسب", "خوادم", "servers", "storage", "it solutions"] },
-    "cctv_security_supplier": { "label_ar": "أنظمة المراقبة", "patterns": ["مراقبه", "كاميرات", "cctv", "surveillance", "انظمه امنيه", "security systems"] },
-    "access_control_supplier": { "label_ar": "أنظمة التحكم بالدخول", "patterns": ["تحكم بالدخول", "access control", "بوابات", "انظمه دخول", "turnstile"] },
-    "av_supplier": { "label_ar": "الصوتيات والمرئيات", "patterns": ["صوتيات", "audio visual", "شاشات عرض", "display systems"] },
-    "printing_supplier": { "label_ar": "الطباعة والترقيم", "patterns": ["طباعه", "printing", "ملصقات", "labels", "barcode", "ترقيم"] }
+    "structural_steel_supplier": {
+      "label_ar": "موردو الحديد الإنشائي",
+      "patterns": ["حديد انشائي", "قطاعات حديد", "فولاذ", "structural steel", "steel sections", "مصنع حديد", "steel stockist", "stockist"]
+    },
+    "metal_trading": {
+      "label_ar": "تجارة المعادن",
+      "patterns": ["تجاره معادن", "معادن", "metal trading", "metals", "steel trading", "steel distributor"]
+    },
+    "rebar_supplier": {
+      "label_ar": "موردو حديد التسليح",
+      "patterns": ["حديد تسليح", "اسياخ حديد", "rebar", "reinforcement steel"]
+    },
+    "ready_mix_supplier": {
+      "label_ar": "الخرسانة الجاهزة",
+      "patterns": ["خرسانه", "خرسانه جاهزه", "ready mix", "readymix", "concrete", "صبه جاهزه", "بلوك"]
+    },
+    "cladding_supplier": {
+      "label_ar": "موردو الكلادينج والتجليد",
+      "patterns": ["كلادينج", "تجليد", "كسوه", "cladding", "الوكبوند", "acp panels", "تلبيس"]
+    },
+    "fitout_contractor": {
+      "label_ar": "مقاولو التشطيبات",
+      "patterns": ["تشطيبات", "تشطيب", "fit out", "fitout", "ديكور", "ديكورات", "interior fit", "اعمال داخليه"]
+    },
+    "joinery_supplier": {
+      "label_ar": "النجارة والأعمال الخشبية",
+      "patterns": ["نجاره", "اعمال خشبيه", "joinery", "carpentry", "اثاث خشبي", "خشب", "mdf"]
+    },
+    "interior_finishing": {
+      "label_ar": "التشطيبات الداخلية",
+      "patterns": ["تشطيبات داخليه", "interior finishing", "جبس", "اسقف مستعاره", "قواطع"]
+    },
+    "paint_only_supplier": {
+      "label_ar": "موردو الدهانات فقط",
+      "patterns": ["دهانات", "دهان", "طلاء", "بويات", "بويه", "paints", "paint", "coatings only"]
+    },
+    "waterproofing_supplier": {
+      "label_ar": "العزل",
+      "patterns": ["عزل", "waterproofing", "ممبرين", "insulation", "عزل مايي", "عزل حراري"]
+    },
+    "flooring_supplier": {
+      "label_ar": "الأرضيات",
+      "patterns": ["ارضيات", "بلاط", "سيراميك", "بورسلان", "flooring", "tiles", "رخام", "marble"]
+    },
+    "general_building_materials": {
+      "label_ar": "مواد البناء العامة",
+      "patterns": ["مواد بناء", "building materials", "مقاولات عامه", "general contracting", "مواد انشاييه"]
+    },
+    "general_trading": {
+      "label_ar": "تجارة عامة",
+      "patterns": ["تجاره عامه", "general trading", "مؤسسه تجاريه", "trading est", "trading company"]
+    },
+    "warehouse_equipment_supplier": {
+      "label_ar": "تجهيزات المستودعات",
+      "patterns": ["رفوف", "مستودعات", "racking", "shelving", "storage systems", "warehouse", "تخزين"]
+    },
+    "material_handling_supplier": {
+      "label_ar": "معدات المناولة",
+      "patterns": ["مناوله", "رافعات شوكيه", "forklift", "material handling", "معدات مناوله", "pallet truck"]
+    },
+    "lifting_equipment_supplier": {
+      "label_ar": "معدات الرفع",
+      "patterns": ["معدات رفع", "اوناش", "crane", "lifting", "hoist", "سلاسل رفع", "rigging"]
+    },
+    "weighing_supplier": {
+      "label_ar": "الموازين",
+      "patterns": ["ميزان", "موازين", "scales", "weighing", "weighbridge"]
+    },
+    "pump_supplier": {
+      "label_ar": "المضخات",
+      "patterns": ["مضخات", "مضخه", "pumps", "pumping"]
+    },
+    "valve_supplier": {
+      "label_ar": "المحابس والصمامات",
+      "patterns": ["محابس", "صمامات", "valves", "valve"]
+    },
+    "pipe_fittings_supplier": {
+      "label_ar": "المواسير والوصلات",
+      "patterns": ["مواسير", "انابيب", "pipes", "fittings", "وصلات", "piping"]
+    },
+    "water_treatment_supplier": {
+      "label_ar": "معالجة المياه",
+      "patterns": ["معالجه مياه", "تحليه", "water treatment", "فلاتر مياه", "reverse osmosis"]
+    },
+    "hvac_supplier": {
+      "label_ar": "التكييف والتهوية",
+      "patterns": ["تكييف", "تهويه", "hvac", "تبريد", "air conditioning", "chiller", "ventilation"]
+    },
+    "plumbing_only_supplier": {
+      "label_ar": "السباكة فقط",
+      "patterns": ["سباكه", "plumbing", "اعمال صحيه"]
+    },
+    "sanitary_ware_supplier": {
+      "label_ar": "الأدوات الصحية",
+      "patterns": ["ادوات صحيه", "اطقم حمامات", "sanitary ware", "خلاطات", "مغاسل"]
+    },
+    "fire_fighting_supplier": {
+      "label_ar": "مكافحة الحريق",
+      "patterns": ["مكافحه الحريق", "اطفاء", "fire fighting", "fire protection", "حريق", "طفايات", "sprinkler"]
+    },
+    "fire_alarm_supplier": {
+      "label_ar": "أنظمة إنذار الحريق",
+      "patterns": ["انذار", "fire alarm", "كشف الحريق", "انظمه انذار", "detection systems"]
+    },
+    "electrical_distributor": {
+      "label_ar": "موزعو المواد الكهربائية",
+      "patterns": ["مواد كهرباييه", "كهرباييه", "electrical", "كهرباء", "electric supplies", "electrical distribution"]
+    },
+    "switchgear_supplier": {
+      "label_ar": "لوحات التوزيع",
+      "patterns": ["لوحات كهرباييه", "switchgear", "لوحات توزيع", "panel boards", "mdb", "mcc"]
+    },
+    "cable_supplier": {
+      "label_ar": "الكابلات",
+      "patterns": ["كابلات", "كيابل", "cables", "اسلاك", "wires", "wiring"]
+    },
+    "generator_supplier": {
+      "label_ar": "المولدات",
+      "patterns": ["مولدات", "generators", "genset", "مولدات ديزل", "diesel generator"]
+    },
+    "ups_supplier": {
+      "label_ar": "أنظمة الطاقة الاحتياطية",
+      "patterns": ["ups", "انظمه طاقه", "بطاريات", "batteries", "power systems", "طاقه احتياطيه", "power protection"]
+    },
+    "lighting_supplier": {
+      "label_ar": "الإنارة",
+      "patterns": ["اناره", "اضاءه", "lighting", "مصابيح", "led lighting", "luminaire"]
+    },
+    "transformer_supplier": {
+      "label_ar": "المحولات",
+      "patterns": ["محولات", "transformers", "transformer"]
+    },
+    "safety_equipment_supplier": {
+      "label_ar": "معدات السلامة",
+      "patterns": ["سلامه", "safety", "مهمات سلامه", "وقايه", "معدات سلامه", "safety equipment", "industrial safety"]
+    },
+    "ppe_supplier": {
+      "label_ar": "مهمات الوقاية الشخصية",
+      "patterns": ["مهمات وقايه", "ppe", "personal protective", "ملابس عمل", "workwear", "احذيه سلامه", "قفازات"]
+    },
+    "industrial_tools_supplier": {
+      "label_ar": "العدد والأدوات الصناعية",
+      "patterns": ["عدد وادوات", "ادوات", "tools", "hardware", "معدات صناعيه", "industrial supplies", "toolings"]
+    },
+    "welding_supplier": {
+      "label_ar": "اللحام",
+      "patterns": ["لحام", "welding", "الكترودات", "electrodes", "welding supplies"]
+    },
+    "gas_equipment_supplier": {
+      "label_ar": "الغازات ومعداتها",
+      "patterns": ["غازات", "gases", "اسطوانات", "cylinders", "اكسجين", "oxygen", "acetylene"]
+    },
+    "cleaning_equipment_supplier": {
+      "label_ar": "معدات النظافة",
+      "patterns": ["نظافه", "cleaning", "تنظيف", "غسالات ضغط", "cleaning equipment"]
+    },
+    "instrumentation_supplier": {
+      "label_ar": "أجهزة القياس والمعايرة",
+      "patterns": ["اجهزه قياس", "قياس", "instruments", "instrumentation", "معايره", "calibration", "اجهزه فحص", "test equipment"]
+    },
+    "data_center_integrator": {
+      "label_ar": "مكاملو مراكز البيانات",
+      "patterns": ["مراكز البيانات", "data center", "datacenter", "حلول مراكز بيانات", "dc solutions"]
+    },
+    "cybersecurity_integrator": {
+      "label_ar": "مكاملو الأمن السيبراني",
+      "patterns": ["امن سيبراني", "cybersecurity", "cyber security", "امن معلومات", "information security", "infosec"]
+    },
+    "network_integrator": {
+      "label_ar": "مكاملو الشبكات",
+      "patterns": ["شبكات", "networks", "networking", "اتصالات", "telecom", "حلول شبكات", "تيار خفيف"]
+    },
+    "it_hardware_supplier": {
+      "label_ar": "موردو أجهزة الحاسب",
+      "patterns": ["حاسب", "كمبيوتر", "computers", "تقنيه المعلومات", "information technology", "اجهزه حاسب", "خوادم", "servers", "storage", "it solutions"]
+    },
+    "cctv_security_supplier": {
+      "label_ar": "أنظمة المراقبة",
+      "patterns": ["مراقبه", "كاميرات", "cctv", "surveillance", "انظمه امنيه", "security systems"]
+    },
+    "access_control_supplier": {
+      "label_ar": "أنظمة التحكم بالدخول",
+      "patterns": ["تحكم بالدخول", "access control", "بوابات", "انظمه دخول", "turnstile"]
+    },
+    "av_supplier": {
+      "label_ar": "الصوتيات والمرئيات",
+      "patterns": ["صوتيات", "audio visual", "شاشات عرض", "display systems"]
+    },
+    "printing_supplier": {
+      "label_ar": "الطباعة والترقيم",
+      "patterns": ["طباعه", "printing", "ملصقات", "labels", "barcode", "ترقيم"]
+    },
+    "insulation_supplier": {
+      "label_ar": "موردو مواد العزل",
+      "patterns": ["عزل", "insulation", "ارمافليكس", "armaflex", "رockwool", "صوف صخري", "فوم", "foam", "بولي ستايرين", "polystyrene"]
+    },
+    "glass_glazing_supplier": {
+      "label_ar": "موردو الزجاج والواجهات الزجاجية",
+      "patterns": ["زجاج", "glass", "glazing", "مرايا", "سكريت", "securit", "تزجيج"]
+    },
+    "aluminium_supplier": {
+      "label_ar": "موردو الألمنيوم وقطاعات الواجهات",
+      "patterns": ["المنيوم", "الومنيوم", "aluminium", "aluminum", "قطاعات المنيوم", "curtain wall", "واجهات"]
+    },
+    "precast_concrete_supplier": {
+      "label_ar": "موردو الخرسانة مسبقة الصب",
+      "patterns": ["مسبق الصب", "مسبقه الصب", "precast", "بريكاست", "غرف تفتيش", "manhole", "انترلوك"]
+    },
+    "paving_supplier": {
+      "label_ar": "موردو البلاط والرصف",
+      "patterns": ["انترلوك", "interlock", "رصف", "paving", "بردوره", "kerb", "بلاط رصف"]
+    },
+    "geosynthetics_supplier": {
+      "label_ar": "موردو المواد الأرضية الصناعية",
+      "patterns": ["جيوتكستايل", "geotextile", "جيوجريد", "geogrid", "geosynthetic", "geomembrane", "ممبرين ارضي"]
+    },
+    "block_masonry_supplier": {
+      "label_ar": "موردو البلوك ومواد المباني",
+      "patterns": ["بلوك", "block factory", "مصنع بلوك", "طوب", "brick", "مواد بناء"]
+    },
+    "concrete_chemicals_supplier": {
+      "label_ar": "موردو الكيماويات والإضافات الخرسانية",
+      "patterns": ["كيماويات", "chemicals", "اضافات", "admixture", "سيكا", "sika", "mapei", "fosroc", "basf"]
+    },
+    "aggregate_supplier": {
+      "label_ar": "موردو الركام والكسارات",
+      "patterns": ["كساره", "كسارات", "بحص", "ركام", "رمل", "aggregate", "aggregates", "quarry", "crusher", "sand supplier"]
+    },
+    "shade_structure_supplier": {
+      "label_ar": "موردو المظلات والسواتر",
+      "patterns": ["مظلات", "سواتر", "مظلات مواقف", "shade structure", "car park shade", "tensile", "canopy", "برجولات"]
+    },
+    "cement_supplier": {
+      "label_ar": "موردو الأسمنت والمواد الرابطة",
+      "patterns": ["اسمنت", "cement", "مونه", "mortar", "جبس", "بلاستر", "plaster"]
+    },
+    "road_furniture_supplier": {
+      "label_ar": "موردو أثاث ولوحات الطرق",
+      "patterns": ["لوحات مروريه", "traffic sign", "اثاث حضري", "street furniture", "سلامه مروريه", "road safety", "مظلات"]
+    },
+    "irrigation_supplier": {
+      "label_ar": "موردو أنظمة الري والزراعة",
+      "patterns": ["ري", "irrigation", "زراعه", "agriculture", "تنقيط", "مشاتل", "landscape"]
+    },
+    "pipe_support_supplier": {
+      "label_ar": "موردو حوامل ومساند المواسير",
+      "patterns": ["حوامل", "supports", "hangers", "unistrut", "يونيسترت", "مساند"]
+    },
+    "joinery_panel_supplier": {
+      "label_ar": "موردو الأخشاب والألواح",
+      "patterns": ["اخشاب", "خشب", "wood", "timber", "plywood", "ابلاكاش", "mdf", "نجاره", "joinery"]
+    }
   },
-
   "facets": {
-    "dimensions": { "kind": "measure", "label_ar": "الأبعاد", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*x\\s*(\\d+(?:\\.\\d+)?)(?:\\s*x\\s*(\\d+(?:\\.\\d+)?))?" },
-    "section_type": { "kind": "enum", "label_ar": "نوع القطاع", "supplier_pool_affecting": false, "values": {
-      "rhs": ["rhs", "rectangular hollow", "قطاع مستطيل", "مستطيل مجوف"],
-      "shs": ["shs", "square hollow", "قطاع مربع", "مربع مجوف"],
-      "chs": ["chs", "circular hollow", "قطاع دايري", "انبوب دايري"],
-      "ipe": ["ipe", "ipn", "i beam", "i-beam", "كمره", "كمرة"],
-      "heb": ["heb", "hea", "hem", "h beam", "h-beam"],
-      "upn": ["upn", "upe", "channel", "قطاع يو", "قناه"],
-      "angle": ["angle", "زاويه", "زاوية", "equal angle", "قطاع زاويه"],
-      "flat": ["flat bar", "فلات", "شريحه حديد", "بار مسطح"],
-      "round": ["round bar", "حديد دايري", "سيخ دايري"],
-      "plate": ["plate", "لوح حديد", "بليت"]
-    } },
-    "grade": { "kind": "measure", "label_ar": "الدرجة", "supplier_pool_affecting": false, "pattern": "\\b(s235|s275|s355|a36|a572|st37|st52|gr\\s?\\d{2,3}|ss\\s?304l?|ss\\s?316l?|304l?|316l?)\\b" },
-    "finish": { "kind": "enum", "label_ar": "التشطيب", "supplier_pool_affecting": true, "values": {
-      "galvanized": ["مجلفن", "galvanized", "galvanised", "hdg", "gi", "مغلفن"],
-      "painted": ["مدهون", "painted", "powder coated", "مطلي", "دهان فرن"],
-      "black": ["اسود", "black steel", "خام"],
-      "coated": ["coated", "مغلف", "epoxy coated", "pvdf"]
-    } },
-    "length_m": { "kind": "measure", "label_ar": "الطول", "supplier_pool_affecting": false, "pattern": "(?:طول|ارتفاع|length|height)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:م|m|متر)?" },
-    "thickness_mm": { "kind": "measure", "label_ar": "السماكة", "supplier_pool_affecting": false, "pattern": "(?:سماكه|سماكة|thickness)\\s*(\\d+(?:\\.\\d+)?)|(\\d+(?:\\.\\d+)?)\\s*(?:mm|مم)\\b" },
-    "material": { "kind": "enum", "label_ar": "المادة", "supplier_pool_affecting": true, "values": {
-      "stainless": ["ستانلس", "stainless", "ss 304", "ss 316", "316l", "304l"],
-      "cast_iron": ["زهر", "cast iron", "ductile iron", "حديد زهر"],
-      "brass": ["نحاس اصفر", "brass", "bronze", "برونز"],
-      "copper": ["نحاس", "copper", "cu"],
-      "steel": ["حديد", "فولاذ", "steel", "carbon steel"],
-      "aluminium": ["المنيوم", "aluminium", "aluminum", "acp", "الوكبوند"],
-      "pvc": ["pvc", "upvc", "بي في سي"],
-      "polymer": ["pe", "hdpe", "ppr", "ptfe", "epdm", "بولي", "polymer", "nitrile", "نيتريل"],
-      "wood": ["خشب", "mdf", "hpl", "خشبي", "plywood", "ابلكاش"],
-      "gypsum": ["جبس", "gypsum", "جبسم"],
-      "stone": ["حجر", "رخام", "granite", "جرانيت", "marble"],
-      "glass": ["زجاج", "glass", "polycarbonate", "بولي كربونيت"],
-      "concrete": ["خرسانه", "concrete"]
-    } },
-    "surface": { "kind": "enum", "label_ar": "السطح", "supplier_pool_affecting": false, "values": {
-      "column": ["اعمده", "اعمدة", "عمود", "column", "columns", "pillar"],
-      "wall": ["جدار", "جداري", "جدران", "wall", "walls"],
-      "ceiling": ["سقف", "اسقف", "سقفي", "ceiling", "soffit"],
-      "facade": ["واجهه", "واجهات", "facade", "elevation"],
-      "floor": ["ارضيه", "ارضيات", "floor", "flooring"]
-    } },
-    "application": { "kind": "enum", "label_ar": "الاستخدام", "supplier_pool_affecting": true, "values": {
-      "interior": ["داخلي", "داخليه", "interior", "indoor"],
-      "exterior": ["خارجي", "خارجيه", "exterior", "outdoor"],
-      "industrial": ["صناعي", "صناعيه", "industrial", "heavy duty"],
-      "marine": ["بحري", "marine", "offshore"],
-      "hazardous": ["مناطق خطره", "hazardous", "atex", "explosion proof", "مضاد للانفجار"]
-    } },
-    "pump_type": { "kind": "enum", "label_ar": "نوع المضخة", "supplier_pool_affecting": true, "values": {
-      "end_suction": ["end suction", "سحب طرفي"],
-      "vertical_multistage": ["vertical multistage", "multistage", "متعدده المراحل", "عموديه متعدده"],
-      "submersible": ["submersible", "غاطسه", "غاطسة", "dewatering", "نزح"],
-      "sump": ["sump", "حفره", "sump pit"],
-      "sewage": ["sewage", "صرف صحي", "مجاري", "non-clog"],
-      "fire": ["fire pump", "مضخه حريق", "jockey"],
-      "booster": ["booster", "تعزيز", "pressure boosting"],
-      "dosing": ["dosing", "جرعات", "جرعه", "metering pump", "كيماويات"],
-      "circulation": ["circulation", "تدوير", "inline", "circulator"],
-      "diaphragm": ["diaphragm", "غشاييه"],
-      "gear": ["gear pump", "ترسيه"]
-    } },
-    "valve_type": { "kind": "enum", "label_ar": "نوع المحبس", "supplier_pool_affecting": false, "values": {
-      "gate": ["gate valve", "محبس بوابه", "سكينه"],
-      "butterfly": ["butterfly", "فراشه"],
-      "check": ["check valve", "non return", "عدم رجوع", "dual plate"],
-      "globe": ["globe valve", "كرويه خانقه"],
-      "ball": ["ball valve", "محبس كره", "كروي"],
-      "pressure_reducing": ["pressure reducing", "تخفيض ضغط", "prv"],
-      "strainer": ["strainer", "مصفاه", "y-strainer"],
-      "air_release": ["air release", "air vent", "تصريف هواء"],
-      "flexible_joint": ["flexible joint", "وصله مرنه", "expansion joint"],
-      "dismantling": ["dismantling joint", "وصله فك"],
-      "safety_relief": ["relief valve", "safety valve", "محبس امان"]
-    } },
-    "flow_rate": { "kind": "measure", "label_ar": "التصرف", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:m3\\s*/?\\s*(?:hr|h)|م\\s*3\\s*/?\\s*ساعه|gpm|lpm|l\\s*/\\s*h|cfm|cmh)" },
-    "head_pressure": { "kind": "measure", "label_ar": "الضغط/الرفع", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:bar|psi)|pn\\s?(\\d+)" },
-    "diameter": { "kind": "measure", "label_ar": "القطر", "supplier_pool_affecting": false, "pattern": "dn\\s?(\\d+)|(\\d+(?:\\.\\d+)?)\\s*(?:inch|بوصه|بوصة)" },
-    "power_kw": { "kind": "measure", "label_ar": "القدرة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kw|كيلو\\s*واط|hp|حصان)\\b" },
-    "capacity": { "kind": "measure", "label_ar": "السعة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kva|kvar|ah|ton|طن|لتر|ltr|l\\b|م\\s*3|m3|kg|كجم)" },
-    "voltage": { "kind": "measure", "label_ar": "الجهد", "supplier_pool_affecting": true, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kv|vdc|vac|volt)\\b" },
-    "protection_ip": { "kind": "measure", "label_ar": "درجة الحماية", "supplier_pool_affecting": false, "pattern": "\\bip\\s?(\\d{2})\\b" },
-    "data_speed": { "kind": "measure", "label_ar": "السرعة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:gbe|gbps|gb\\s*/\\s*s|mbps|tbps|g\\b)" },
-    "storage_capacity": { "kind": "measure", "label_ar": "سعة التخزين", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:tb|gb|pb)\\b" },
-    "rack_units": { "kind": "measure", "label_ar": "وحدات الرف", "supplier_pool_affecting": false, "pattern": "(?:بارتفاع|ارتفاع|مقاس|height)?\\s*(\\d+)\\s*u\\b" },
-    "range_m": { "kind": "measure", "label_ar": "المدى", "supplier_pool_affecting": false, "pattern": "(?:مدى|بطول|range|بمدي)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:م|m|متر)?" },
-    "accuracy": { "kind": "measure", "label_ar": "الدقة", "supplier_pool_affecting": false, "pattern": "(?:دقه|دقة|accuracy|±)\\s*±?\\s*(\\d+(?:\\.\\d+)?)" },
-    "standard": { "kind": "measure", "label_ar": "المواصفة", "supplier_pool_affecting": true, "pattern": "\\b(en\\s?\\d{2,5}|iec\\s?\\d{3,5}|astm\\s?[a-z]?\\d+|ansi\\s?[a-z0-9.]+|ul\\s?\\/?\\s?fm|nfpa\\s?\\d+|iso\\s?\\d{3,5})\\b" },
-    "protection_class": { "kind": "enum", "label_ar": "فئة الحماية", "supplier_pool_affecting": false, "values": {
-      "arc_flash": ["arc flash", "قوس كهربايي"],
-      "flame_retardant": ["مقاوم للهب", "flame retardant", "fr coverall", "lszh"],
-      "cut_resistant": ["مقاوم للقطع", "cut resistant", "cut level"],
-      "chemical": ["كيمياييه", "chemical resistant", "type 5", "type 6"],
-      "anti_static": ["مضاد للكهرباء الساكنه", "anti static", "esd"],
-      "high_visibility": ["عاليه الوضوح", "high visibility", "hi-vis", "عاكسه", "class 3"]
-    } },
-    "interface": { "kind": "enum", "label_ar": "الواجهة", "supplier_pool_affecting": false, "values": {
-      "usb": ["usb"],
-      "ethernet": ["ethernet", "شبكه", "rj45", "lan"],
-      "wireless": ["wifi", "wireless", "لاسلكي", "bluetooth"],
-      "serial": ["serial", "rs232", "rs485"],
-      "hdmi": ["hdmi", "displayport", "vga"]
-    } },
-    "print_technology": { "kind": "enum", "label_ar": "تقنية الطباعة", "supplier_pool_affecting": true, "values": {
-      "thermal": ["حراريه", "thermal transfer", "direct thermal", "حراري"],
-      "laser": ["ليزر", "laser"],
-      "inkjet": ["نافثه للحبر", "inkjet"],
-      "dye_sublimation": ["dye sublimation", "retransfer", "تصعيد"],
-      "dot_matrix": ["dot matrix", "مصفوفه نقطيه"]
-    } },
-    "camera_form": { "kind": "enum", "label_ar": "شكل الكاميرا", "supplier_pool_affecting": false, "values": {
-      "dome": ["dome", "قبه"],
-      "bullet": ["bullet", "اسطوانيه"],
-      "ptz": ["ptz", "pan tilt zoom", "متحركه"],
-      "fisheye": ["fisheye", "بانوراميه", "360"]
-    } },
-    "resolution_mp": { "kind": "measure", "label_ar": "الدقة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:mp|ميجابكسل|megapixel)" },
-    "credential_type": { "kind": "enum", "label_ar": "نوع بيانات الدخول", "supplier_pool_affecting": false, "values": {
-      "rfid": ["rfid", "mifare", "125khz", "13.56"],
-      "biometric": ["بصمه", "biometric", "fingerprint", "وجه", "face"],
-      "pin": ["pin", "رقم سري", "keypad"],
-      "mobile": ["mobile credential", "ble", "nfc"]
-    } }
+    "dimensions": {
+      "kind": "measure",
+      "label_ar": "الأبعاد",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*x\\s*(\\d+(?:\\.\\d+)?)(?:\\s*x\\s*(\\d+(?:\\.\\d+)?))?"
+    },
+    "section_type": {
+      "kind": "enum",
+      "label_ar": "نوع القطاع",
+      "supplier_pool_affecting": false,
+      "values": {
+        "rhs": ["rhs", "rectangular hollow", "قطاع مستطيل", "مستطيل مجوف"],
+        "shs": ["shs", "square hollow", "قطاع مربع", "مربع مجوف"],
+        "chs": ["chs", "circular hollow", "قطاع دايري", "انبوب دايري"],
+        "ipe": ["ipe", "ipn", "i beam", "i-beam", "كمره", "كمرة"],
+        "heb": ["heb", "hea", "hem", "h beam", "h-beam"],
+        "upn": ["upn", "upe", "channel", "قطاع يو", "قناه"],
+        "angle": ["angle", "زاويه", "زاوية", "equal angle", "قطاع زاويه"],
+        "flat": ["flat bar", "فلات", "شريحه حديد", "بار مسطح"],
+        "round": ["round bar", "حديد دايري", "سيخ دايري"],
+        "plate": ["plate", "لوح حديد", "بليت"]
+      }
+    },
+    "grade": {
+      "kind": "measure",
+      "label_ar": "الدرجة",
+      "supplier_pool_affecting": false,
+      "pattern": "\\b(s235|s275|s355|a36|a572|st37|st52|gr\\s?\\d{2,3}|ss\\s?304l?|ss\\s?316l?|304l?|316l?)\\b"
+    },
+    "finish": {
+      "kind": "enum",
+      "label_ar": "التشطيب",
+      "supplier_pool_affecting": true,
+      "values": {
+        "galvanized": ["مجلفن", "galvanized", "galvanised", "hdg", "gi", "مغلفن"],
+        "painted": ["مدهون", "painted", "powder coated", "مطلي", "دهان فرن"],
+        "black": ["اسود", "black steel", "خام"],
+        "coated": ["coated", "مغلف", "epoxy coated", "pvdf"]
+      }
+    },
+    "length_m": {
+      "kind": "measure",
+      "label_ar": "الطول",
+      "supplier_pool_affecting": false,
+      "pattern": "(?:طول|ارتفاع|length|height)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:م|m|متر)?"
+    },
+    "thickness_mm": {
+      "kind": "measure",
+      "label_ar": "السماكة",
+      "supplier_pool_affecting": false,
+      "pattern": "(?:سماكه|سماكة|thickness)\\s*(\\d+(?:\\.\\d+)?)|(\\d+(?:\\.\\d+)?)\\s*(?:mm|مم)\\b"
+    },
+    "material": {
+      "kind": "enum",
+      "label_ar": "المادة",
+      "supplier_pool_affecting": true,
+      "values": {
+        "stainless": ["ستانلس", "stainless", "ss 304", "ss 316", "316l", "304l"],
+        "cast_iron": ["زهر", "cast iron", "ductile iron", "حديد زهر"],
+        "brass": ["نحاس اصفر", "brass", "bronze", "برونز"],
+        "copper": ["نحاس", "copper", "cu"],
+        "steel": ["حديد", "فولاذ", "steel", "carbon steel"],
+        "aluminium": ["المنيوم", "aluminium", "aluminum", "acp", "الوكبوند"],
+        "pvc": ["pvc", "upvc", "بي في سي"],
+        "polymer": ["pe", "hdpe", "ppr", "ptfe", "epdm", "بولي", "polymer", "nitrile", "نيتريل"],
+        "wood": ["خشب", "mdf", "hpl", "خشبي", "plywood", "ابلكاش"],
+        "gypsum": ["جبس", "gypsum", "جبسم"],
+        "stone": ["حجر", "رخام", "granite", "جرانيت", "marble"],
+        "glass": ["زجاج", "glass", "polycarbonate", "بولي كربونيت"],
+        "concrete": ["خرسانه", "concrete"]
+      }
+    },
+    "surface": {
+      "kind": "enum",
+      "label_ar": "السطح",
+      "supplier_pool_affecting": false,
+      "values": {
+        "column": ["اعمده", "اعمدة", "عمود", "column", "columns", "pillar"],
+        "wall": ["جدار", "جداري", "جدران", "wall", "walls"],
+        "ceiling": ["سقف", "اسقف", "سقفي", "ceiling", "soffit"],
+        "facade": ["واجهه", "واجهات", "facade", "elevation"],
+        "floor": ["ارضيه", "ارضيات", "floor", "flooring"]
+      }
+    },
+    "application": {
+      "kind": "enum",
+      "label_ar": "الاستخدام",
+      "supplier_pool_affecting": true,
+      "values": {
+        "interior": ["داخلي", "داخليه", "interior", "indoor"],
+        "exterior": ["خارجي", "خارجيه", "exterior", "outdoor"],
+        "industrial": ["صناعي", "صناعيه", "industrial", "heavy duty"],
+        "marine": ["بحري", "marine", "offshore"],
+        "hazardous": ["مناطق خطره", "hazardous", "atex", "explosion proof", "مضاد للانفجار"]
+      }
+    },
+    "pump_type": {
+      "kind": "enum",
+      "label_ar": "نوع المضخة",
+      "supplier_pool_affecting": true,
+      "values": {
+        "end_suction": ["end suction", "سحب طرفي"],
+        "vertical_multistage": ["vertical multistage", "multistage", "متعدده المراحل", "عموديه متعدده"],
+        "submersible": ["submersible", "غاطسه", "غاطسة", "dewatering", "نزح"],
+        "sump": ["sump", "حفره", "sump pit"],
+        "sewage": ["sewage", "صرف صحي", "مجاري", "non-clog"],
+        "fire": ["fire pump", "مضخه حريق", "jockey"],
+        "booster": ["booster", "تعزيز", "pressure boosting"],
+        "dosing": ["dosing", "جرعات", "جرعه", "metering pump", "كيماويات"],
+        "circulation": ["circulation", "تدوير", "inline", "circulator"],
+        "diaphragm": ["diaphragm", "غشاييه"],
+        "gear": ["gear pump", "ترسيه"]
+      }
+    },
+    "valve_type": {
+      "kind": "enum",
+      "label_ar": "نوع المحبس",
+      "supplier_pool_affecting": false,
+      "values": {
+        "gate": ["gate valve", "محبس بوابه", "سكينه"],
+        "butterfly": ["butterfly", "فراشه"],
+        "check": ["check valve", "non return", "عدم رجوع", "dual plate"],
+        "globe": ["globe valve", "كرويه خانقه"],
+        "ball": ["ball valve", "محبس كره", "كروي"],
+        "pressure_reducing": ["pressure reducing", "تخفيض ضغط", "prv"],
+        "strainer": ["strainer", "مصفاه", "y-strainer"],
+        "air_release": ["air release", "air vent", "تصريف هواء"],
+        "flexible_joint": ["flexible joint", "وصله مرنه", "expansion joint"],
+        "dismantling": ["dismantling joint", "وصله فك"],
+        "safety_relief": ["relief valve", "safety valve", "محبس امان"]
+      }
+    },
+    "flow_rate": {
+      "kind": "measure",
+      "label_ar": "التصرف",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:m3\\s*/?\\s*(?:hr|h)|م\\s*3\\s*/?\\s*ساعه|gpm|lpm|l\\s*/\\s*h|cfm|cmh)"
+    },
+    "head_pressure": {
+      "kind": "measure",
+      "label_ar": "الضغط/الرفع",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:bar|psi)|pn\\s?(\\d+)"
+    },
+    "diameter": {
+      "kind": "measure",
+      "label_ar": "القطر",
+      "supplier_pool_affecting": false,
+      "pattern": "dn\\s?(\\d+)|(\\d+(?:\\.\\d+)?)\\s*(?:inch|بوصه|بوصة)"
+    },
+    "power_kw": {
+      "kind": "measure",
+      "label_ar": "القدرة",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kw|كيلو\\s*واط|hp|حصان)\\b"
+    },
+    "capacity": {
+      "kind": "measure",
+      "label_ar": "السعة",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kva|kvar|ah|ton|طن|لتر|ltr|l\\b|م\\s*3|m3|kg|كجم)"
+    },
+    "voltage": {
+      "kind": "measure",
+      "label_ar": "الجهد",
+      "supplier_pool_affecting": true,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kv|vdc|vac|volt)\\b"
+    },
+    "protection_ip": {
+      "kind": "measure",
+      "label_ar": "درجة الحماية",
+      "supplier_pool_affecting": false,
+      "pattern": "\\bip\\s?(\\d{2})\\b"
+    },
+    "data_speed": {
+      "kind": "measure",
+      "label_ar": "السرعة",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:gbe|gbps|gb\\s*/\\s*s|mbps|tbps|g\\b)"
+    },
+    "storage_capacity": {
+      "kind": "measure",
+      "label_ar": "سعة التخزين",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:tb|gb|pb)\\b"
+    },
+    "rack_units": {
+      "kind": "measure",
+      "label_ar": "وحدات الرف",
+      "supplier_pool_affecting": false,
+      "pattern": "(?:بارتفاع|ارتفاع|مقاس|height)?\\s*(\\d+)\\s*u\\b"
+    },
+    "range_m": {
+      "kind": "measure",
+      "label_ar": "المدى",
+      "supplier_pool_affecting": false,
+      "pattern": "(?:مدى|بطول|range|بمدي)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:م|m|متر)?"
+    },
+    "accuracy": {
+      "kind": "measure",
+      "label_ar": "الدقة",
+      "supplier_pool_affecting": false,
+      "pattern": "(?:دقه|دقة|accuracy|±)\\s*±?\\s*(\\d+(?:\\.\\d+)?)"
+    },
+    "standard": {
+      "kind": "measure",
+      "label_ar": "المواصفة",
+      "supplier_pool_affecting": true,
+      "pattern": "\\b(en\\s?\\d{2,5}|iec\\s?\\d{3,5}|astm\\s?[a-z]?\\d+|ansi\\s?[a-z0-9.]+|ul\\s?\\/?\\s?fm|nfpa\\s?\\d+|iso\\s?\\d{3,5})\\b"
+    },
+    "protection_class": {
+      "kind": "enum",
+      "label_ar": "فئة الحماية",
+      "supplier_pool_affecting": false,
+      "values": {
+        "arc_flash": ["arc flash", "قوس كهربايي"],
+        "flame_retardant": ["مقاوم للهب", "flame retardant", "fr coverall", "lszh"],
+        "cut_resistant": ["مقاوم للقطع", "cut resistant", "cut level"],
+        "chemical": ["كيمياييه", "chemical resistant", "type 5", "type 6"],
+        "anti_static": ["مضاد للكهرباء الساكنه", "anti static", "esd"],
+        "high_visibility": ["عاليه الوضوح", "high visibility", "hi-vis", "عاكسه", "class 3"]
+      }
+    },
+    "interface": {
+      "kind": "enum",
+      "label_ar": "الواجهة",
+      "supplier_pool_affecting": false,
+      "values": {
+        "usb": ["usb"],
+        "ethernet": ["ethernet", "شبكه", "rj45", "lan"],
+        "wireless": ["wifi", "wireless", "لاسلكي", "bluetooth"],
+        "serial": ["serial", "rs232", "rs485"],
+        "hdmi": ["hdmi", "displayport", "vga"]
+      }
+    },
+    "print_technology": {
+      "kind": "enum",
+      "label_ar": "تقنية الطباعة",
+      "supplier_pool_affecting": true,
+      "values": {
+        "thermal": ["حراريه", "thermal transfer", "direct thermal", "حراري"],
+        "laser": ["ليزر", "laser"],
+        "inkjet": ["نافثه للحبر", "inkjet"],
+        "dye_sublimation": ["dye sublimation", "retransfer", "تصعيد"],
+        "dot_matrix": ["dot matrix", "مصفوفه نقطيه"]
+      }
+    },
+    "camera_form": {
+      "kind": "enum",
+      "label_ar": "شكل الكاميرا",
+      "supplier_pool_affecting": false,
+      "values": {
+        "dome": ["dome", "قبه"],
+        "bullet": ["bullet", "اسطوانيه"],
+        "ptz": ["ptz", "pan tilt zoom", "متحركه"],
+        "fisheye": ["fisheye", "بانوراميه", "360"]
+      }
+    },
+    "resolution_mp": {
+      "kind": "measure",
+      "label_ar": "الدقة",
+      "supplier_pool_affecting": false,
+      "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:mp|ميجابكسل|megapixel)"
+    },
+    "credential_type": {
+      "kind": "enum",
+      "label_ar": "نوع بيانات الدخول",
+      "supplier_pool_affecting": false,
+      "values": {
+        "rfid": ["rfid", "mifare", "125khz", "13.56"],
+        "biometric": ["بصمه", "biometric", "fingerprint", "وجه", "face"],
+        "pin": ["pin", "رقم سري", "keypad"],
+        "mobile": ["mobile credential", "ble", "nfc"]
+      }
+    }
   },
-
   "sectors": {
     "STRUCTURAL_METALS": {
       "domain": "structural",
@@ -262,9 +613,22 @@
       "negative_terms": [],
       "soft_conflicts": ["general_trading", "general_building_materials"],
       "hard_conflicts": ["ready_mix_supplier", "paint_only_supplier", "sanitary_ware_supplier", "plumbing_only_supplier", "rebar_supplier"]
+    },
+    "INFRASTRUCTURE": {
+      "domain": "infrastructure",
+      "context_terms": ["طريق", "طرق", "رصف", "تصريف", "بنيه تحتيه", "infrastructure", "خارجي", "موقع"],
+      "supplier_terms": ["بنيه تحتيه", "طرق", "رصف", "infrastructure"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["cybersecurity_integrator", "it_hardware_supplier", "printing_supplier", "sanitary_ware_supplier"]
+    },
+    "CIVIL_CONCRETE": {
+      "domain": "civil",
+      "context_terms": ["خرسانه", "concrete", "مباني", "اسمنت", "cement", "مونه", "صب"],
+      "supplier_terms": ["مواد بناء", "خرسانه", "اسمنت", "بلوك"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["cybersecurity_integrator", "it_hardware_supplier", "printing_supplier", "ppe_supplier"]
     }
   },
-
   "families": [
     {
       "id": "structural_steel",
@@ -273,6 +637,14 @@
       "strong_terms": ["قطاع حديد", "قطاعات حديد", "حديد انشايي", "فولاذ انشايي", "structural steel", "steel section", "hollow section", "rolled section", "steel profile", "كمره حديد", "زاويه حديد", "rhs", "shs", "chs", "upn", "upe", "ipe", "ipn", "heb", "hea", "rectangular hollow section", "square hollow section", "circular hollow section", "channel section", "angle bar", "flat bar", "قطاع مجوف", "بروفيل حديد"],
       "weak_terms": ["قطاع", "section", "beam", "angle", "channel", "زاويه"],
       "context_terms": ["حديد", "فولاذ", "steel", "s275", "s355", "mill certificate", "مجلفن"],
+      "term_guards": [
+        {
+          "terms": ["قطاع", "section", "beam", "angle", "channel", "زاويه"],
+          "require_any": ["حديد", "فولاذ", "steel", "s235", "s275", "s355", "a36", "mill certificate", "rhs", "shs", "chs", "ipe", "ipn", "heb", "hea", "upn", "upe", "كمره", "انشايي", "بروفيل", "مجوف"],
+          "block_any": ["stud", "track", "جبس", "جبسي", "قواطع جافه", "drywall", "furring", "omega", "سقف معلق", "قطاع اوميغا"],
+          "note": "«قطاع»/«زاويه» name a SHAPE, so they decide only with real structural evidence. A 0.45 mm galvanized drywall stud is a section by shape and a gypsum product by trade — it must never reach a steel stockist."
+        }
+      ],
       "supplier_terms": ["حديد", "فولاذ", "steel", "قطاعات", "معادن"],
       "preferred_archetypes": ["structural_steel_supplier", "metal_trading"],
       "allowed_archetypes": ["general_building_materials", "rebar_supplier"],
@@ -288,8 +660,22 @@
         {
           "id": "steel_sections",
           "label_ar": "القطاعات الحديدية",
-          "strong_terms": ["قطاع حديد", "steel section", "hollow section"],
+          "strong_terms": ["قطاع حديد", "steel section", "hollow section", "قطاعات حديد", "بارد التشكيل", "باردة التشكيل", "cold formed", "cold rolled section"],
           "intents": [
+            {
+              "id": "cold_formed_section",
+              "label_ar": "قطاعات باردة التشكيل",
+              "strong_terms": ["بارد التشكيل", "باردة التشكيل", "قطاع بارد التشكيل", "قطاعات باردة التشكيل", "cold formed section", "cold formed steel", "cold rolled section", "purlin", "مرزب", "مرازب", "c purlin", "z purlin", "قطاع c", "قطاع z", "sigma section", "lipped channel"],
+              "context_terms": ["حديد", "steel", "مجلفن", "galvanized", "سماكه", "thickness", "مم", "mm"],
+              "note": "Cold-formed sections are a DIFFERENT TRADE from hot-rolled structural steel — roll-formers and purlin mills, not steel stockists — and the held-out corpus found the whole steel-structures sector 100% unusable on 4,914 rows of exactly this product, because «قطاعات باردة التشكيل» only ever matched the generic weak «قطاع» and never named a family.",
+              "facets": [
+                { "name": "section_type", "supplier_pool_affecting": false },
+                { "name": "dimensions", "supplier_pool_affecting": false },
+                { "name": "grade", "supplier_pool_affecting": false },
+                { "name": "finish", "supplier_pool_affecting": true },
+                { "name": "length_m", "supplier_pool_affecting": false }
+              ]
+            },
             {
               "id": "structural_steel_section",
               "label_ar": "قطاع حديد إنشائي",
@@ -324,6 +710,13 @@
         { "name": "grade", "supplier_pool_affecting": false },
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "term_guards": [
+        {
+          "terms": ["صاج", "sheet", "plate", "لفايف", "coil"],
+          "block_any": ["enclosure", "لوحه فارغه", "خزانه", "cabinet", "ip54", "ip55", "ip65", "ip66", "rack", "صندوق توزيع", "consumer unit", "busbar"],
+          "note": "An electrical enclosure is MADE OF sheet steel but is not sheet steel; it is bought from a panel builder, not a steel stockist."
+        }
       ]
     },
     {
@@ -333,6 +726,20 @@
       "strong_terms": ["steel grating", "مشبك معدني", "mezzanine grating", "grating panel", "درج معدني", "سلم معدني", "handrail", "درابزين", "ميزانين"],
       "weak_terms": ["grating", "walkway", "mezzanine", "درج", "سلم"],
       "context_terms": ["معدني", "حديد", "steel", "galvanized", "مجلفن", "منصه"],
+      "intents": [
+        {
+          "id": "handrail_balustrade",
+          "label_ar": "الدرابزين والحواجز",
+          "strong_terms": ["درابزين", "درابزينات", "دربزين", "handrail", "hand rail", "balustrade", "بلسترايد", "حاجز حمايه", "حواجز حمايه", "glass balustrade", "درابزين زجاج", "درابزين ستانلس", "stainless handrail", "مقبض درابزين", "wall mounted handrail", "post and rail", "قايم درابزين"],
+          "context_terms": ["ستانلس", "stainless", "زجاج", "glass", "المنيوم", "aluminium", "مجلفن", "galvanized", "مط", "m", "ارتفاع", "سلم", "درج", "شرفه"],
+          "note": "Reached the family through «درابزين» but produced no intent, and a glass balustrade reached nothing at all because `glass` pulled to glazing. Balustrades are a metal-fabrication trade whichever infill they carry.",
+          "facets": [
+            { "name": "material", "supplier_pool_affecting": true },
+            { "name": "finish", "supplier_pool_affecting": false },
+            { "name": "length_m", "supplier_pool_affecting": false }
+          ]
+        }
+      ],
       "supplier_terms": ["معادن", "حديد", "grating"],
       "preferred_archetypes": ["structural_steel_supplier", "metal_trading"],
       "allowed_archetypes": ["warehouse_equipment_supplier", "general_building_materials"],
@@ -355,9 +762,15 @@
       "facets": [
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "grade", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "welded_mesh",
+          "label_ar": "شبك تسليح",
+          "strong_terms": ["شبك تسليح", "شبك ملحوم", "welded mesh", "welded wire mesh", "شبك تسليح ملحوم", "brc mesh", "شبك حديد تسليح"]
+        }
       ]
     },
-
     {
       "id": "sandwich_panel",
       "sector": "BUILDING_ENVELOPE",
@@ -389,13 +802,20 @@
         { "name": "thickness_mm", "supplier_pool_affecting": false },
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "term_guards": [
+        {
+          "terms": ["twinwall", "twin wall", "multiwall", "polycarbonate", "بولي كربونيت", "لوح بولي"],
+          "block_any": ["ماسوره", "مواسير", "conduit", "كهرباء", "emt", "imc", "تمديدات", "cable", "كابل", "drainage", "صرف"],
+          "note": "«Twinwall» describes a twin-walled EXTRUSION, which is polycarbonate roofing sheet in the envelope trade and HDPE conduit in the electrical trade. Exposed once conduit stopped being read as water pipe."
+        }
       ]
     },
     {
       "id": "waterproofing",
       "sector": "BUILDING_ENVELOPE",
       "label_ar": "العزل المائي والحراري",
-      "strong_terms": ["ممبرين", "waterproofing membrane", "tpo", "بيتومين", "bitumen", "عزل مايي", "عزل حراري", "waterproofing", "صوف صخري", "rockwool"],
+      "strong_terms": ["ممبرين", "waterproofing membrane", "tpo", "بيتومين", "bitumen", "عزل مايي", "waterproofing"],
       "weak_terms": ["عزل", "membrane", "insulation"],
       "context_terms": ["سماكه", "مايي", "حراري", "سقف", "اساسات", "roll"],
       "supplier_terms": ["عزل", "waterproofing", "ممبرين"],
@@ -412,9 +832,9 @@
       "id": "industrial_doors",
       "sector": "BUILDING_ENVELOPE",
       "label_ar": "الأبواب والشتر الصناعي",
-      "strong_terms": ["roller shutter", "شتر معدني", "باب صناعي", "industrial door", "sectional door", "باب حريق", "fire door", "shutter door"],
+      "strong_terms": ["roller shutter", "شتر معدني", "باب صناعي", "industrial door", "sectional door", "باب حريق", "fire door", "shutter door", "بوابه مدخل", "بوابات مدخل", "بوابه حديد", "بوابه رييسيه", "entrance gate", "sliding gate", "بوابه سحاب"],
       "weak_terms": ["باب", "ابواب", "door", "بوابه", "شتر"],
-      "context_terms": ["معدني", "motorized", "كهربايي", "صناعي", "حريق", "galvanized", "m x"],
+      "context_terms": ["معدني", "motorized", "كهربايي", "صناعي", "حريق", "galvanized", "m x", "مدخل", "رييسي", "حديد", "سحاب", "منزلق"],
       "supplier_terms": ["ابواب", "doors", "شتر", "معادن"],
       "preferred_archetypes": ["metal_trading", "general_building_materials", "joinery_supplier"],
       "allowed_archetypes": ["structural_steel_supplier", "fitout_contractor", "warehouse_equipment_supplier"],
@@ -423,9 +843,15 @@
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "finish", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "door_hardware",
+          "label_ar": "حديديات أبواب",
+          "strong_terms": ["door closer", "مغلق باب", "door coordinator", "door stop", "مصد باب", "drop seal", "intumescent seal", "kick plate", "حديديات ابواب", "panic bar", "push bar", "مقبض باب", "door handle", "مفصله باب", "lockset", "cylinder lock", "door holder", "flush bolt", "panic exit device", "smoke seal", "اسطوانه قفل", "euro profile cylinder", "mortise lock", "قفل mortise", "مغلاق باب", "floor spring", "مفصله زنبركيه", "double action hinge", "مفصله ستانلس", "ball bearing hinge", "lever handle", "مقبض lever", "باب مغلاق"]
+        }
       ]
     },
-
     {
       "id": "architectural_cladding",
       "sector": "ARCHITECTURAL_FINISHES",
@@ -496,6 +922,13 @@
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "application", "supplier_pool_affecting": true },
         { "name": "capacity", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "primer_coating",
+          "label_ar": "برايمر ودهانات",
+          "strong_terms": ["برايمر", "primer", "دهان اكريليك", "acrylic paint", "دهان ايبوكسي", "epoxy paint", "intumescent paint", "دهان زنك", "zinc rich primer", "دهان بولي يوريثان", "pu paint", "دهان تمهيدي", "طلاء واقي", "دهانات وطلاءات"]
+        }
       ]
     },
     {
@@ -528,6 +961,18 @@
       "facets": [
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "capacity", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "tile_grout_adhesive",
+          "label_ar": "جراوت ولواصق بلاط",
+          "strong_terms": ["جراوت", "grout", "tile grout", "epoxy grout", "جراوت بلاط", "tile adhesive", "لاصق بلاط", "ceramic adhesive", "مونه لاصقه"]
+        },
+        {
+          "id": "construction_sealant",
+          "label_ar": "سيلانت",
+          "strong_terms": ["سيلانت", "sealant", "ms polymer", "silicone sealant", "سيليكون", "polyurethane sealant", "acrylic sealant", "fire rated sealant", "backer rod", "مواد لاصقه وسيلانت"]
+        }
       ]
     },
     {
@@ -545,6 +990,72 @@
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "thickness_mm", "supplier_pool_affecting": false },
         { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "drywall_framing",
+          "label_ar": "قطاعات قواطع جافة",
+          "strong_terms": ["قطاع stud", "قطاع track", "stud مجلفن", "track مجلفن", "c stud", "u track", "drywall stud", "قطاعات قواطع جافه", "furring channel", "omega profile", "قطاع اوميغا", "wall angle", "perimeter channel", "قطاع جبس"]
+        },
+        {
+          "id": "acoustic_ceiling_tile",
+          "label_ar": "بلاطات أسقف",
+          "strong_terms": ["بلاطه سقف", "بلاطات سقف", "ceiling tile", "mineral fiber tile", "الياف معدنيه", "بلاطه سقف الياف معدنيه", "صوف معدني", "mineral wool tile", "mineral fibre tile", "بلاطه سقف جبس", "perforated ceiling tile", "acoustic tile", "سقف مستعار", "tegular edge", "صوف معدني سقف", "لوح اسمنتي", "الواح اسمنتيه", "cement board", "fiber cement board"],
+          "term_guards": [
+            {
+              "terms": ["بلاطه سقف", "بلاطات سقف", "ceiling tile", "سقف مستعار"],
+              "block_any": ["معدني", "معدنيه", "مجلفن", "galvanized", "galvanised", "steel", "المنيوم", "aluminium", "aluminum", "ستانلس", "stainless"],
+              "note": "A METAL CEILING TILE IS A DIFFERENT SUPPLIER — a roll-former, not a mineral-fibre distributor. The material word is the discriminator in every language, so the guard names materials rather than phrasings; the first attempt keyed on «معدني» alone and the defect returned as soon as a batch wrote `Galvanized Steel`."
+            }
+          ]
+        },
+        {
+          "id": "metal_ceiling",
+          "label_ar": "أسقف معدنية",
+          "weak_terms": ["بلاطه سقف", "بلاطات سقف", "ceiling tile", "سقف مستعار"],
+          "term_guards": [
+            {
+              "terms": ["بلاطه سقف", "بلاطات سقف", "ceiling tile", "سقف مستعار"],
+              "block_any": ["الياف معدنيه", "صوف معدني", "mineral fiber", "mineral fibre", "mineral wool", "صوف صخري", "rock wool", "جبس", "gypsum"],
+              "note": "«الياف معدنيه» is MINERAL fibre. Reading «معدنيه» as metal is the mistake this whole round exists to stop, so the metal side declines the tile whenever the material is named as a fibre or a plaster."
+            }
+          ],
+          "strong_terms": ["سقف معدني", "اسقف معدنيه", "metal ceiling", "metal ceiling tile", "بلاطه سقف معدني", "بلاطه سقف معدنيه", "بلاطات سقف معدنيه", "aluminium ceiling", "سقف المنيوم", "اسقف المنيوم", "شرايح المنيوم", "strip ceiling", "linear metal ceiling", "baffle ceiling", "سقف شرايح", "open cell ceiling", "سقف خلوي", "expanded mesh ceiling"],
+          "context_terms": ["معدني", "معدنيه", "مجلفن", "galvanized", "galvanised", "steel", "المنيوم", "aluminium", "aluminum", "ستانلس", "stainless", "مستعار", "معلق", "suspended", "perforated", "مثقب", "600x600", "lay in", "clip in"],
+          "note": "«سقف معدني مستعار» never matched the family's «سقف مستعار» because ARABIC PUTS THE ADJECTIVE BETWEEN THE NOUN AND ITS QUALIFIER, and a two-word phrase term requires the two words to be adjacent. Metal ceilings also genuinely belong to a different supplier — a metal-ceiling roll-former, not a mineral-fibre tile distributor — so they earn an intent of their own rather than a longer alias list on the tile intent.",
+          "facets": [
+            { "name": "dimensions", "supplier_pool_affecting": false },
+            { "name": "finish", "supplier_pool_affecting": true },
+            { "name": "surface", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "gypsum_board",
+          "label_ar": "ألواح الجبس",
+          "strong_terms": ["جبس بورد", "جبسم بورد", "جبسوم بورد", "الواح جبسوم", "لوح جبس", "الواح جبس", "الواح جبسيه", "لوح جبسي", "gypsum board", "plasterboard", "gyproc", "لوح جبس مقاوم للحريق", "fire rated gypsum board", "moisture resistant gypsum", "لوح جبس مقاوم للرطوبه", "لوح جبس مقاوم للماء", "impact resistant board", "لوح جبس صوتي", "acoustic gypsum board"],
+          "context_terms": ["مم", "mm", "م2", "12.5", "15", "9.5", "قواطع", "اسقف", "board", "sheet"],
+          "note": "The family was reached through «جبس» but no intent existed, so a gypsum board could not key a board supplier's pool — the family-right / intent-absent shape that reads as coverage."
+        },
+        {
+          "id": "access_panel",
+          "label_ar": "فتحات صيانة",
+          "strong_terms": ["access panel", "فتحه صيانه", "فتحات صيانه", "inspection hatch", "باب تفتيش", "access hatch"]
+        },
+        {
+          "id": "wall_protection",
+          "label_ar": "حماية حوائط",
+          "strong_terms": ["wall protection", "حمايه حوايط", "wall guard", "corner guard", "حامي زوايا", "crash rail", "bumper rail", "wall cladding sheet vinyl"]
+        },
+        {
+          "id": "toilet_partition",
+          "label_ar": "قواطع دورات مياه",
+          "strong_terms": ["قواطع دورات مياه", "قواطع حمامات", "toilet partition", "cubicle partition", "compact laminate لقواطع", "head rail", "indicator bolt", "gravity hinge", "ملحقات قواطع دورات المياه", "adjustable leg", "u-channel ستانلس", "رجل adjustable"]
+        },
+        {
+          "id": "raised_floor",
+          "label_ar": "أرضيات مرتفعة",
+          "strong_terms": ["ارضيه مرتفعه", "ارضيات مرتفعه", "raised floor", "access floor", "calcium sulphate panel", "steel cementitious panel", "pedestal floor"]
+        }
       ]
     },
     {
@@ -562,15 +1073,45 @@
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "finish", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "resilient_flooring",
+          "label_ar": "أرضيات مرنة",
+          "strong_terms": ["lvt", "بلاطات lvt", "luxury vinyl tile", "vinyl flooring", "homogeneous vinyl", "heterogeneous vinyl", "sheet vinyl", "vinyl sheet", "ارضيات فينيل لفه", "static dissipative", "esd flooring", "conductive flooring", "ارضيات مضاده للكهرباء الساكنه", "safety vinyl", "ارضيات lvt", "spc flooring", "lvt plank", "ارضيات فينيل"]
+        },
+        {
+          "id": "carpet_tile",
+          "label_ar": "موكيت بلاطات",
+          "strong_terms": ["carpet tile", "موكيت بلاطات", "بلاطات موكيت", "loop pile", "cut pile", "level loop", "broadloom carpet", "موكيت"]
+        },
+        {
+          "id": "stone_slab",
+          "label_ar": "أحجار وأسطح",
+          "strong_terms": ["رخام", "جرانيت", "ترافرتين", "marble slab", "granite slab", "travertine", "احجار واسطح", "quartz surface", "كوارتز", "بازلت", "حجر طبيعي"],
+          "term_guards": [
+            {
+              "terms": ["رخام", "جرانيت", "ترافرتين", "marble slab", "granite slab", "travertine", "احجار واسطح", "quartz surface", "كوارتز", "بازلت", "حجر طبيعي"],
+              "blocked_by_head": ["الياف", "fiber", "fibre", "لاصق", "سيلانت", "sealant", "جراوت", "grout", "دهان", "طلاء", "مونه", "منظف", "عزل"],
+              "note": "Stone names the MATERIAL in «ألياف بازلت» and «لاصق رخام»; the product is the fibre and the adhesive."
+            }
+          ]
+        }
       ]
     },
-
     {
       "id": "storage_racking",
       "sector": "WAREHOUSE_LOGISTICS",
       "label_ar": "أنظمة الرفوف والتخزين",
       "strong_terms": ["pallet rack", "pallet racking", "racking system", "rack protector", "shelving bay", "long span shelving", "boltless shelving", "cantilever rack", "cantilever upright", "cantilever arm", "bin storage cabinet", "رفوف تخزين", "رف بالتات", "mezzanine floor", "rack upright", "rack beam"],
       "weak_terms": ["rack", "shelving", "رف", "رفوف", "cantilever", "upright", "beam", "bay", "طبليه", "بالته"],
+      "term_guards": [
+        {
+          "terms": ["cantilever arm", "cantilever", "rack beam", "beam"],
+          "block_any": ["strut", "unistrut", "قناه اسناد", "channel support", "مواسير", "pipe", "hvac", "تكييف"],
+          "note": "A cantilever arm on a STRUT channel is a support bracket, not warehouse racking, and it is bought from the channel-support supplier. Warehouse racking keeps the word whenever the line is about pallets, bays or uprights."
+        }
+      ],
       "context_terms": ["تخزين", "مستودع", "pallet", "حموله", "kg", "galvanized", "storage", "shelves", "مواد طويله", "long materials", "arm", "heavy duty", "بلاستيك"],
       "supplier_terms": ["رفوف", "مستودعات", "racking", "shelving", "تخزين", "storage systems"],
       "preferred_archetypes": ["warehouse_equipment_supplier"],
@@ -618,6 +1159,13 @@
       "label_ar": "معدات ومستلزمات الرفع",
       "strong_terms": ["web sling", "حزام رفع", "chain sling", "سلسله رفع", "wire rope sling", "shackle", "شاكل", "eye bolt", "lifting hook", "خطاف رفع", "lifting beam", "load binder", "ratchet strap", "حزام تثبيت", "beam clamp", "مشبك عارضه", "plate clamp", "ملزمه رفع", "lifting magnet", "مغناطيس رفع", "permanent lifting magnet", "load cell", "crane load cell", "ميزان حموله", "dynamometer", "مقياس حموله", "swivel hoist ring"],
       "weak_terms": ["sling", "rope", "hook", "strap", "حبل", "clamp", "مشبك", "مغناطيس", "magnet"],
+      "term_guards": [
+        {
+          "terms": ["beam clamp", "plate clamp", "clamp"],
+          "block_any": ["strut", "unistrut", "قناه اسناد", "channel support", "مواسير", "pipe hanger", "حامل مواسير", "conduit"],
+          "note": "A beam clamp sold for a STRUT or pipe-support system is a fixing, not rigging equipment; a rigger's beam clamp names a working load instead. Lifting gear keeps the word whenever the line is about slings, hoists or loads."
+        }
+      ],
       "context_terms": ["رفع", "حموله", "ton", "طن", "lifting", "سعه", "rigging", "kg", "crane", "ونش"],
       "supplier_terms": ["معدات رفع", "lifting", "rigging", "سلامه"],
       "preferred_archetypes": ["lifting_equipment_supplier", "material_handling_supplier"],
@@ -659,7 +1207,6 @@
         { "name": "material", "supplier_pool_affecting": true }
       ]
     },
-
     {
       "id": "pumps",
       "sector": "MEP_WATER",
@@ -716,6 +1263,20 @@
         { "name": "diameter", "supplier_pool_affecting": false },
         { "name": "head_pressure", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "backflow_preventer",
+          "label_ar": "موانع الارتجاع",
+          "strong_terms": ["backflow preventer", "مانع ارتجاع", "موانع ارتجاع", "double check valve", "reduced pressure zone", "rpz", "vacuum breaker", "كاسر تخلخل", "air gap assembly", "مانع سحب عكسي"],
+          "context_terms": ["dn", "pn", "brass", "bronze", "carbon steel", "مياه", "flanged", "threaded"],
+          "note": "Named by function, not by body material or connection type — `Lug` in «توصيل Lug» is how a body is JOINED, and matching it sent 64 of these to cable terminations."
+        },
+        {
+          "id": "control_valve",
+          "label_ar": "صمامات تحكم",
+          "strong_terms": ["picv", "pressure independent control valve", "differential pressure control valve", "motorized valve", "motorized 2-way valve", "motorized 3-way valve", "2-way valve", "3-way valve", "balancing valve", "صمام تحكم", "صمام موتور", "صمام موازنه", "zone valve"]
+        }
       ]
     },
     {
@@ -724,7 +1285,15 @@
       "label_ar": "المواسير والوصلات",
       "strong_terms": ["ماسوره", "مواسير", "انبوب", "انابيب", "steel pipe", "ppr pipe", "upvc pipe", "hdpe pipe", "فلنجه", "flange", "كوع", "elbow", "coupling"],
       "weak_terms": ["pipe", "piping", "fitting", "وصله", "tee"],
-      "context_terms": ["dn", "inch", "بوصه", "سماكه", "مياه", "صرف", "schedule"],
+      "context_terms": ["dn", "inch", "بوصه", "سماكه", "مياه", "صرف", "schedule", "ppr", "pp rct", "upvc", "cpvc", "hdpe", "pex", "pn10", "pn16", "pn20", "pn25", "sch40", "sch80", "butt fusion", "socket fusion", "electrofusion"],
+      "term_guards": [
+        {
+          "terms": ["ماسوره", "مواسير", "انبوب", "انابيب", "pipe", "piping"],
+          "blocked_by_head": ["عزل", "insulation", "حامل", "حوامل", "hanger", "clevis", "support", "bracket", "مثبت", "مثبتات", "clamp", "طوق", "اطواق", "غطاء", "دهان", "طلاء", "شريط", "لاصق", "قاطع", "كاشف", "shoe", "u bolt", "ubolt", "split ring", "ring", "roller", "riser", "saddle", "strut", "anchor", "تثبيت", "قاعده", "كرسي"],
+          "block_any": ["ماسوره كهرباء", "مواسير كهرباء", "تمديدات كهربايي", "emt", "imc", "conduit", "trunking", "gi conduit", "pvc conduit", "flexible conduit"],
+          "note": "Product-head rule: insulation FOR pipes, a hanger FOR pipes and a clamp FOR pipes are not pipes — the pipe is the object, not the purchase. The rule is positional, so «ماسورة معزولة» (pre-insulated pipe) is still a pipe. Separately, electrical conduit shares the word «ماسورة» with water pipe and belongs to the electrical trade."
+        }
+      ],
       "supplier_terms": ["مواسير", "pipes", "fittings", "سباكه"],
       "preferred_archetypes": ["pipe_fittings_supplier", "plumbing_only_supplier"],
       "allowed_archetypes": ["valve_supplier", "pump_supplier", "hvac_supplier", "general_building_materials", "fire_fighting_supplier"],
@@ -732,6 +1301,14 @@
         { "name": "diameter", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "head_pressure", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "pipe_fitting",
+          "label_ar": "وصلات مواسير",
+          "strong_terms": ["butt weld fitting", "butt fusion", "socket fusion", "electrofusion", "end cap", "stub end", "concentric reducer", "eccentric reducer", "reducer concentric", "reducer eccentric", "grooved coupling", "flexible coupling", "mechanical tee", "كوع grooved", "تي grooved", "تي متساوي", "وصله hdpe", "وصله upvc", "وصله ppr", "وصله pp rct", "وصله cpvc", "وصله pex", "وصله carbon steel", "long radius elbow", "weldolet", "sockolet"],
+          "weak_terms": ["reducer", "cap", "elbow", "coupler"]
+        }
       ]
     },
     {
@@ -749,6 +1326,13 @@
         { "name": "flow_rate", "supplier_pool_affecting": false },
         { "name": "accuracy", "supplier_pool_affecting": false },
         { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "term_guards": [
+        {
+          "terms": ["meter", "مقياس", "gauge", "switch"],
+          "block_any": ["energy meter", "عداد طاقه", "kwh", "kvarh", "ammeter", "voltmeter", "امبير", "فولت", "power meter", "عداد كهرباء", "multifunction meter"],
+          "note": "«meter» must not claim electrical metering, which is a switchgear/metering trade with a different supplier pool."
+        }
       ]
     },
     {
@@ -787,8 +1371,8 @@
       "sector": "MEP_WATER",
       "label_ar": "تجهيزات التكييف والتهوية",
       "strong_terms": ["ahu", "وحده مناوله هواء", "air handling unit", "fahu", "fresh air unit", "وحده هواء نقي", "fcu", "fan coil", "vrf", "مكيف", "تكييف", "chiller", "مبرد مياه", "duct", "دكت", "مجري هواء", "exhaust fan", "شفاط", "دايفيوزر", "diffuser", "air outlet", "vav box", "vav", "vav terminal", "package unit", "package ac", "وحده تكييف مجمعه", "split unit", "hepa filter", "فلتر hepa", "bag filter", "فلتر كيسي", "pre filter", "فلتر هواء", "air filter", "fire smoke damper", "smoke damper", "دامبر حريق", "دامبر دخان", "motorized damper", "دامبر هواء", "volume damper", "heat recovery wheel", "منفاخ هواء صناعي", "high velocity blower", "دفايه صناعيه", "space heater"],
-      "weak_terms": ["مروحه", "fan", "grille", "cooling", "تبريد", "damper", "دامبر", "filter", "فلتر", "blower", "منفاخ", "دفايه", "heater"],
-      "context_terms": ["هواء", "cfm", "تكييف", "تهويه", "ton", "kw", "air", "ventilation", "tr", "gel seal", "pressure independent", "heat recovery", "actuator", "صناعي"],
+      "weak_terms": ["مروحه", "fan", "grille", "cooling", "تبريد", "damper", "دامبر", "filter", "فلتر", "blower", "منفاخ", "دفايه", "heater", "vcd", "diffuser", "دفيوزر"],
+      "context_terms": ["هواء", "cfm", "تكييف", "تهويه", "ton", "kw", "air", "ventilation", "tr", "gel seal", "pressure independent", "heat recovery", "actuator", "صناعي", "l/s", "m3/h", "hp"],
       "supplier_terms": ["تكييف", "hvac", "تهويه", "تبريد"],
       "preferred_archetypes": ["hvac_supplier"],
       "allowed_archetypes": ["electrical_distributor", "pipe_fittings_supplier", "general_building_materials", "data_center_integrator"],
@@ -839,6 +1423,53 @@
             }
           ]
         }
+      ],
+      "intents": [
+        {
+          "id": "air_damper",
+          "label_ar": "دامبرز",
+          "strong_terms": ["volume control damper", "fire damper", "smoke damper", "backdraft damper", "pressure relief damper", "motorized damper", "دامبر", "دامبرز", "vcd damper"],
+          "weak_terms": ["damper"]
+        },
+        {
+          "id": "volume_control_damper",
+          "label_ar": "دامبرات تنظيم الهواء",
+          "strong_terms": ["volume control damper", "vcd", "دامبر تنظيم", "دامبر هواء", "opposed blade damper", "parallel blade damper", "motorized damper", "دامبر كهربايي", "non return damper", "دامبر عدم رجوع", "backdraft damper", "fire damper", "دامبر حريق", "smoke damper", "دامبر دخان"],
+          "context_terms": ["مم", "mm", "actuator", "24v", "230v", "المنيوم", "aluminium", "مجلفن", "galvanized", "هواء", "cfm"]
+        },
+        {
+          "id": "ventilation_opening",
+          "label_ar": "فتحات وشبك التهوية",
+          "strong_terms": ["فتحه تهويه", "فتحات تهويه", "مخرج تهويه", "مخارج تهويه", "شبك تهويه", "ventilation grille", "ventilation louver", "louver تهويه", "شيش تهويه", "weather louver", "sand trap louver", "شبك مانع رمال", "door grille", "شبك باب", "transfer grille", "دفيوزر", "diffuser"],
+          "context_terms": ["مم", "mm", "المنيوم", "aluminium", "مجلفن", "galvanized", "هواء", "تهويه", "free area"]
+        },
+        {
+          "id": "air_terminal_device",
+          "label_ar": "مخارج هواء",
+          "strong_terms": ["ceiling diffuser", "square ceiling diffuser", "swirl diffuser", "slot diffuser", "jet nozzle", "return air grille", "supply air grille", "egg crate grille", "linear bar grille", "fresh air louver", "مخرج هواء", "مخارج هواء", "محبس هواء", "شبك تكييف"],
+          "weak_terms": ["diffuser", "grille"]
+        },
+        {
+          "id": "duct_accessories",
+          "label_ar": "ملحقات مجاري الهواء",
+          "strong_terms": ["canvas connector", "flexible duct connector", "duct access door", "duct silencer", "sound attenuator", "turning vane", "ملحقات مجاري الهواء", "مجري هواء مرن", "flexible duct"]
+        },
+        {
+          "id": "fan_unit",
+          "label_ar": "مراوح",
+          "strong_terms": ["centrifugal fan", "inline fan", "axial fan", "exhaust fan", "مروحه شفط", "مروحه طرد مركزي", "cabinet fan", "jet fan", "roof fan", "مروحه سقفيه", "مراوح", "مروحه centrifugal", "مروحه inline", "centrifugal cabinet fan"],
+          "weak_terms": ["مروحه"]
+        },
+        {
+          "id": "water_heater",
+          "label_ar": "سخانات مياه",
+          "strong_terms": ["سخان مياه", "سخانات مياه", "water heater", "electric water heater", "calorifier", "heat pump water heater", "سخان كهربايي", "storage water heater"]
+        },
+        {
+          "id": "expansion_vessel",
+          "label_ar": "أوعية ضغط وتمدد",
+          "strong_terms": ["expansion vessel", "وعاء تمدد", "خزان تمدد", "pressure vessel", "diaphragm tank", "buffer tank", "اوعيه ضغط"]
+        }
       ]
     },
     {
@@ -853,9 +1484,35 @@
       "allowed_archetypes": ["pipe_fittings_supplier", "general_building_materials"],
       "facets": [
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "wc_sanitaryware",
+          "label_ar": "أدوات صحية",
+          "strong_terms": ["مرحاض", "مراحيض", "close-coupled", "wall-hung", "back-to-wall", "مبوله", "urinal", "حوض غسيل", "washbasin", "wash basin", "مغسله", "bidet", "شطاف", "water closet", "dual flush"]
+        },
+        {
+          "id": "washroom_accessories",
+          "label_ar": "إكسسوارات دورات مياه",
+          "strong_terms": ["حامل مناديل", "jumbo roll", "baby changing station", "soap dispenser", "موزع صابون", "hand dryer", "مجفف ايدي", "اكسسوارات دورات مياه", "paper towel dispenser", "toilet roll holder", "مراه حمام"]
+        },
+        {
+          "id": "accessibility_grab_bar",
+          "label_ar": "مساند ذوي الإعاقة",
+          "strong_terms": ["grab bar", "مسند ذوي الاعاقه", "مساند ذوي الاعاقه", "مقبض امان", "folding grab bar", "drop down rail", "مسند قابل للطي"]
+        },
+        {
+          "id": "floor_drain",
+          "label_ar": "مصارف أرضية",
+          "strong_terms": ["floor drain", "مصرف ارضي", "مصارف ارضيه", "shower drain", "linear shower drain", "gully trap", "مصرف دش", "صفايه ارضيه"]
+        },
+        {
+          "id": "mixer_tap",
+          "label_ar": "خلاطات ومحابس",
+          "strong_terms": ["خلاط", "خلاطات", "mixer tap", "shower mixer", "خلاط دش", "خلاط مغسله", "خلاط مطبخ", "basin mixer", "kitchen mixer", "thermostatic mixer", "single lever mixer", "حنفيه مغسله", "faucet", "حنفيه حوض"]
+        }
       ]
     },
-
     {
       "id": "fire_fighting",
       "sector": "FIRE",
@@ -894,8 +1551,14 @@
             {
               "id": "fire_sprinkler",
               "label_ar": "رشاشات الحريق",
-              "strong_terms": ["sprinkler", "رشاش حريق", "esfr", "upright sprinkler", "pendent sprinkler"],
-              "weak_terms": ["رشاش"],
+              "strong_terms": ["sprinkler", "sprinklers", "رشاش", "رشاشات", "رشاش حريق", "رشاشات حريق", "esfr", "upright sprinkler", "pendent sprinkler", "sidewall sprinkler", "concealed sprinkler", "رشاش معلق", "رشاش قايم", "رشاش جانبي", "رشاش مخفي", "رشاش هبوطي"],
+              "term_guards": [
+                {
+                  "terms": ["sprinkler", "sprinklers", "رشاش", "رشاشات"],
+                  "block_any": ["ري", "تنقيط", "حديقه", "حدايق", "مسطحات خضراء", "نجيل", "زراعه", "مشتل", "irrigation", "pop-up", "pop up", "popup", "lawn", "garden", "turf", "landscape", "gear drive", "impact sprinkler", "rotor", "nozzle radius", "arc adjustable"],
+                  "note": "FIRE AND IRRIGATION BOTH SELL SPRINKLERS; THE TRADES DO NOT OVERLAP. «رشاش» and `sprinkler` are now BOTH strong, because a concept's right to decide must never depend on which language the buyer writes in — the previous split (strong `sprinkler`, weak «رشاش») produced the worst possible inversion: every irrigation pop-up head resolved as a FIRE sprinkler at 0.90 while real fire sprinklers written in Arabic resolved to nothing. Parity alone would only move the error, so the shared word is guarded by trade: a landscape or drip context disowns the word and irrigation_emitter claims it with its own positive vocabulary. A fire-sprinkler line names its head type or K-factor, never a lawn."
+                }
+              ],
               "facets": [
                 { "name": "head_pressure", "supplier_pool_affecting": false },
                 { "name": "standard", "supplier_pool_affecting": true }
@@ -925,6 +1588,13 @@
             }
           ]
         }
+      ],
+      "term_guards": [
+        {
+          "terms": ["حريق", "اطفاء", "حنفيه"],
+          "block_any": ["مقاوم للحريق", "مقاومه للحريق", "مقاوم حريق", "fire rated", "fire resistant", "fire retardant", "flame retardant", "مقاوم للهب", "مانع للهب"],
+          "note": "«حريق» used adjectivally states a fire RATING of some other product (a board, a door, a cable). A rating is not a fire-fighting product."
+        }
       ]
     },
     {
@@ -940,16 +1610,34 @@
       "facets": [
         { "name": "standard", "supplier_pool_affecting": true },
         { "name": "voltage", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "fire_alarm_panel",
+          "label_ar": "لوحات إنذار حريق",
+          "strong_terms": ["لوحه انذار حريق", "لوحات انذار حريق", "fire alarm panel", "fire alarm control panel", "addressable fire alarm panel", "loop panel", "repeater panel", "conventional panel"]
+        },
+        {
+          "id": "fire_alarm_module",
+          "label_ar": "وحدات إنذار حريق",
+          "strong_terms": ["input output module", "io module", "monitor module", "control module", "وحده ادخال اخراج", "addressable module", "isolator module", "loop isolator"]
+        }
       ]
     },
-
     {
       "id": "switchgear_panels",
       "sector": "ELECTRICAL",
       "label_ar": "لوحات التوزيع والقواطع",
-      "strong_terms": ["لوحه توزيع", "لوحه كهرباء", "لوحه تحكم", "mdb", "smdb", "mcc panel", "ring main unit", "rmu", "switchgear", "mccb", "mcb", "acb", "capacitor bank", "بنك مكثفات", "active harmonic filter", "busduct", "بس دكت", "ats panel", "changeover switch", "كونتاكتور", "panel board", "distribution board", "lv mdb"],
-      "weak_terms": ["لوحه", "panel", "قاطع", "breaker", "contactor", "ats", "capacitor", "مكثفات"],
-      "context_terms": ["كهرباء", "كهربايي", "a", "ka", "kv", "form", "ip", "withdrawable", "توزيع", "kvar", "pf correction", "bank"],
+      "strong_terms": ["لوحه توزيع", "لوحات توزيع", "لوحه كهرباء", "لوحات كهرباء", "لوحه تحكم", "لوحات تحكم", "distribution board", "db panel", "mdb", "smdb", "mcc panel", "ring main unit", "rmu", "switchgear", "mccb", "mcb", "acb", "capacitor bank", "بنك مكثفات", "active harmonic filter", "busduct", "بس دكت", "ats panel", "changeover switch", "كونتاكتور", "panel board", "distribution board", "lv mdb"],
+      "weak_terms": ["لوحه", "panel", "قاطع", "breaker", "contactor", "ats", "capacitor", "مكثفات", "enclosure", "علبه"],
+      "context_terms": ["كهرباء", "كهربايي", "a", "ka", "kv", "امبير", "فولت", "form", "ip", "withdrawable", "توزيع", "kvar", "pf correction", "bank", "electrical", "ss316", "ss304", "stainless", "sheet steel", "mild steel", "grp", "din rail"],
+      "term_guards": [
+        {
+          "terms": ["enclosure", "علبه"],
+          "block_any": ["server", "rack unit", "19 inch", "19 بوصه", "u rack", "data cabinet", "خزانه شبكه", "network rack", "outdoor cabinet telecom"],
+          "note": "An ENCLOSURE IS A PRODUCT WITH A TRADE, not a shape. Electrical enclosures were the single largest unusable group in the held-out corpus — 7,824 rows that matched the bare word «enclosure» owned by the IT-rack family, found no rack context, and settled into a family = null semantic recovery: nominally resolved, countable as coverage, and unable to name a single supplier. Giving the electrical sector its own claim on the word makes those lines poolable; the guard hands the word back to racks_enclosures whenever the line is actually about a server cabinet."
+        }
+      ],
       "supplier_terms": ["لوحات كهرباييه", "switchgear", "كهرباييه", "electrical"],
       "preferred_archetypes": ["switchgear_supplier", "electrical_distributor"],
       "allowed_archetypes": ["transformer_supplier", "cable_supplier", "generator_supplier", "ups_supplier"],
@@ -957,6 +1645,81 @@
         { "name": "capacity", "supplier_pool_affecting": false },
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "mccb",
+          "label_ar": "قاطع MCCB",
+          "strong_terms": ["mccb", "قاطع mccb", "moulded case circuit breaker", "molded case circuit breaker"]
+        },
+        {
+          "id": "mcb",
+          "label_ar": "قاطع MCB",
+          "strong_terms": ["mcb", "قاطع mcb", "miniature circuit breaker", "curve b", "curve c", "curve d"]
+        },
+        {
+          "id": "acb",
+          "label_ar": "قاطع هوائي ACB",
+          "strong_terms": ["acb", "air circuit breaker", "قاطع هوايي"]
+        },
+        {
+          "id": "residual_current_device",
+          "label_ar": "حماية تسرب أرضي",
+          "strong_terms": ["rcbo", "rccb", "elcb", "حمايه تسرب ارضي", "قاطع تسرب ارضي", "earth leakage circuit breaker", "residual current device", "residual current breaker"],
+          "weak_terms": ["rcd"]
+        },
+        {
+          "id": "isolator_switch",
+          "label_ar": "مفتاح عزل",
+          "strong_terms": ["مفتاح عزل", "مفاتيح عزل", "switch disconnector", "load break switch", "fuse switch disconnector", "isolator 2p", "isolator 3p", "isolator 4p"]
+        },
+        {
+          "id": "transfer_switch",
+          "label_ar": "مفتاح تحويل",
+          "strong_terms": ["automatic transfer switch", "مفتاح تحويل", "مفاتيح تحويل", "changeover switch", "manual transfer switch", "ats 3p", "ats 4p"],
+          "weak_terms": ["ats", "mts"]
+        },
+        {
+          "id": "contactor",
+          "label_ar": "كونتاكتور",
+          "strong_terms": ["contactor", "كونتاكتور", "magnetic contactor", "overload relay", "thermal overload"]
+        },
+        {
+          "id": "protection_relay",
+          "label_ar": "ريليه حماية",
+          "strong_terms": ["protection relay", "ريليه حمايه", "ريليهات حمايه", "differential relay", "overcurrent relay", "earth fault relay", "multifunction protection relay", "motor protection relay"],
+          "weak_terms": ["relay", "ريليه"]
+        },
+        {
+          "id": "current_transformer",
+          "label_ar": "محول تيار",
+          "strong_terms": ["current transformer", "محول تيار", "محولات تيار", "voltage transformer", "محول جهد قياس", "ct class", "summation ct", "core balance ct"]
+        },
+        {
+          "id": "busbar",
+          "label_ar": "قضبان نحاس",
+          "strong_terms": ["busbar", "بس بار", "قضيب نحاس", "قضبان نحاس", "copper busbar", "aluminium busbar", "busbar chamber", "قضيب توزيع"]
+        },
+        {
+          "id": "distribution_board",
+          "label_ar": "لوحة توزيع نهائية",
+          "strong_terms": ["distribution board", "لوحه توزيع نهاييه", "لوحات توزيع نهاييه", "consumer unit", "لوحه توزيع فرعيه", "final distribution board", "way distribution board"]
+        },
+        {
+          "id": "empty_enclosure",
+          "label_ar": "لوحات وصناديق فارغة",
+          "strong_terms": ["لوحه فارغه", "لوحات فارغه", "empty enclosure", "enclosure grp", "enclosure sheet steel", "grp enclosure", "صندوق توزيع فارغ", "wall mounted enclosure", "electrical enclosure", "علبه كهربايي", "صندوق كهربايي", "floor standing enclosure", "wall mount enclosure", "enclosure stainless steel", "stainless steel enclosure"]
+        },
+        {
+          "id": "electrical_metering",
+          "label_ar": "أجهزة قياس كهربائية",
+          "strong_terms": ["energy meter", "عداد طاقه", "عداد كهرباء", "kwh meter", "ammeter", "voltmeter", "multifunction meter", "power meter", "اجهزه قياس كهربايي", "power analyzer", "power quality analyzer"]
+        },
+        {
+          "id": "capacitor_bank",
+          "label_ar": "تحسين معامل القدرة",
+          "strong_terms": ["capacitor bank", "بنك مكثفات", "automatic capacitor bank", "power factor correction", "تحسين معامل القدره", "detuned reactor", "kvar"]
+        }
       ]
     },
     {
@@ -982,6 +1745,13 @@
       "strong_terms": ["كابل", "كيبل", "كابلات", "اسلاك كهرباء", "xlpe", "swa", "كابل نحاس", "كابل مدرع", "كابل مقاوم حريق", "fire resistant cable", "control cable", "كابل تحكم", "lszh cable"],
       "weak_terms": ["cable", "wire", "lszh"],
       "context_terms": ["نحاس", "مساحه", "مم2", "kv", "copper", "armored", "iec", "core"],
+      "term_guards": [
+        {
+          "terms": ["كابل", "كابلات", "كيبل", "cable"],
+          "block_any": ["الياف", "fiber", "fibre", "optic", "om1", "om2", "om3", "om4", "os1", "os2", "multimode", "single mode", "singlemode", "cat6", "cat6a", "cat7", "cat5e", "utp", "ftp", "sftp", "patch cord", "باتش كورد"],
+          "note": "Fibre and structured cabling are a different trade and a different supplier pool from power cable. «كابل» stays fully decisive for copper power cable — it only steps aside when the line itself says fibre or data."
+        }
+      ],
       "supplier_terms": ["كابلات", "cables", "كهرباييه", "electrical"],
       "preferred_archetypes": ["cable_supplier", "electrical_distributor"],
       "allowed_archetypes": ["switchgear_supplier", "network_integrator", "general_trading"],
@@ -990,6 +1760,44 @@
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "standard", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "lv_power_cable",
+          "label_ar": "كابل قدرة جهد منخفض",
+          "strong_terms": ["كابل جهد منخفض", "lv power cable", "low voltage cable", "al/xlpe/pvc", "cu/xlpe/pvc", "nyy", "n2xy", "0.6/1kv", "600/1000v"],
+          "weak_terms": ["lv"],
+          "term_guards": [
+            {
+              "terms": ["كابل جهد منخفض", "lv power cable", "low voltage cable", "al/xlpe/pvc", "cu/xlpe/pvc", "nyy", "n2xy", "0.6/1kv", "600/1000v"],
+              "block_any": ["control", "instrumentation", "mv", "cts", "11kv", "22kv", "33kv", "6.6kv", "fire resistant", "ph120", "ph30", "fe180", "الياف", "fiber"],
+              "note": "Low voltage is the DEFAULT reading of a power cable, so it must yield whenever the line names a more specific type. Without this, «كابل Cu/PVC Control» reads as LV power cable and the RFQ reaches the wrong cable specialists."
+            }
+          ]
+        },
+        {
+          "id": "mv_power_cable",
+          "label_ar": "كابل جهد متوسط",
+          "strong_terms": ["كابل جهد متوسط", "mv cable", "mv power cable", "medium voltage cable", "xlpe/cts", "cts/pvc", "11kv", "22kv", "33kv", "6.6kv", "mv", "كابل mv", "mv cu", "mv al"],
+          "weak_terms": ["mv", "cts"]
+        },
+        {
+          "id": "control_cable",
+          "label_ar": "كابل تحكم",
+          "strong_terms": ["control cable", "كابل تحكم", "كابل سيطره", "كوابل تحكم"],
+          "weak_terms": ["control"]
+        },
+        {
+          "id": "fire_resistant_cable",
+          "label_ar": "كابل مقاوم للحريق",
+          "strong_terms": ["fire resistant cable", "كابل مقاوم للحريق", "كابل مقاوم حريق", "fire rated cable", "circuit integrity cable", "ph120", "ph30", "fe180", "كوابل مقاومه للحريق", "fire resistant", "مقاوم للحريق lszh"]
+        },
+        {
+          "id": "instrumentation_cable",
+          "label_ar": "كابل أجهزة قياس",
+          "strong_terms": ["instrumentation cable", "كابل اجهزه قياس", "كابل انسترومنت", "twisted pair", "individual shielded", "overall shielded", "pair shielded", "كوابل اجهزه"],
+          "weak_terms": ["instrumentation"]
+        }
       ]
     },
     {
@@ -1006,6 +1814,50 @@
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "cable_tray",
+          "label_ar": "حوامل كابلات (تراي)",
+          "strong_terms": ["cable tray", "تراي كابلات", "مجري كابلات", "حامل كابلات", "حوامل كابلات", "perforated tray", "wire mesh tray"]
+        },
+        {
+          "id": "cable_ladder",
+          "label_ar": "سلالم كابلات",
+          "strong_terms": ["cable ladder", "سلم كابلات", "سلالم كابلات", "ladder type tray"]
+        },
+        {
+          "id": "cable_trunking",
+          "label_ar": "قنوات كابلات",
+          "strong_terms": ["trunking", "gi trunking", "قناه كابلات", "قنوات كابلات", "pvc trunking", "floor trunking", "skirting trunking"]
+        },
+        {
+          "id": "cable_support_accessories",
+          "label_ar": "ملحقات حوامل كابلات",
+          "strong_terms": ["ملحق cable tray", "ملحقات حوامل كابلات", "tray cross", "tray tee", "tray bend", "tray riser", "tray reducer", "tray coupler", "tray cover", "غطاء تراي", "ladder bend", "tray support bracket"]
+        },
+        {
+          "id": "electrical_conduit",
+          "label_ar": "مواسير وتمديدات كهربائية",
+          "strong_terms": ["ماسوره كهرباء", "مواسير كهرباء", "conduit كهرباء", "emt conduit", "imc conduit", "emt", "imc", "rigid steel conduit", "flexible metallic conduit", "flexible conduit", "gi conduit", "pvc conduit", "upvc conduit", "twinwall conduit", "hdpe twinwall", "تمديدات كهربايي"],
+          "weak_terms": ["conduit"]
+        },
+        {
+          "id": "junction_box",
+          "label_ar": "علب كهربائية",
+          "strong_terms": ["junction box", "علبه كهرباء", "علب كهربايي", "pull box", "علبه تفريع", "adaptable box", "junction box gi"]
+        },
+        {
+          "id": "cable_gland",
+          "label_ar": "جلاند كابلات",
+          "strong_terms": ["cable gland", "جلاند كابل", "جلاند", "brass gland", "nickel plated gland", "gland m"]
+        },
+        {
+          "id": "cable_termination",
+          "label_ar": "نهايات كابلات",
+          "strong_terms": ["cable lug", "copper lug", "bimetal lug", "bimetallic lug", "lug al/cu", "كوسه نحاس", "نهايه كابل", "نهايات كابلات", "termination kit", "heat shrink", "cold shrink", "cable joint", "copper ferrule", "كوسه", "mechanical shear bolt lug", "copper lug tinned", "compression lug", "pin lug", "fork lug"],
+          "weak_terms": ["lug"]
+        }
       ]
     },
     {
@@ -1021,6 +1873,23 @@
       "facets": [
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "earth_rod",
+          "label_ar": "قضبان تأريض",
+          "strong_terms": ["earth rod", "قضيب تاريض", "سيخ تاريض", "copper bonded rod", "earth electrode", "اقطاب تاريض", "موصل نحاس عاري", "bare copper conductor", "bare copper", "نحاس عاري"]
+        },
+        {
+          "id": "earthing_accessories",
+          "label_ar": "ملحقات تأريض",
+          "strong_terms": ["earth clamp", "bi-metallic connector", "bimetallic connector", "موصل تاريض", "ملحقات تاريض", "earth bar", "earth pit", "غرفه تاريض", "exothermic weld", "rod coupler", "driving head", "inspection pit", "earth boss", "exothermic welding mold", "test clamp", "وصله اختبار", "وصله شريط", "tape to tape connector", "tape clip"]
+        },
+        {
+          "id": "lightning_protection",
+          "label_ar": "حماية من الصواعق",
+          "strong_terms": ["lightning protection", "مانعه صواعق", "مانع صواعق", "air terminal", "down conductor", "موصل هبوط", "copper tape", "شريط نحاس", "early streamer emission"]
+        }
       ]
     },
     {
@@ -1084,21 +1953,82 @@
         { "name": "power_kw", "supplier_pool_affecting": false },
         { "name": "protection_ip", "supplier_pool_affecting": false },
         { "name": "application", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "downlight",
+          "label_ar": "إنارة داخلية (داون لايت)",
+          "strong_terms": ["downlight", "داون لايت", "سبوت لايت", "spot light", "recessed downlight", "surface downlight"]
+        },
+        {
+          "id": "linear_light",
+          "label_ar": "إنارة خطية",
+          "strong_terms": ["linear led", "linear led fixture", "linear batten", "اناره خطيه", "batten fixture", "led strip", "شريط ليد", "trunking light"]
+        },
+        {
+          "id": "led_panel_light",
+          "label_ar": "بانل إنارة",
+          "strong_terms": ["led panel", "بانل ليد", "panel light", "اناره بانل", "backlit panel"]
+        },
+        {
+          "id": "floodlight",
+          "label_ar": "كشافات خارجية",
+          "strong_terms": ["floodlight", "flood light", "كشاف اناره", "كشافات", "projector floodlight"]
+        },
+        {
+          "id": "street_light",
+          "label_ar": "إنارة طرق",
+          "strong_terms": ["street light", "اناره شوارع", "اناره طرق", "road luminaire", "post top luminaire"]
+        },
+        {
+          "id": "lighting_pole",
+          "label_ar": "أعمدة إنارة",
+          "strong_terms": ["عمود اناره", "اعمده اناره", "lighting pole", "lamp post", "high mast", "عمود مجلفن اناره"]
+        },
+        {
+          "id": "highbay_light",
+          "label_ar": "إنارة صناعية",
+          "strong_terms": ["high bay", "highbay", "low bay", "اناره صناعيه"]
+        },
+        {
+          "id": "emergency_light",
+          "label_ar": "إنارة طوارئ",
+          "strong_terms": ["emergency light", "اناره طوارى", "exit sign", "لوحه مخرج", "self contained emergency", "emergency exit light"]
+        },
+        {
+          "id": "track_light",
+          "label_ar": "إنارة تراك",
+          "strong_terms": ["track light", "track lighting", "تراك لايت", "اناره تراك", "spot track", "track spotlight", "مسار اناره", "lighting track", "track system اناره", "3 circuit track", "magnetic track light"],
+          "context_terms": ["w", "k", "lm", "اناره", "اضاءه", "lighting", "cri", "beam angle"],
+          "note": "Track lighting was the largest single unusable category in the lighting sector of the held-out corpus (1,512 of 1,980 rows), and the Arabic transliteration «تراك لايت» is how the trade actually writes it — the family already knew «داون لايت» and «سبوت لايت» in the same transliterated style, so its absence was an omission rather than a design choice. Facets are inherited from the family, as every sibling luminaire intent does."
+        }
       ]
     },
     {
       "id": "wiring_devices",
       "sector": "ELECTRICAL",
       "label_ar": "مخارج ومفاتيح الكهرباء",
-      "strong_terms": ["مخرج كهرباء", "مخارج كهرباء", "افياش", "فيش كهرباء", "socket outlet", "سويتش كهرباء", "مفتاح كهرباء", "wall socket", "industrial socket", "مخرج مكيف", "usb socket", "local isolator"],
+      "strong_terms": ["مخرج كهرباء", "مخارج كهرباء", "افياش", "فيش كهرباء", "socket outlet", "سويتش كهرباء", "مفتاح كهرباء", "wall socket", "industrial socket", "مخرج مكيف", "مخرج سخان", "نقطه كهرباء", "نقاط كهرباء", "مخرج تلفزيون", "usb socket", "local isolator"],
       "weak_terms": ["مخرج", "socket", "outlet", "سويتش", "switch", "isolator"],
-      "context_terms": ["كهرباء", "كهربايي", "a", "v", "ip", "flush", "surface"],
+      "context_terms": ["كهرباء", "كهربايي", "a", "v", "امبير", "فولت", "ip", "flush", "surface", "سخان", "مكيف", "هاتف", "بيانات"],
       "supplier_terms": ["مواد كهرباييه", "كهرباييه", "electrical"],
       "preferred_archetypes": ["electrical_distributor"],
       "allowed_archetypes": ["switchgear_supplier", "lighting_supplier", "general_trading", "fitout_contractor"],
       "facets": [
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "socket_outlet",
+          "label_ar": "مخارج كهربائية",
+          "strong_terms": ["socket outlet", "مقبس", "مقابس", "مخرج كهرباء", "مخارج كهرباء", "wall socket", "industrial socket", "usb socket", "فيش كهرباء", "افياش", "مخرج مكيف"]
+        },
+        {
+          "id": "light_switch",
+          "label_ar": "مفاتيح إنارة",
+          "strong_terms": ["مفتاح اناره", "مفاتيح اناره", "light switch", "gang switch", "one gang", "two gang", "intermediate switch", "two way switch", "dimmer switch"]
+        }
       ]
     },
     {
@@ -1114,14 +2044,26 @@
       "facets": [
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "range_m", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "bms_field_sensor",
+          "label_ar": "حساسات BMS",
+          "strong_terms": ["حساس bms", "bms sensor", "حساسات bms", "co2 sensor", "حساس co2", "duct sensor", "حساس مجري هواء", "humidity sensor", "حساس رطوبه", "differential pressure sensor", "حساس جوده هواء", "voc sensor", "حساس voc", "حساس ضغط تفاضلي", "immersion sensor", "حساس تيار", "حساس منسوب"]
+        },
+        {
+          "id": "bms_controller",
+          "label_ar": "وحدات تحكم BMS",
+          "strong_terms": ["ddc controller", "bms controller", "وحده تحكم bms", "bacnet controller", "lonworks controller", "i/o point controller"],
+          "weak_terms": ["ddc"]
+        }
       ]
     },
-
     {
       "id": "head_protection",
       "sector": "SAFETY_PPE",
       "label_ar": "حماية الرأس",
-      "strong_terms": ["خوذه سلامه", "خوذه", "hard hat", "safety helmet", "قبعه حمايه", "bump cap", "خوذه صناعيه"],
+      "strong_terms": ["حمايه راس", "head protection", "مهمات حمايه الراس"],
       "weak_terms": ["helmet", "cap", "chin strap"],
       "context_terms": ["سلامه", "حمايه", "تهويه", "en", "ansi", "صناعيه"],
       "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
@@ -1130,13 +2072,34 @@
       "facets": [
         { "name": "standard", "supplier_pool_affecting": true },
         { "name": "protection_class", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "safety_helmet",
+          "label_ar": "خوذة السلامة",
+          "strong_terms": ["خوذه سلامه", "خوذه صناعيه", "خوذه", "hard hat", "safety helmet"],
+          "weak_terms": ["helmet"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "protection_class", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "bump_cap",
+          "label_ar": "قبعة الحماية",
+          "strong_terms": ["قبعه حمايه", "bump cap", "قبعه واقيه", "قبعه سلامه"],
+          "weak_terms": ["cap"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        }
       ]
     },
     {
       "id": "eye_face_protection",
       "sector": "SAFETY_PPE",
       "label_ar": "حماية العين والوجه",
-      "strong_terms": ["واقي وجه", "نظاره حمايه", "نظارات حمايه", "نظاره امان", "نظارات امان", "نظاره سلامه", "safety goggle", "safety glasses", "face shield", "عدسه بديله", "درع وجه", "welding shield", "قناع لحام"],
+      "strong_terms": ["حمايه العين", "حمايه الوجه", "eye protection", "face protection"],
       "weak_terms": ["goggles", "نظاره", "نظارات", "shield", "عدسه", "visor"],
       "context_terms": ["سلامه", "امان", "حمايه", "بولي كربونيت", "anti fog", "en", "ansi", "وجه", "عين"],
       "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
@@ -1145,25 +2108,85 @@
       "facets": [
         { "name": "standard", "supplier_pool_affecting": true },
         { "name": "protection_class", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "safety_eyewear",
+          "label_ar": "نظارات السلامة",
+          "strong_terms": ["نظاره حمايه", "نظارات حمايه", "نظاره امان", "نظارات امان", "نظاره سلامه", "safety goggle", "safety glasses", "عدسه بديله"],
+          "weak_terms": ["goggles", "نظاره", "نظارات", "عدسه"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "protection_class", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "face_shield",
+          "label_ar": "واقي الوجه",
+          "strong_terms": ["واقي وجه", "face shield", "درع وجه"],
+          "weak_terms": ["shield", "visor"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        },
+        {
+          "id": "welding_face_shield",
+          "label_ar": "أقنعة اللحام",
+          "strong_terms": ["قناع لحام", "welding shield", "welding helmet", "خوذه لحام", "اقنعه لحام"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        }
       ]
     },
     {
       "id": "hearing_protection",
       "sector": "SAFETY_PPE",
       "label_ar": "حماية السمع",
-      "strong_terms": ["واقي سمع", "سداده اذن", "سدادات اذن", "ear muff", "earmuff", "ear plug", "earplug", "حمايه سمع"],
+      "strong_terms": ["hearing protection", "مهمات حمايه السمع"],
       "weak_terms": ["سمع", "hearing"],
       "context_terms": ["سلامه", "صناعي", "db", "snr", "en", "قابله لاعاده الاستخدام"],
       "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
       "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
       "allowed_archetypes": ["industrial_tools_supplier", "general_trading"],
-      "facets": [{ "name": "standard", "supplier_pool_affecting": true }]
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "ear_plug",
+          "label_ar": "سدادات الأذن",
+          "strong_terms": ["سداده اذن", "سدادات اذن", "ear plug", "earplug"],
+          "weak_terms": ["plug"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        },
+        {
+          "id": "ear_muff",
+          "label_ar": "كمّامات الأذن الواقية",
+          "strong_terms": ["ear muff", "earmuff", "غطاء اذن", "واقي اذن"],
+          "weak_terms": ["muff"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        },
+        {
+          "id": "hearing_protector",
+          "label_ar": "واقي السمع (غير محدد النوع)",
+          "strong_terms": ["واقي سمع", "حمايه سمع", "hearing protector"],
+          "weak_terms": ["سمع", "hearing"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        }
+      ]
     },
     {
       "id": "respiratory_protection",
       "sector": "SAFETY_PPE",
       "label_ar": "حماية الجهاز التنفسي",
-      "strong_terms": ["قناع تنفس", "جهاز تنفس", "papr", "كمامه", "respirator", "half mask", "full face mask", "مرشح غازات", "فلتر جسيمات", "particulate filter", "scba", "twin filter"],
+      "strong_terms": ["حمايه تنفس", "respiratory protection", "مهمات حمايه التنفس"],
       "weak_terms": ["قناع", "mask", "تنفس", "مرشح"],
       "context_terms": ["تنفس", "غازات", "جسيمات", "سلامه", "filter", "en", "p3", "abek"],
       "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
@@ -1172,13 +2195,53 @@
       "facets": [
         { "name": "standard", "supplier_pool_affecting": true },
         { "name": "protection_class", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "respirator_mask",
+          "label_ar": "أقنعة وكمّامات التنفس",
+          "strong_terms": ["قناع تنفس", "كمامه", "كمامه نصف وجه", "respirator", "half mask", "full face mask", "نصف قناع", "قناع كامل للوجه"],
+          "weak_terms": ["قناع", "mask", "كمامه"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "protection_class", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "breathing_apparatus",
+          "label_ar": "أجهزة التنفس المستقلة",
+          "strong_terms": ["جهاز تنفس", "scba", "papr", "جهاز تنفس مستقل", "airline breathing apparatus"],
+          "weak_terms": ["تنفس"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "capacity", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "respirator_filter",
+          "label_ar": "مرشحات وفلاتر التنفس",
+          "strong_terms": ["مرشح غازات", "فلتر جسيمات", "particulate filter", "twin filter", "فلتر كمامه", "خرطوشه فلتر"],
+          "weak_terms": ["مرشح", "filter"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "protection_class", "supplier_pool_affecting": false }
+          ],
+          "term_guards": [
+            {
+              "terms": ["filter", "مرشح", "فلتر", "cartridge", "خرطوشه"],
+              "require_any": ["تنفس", "respirator", "كمامه", "قناع", "mask", "p1", "p2", "p3", "abek", "abe", "غازات", "ابخره", "جسيمات", "papr", "scba", "breathing", "نصف وجه", "كامل الوجه"],
+              "block_any": ["ري", "irrigation", "تنقيط", "drip", "مياه", "هواء", "hvac", "مكيف", "زيت", "oil", "وقود", "fuel", "hepa", "disc", "شبكي", "رملي", "مضخه"],
+              "note": "A filter is only a respirator filter with respiratory evidence. Irrigation, HVAC, oil and fuel filters are entirely different trades that share the bare word «filter»."
+            }
+          ]
+        }
       ]
     },
     {
       "id": "protective_clothing",
       "sector": "SAFETY_PPE",
       "label_ar": "ملابس الحماية",
-      "strong_terms": ["ستره عاكسه", "سديري عاكس", "صدريه عاكسه", "بدله عمل", "بدله حمايه", "بدله مقاومه للهب", "fr coverall", "coverall", "flame retardant coverall", "معطف مطر", "ستره تبريد", "مريله جلديه", "hi-vis vest", "reflective vest", "ملابس عمل", "workwear", "بدله حمايه كيمياييه", "personal protective equipment", "ppe"],
+      "strong_terms": ["ملابس عمل", "workwear", "ملابس حمايه", "protective clothing", "personal protective equipment", "ppe"],
       "weak_terms": ["ستره", "بدله", "سديري", "صدريه", "vest", "apron", "مريله", "overall", "كم"],
       "context_terms": ["سلامه", "امان", "حمايه", "عاكسه", "عاكس", "class 3", "مقاوم للهب", "مقاومه للهب", "لهب", "flame retardant", "كيمياييه", "en", "عمل"],
       "supplier_terms": ["مهمات سلامه", "ملابس عمل", "ppe", "workwear", "سلامه"],
@@ -1187,25 +2250,89 @@
       "facets": [
         { "name": "standard", "supplier_pool_affecting": true },
         { "name": "protection_class", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "coverall",
+          "label_ar": "بدلات العمل والحماية",
+          "strong_terms": ["بدله عمل", "بدله حمايه", "بدله مقاومه للهب", "بدله حمايه كيمياييه", "fr coverall", "coverall", "flame retardant coverall", "افرول"],
+          "weak_terms": ["بدله", "overall"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "protection_class", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "hi_vis_vest",
+          "label_ar": "السُتر العاكسة",
+          "strong_terms": ["ستره عاكسه", "سديري عاكس", "صدريه عاكسه", "hi-vis vest", "reflective vest", "ستره سلامه"],
+          "weak_terms": ["ستره", "سديري", "صدريه", "vest"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "protection_class", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "work_apron",
+          "label_ar": "المرايل الواقية",
+          "strong_terms": ["مريله جلديه", "مريله لحام", "مريله حمايه", "leather apron", "welding apron"],
+          "weak_terms": ["apron", "مريله"],
+          "facets": [
+            { "name": "material", "supplier_pool_affecting": true }
+          ]
+        },
+        {
+          "id": "weather_protective_clothing",
+          "label_ar": "ملابس الحماية من الأجواء",
+          "strong_terms": ["معطف مطر", "ستره تبريد", "rain coat", "cooling vest", "بدله مطر"],
+          "weak_terms": ["معطف"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        }
       ]
     },
     {
       "id": "safety_footwear",
       "sector": "SAFETY_PPE",
       "label_ar": "أحذية السلامة",
-      "strong_terms": ["حذاء سلامه", "safety boot", "safety shoe", "rubber boot", "pvc boot", "بوت سلامه", "جزمه pvc", "حذاء صناعي"],
+      "strong_terms": ["احذيه سلامه", "safety footwear", "حمايه القدم", "foot protection"],
       "weak_terms": ["جزمه", "boot", "حذاء", "shoe"],
       "context_terms": ["سلامه", "مقاومه", "steel toe", "en", "كيمياييه", "صناعي"],
       "supplier_terms": ["مهمات سلامه", "احذيه سلامه", "ppe", "safety"],
       "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
       "allowed_archetypes": ["industrial_tools_supplier", "general_trading"],
-      "facets": [{ "name": "standard", "supplier_pool_affecting": true }]
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "safety_boot",
+          "label_ar": "أحذية السلامة",
+          "strong_terms": ["حذاء سلامه", "بوت سلامه", "حذاء صناعي", "safety boot", "safety shoe", "steel toe boot", "حذاء بمقدمه حديديه"],
+          "weak_terms": ["حذاء", "shoe", "boot"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "protection_class", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "rubber_boot",
+          "label_ar": "الجزم المطاطية وPVC",
+          "strong_terms": ["جزمه pvc", "pvc boot", "rubber boot", "جزمه مطاطيه", "حذاء مطاطي", "جزمه بلاستيكيه"],
+          "weak_terms": ["جزمه"],
+          "facets": [
+            { "name": "material", "supplier_pool_affecting": true },
+            { "name": "standard", "supplier_pool_affecting": true }
+          ]
+        }
+      ]
     },
     {
       "id": "hand_protection",
       "sector": "SAFETY_PPE",
       "label_ar": "حماية اليدين",
-      "strong_terms": ["قفاز", "قفازات", "قفاز نيتريل", "قفاز جلدي", "قفاز لحام", "cut resistant glove", "قفاز مضاد للاهتزاز", "قفاز كيميايي", "safety glove"],
+      "strong_terms": ["حمايه اليد", "hand protection", "حمايه اليدين"],
       "weak_terms": ["glove", "gloves"],
       "context_terms": ["سلامه", "حمايه", "نيتريل", "جلدي", "cut level", "en", "يد"],
       "supplier_terms": ["مهمات سلامه", "قفازات", "ppe", "safety"],
@@ -1214,13 +2341,34 @@
       "facets": [
         { "name": "standard", "supplier_pool_affecting": true },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "safety_gloves",
+          "label_ar": "قفازات السلامة",
+          "strong_terms": ["قفاز", "قفازات", "قفاز نيتريل", "قفازات نيتريل", "قفاز جلدي", "قفازات جلديه", "قفاز كيميايي", "قفاز مضاد للاهتزاز", "cut resistant glove", "safety glove"],
+          "weak_terms": ["glove", "gloves"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "material", "supplier_pool_affecting": true }
+          ]
+        },
+        {
+          "id": "welding_gloves",
+          "label_ar": "قفازات اللحام",
+          "strong_terms": ["قفاز لحام", "قفازات لحام", "welding glove", "welding gauntlet"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "material", "supplier_pool_affecting": true }
+          ]
+        }
       ]
     },
     {
       "id": "fall_protection",
       "sector": "SAFETY_PPE",
       "label_ar": "الحماية من السقوط",
-      "strong_terms": ["حزام سلامه", "حزام امان", "full body harness", "harness", "lanyard", "حبل مزدوج", "ممتص صدمه", "shock absorber", "srl", "جهاز سحب ذاتي", "self retracting lifeline", "خط حياه", "horizontal lifeline", "نقطه تثبيت", "anchor point", "rope access", "descender", "carabiner", "كارابينر", "fall arrest", "twin lanyard"],
+      "strong_terms": ["حمايه من السقوط", "fall protection", "مهمات العمل على الارتفاعات"],
       "weak_terms": ["حزام", "حبل", "lifeline", "anchor", "harness"],
       "context_terms": ["سلامه", "سقوط", "fall", "ارتفاع", "en", "ansi", "kn", "تثبيت", "انقاذ", "rescue", "اماكن مرتفعه", "confined space"],
       "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety", "معدات رفع", "انقاذ", "rescue"],
@@ -1230,6 +2378,56 @@
         { "name": "standard", "supplier_pool_affecting": true },
         { "name": "length_m", "supplier_pool_affecting": false },
         { "name": "capacity", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "safety_harness",
+          "label_ar": "أحزمة السلامة",
+          "strong_terms": ["حزام سلامه", "حزام امان", "full body harness", "harness", "حزام كامل للجسم"],
+          "weak_terms": ["حزام"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "capacity", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "lanyard_shock_absorber",
+          "label_ar": "حبال الأمان وممتصات الصدمة",
+          "strong_terms": ["lanyard", "twin lanyard", "حبل مزدوج", "حبل امان", "ممتص صدمه", "shock absorber"],
+          "weak_terms": ["حبل"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "length_m", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "self_retracting_lifeline",
+          "label_ar": "أجهزة السحب الذاتي",
+          "strong_terms": ["srl", "self retracting lifeline", "جهاز سحب ذاتي", "حبل سحب ذاتي"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "length_m", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "lifeline_anchor",
+          "label_ar": "خطوط الحياة ونقاط التثبيت",
+          "strong_terms": ["خط حياه", "horizontal lifeline", "نقطه تثبيت", "anchor point", "نقطه ارتكاز"],
+          "weak_terms": ["lifeline", "anchor"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "capacity", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "fall_arrest_hardware",
+          "label_ar": "مانعات السقوط وملحقات الوصول بالحبال",
+          "strong_terms": ["fall arrest", "مانع سقوط", "rope access", "descender", "carabiner", "كارابينر"],
+          "facets": [
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "capacity", "supplier_pool_affecting": false }
+          ]
+        }
       ],
       "categories": [
         {
@@ -1306,7 +2504,9 @@
       "supplier_terms": ["سلامه", "اسعاف", "safety", "طبيه"],
       "preferred_archetypes": ["safety_equipment_supplier", "ppe_supplier"],
       "allowed_archetypes": ["general_trading", "industrial_tools_supplier"],
-      "facets": [{ "name": "capacity", "supplier_pool_affecting": false }]
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
     },
     {
       "id": "site_safety_barriers",
@@ -1323,7 +2523,6 @@
         { "name": "material", "supplier_pool_affecting": true }
       ]
     },
-
     {
       "id": "hand_tools",
       "sector": "TOOLS_WORKSHOP",
@@ -1337,6 +2536,14 @@
       "facets": [
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "term_guards": [
+        {
+          "terms": ["socket", "لقمه", "key", "file", "saw", "منشار", "مبرد", "عده", "tool"],
+          "require_any": ["طقم", "set", "عده", "tool", "ورشه", "wrench", "مفتاح", "ratchet", "drive", "عزم", "يدوي", "hand", "chrome", "vanadium", "hex", "allen", "pcs", "قطعه"],
+          "block_any": ["upvc", "ppr", "hdpe", "pvc", "ماسوره", "مواسير", "pipe", "coupler", "فلنجه", "flange", "dn", "صرف"],
+          "note": "«socket» is a wrench insert only in a tool context; in plumbing the same word is a pipe socket, and «file»/«key»/«saw» are ordinary English words before they are tools."
+        }
       ]
     },
     {
@@ -1442,13 +2649,15 @@
       "supplier_terms": ["زيوت", "lubricants", "مواد كيمياييه", "معدات صناعيه"],
       "preferred_archetypes": ["industrial_tools_supplier", "general_trading"],
       "allowed_archetypes": ["cleaning_equipment_supplier", "welding_supplier"],
-      "facets": [{ "name": "capacity", "supplier_pool_affecting": false }]
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
     },
     {
       "id": "fasteners",
       "sector": "TOOLS_WORKSHOP",
       "label_ar": "المسامير والمثبتات",
-      "strong_terms": ["مسمار", "مسامير", "anchor bolt", "مسمار تثبيت", "chemical anchor", "برشام", "rivet", "صاموله", "دوبل"],
+      "strong_terms": ["مسمار", "مسامير", "anchor bolt", "مسمار تثبيت", "chemical anchor", "برشام", "rivet", "صاموله", "دوبل", "coupling nut", "flange nut", "lock nut", "locknut", "dome nut", "cap nut", "wing nut", "hex nut", "nyloc nut", "صاموله وصل", "صواميل", "صامولة تعميه"],
       "weak_terms": ["bolt", "screw", "nut", "washer", "fastener", "وردة"],
       "context_terms": ["mm", "تثبيت", "مجلفن", "galvanized", "stainless", "grade", "pcs"],
       "supplier_terms": ["مسامير", "fasteners", "عدد وادوات", "hardware"],
@@ -1458,9 +2667,31 @@
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "finish", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "mechanical_anchor",
+          "label_ar": "مثبتات ميكانيكية",
+          "strong_terms": ["wedge anchor", "mechanical anchor", "مثبت ميكانيكي", "مثبتات ميكانيكيه", "sleeve anchor", "drop-in anchor", "chemical anchor", "through bolt anchor", "expansion anchor", "انكر تثبيت", "undercut anchor"]
+        },
+        {
+          "id": "threaded_rod",
+          "label_ar": "قضبان ملولبة",
+          "strong_terms": ["threaded rod", "قضيب ملولب", "قضبان ملولبه", "all thread rod", "قضيب مسنن", "stud bolt", "anchor rod"]
+        },
+        {
+          "id": "bolt_screw",
+          "label_ar": "براغي ومسامير",
+          "strong_terms": ["hex bolt", "self-tapping screw", "self tapping screw", "machine screw", "مسمار سدس", "مسمار قلاووظ", "برغي", "براغي", "carriage bolt", "tek screw", "drywall screw", "مسامير تثبيت", "hex nut", "washer مجلفن"],
+          "weak_terms": ["مسمار"]
+        },
+        {
+          "id": "shear_stud",
+          "label_ar": "مسامير قص",
+          "strong_terms": ["shear connector", "stud shear connector", "shear stud", "مسمار قص", "مسامير قص", "nelson stud"]
+        }
       ]
     },
-
     {
       "id": "measuring_instruments",
       "sector": "INSTRUMENTS",
@@ -1578,7 +2809,6 @@
         }
       ]
     },
-
     {
       "id": "servers_compute",
       "sector": "DATACENTER_ICT",
@@ -1624,6 +2854,13 @@
         { "name": "storage_capacity", "supplier_pool_affecting": false },
         { "name": "data_speed", "supplier_pool_affecting": false },
         { "name": "rack_units", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "storage_drive",
+          "label_ar": "أقراص تخزين ومراقبة",
+          "strong_terms": ["surveillance hdd", "قرص مراقبه", "اقراص مراقبه", "enterprise hdd", "nearline hdd", "sas hdd", "nvme ssd", "hard disk drive", "ssd مركز بيانات"]
+        }
       ]
     },
     {
@@ -1654,6 +2891,13 @@
       "facets": [
         { "name": "data_speed", "supplier_pool_affecting": false },
         { "name": "rack_units", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "network_switch",
+          "label_ar": "مبدلات شبكات",
+          "strong_terms": ["network switch", "مبدل شبكه", "مبدلات شبكات", "poe switch", "poe+ switch", "managed switch", "access switch", "core switch", "aggregation switch", "port switch"]
+        }
       ]
     },
     {
@@ -1669,6 +2913,13 @@
       "facets": [
         { "name": "data_speed", "supplier_pool_affecting": false },
         { "name": "range_m", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "optical_transceiver",
+          "label_ar": "وحدات شبكة ضوئية",
+          "strong_terms": ["transceiver", "وحده transceiver", "qsfp", "qsfp28", "qsfp-dd", "sfp+", "sfp28", "optical module", "وحدات شبكه ضوييه", "وحده ضوييه"]
+        }
       ]
     },
     {
@@ -1706,7 +2957,7 @@
       "id": "structured_cabling",
       "sector": "DATACENTER_ICT",
       "label_ar": "الكابلات المهيكلة",
-      "strong_terms": ["patch panel", "لوحه توصيل", "patch cord", "باتش كورد", "cat6", "cat6a", "cat7", "كابل شبكه", "fiber optic", "الياف بصريه", "mpo", "keystone", "face plate شبكه", "cable manager", "منظم كابلات", "مخرج معلومات", "مخرج بيانات", "data outlet"],
+      "strong_terms": ["patch panel", "لوحه توصيل", "patch cord", "باتش كورد", "cat6", "cat6a", "cat7", "كابل شبكه", "fiber optic", "الياف بصريه", "mpo", "keystone", "مخرج بيانات", "مخارج بيانات", "مخرج هاتف", "نقطه بيانات", "نقاط بيانات", "face plate شبكه", "cable manager", "منظم كابلات", "مخرج معلومات", "مخرج بيانات", "data outlet"],
       "weak_terms": ["patch", "cassette", "outlet", "cord"],
       "context_terms": ["شبكه", "network", "u", "rack", "fiber", "الياف", "utp", "ftp"],
       "supplier_terms": ["شبكات", "networks", "كابلات", "تيار خفيف", "structured cabling"],
@@ -1715,6 +2966,43 @@
       "facets": [
         { "name": "data_speed", "supplier_pool_affecting": false },
         { "name": "length_m", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "fiber_optic_cable",
+          "label_ar": "كوابل ألياف ضوئية",
+          "strong_terms": ["كابل الياف", "كوابل الياف", "fiber optic cable", "fibre optic cable", "كابل الياف ضوييه", "loose tube", "tight buffer", "armored fiber", "om3", "om4", "os2"]
+        },
+        {
+          "id": "fiber_patch_cord",
+          "label_ar": "وصلات ألياف (Patch Cord)",
+          "strong_terms": ["fiber patch cord", "fibre patch cord", "lc-lc", "sc-sc", "lc-sc", "lc upc", "sc apc", "fiber jumper", "وصله الياف", "patch cord الياف"]
+        },
+        {
+          "id": "copper_patch_cord",
+          "label_ar": "وصلات نحاسية (Patch Cord)",
+          "strong_terms": ["patch cord cat6", "patch cord cat6a", "patch cord cat5e", "copper patch cord", "باتش كورد", "rj45 patch cord", "وصله شبكه"]
+        },
+        {
+          "id": "patch_panel",
+          "label_ar": "باتش بانل",
+          "strong_terms": ["patch panel", "باتش بانل", "لوحه توصيل", "fiber patch panel", "copper patch panel", "port patch panel"]
+        },
+        {
+          "id": "fiber_distribution",
+          "label_ar": "توزيع ألياف",
+          "strong_terms": ["fiber distribution", "توزيع الياف", "optical distribution frame", "odf", "fiber enclosure", "splice tray", "fiber splice", "pigtail", "adapter plate", "fiber termination box"]
+        },
+        {
+          "id": "data_outlet",
+          "label_ar": "مخارج بيانات",
+          "strong_terms": ["keystone jack", "keystone", "مخرج بيانات", "مخارج بيانات", "مخرج معلومات", "data outlet", "information outlet", "rj45 outlet", "face plate شبكه"]
+        },
+        {
+          "id": "data_cable",
+          "label_ar": "كوابل بيانات",
+          "strong_terms": ["كابل بيانات", "كوابل بيانات", "data cable", "كابل شبكه", "cat6 f/utp", "cat6 u/utp", "cat6a cable", "cat5e cable", "installation cable 305"]
+        }
       ]
     },
     {
@@ -1731,6 +3019,13 @@
         { "name": "rack_units", "supplier_pool_affecting": false },
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "comms_cabinet",
+          "label_ar": "خزائن اتصالات",
+          "strong_terms": ["خزانه اتصالات", "خزاين اتصالات", "communication cabinet", "network cabinet", "كابينت شبكه", "wall mount rack", "floor standing rack", "server rack", "rack cabinet"]
+        }
       ]
     },
     {
@@ -1809,7 +3104,6 @@
         { "name": "dimensions", "supplier_pool_affecting": false }
       ]
     },
-
     {
       "id": "it_peripherals",
       "sector": "DATACENTER_ICT",
@@ -1933,12 +3227,11 @@
         }
       ]
     },
-
     {
       "id": "physical_security",
       "sector": "DATACENTER_ICT",
       "label_ar": "الأمن المادي والمراقبة",
-      "strong_terms": ["كاميرا مراقبه", "cctv", "nvr", "ptz camera", "تحكم بالدخول", "access control", "بوابه دوران", "turnstile", "قفل مغناطيسي", "magnetic lock", "قارئ بطاقات", "card reader"],
+      "strong_terms": ["كاميرا مراقبه", "cctv", "nvr", "ptz camera", "تحكم بالدخول", "access control", "بوابه دوران", "turnstile", "تحكم بالابواب", "نظام تحكم بالابواب", "door access control", "قفل مغناطيسي", "magnetic lock", "قارئ بطاقات", "card reader"],
       "weak_terms": ["كاميرا", "camera", "قارئ", "reader", "مراقبه", "امنيه"],
       "context_terms": ["مراقبه", "امنيه", "surveillance", "تيار خفيف", "دخول", "security"],
       "supplier_terms": ["مراقبه", "كاميرات", "cctv", "انظمه امنيه", "تيار خفيف", "access control"],
@@ -2019,7 +3312,7 @@
         {
           "id": "access_control",
           "label_ar": "التحكم بالدخول",
-          "strong_terms": ["تحكم بالدخول", "access control", "بوابه دوران", "turnstile", "قفل مغناطيسي", "magnetic lock", "قارئ بطاقات", "card reader", "access controller", "بصمه", "biometric"],
+          "strong_terms": ["تحكم بالدخول", "access control", "بوابه دوران", "turnstile", "تحكم بالابواب", "نظام تحكم بالابواب", "door access control", "قفل مغناطيسي", "magnetic lock", "قارئ بطاقات", "card reader", "access controller", "بصمه", "biometric"],
           "weak_terms": ["قارئ", "reader", "قفل", "lock", "بوابه"],
           "context_terms": ["دخول", "access", "صلاحيات", "mifare", "rfid", "امنيه", "ابواب"],
           "preferred_archetypes": ["access_control_supplier"],
@@ -2081,7 +3374,7 @@
             {
               "id": "turnstile_gate",
               "label_ar": "البوابات الدوارة",
-              "strong_terms": ["بوابه دوران", "turnstile", "speed gate", "بوابه امنيه", "full height turnstile", "tripod turnstile"],
+              "strong_terms": ["بوابه دوران", "turnstile", "تحكم بالابواب", "نظام تحكم بالابواب", "door access control", "speed gate", "بوابه امنيه", "full height turnstile", "tripod turnstile"],
               "weak_terms": ["بوابه", "gate"],
               "context_terms": ["دوران", "دخول", "access", "امنيه", "ستانلس", "مداخل"],
               "facets": [
@@ -2093,7 +3386,6 @@
         }
       ]
     },
-
     {
       "id": "network_test_tools",
       "sector": "DATACENTER_ICT",
@@ -2167,6 +3459,717 @@
       "facets": [
         { "name": "power_kw", "supplier_pool_affecting": false },
         { "name": "interface", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "pa_speaker",
+          "label_ar": "سماعات نظام صوت عام",
+          "strong_terms": ["ceiling speaker", "سماعه سقف", "horn speaker", "wall speaker", "line speaker", "نظام صوت عام", "pa speaker", "column speaker"]
+        },
+        {
+          "id": "pa_amplifier",
+          "label_ar": "مضخمات صوت",
+          "strong_terms": ["power amplifier", "مضخم صوت", "مضخمات صوت", "mixer amplifier", "pa amplifier"]
+        }
+      ]
+    },
+    {
+      "id": "thermal_insulation",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "العزل الحراري",
+      "strong_terms": ["عزل حراري", "thermal insulation", "xps", "eps", "pir board", "polyisocyanurate", "extruded polystyrene", "expanded polystyrene", "صوف صخري", "rockwool", "mineral wool", "صوف زجاجي", "glasswool", "elastomeric insulation", "nitrile rubber insulation", "phenolic insulation"],
+      "weak_terms": ["عزل", "insulation", "فوم", "foam"],
+      "context_terms": ["سماكه", "حراري", "kg/m3", "lambda", "thermal", "مواسير", "مجاري", "سقف", "جدار"],
+      "supplier_terms": ["عزل", "insulation"],
+      "preferred_archetypes": ["insulation_supplier"],
+      "allowed_archetypes": ["waterproofing_supplier", "general_building_materials", "cladding_supplier", "hvac_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["sanitary_ware_supplier", "ppe_supplier"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "application", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "rigid_board_insulation",
+          "label_ar": "ألواح عزل حراري",
+          "strong_terms": ["xps", "eps", "pir board", "polyisocyanurate", "extruded polystyrene", "expanded polystyrene", "لوح عزل حراري", "الواح عزل حراري", "بولي ستايرين", "فوم عزل", "عزل pir", "لوح pir", "الواح pir", "pir insulation", "pir رقايقي"]
+        },
+        {
+          "id": "pipe_duct_insulation",
+          "label_ar": "عزل مواسير ومجاري",
+          "strong_terms": ["عزل مواسير", "عزل مجاري الهواء", "elastomeric", "nitrile rubber", "armaflex", "ارمافليكس", "rockwool pipe section", "pipe insulation", "duct wrap", "duct insulation", "phenolic duct"],
+          "term_guards": [
+            {
+              "terms": ["elastomeric", "nitrile rubber", "phenolic duct"],
+              "blocked_by_head": ["دهان", "طلاء", "paint", "برايمر", "primer", "سيلانت", "sealant", "ممبرين", "membrane"],
+              "note": "Elastomeric names a polymer shared with paints and membranes."
+            }
+          ]
+        },
+        {
+          "id": "mineral_wool_insulation",
+          "label_ar": "صوف صخري وزجاجي",
+          "strong_terms": ["صوف صخري", "rockwool", "mineral wool", "صوف زجاجي", "glasswool", "glass wool", "stone wool", "لباد صوف"]
+        }
+      ]
+    },
+    {
+      "id": "glazing",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "الزجاج والتزجيج",
+      "strong_terms": ["زجاج مصفح", "laminated glass", "زجاج مقسي", "tempered glass", "toughened glass", "زجاج مزدوج", "double glazed", "insulated glass unit", "زجاج معماري", "architectural glass", "low-e glass", "spandrel glass", "سيكوريت", "زجاج سيكوريت", "باب سيكوريت", "باب زجاج", "ابواب زجاج", "glass door", "قاطع زجاج", "قواطع زجاج", "glass partition", "مراه", "mirror glass"],
+      "weak_terms": ["زجاج", "glass", "glazing"],
+      "term_guards": [
+        {
+          "terms": ["glass door", "باب زجاج", "ابواب زجاج", "glass partition"],
+          "block_any": ["rack", "راك", "server", "سيرفر", "network", "شبكه", "cabinet", "enclosure", "19 inch", "u)"],
+          "note": "A glass door on a network rack is a FEATURE OF THE RACK, not a glazing item — the same defect class as a material or a location naming the product. Architectural glass doors keep the term; IT enclosures that merely have one do not."
+        }
+      ],
+      "context_terms": ["سماكه", "مم", "pvb", "sgp", "igu", "شفاف", "عاكس", "مقسي", "مصفح", "واجهه"],
+      "supplier_terms": ["زجاج", "glass", "تزجيج"],
+      "preferred_archetypes": ["glass_glazing_supplier"],
+      "allowed_archetypes": ["aluminium_supplier", "general_building_materials", "cladding_supplier", "fitout_contractor"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ppe_supplier", "cybersecurity_integrator"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "laminated_glass",
+          "label_ar": "زجاج مصفح",
+          "strong_terms": ["زجاج مصفح", "laminated glass", "pvb interlayer", "sgp interlayer", "laminated safety glass"]
+        },
+        {
+          "id": "tempered_glass",
+          "label_ar": "زجاج مقسي",
+          "strong_terms": ["زجاج مقسي", "tempered glass", "toughened glass", "heat strengthened glass"]
+        },
+        {
+          "id": "insulated_glass_unit",
+          "label_ar": "زجاج مزدوج",
+          "strong_terms": ["زجاج مزدوج", "double glazed", "insulated glass unit", "igu", "triple glazed", "argon filled"]
+        },
+        {
+          "id": "architectural_glass",
+          "label_ar": "زجاج معماري",
+          "strong_terms": ["زجاج معماري", "architectural glass", "spandrel glass", "fritted glass", "reflective glass", "low-e glass", "زجاج عاكس"]
+        }
+      ]
+    },
+    {
+      "id": "aluminium_systems",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "أنظمة الألمنيوم",
+      "strong_terms": ["قطاعات واجهات المنيوم", "curtain wall", "حيط ستاري", "mullion", "transom", "لوفر المنيوم", "لوفرات المنيوم", "aluminium louver", "كسوه المنيوم", "aluminium composite panel", "acp", "كلادينج المنيوم", "solid aluminium panel", "نوافذ المنيوم", "نافذه المنيوم", "شبابيك المنيوم", "شباك المنيوم", "ابواب المنيوم", "باب المنيوم", "aluminium window", "aluminium door", "قطاع المنيوم"],
+      "weak_terms": ["المنيوم", "aluminium", "aluminum", "louver", "لوفر"],
+      "context_terms": ["واجهه", "واجهات", "سماكه", "مم", "انودايز", "anodized", "powder coated", "بودره", "unitized", "stick system"],
+      "supplier_terms": ["المنيوم", "aluminium", "واجهات"],
+      "preferred_archetypes": ["aluminium_supplier"],
+      "allowed_archetypes": ["cladding_supplier", "glass_glazing_supplier", "metal_trading", "general_building_materials", "fitout_contractor"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ppe_supplier", "sanitary_ware_supplier"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "curtain_wall_profile",
+          "label_ar": "قطاعات واجهات ألمنيوم",
+          "strong_terms": ["قطاعات واجهات المنيوم", "curtain wall", "حيط ستاري", "mullion", "transom", "unitized curtain wall", "stick system", "قطاع واجهه"]
+        },
+        {
+          "id": "aluminium_window_door",
+          "label_ar": "نوافذ وأبواب ألمنيوم",
+          "strong_terms": ["نوافذ المنيوم", "نافذه المنيوم", "شبابيك المنيوم", "شباك المنيوم", "ابواب المنيوم", "باب المنيوم", "aluminium window", "aluminium door", "sliding window المنيوم", "شباك سحاب", "نافذه سحاب", "tilt and turn", "casement window"],
+          "context_terms": ["م2", "مم", "انودايز", "anodized", "powder coated", "زجاج", "glass", "سحاب", "sliding", "مفصلي"]
+        },
+        {
+          "id": "aluminium_louver",
+          "label_ar": "لوفرات ألمنيوم",
+          "strong_terms": ["لوفر المنيوم", "لوفرات المنيوم", "aluminium louver", "sun breaker", "brise soleil", "مكسر شمس", "louver blade"]
+        },
+        {
+          "id": "aluminium_cladding_panel",
+          "label_ar": "كسوة ألمنيوم",
+          "strong_terms": ["كسوه المنيوم", "aluminium composite panel", "كلادينج المنيوم", "solid aluminium panel", "الوكبوند", "acp panel"]
+        }
+      ]
+    },
+    {
+      "id": "precast_drainage",
+      "sector": "INFRASTRUCTURE",
+      "label_ar": "التصريف والخرسانة مسبقة الصب",
+      "strong_terms": ["غرفه تصريف", "غرف تصريف جاهزه", "غرفه تفتيش", "غرف تفتيش مسبقه الصب", "inspection chamber", "precast manhole", "manhole chamber", "مانهول", "مناهل", "catch basin", "غطاء مانهول", "اغطيه مانهول", "غطاء غرفه تفتيش", "اغطيه غرف تفتيش", "manhole cover", "قناه تصريف خطيه", "قنوات تصريف خطيه", "linear drainage", "trench drain", "slot drain", "شبك تصريف", "drainage grating", "gully grating"],
+      "weak_terms": ["غرفه", "chamber", "manhole", "grating", "تصريف"],
+      "context_terms": ["تصريف", "drainage", "d400", "c250", "b125", "ductile", "حديد زهر", "مسبق الصب", "precast", "load class"],
+      "supplier_terms": ["مسبق الصب", "precast", "تصريف"],
+      "preferred_archetypes": ["precast_concrete_supplier"],
+      "allowed_archetypes": ["general_building_materials", "pipe_fittings_supplier", "metal_trading", "paving_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ppe_supplier", "it_hardware_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "standard", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "precast_chamber",
+          "label_ar": "غرف تفتيش مسبقة الصب",
+          "strong_terms": ["غرفه تصريف", "غرف تصريف جاهزه", "غرفه تفتيش", "غرف تفتيش", "غرف تفتيش مسبقه الصب", "inspection chamber", "precast manhole", "manhole chamber", "مانهول", "مناهل", "catch basin", "soakaway chamber"]
+        },
+        {
+          "id": "manhole_cover",
+          "label_ar": "أغطية غرف تفتيش",
+          "strong_terms": ["غطاء مانهول", "اغطيه مانهول", "غطاء غرفه تفتيش", "اغطيه غرف تفتيش", "manhole cover", "ductile iron cover", "access cover", "recessed cover"]
+        },
+        {
+          "id": "linear_drainage",
+          "label_ar": "قنوات تصريف خطية",
+          "strong_terms": ["قناه تصريف خطيه", "قنوات تصريف خطيه", "linear drainage", "trench drain", "slot drain", "channel drain", "مجري تصريف خطي", "مصرف خطي", "مصارف خطيه", "تصريف خطي", "قناه تصريف", "قنوات تصريف", "polymer concrete channel"]
+        },
+        {
+          "id": "buried_drainage_pipe",
+          "label_ar": "مواسير تصريف مدفونة",
+          "strong_terms": ["hdpe corrugated", "corrugated pipe", "ماسوره مضلعه", "مواسير مضلعه", "twin wall pipe", "ماسوره تصريف", "مواسير تصريف", "perforated drainage pipe", "ماسوره مثقبه", "upvc sewer pipe", "ماسوره صرف", "مواسير صرف", "gravity sewer pipe", "structured wall pipe"],
+          "context_terms": ["sn4", "sn8", "sn16", "socket rubber ring", "welded coupler", "صرف", "تصريف", "مدفون", "buried", "gravity", "قطر", "dn", "od"],
+          "note": "CORRUGATED WALL PLUS AN SN STIFFNESS CLASS IS A BURIED-DRAINAGE DESIGNATION — SN4/SN8/SN16 is ring stiffness for gravity sewer, a rating no pressure plumbing pipe carries. These 90 rows sat in `pipes_fittings` because «ماسوره» is that family's strong term and nothing else competed; the trade is a drainage pipe extruder, not a plumbing fittings distributor. This cell was in the held-out report's four SENSITIVITY cells rather than its seven adjudicated ones, which is why a re-measurement scoped to the seven returned zero and missed it.",
+          "facets": [
+            { "name": "diameter", "supplier_pool_affecting": false },
+            { "name": "standard", "supplier_pool_affecting": true },
+            { "name": "material", "supplier_pool_affecting": true }
+          ]
+        },
+        {
+          "id": "drainage_grating",
+          "label_ar": "شبك تصريف",
+          "strong_terms": ["شبك تصريف", "drainage grating", "gully grating", "gully grate", "مشبك تصريف", "slotted grating"]
+        }
+      ]
+    },
+    {
+      "id": "paving",
+      "sector": "INFRASTRUCTURE",
+      "label_ar": "البلاط والرصف",
+      "strong_terms": ["بلاطه رصف", "بلاطات رصف", "interlock", "انترلوك", "paving block", "concrete paver", "بلاط رصف خرساني", "kerbstone", "حجر رصيف", "بردوره", "kerb", "بلاط ارشادي", "tactile paving", "tactile tile"],
+      "weak_terms": ["رصف", "paver", "paving", "بردوره"],
+      "context_terms": ["سماكه", "مم", "خرساني", "رصف", "رصيف", "مواقف", "ممشي", "lon"],
+      "supplier_terms": ["رصف", "انترلوك", "paving"],
+      "preferred_archetypes": ["paving_supplier", "precast_concrete_supplier"],
+      "allowed_archetypes": ["general_building_materials", "block_masonry_supplier", "flooring_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ppe_supplier", "it_hardware_supplier"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "paving_block",
+          "label_ar": "بلاطات رصف",
+          "strong_terms": ["بلاطه رصف", "بلاطات رصف", "interlock", "انترلوك", "paving block", "concrete paver", "بلاط رصف خرساني", "permeable paver"]
+        },
+        {
+          "id": "kerbstone",
+          "label_ar": "بردورات",
+          "strong_terms": ["kerbstone", "حجر رصيف", "بردوره", "بردورات", "kerb unit", "channel kerb"]
+        },
+        {
+          "id": "tactile_paving",
+          "label_ar": "بلاط إرشادي",
+          "strong_terms": ["بلاط ارشادي", "tactile paving", "tactile tile", "blister tile", "بلاط تحذيري", "corduroy tile"]
+        }
+      ]
+    },
+    {
+      "id": "geosynthetics",
+      "sector": "INFRASTRUCTURE",
+      "label_ar": "المواد الأرضية الصناعية",
+      "strong_terms": ["جيوتكستايل", "geotextile", "non-woven geotextile", "woven geotextile", "جيوجريد", "geogrid", "uniaxial geogrid", "biaxial geogrid", "geomembrane", "جيوممبرين", "hdpe liner", "geocell", "geocomposite"],
+      "weak_terms": ["geo", "liner"],
+      "context_terms": ["g/m2", "kn/m", "طبقه", "تربه", "soil", "ارضي", "تثبيت", "فصل"],
+      "supplier_terms": ["جيوتكستايل", "geotextile", "geosynthetic"],
+      "preferred_archetypes": ["geosynthetics_supplier"],
+      "allowed_archetypes": ["waterproofing_supplier", "general_building_materials", "insulation_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ppe_supplier", "it_hardware_supplier", "sanitary_ware_supplier"],
+      "facets": [
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "standard", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "geotextile",
+          "label_ar": "جيوتكستايل",
+          "strong_terms": ["جيوتكستايل", "geotextile", "non-woven geotextile", "woven geotextile", "نسيج ارضي"]
+        },
+        {
+          "id": "geogrid",
+          "label_ar": "جيوجريد",
+          "strong_terms": ["جيوجريد", "geogrid", "uniaxial geogrid", "biaxial geogrid", "شبكه ارضيه"]
+        },
+        {
+          "id": "geomembrane",
+          "label_ar": "جيوممبرين",
+          "strong_terms": ["geomembrane", "جيوممبرين", "hdpe liner", "geocell", "geocomposite", "بطانه ارضيه"]
+        }
+      ]
+    },
+    {
+      "id": "road_furniture",
+      "sector": "INFRASTRUCTURE",
+      "label_ar": "أثاث ولوحات الطرق",
+      "strong_terms": ["لوحه مروريه", "لوحات مروريه", "traffic sign", "road sign", "علامه مروريه", "road stud", "عين طريق", "عيون طرق", "cat eye", "بولارد", "bollard", "مقعد خارجي", "اثاث مواقع", "street furniture", "litter bin", "planter خارجي", "delineator", "عمود ارشادي"],
+      "weak_terms": ["bench", "stud", "sign", "مقعد"],
+      "context_terms": ["خارجي", "طريق", "مرور", "عاكس", "reflective", "solar", "مجلفن", "حديقه", "موقع"],
+      "supplier_terms": ["لوحات مروريه", "اثاث حضري", "street furniture"],
+      "preferred_archetypes": ["road_furniture_supplier"],
+      "allowed_archetypes": ["general_building_materials", "metal_trading", "precast_concrete_supplier", "safety_equipment_supplier", "lighting_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["it_hardware_supplier", "cybersecurity_integrator"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "traffic_sign",
+          "label_ar": "لوحات مرورية",
+          "strong_terms": ["لوحه مروريه", "لوحات مروريه", "traffic sign", "road sign", "علامه مروريه", "chevron sign", "لوحه تحذيريه مروريه", "حاجز طريق", "حواجز طرق", "road barrier", "guardrail", "w-beam", "حاجز خرساني", "new jersey barrier", "crash barrier", "حاجز مروري"]
+        },
+        {
+          "id": "road_stud",
+          "label_ar": "عيون طرق",
+          "strong_terms": ["road stud", "عين طريق", "عيون طرق", "cat eye", "reflective stud", "delineator", "عمود ارشادي"]
+        },
+        {
+          "id": "bollard",
+          "label_ar": "بولاردات",
+          "strong_terms": ["بولارد", "bollard", "عمود حمايه", "removable bollard", "fixed bollard"]
+        },
+        {
+          "id": "site_furniture",
+          "label_ar": "أثاث مواقع",
+          "strong_terms": ["مقعد خارجي", "اثاث مواقع", "street furniture", "litter bin", "سله مهملات خارجيه", "planter خارجي", "bench خارجي"]
+        }
+      ]
+    },
+    {
+      "id": "masonry_blocks",
+      "sector": "CIVIL_CONCRETE",
+      "label_ar": "البلوك ومواد المباني",
+      "strong_terms": ["بلوك اسمنتي", "بلوك خرساني", "concrete block", "hollow block", "solid block", "طوب اسمنتي", "مباني خفيفه", "aac block", "بلوك خفيف", "autoclaved aerated", "thermal block", "بلوك حراري", "طوب احمر", "clay brick", "facing brick", "طوب طيني"],
+      "weak_terms": ["بلوك", "block", "طوب", "brick"],
+      "context_terms": ["مقاس", "سم", "مم", "مباني", "حوايط", "كثافه", "n/mm2", "اسمنتي", "خرساني", "مفرغ", "مصمت", "hollow", "solid"],
+      "supplier_terms": ["بلوك", "طوب", "مواد بناء"],
+      "preferred_archetypes": ["block_masonry_supplier"],
+      "allowed_archetypes": ["general_building_materials", "precast_concrete_supplier", "cement_supplier", "ready_mix_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["it_hardware_supplier", "ppe_supplier", "cybersecurity_integrator"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "grade", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "concrete_block",
+          "label_ar": "بلوك إسمنتي",
+          "strong_terms": ["بلوك اسمنتي", "بلوك خرساني", "concrete block", "hollow block", "solid block", "طوب اسمنتي", "بلوك مفرغ"]
+        },
+        {
+          "id": "lightweight_block",
+          "label_ar": "مباني خفيفة",
+          "strong_terms": ["مباني خفيفه", "aac block", "بلوك خفيف", "autoclaved aerated", "thermal block", "بلوك حراري", "بلوك عازل"]
+        },
+        {
+          "id": "clay_brick",
+          "label_ar": "طوب أحمر",
+          "strong_terms": ["طوب احمر", "clay brick", "facing brick", "طوب طيني", "طوب حراري"]
+        }
+      ]
+    },
+    {
+      "id": "concrete_admixtures",
+      "sector": "CIVIL_CONCRETE",
+      "label_ar": "الإضافات والكيماويات الخرسانية",
+      "strong_terms": ["اضافات خرسانيه", "concrete admixture", "superplasticizer", "ملدن", "ملدن قوي", "water reducer", "retarder", "مبطي شك", "accelerator", "معجل شك", "air entraining", "الياف الخرسانه", "polypropylene fiber", "steel fiber", "مواد اصلاح الخرسانه", "repair mortar", "مونه اصلاح", "micro concrete", "bonding agent", "ماده رابطه", "curing compound", "ماده معالجه"],
+      "weak_terms": ["admixture", "اضافه", "fiber", "الياف"],
+      "context_terms": ["خرسانه", "concrete", "عبوه", "لتر", "كجم", "astm", "en", "صب", "معالجه"],
+      "supplier_terms": ["كيماويات", "اضافات", "admixture", "chemicals"],
+      "preferred_archetypes": ["concrete_chemicals_supplier"],
+      "allowed_archetypes": ["general_building_materials", "ready_mix_supplier", "cement_supplier", "waterproofing_supplier"],
+      "soft_conflicts": ["general_trading", "paint_only_supplier"],
+      "hard_conflicts": ["it_hardware_supplier", "ppe_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "standard", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "concrete_admixture",
+          "label_ar": "إضافات خرسانية",
+          "strong_terms": ["اضافات خرسانيه", "concrete admixture", "superplasticizer", "ملدن", "water reducer", "retarder", "مبطي شك", "accelerator", "معجل شك", "air entraining agent", "plasticizer", "مانع نفاذيه", "crystalline waterproofing admixture", "مسرع شك", "مضاف خرسانه", "مضاف حابس هواء", "سيليكا فيوم", "silica fume", "لاتكس sbr", "sbr latex", "تقليل انكماش", "shrinkage reducing", "ملدن فايق", "pce"]
+        },
+        {
+          "id": "concrete_fiber",
+          "label_ar": "ألياف الخرسانة",
+          "strong_terms": ["الياف الخرسانه", "polypropylene fiber", "steel fiber", "الياف بوليبروبلين", "الياف فولاذيه", "macro fiber", "micro fiber", "glass fiber خرسانه", "الياف بازلت", "basalt fiber", "الياف بولي بروبلين", "الياف زجاج", "الياف زجاجيه", "ar glass fiber", "الياف كربون"]
+        },
+        {
+          "id": "concrete_repair",
+          "label_ar": "مواد إصلاح الخرسانة",
+          "strong_terms": ["مواد اصلاح الخرسانه", "repair mortar", "مونه اصلاح", "micro concrete", "bonding agent", "ماده رابطه", "epoxy mortar", "curing compound", "ماده معالجه"]
+        }
+      ]
+    },
+    {
+      "id": "cement_binders",
+      "sector": "CIVIL_CONCRETE",
+      "label_ar": "الأسمنت والمواد الرابطة",
+      "strong_terms": ["اسمنت بورتلاندي", "portland cement", "اسمنت مقاوم", "srpc", "اسمنت ابيض", "white cement", "opc cement", "مونه اسمنتيه", "cement mortar", "screed", "self leveling screed", "مونه تسويه", "tile mortar", "اسمنت"],
+      "weak_terms": ["cement", "mortar", "مونه", "جبس"],
+      "context_terms": ["كجم", "كيس", "طن", "عبوه", "خرسانه", "مباني", "تسويه", "astm", "en"],
+      "supplier_terms": ["اسمنت", "cement", "مونه", "مواد بناء"],
+      "preferred_archetypes": ["cement_supplier"],
+      "allowed_archetypes": ["general_building_materials", "ready_mix_supplier", "block_masonry_supplier", "concrete_chemicals_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["it_hardware_supplier", "cybersecurity_integrator", "ppe_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "grade", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "cement",
+          "label_ar": "أسمنت",
+          "strong_terms": ["اسمنت بورتلاندي", "portland cement", "اسمنت مقاوم", "srpc", "اسمنت ابيض", "white cement", "opc cement", "اسمنت مقاوم للكبريتات"]
+        },
+        {
+          "id": "mortar_screed",
+          "label_ar": "مونة وبلاستر",
+          "strong_terms": ["مونه اسمنتيه", "cement mortar", "screed", "self leveling screed", "مونه تسويه", "tile mortar", "مونه جاهزه"]
+        }
+      ]
+    },
+    {
+      "id": "wood_panels_joinery",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "الأخشاب والألواح والنجارة",
+      "strong_terms": ["لوح mdf", "mdf board", "medium density fibreboard", "خشب رقايقي", "plywood", "marine plywood", "birch plywood", "commercial plywood", "ابلاكاش", "لوح hpl", "hpl laminate", "compact laminate", "high pressure laminate", "لامينيت", "ضلفه باب خشبي", "باب خشبي", "solid core door", "hollow core door", "chipboard", "particle board", "osb board", "خشب قشره"],
+      "weak_terms": ["mdf", "hpl", "plywood", "خشب", "لامينيت", "laminate"],
+      "context_terms": ["سماكه", "مم", "تشطيب", "لوح", "الواح", "قشره", "fr", "mr", "باب"],
+      "supplier_terms": ["اخشاب", "خشب", "wood", "plywood", "نجاره"],
+      "preferred_archetypes": ["joinery_panel_supplier", "joinery_supplier"],
+      "allowed_archetypes": ["general_building_materials", "interior_finishing", "fitout_contractor", "general_trading"],
+      "hard_conflicts": ["ppe_supplier", "cybersecurity_integrator", "sanitary_ware_supplier"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "mdf_board",
+          "label_ar": "ألواح MDF",
+          "strong_terms": ["لوح mdf", "mdf board", "medium density fibreboard", "الواح mdf"]
+        },
+        {
+          "id": "plywood",
+          "label_ar": "خشب رقائقي",
+          "strong_terms": ["خشب رقايقي", "plywood", "marine plywood", "birch plywood", "commercial plywood", "ابلاكاش", "لوح ابلاكاش"]
+        },
+        {
+          "id": "laminate_panel",
+          "label_ar": "لامينيت HPL",
+          "strong_terms": ["لوح hpl", "hpl laminate", "compact laminate", "high pressure laminate", "لامينيت", "hpl compact"]
+        },
+        {
+          "id": "wooden_door",
+          "label_ar": "أبواب خشبية",
+          "strong_terms": ["ضلفه باب خشبي", "باب خشبي", "solid core door", "hollow core door", "wooden door leaf", "ضلفه باب"]
+        }
+      ]
+    },
+    {
+      "id": "pipe_supports",
+      "sector": "MEP_WATER",
+      "label_ar": "حوامل ومساند المواسير",
+      "strong_terms": ["clevis hanger", "pipe shoe", "riser clamp", "roller support", "split ring hanger", "حامل مواسير", "حوامل مواسير", "pipe hanger", "pipe clamp", "pipe support", "spring hanger", "vibration isolator", "rubber mount", "anti vibration mount", "spring mount", "pipe saddle", "strut channel", "unistrut", "عوازل وحوامل ميكانيكيه", "u-bolt لمواسير"],
+      "weak_terms": ["hanger", "clamp", "support", "حامل", "حوامل", "mount", "isolator"],
+      "context_terms": ["مواسير", "ماسوره", "dn", "مجلفن", "حموله", "كجم", "pipe", "duct", "تثبيت"],
+      "supplier_terms": ["حوامل", "supports", "unistrut"],
+      "preferred_archetypes": ["pipe_support_supplier", "pipe_fittings_supplier"],
+      "allowed_archetypes": ["metal_trading", "general_building_materials", "hvac_supplier", "industrial_tools_supplier", "plumbing_only_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["it_hardware_supplier", "cybersecurity_integrator", "printing_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "pipe_hanger",
+          "label_ar": "حوامل مواسير",
+          "strong_terms": ["clevis hanger", "pipe shoe", "riser clamp", "roller support", "split ring hanger", "حامل مواسير", "حوامل مواسير", "pipe hanger", "pipe clamp", "pipe saddle", "strut channel", "unistrut", "trapeze hanger"]
+        },
+        {
+          "id": "strut_channel_accessory",
+          "label_ar": "ملحقات قنوات الإسناد",
+          "strong_terms": ["نظام strut", "strut system", "strut channel", "unistrut", "قناه اسناد", "قنوات اسناد", "strut clamp", "strut bracket", "strut nut", "channel nut", "spring nut", "strut end cap", "strut post base", "cantilever arm strut", "strut fitting", "strut accessories"],
+          "context_terms": ["41", "21", "مجلفن", "galvanized", "zinc", "hdg", "bracket", "arm", "clamp"],
+          "note": "A CHANNEL-SUPPORT SYSTEM IS ITS OWN TRADE, and the accessories that bolt onto it carry names other trades also use: a «Cantilever Arm» is warehouse racking to a racking supplier and a strut bracket to a support supplier, and a «Beam Clamp» is lifting gear to a rigger and a strut fixing to an installer. The held-out corpus found 48 such rows going to the warehouse and rigging families. Naming the system positively lets the line say which arm it means, and the guards on the two competing claims stop them answering when the line has already said «strut».",
+          "facets": [
+            { "name": "dimensions", "supplier_pool_affecting": false },
+            { "name": "finish", "supplier_pool_affecting": true },
+            { "name": "material", "supplier_pool_affecting": false }
+          ]
+        },
+        {
+          "id": "vibration_isolator",
+          "label_ar": "عوازل اهتزاز",
+          "strong_terms": ["vibration isolator", "rubber mount", "anti vibration mount", "spring mount", "spring hanger", "neoprene mount", "عازل اهتزاز", "عوازل وحوامل ميكانيكيه"]
+        }
+      ]
+    },
+    {
+      "id": "irrigation_systems",
+      "sector": "MEP_WATER",
+      "label_ar": "أنظمة الري",
+      "strong_terms": ["فلتر ري", "filter disc", "disc filter", "screen filter", "فلتر شبكي", "sand filter", "فلتر رملي", "وحده تحكم ري", "irrigation controller", "تحكم ري", "quick coupling valve", "pressure regulator ري", "نقاط ري", "dripper", "drip line", "خط تنقيط", "sprinkler ري", "رشاش ري", "bubbler", "micro sprinkler", "ملحقات ري", "شبكه ري"],
+      "weak_terms": ["ري", "irrigation", "تنقيط", "رشاش"],
+      "context_terms": ["بوصه", "مم", "ري", "زراعه", "حديقه", "station", "تنقيط", "lph", "bar"],
+      "supplier_terms": ["ري", "irrigation", "زراعه"],
+      "preferred_archetypes": ["irrigation_supplier"],
+      "allowed_archetypes": ["pipe_fittings_supplier", "pump_supplier", "valve_supplier", "general_building_materials", "water_treatment_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["it_hardware_supplier", "cybersecurity_integrator", "ppe_supplier"],
+      "facets": [
+        { "name": "diameter", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "flow_rate", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "irrigation_filter",
+          "label_ar": "فلاتر ري",
+          "strong_terms": ["فلتر ري", "filter disc", "disc filter", "screen filter", "فلتر شبكي", "sand filter", "فلتر رملي", "فلاتر ري"]
+        },
+        {
+          "id": "irrigation_control",
+          "label_ar": "تحكم ري",
+          "strong_terms": ["وحده تحكم ري", "irrigation controller", "تحكم ري", "quick coupling valve", "pressure regulator ري", "solenoid valve ري", "منظم ضغط ري"]
+        },
+        {
+          "id": "irrigation_emitter",
+          "label_ar": "نقاطات ورشاشات ري",
+          "strong_terms": ["نقاط ري", "dripper", "drip line", "خط تنقيط", "sprinkler ري", "رشاش ري", "bubbler", "micro sprinkler", "نقاطات", "pop-up sprinkler", "pop up sprinkler", "popup sprinkler", "pop-up head", "رشاش نافر", "رشاش منبثق", "رشاش حدايق", "رشاشات حدايق", "رشاش مسطحات", "رشاشات ري", "impact sprinkler", "gear drive sprinkler", "rotor sprinkler", "spray nozzle ري"],
+          "note": "Irrigation must claim its own sprinklers POSITIVELY, not merely lose them. Guarding the word «رشاش»/`sprinkler` on the fire side only stops the wrong answer; without head names the landscape trade uses — pop-up, rotor, impact, gear drive — a garden line would fall to an honest but useless unknown instead of reaching an irrigation supplier."
+        }
+      ]
+    },
+    {
+      "id": "movement_joint_systems",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "أنظمة فواصل الحركة",
+      "note": "THE ENTIRE `floor` / `ceiling` / `aluminium` ERROR FAMILY ON BATCHES 11-20 WAS THIS ONE MISSING PRODUCT. 1,449 covers became floor tiling on the word `floor` in `Floor-to-Floor`, 720 became interior systems on `Ceiling Joint`, and 331 became facade systems on «مادة Aluminium» — a location or a material naming the product because the product itself was unknown to the ontology. Stopping the stray word from deciding is only half the fix; the real product must also be able to claim its own line. It is its own family rather than an intent under floor_tiling because a ceiling joint cover is not flooring and the profile manufacturers are a distinct trade.",
+      "strong_terms": ["expansion joint cover", "غطاء فاصل حركه", "اغطيه فواصل حركه", "movement joint cover", "joint cover profile", "بروفايل فاصل حركه", "فاصل حركه", "فواصل حركه", "expansion joint profile", "seismic joint cover", "غطاء فاصل زلزالي", "فاصل تمدد", "فواصل تمدد", "water stop", "شريط منع تسرب فواصل", "joint filler board", "لوح حشو فواصل"],
+      "weak_terms": ["movement joint", "expansion joint"],
+      "context_terms": ["عرض", "مم", "mm", "حركه", "movement", "fire rated", "stainless", "aluminium", "المنيوم", "مط", "ارضيات", "حوايط", "اسقف", "floor", "wall", "ceiling"],
+      "supplier_terms": ["فواصل حركه", "expansion joint", "joint cover", "بروفايلات"],
+      "preferred_archetypes": ["general_building_materials", "aluminium_supplier"],
+      "allowed_archetypes": ["waterproofing_supplier", "metal_trading", "interior_finishing", "flooring_supplier"],
+      "hard_conflicts": ["it_hardware_supplier", "ppe_supplier", "cable_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "standard", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "expansion_joint_cover",
+          "label_ar": "أغطية فواصل الحركة",
+          "strong_terms": ["expansion joint cover", "غطاء فاصل حركه", "اغطيه فواصل حركه", "movement joint cover", "joint cover profile", "بروفايل فاصل حركه", "expansion joint profile", "seismic joint cover", "غطاء فاصل زلزالي"]
+        },
+        {
+          "id": "joint_filler_waterstop",
+          "label_ar": "حشو ومانع تسرب الفواصل",
+          "strong_terms": ["water stop", "waterstop", "شريط منع تسرب فواصل", "joint filler board", "لوح حشو فواصل", "expansion joint filler", "مانع تسرب فواصل"]
+        }
+      ]
+    },
+    {
+      "id": "ready_mix_concrete",
+      "sector": "CIVIL_CONCRETE",
+      "label_ar": "الخرسانة الجاهزة",
+      "note": "THE MOST COMMON ITEM IN GENERAL CONTRACTING ANYWHERE, and it had no family. The `ready_mix_supplier` archetype existed from the first version, which says the SUPPLY side was modelled and the demand side never was — the clearest evidence that cpo-v5's families were catalogue and MEP shaped while real booklet lines are civil. «خرسانة جاهزة» resolved to C. Grade is a facet, not an intent: a ready-mix plant that batches C25 batches C40, so splitting per grade would fragment one supplier pool into twenty.",
+      "strong_terms": ["خرسانه جاهزه", "خرسانات جاهزه", "ready mix", "readymix", "ready mix concrete", "ready-mixed concrete", "transit mix", "صبه خرسانه", "خرسانه مسلحه", "خرسانه عاديه", "خرسانه نظافه", "خرسانه مسبقه الاجهاد", "self compacting concrete", "خرسانه ذاتيه الدمك", "shotcrete", "خرسانه مقذوفه", "lean concrete", "blinding concrete", "خرسانه رغويه", "foam concrete"],
+      "weak_terms": ["خرسانه", "concrete", "صبه", "خرسانى", "خرساني"],
+      "context_terms": ["مقاومه", "نيوتن", "n/mm2", "mpa", "m3", "متر مكعب", "slump", "هبوط", "قواعد", "اعمده", "كمرات", "ميده", "ميدات", "بلاطه", "بلاطات", "سقف", "اسقف", "جدران", "رقبه", "خزان", "grade", "c25", "c30", "c35", "c40", "c45", "c50", "aci", "bs en", "مكعب", "اسطوانه", "صب", "cement content", "w/c"],
+      "supplier_terms": ["خرسانه جاهزه", "ready mix", "batching plant", "محطه خرسانه"],
+      "preferred_archetypes": ["ready_mix_supplier"],
+      "allowed_archetypes": ["precast_concrete_supplier", "cement_supplier", "general_building_materials"],
+      "hard_conflicts": ["paint_only_supplier", "it_hardware_supplier", "ppe_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "grade", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "application", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "structural_ready_mix",
+          "label_ar": "خرسانة جاهزة إنشائية",
+          "strong_terms": ["خرسانه جاهزه", "خرسانات جاهزه", "ready mix concrete", "readymix", "ready mix", "transit mix", "خرسانه مسلحه", "صبه خرسانه", "self compacting concrete", "خرسانه ذاتيه الدمك"],
+          "context_terms": ["مقاومه", "نيوتن", "mpa", "m3", "slump", "grade", "c25", "c30", "c35", "c40"]
+        },
+        {
+          "id": "blinding_lean_concrete",
+          "label_ar": "خرسانة عادية ونظافة",
+          "strong_terms": ["خرسانه عاديه", "خرسانه نظافه", "lean concrete", "blinding concrete", "خرسانه احلال", "plain concrete"]
+        },
+        {
+          "id": "special_concrete",
+          "label_ar": "خرسانات خاصة",
+          "strong_terms": ["shotcrete", "خرسانه مقذوفه", "خرسانه رغويه", "foam concrete", "lightweight concrete", "خرسانه خفيفه", "fiber reinforced concrete", "خرسانه ليفيه", "waterproof concrete", "خرسانه كتيمه"]
+        }
+      ]
+    },
+    {
+      "id": "aggregates_fill",
+      "sector": "CIVIL_CONCRETE",
+      "label_ar": "الركام ومواد الردم",
+      "note": "A quarry and crusher trade with no representation on either side, so `aggregate_supplier` is new here — unlike ready-mix, where the archetype already existed. «بحص» and «رمل» are two-word booklet staples that resolved to C.",
+      "strong_terms": ["ركام", "ركام خشن", "ركام ناعم", "coarse aggregate", "fine aggregate", "aggregate", "aggregates", "بحص", "حصى", "حصمه", "رمل", "sand", "رمل مغسول", "washed sand", "silica sand", "رمل سيليكا", "crushed stone", "حجر مكسر", "base course", "طبقه اساس", "sub base", "طبقه تحت الاساس", "ردم", "backfill", "مواد ردم", "gabbro", "جابرو", "سكريب"],
+      "weak_terms": ["fill", "سن", "بيسه", "quarry"],
+      "term_guards": [
+        {
+          "terms": ["سن"],
+          "require_any": ["ركام", "بحص", "رمل", "خرسانه", "م3", "طن", "كساره"],
+          "note": "«سن» is a size of crushed aggregate in the trade and an ordinary word everywhere else, so it needs quarry context before it may decide."
+        }
+      ],
+      "context_terms": ["م3", "m3", "متر مكعب", "طن", "ton", "مقاس", "مم", "mm", "منخل", "sieve", "grading", "تدرج", "astm", "aashto", "cbr", "كثافه"],
+      "supplier_terms": ["كساره", "كسارات", "aggregate", "quarry", "رمل وبحص"],
+      "preferred_archetypes": ["aggregate_supplier"],
+      "allowed_archetypes": ["ready_mix_supplier", "block_masonry_supplier", "general_building_materials"],
+      "hard_conflicts": ["it_hardware_supplier", "paint_only_supplier", "ppe_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "grade", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "concrete_aggregate",
+          "label_ar": "ركام خرسانة",
+          "strong_terms": ["ركام", "ركام خشن", "ركام ناعم", "coarse aggregate", "fine aggregate", "بحص", "حصى", "حصمه", "crushed stone", "حجر مكسر", "gabbro", "جابرو"]
+        },
+        {
+          "id": "sand_fill",
+          "label_ar": "رمل ومواد ردم",
+          "strong_terms": ["رمل", "رمل مغسول", "washed sand", "silica sand", "رمل سيليكا", "ردم", "backfill", "مواد ردم", "base course", "طبقه اساس", "sub base", "طبقه تحت الاساس"]
+        }
+      ]
+    },
+    {
+      "id": "plaster_render",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "اللياسة والبلاستر",
+      "note": "Rendering is its own trade and its own material, and the booklet register is full of it — «لياسة», «طرطشة», «بياض», «بلاستر». `cement_supplier` already carried «بلاستر» and «مونه» patterns, so no archetype was invented. «جبس بلاستر» moved here from cement_binders/mortar_screed: gypsum plaster is rendering, not screed, and one phrasing should not sit in two families.",
+      "strong_terms": ["لياسه", "لياسة", "بلاستر", "طرطشه", "بياض", "بلاستر اسمنتي", "cement plaster", "cement render", "render coat", "skim coat", "طبقه تسويه بلاستر", "جبس بلاستر", "بلاستر جبسي", "gypsum plaster", "stucco", "ستوكو", "مونه لياسه", "مونه بلاستر", "plaster جبس", "rendering mortar", "scratch coat", "بطانه لياسه", "وجه لياسه", "بروفايل لياسه", "corner bead", "زاويه لياسه", "plaster mesh", "شبك لياسه"],
+      "weak_terms": ["plaster", "render", "coat"],
+      "context_terms": ["م2", "m2", "سماكه", "مم", "mm", "حوايط", "اسقف", "داخلي", "خارجي", "كجم", "كيس", "طبقه", "اسمنت", "جبس"],
+      "supplier_terms": ["بلاستر", "لياسه", "plaster", "render", "مواد بناء"],
+      "preferred_archetypes": ["cement_supplier", "general_building_materials"],
+      "allowed_archetypes": ["interior_finishing", "block_masonry_supplier", "fitout_contractor"],
+      "hard_conflicts": ["it_hardware_supplier", "cable_supplier", "ppe_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "application", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "cement_render",
+          "label_ar": "لياسة أسمنتية",
+          "strong_terms": ["لياسه", "طرطشه", "بياض", "بلاستر اسمنتي", "cement plaster", "cement render", "render coat", "مونه لياسه", "rendering mortar", "scratch coat", "بطانه لياسه", "وجه لياسه"]
+        },
+        {
+          "id": "gypsum_plaster",
+          "label_ar": "بلاستر جبسي",
+          "strong_terms": ["جبس بلاستر", "بلاستر جبسي", "gypsum plaster", "plaster جبس", "skim coat", "ستوكو", "stucco"]
+        },
+        {
+          "id": "plaster_accessory",
+          "label_ar": "ملحقات اللياسة",
+          "strong_terms": ["corner bead", "زاويه لياسه", "plaster mesh", "شبك لياسه", "بروفايل لياسه", "stop bead", "expanded metal lath", "شبك ممدد لياسه"]
+        }
+      ]
+    },
+    {
+      "id": "shade_structures",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "المظلات والسواتر",
+      "note": "Car-park shades, tensile canopies and privacy screens are a specialist trade with neither family nor archetype before now, so `shade_structure_supplier` is new. «مظلات مواقف سيارات» is one of the most-tendered external-works items in the Gulf and resolved to C.",
+      "strong_terms": ["مظله", "مظلات", "مظلات مواقف", "مظلات سيارات", "مظله سيارات", "car park shade", "car parking shade", "shade structure", "shade sail", "tensile structure", "tensile canopy", "منشا شدي", "سواتر", "ساتر", "privacy screen", "برجوله", "برجولات", "pergola", "مظله قماش", "fabric canopy", "pvdf membrane", "hdpe shade net", "شبك تظليل", "canopy steel", "مظله معدنيه", "walkway shade", "مظله ممشى"],
+      "weak_terms": ["canopy", "shade", "تظليل", "awning"],
+      "term_guards": [
+        {
+          "terms": ["canopy"],
+          "block_any": ["generator", "مولد", "مولدات", "diesel", "dg set", "genset", "acoustic enclosure", "كاتم صوت"],
+          "note": "A generator canopy is the acoustic enclosure around a genset, sold by a generator supplier. Same word, different trade."
+        }
+      ],
+      "context_terms": ["م2", "m2", "مواقف", "parking", "قماش", "fabric", "hdpe", "pvdf", "ptfe", "عمود", "steel", "مجلفن", "galvanized", "خارجي", "سيارات"],
+      "supplier_terms": ["مظلات", "سواتر", "shade", "tensile", "مظلات وسواتر"],
+      "preferred_archetypes": ["shade_structure_supplier"],
+      "allowed_archetypes": ["structural_steel_supplier", "aluminium_supplier", "metal_trading"],
+      "hard_conflicts": ["it_hardware_supplier", "cable_supplier", "paint_only_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "car_park_shade",
+          "label_ar": "مظلات مواقف",
+          "strong_terms": ["مظلات مواقف", "مظلات سيارات", "مظله سيارات", "car park shade", "car parking shade", "مظله ممشى", "walkway shade"]
+        },
+        {
+          "id": "tensile_canopy",
+          "label_ar": "مظلات شدية",
+          "strong_terms": ["tensile structure", "tensile canopy", "منشا شدي", "shade sail", "مظله قماش", "fabric canopy", "pvdf membrane", "ptfe membrane"]
+        },
+        {
+          "id": "privacy_screen",
+          "label_ar": "سواتر",
+          "strong_terms": ["سواتر", "ساتر", "privacy screen", "شبك تظليل", "hdpe shade net"]
+        },
+        {
+          "id": "pergola",
+          "label_ar": "برجولات",
+          "strong_terms": ["برجوله", "برجولات", "pergola", "aluminium pergola", "برجوله المنيوم"]
+        }
       ]
     }
   ]

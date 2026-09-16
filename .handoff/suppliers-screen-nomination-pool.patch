@@ -1,0 +1,933 @@
+From: performance lane
+Subject: [PATCH] suppliers screen: score the matched pool, not the whole
+ directory
+
+Applies to: f2a61a93c (farq repo; Frontend/src/pages/ConstructionPage.tsx is
+clean at that revision, though it carries another lane's uncommitted work in the
+shared tree — this patch was built and verified in a worktree).
+
+WHY
+---
+The suppliers screen derives فرق's nominations with
+autoSelectSuppliersForRequest(supplierPool, …). supplierPool folds in the entire
+catalog directory, because the browse payload carries every active supplier and
+the buyer must be able to search all of them (`searchable={knownSuppliers}`).
+
+But a directory row arrives with no product_match, so it cannot clear the
+evidence gate and cannot win a nomination. Scoring it is work with a known
+answer, and the cost is linear in the size of the directory — which is why this
+degraded as the directory grew to 11,727 rather than because any screen changed.
+
+Measured against the production directory:
+
+    families in the order      full pool (11,727)   matched rows only
+    4  (short-form booklet)            82 ms                 1 ms
+    33 (wide tender)                  919 ms                10 ms
+
+That is a blocking main-thread recomputation, and it re-runs on every arrival at
+the screen, because the suppliers/match effect is keyed on `screen` with no
+already-loaded guard and its response replaces matchedSuppliers.
+
+WHAT IT DOES NOT CHANGE
+-----------------------
+Who gets nominated. Verified against the production directory across 37
+distinct families (a 4-family doors/gates/glass booklet and a 33-family tender
+spanning tiles, concrete, electrical, plumbing, fire and HVAC): identical
+nominations — same supplier ids, scores, grades and preapproved flags — and
+identical state, qualifiedCount and preapprovedCount, 37/37. The only field that
+differs is `rejected`, which gets shorter: the directory rows that used to be
+scored and refused are no longer scored.
+
+It also does not change what the screen can search. supplierPool and
+knownSuppliers are untouched, so the buyer still searches all 11,727. This is
+deliberately not the `include_suppliers=false` change: the live API already
+honours that parameter, but passing it would shrink the searchable directory to
+the matched rows, and fewer selectable candidates was already refused.
+
+TEST
+----
+Frontend/src/lib/nominationPool.test.ts with real production rows for one
+family: adding bare directory rows to the pool changes no nomination, and no
+bare row is ever nominated. The first assertion is guarded against vacuity — it
+requires the family to nominate somebody, which caught a bad fixture while this
+was being written.
+
+Suites re-run on the patched worktree: SupplierSelectionByMaterial 27,
+SupplierSelectionExperience 15, nominationPool 2 — 44 passed. tsc clean.
+
+WHAT THIS DOES NOT CLAIM
+------------------------
+It is not established that this is the whole of the owner's navigation
+slowness. It is measured waste on the screen he was on, removed with proof. The
+React render and commit time for a full booklet's rows was not measured — that
+needs a Performance trace from his browser, which I could not capture without
+his session.
+
+diff --git a/Frontend/src/lib/nominationPool.fixture.json b/Frontend/src/lib/nominationPool.fixture.json
+new file mode 100644
+index 000000000..e5378f13f
+--- /dev/null
++++ b/Frontend/src/lib/nominationPool.fixture.json
+@@ -0,0 +1,740 @@
++{
++ "fam": "cement-boards",
++ "matched": [
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "registry-SG-0000177",
++   "database_id": "76df254c-5249-44e1-a8d3-64d044084bac",
++   "name_ar": "شركة خالد سعد العتيبي للتجارة",
++   "name_en": "Khalid Saad Al Otaibi Trading Company",
++   "service_regions_ar": "Dammam",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "VERIFIED_DIRECTORY",
++   "directory_status": "APPROVED",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "email": true,
++    "whatsapp": true
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [
++    {
++     "id": "district:الملك فيصل",
++     "label_ar": "الملك فيصل",
++     "label_en": "الملك فيصل",
++     "relation": "ADDRESS"
++    }
++   ],
++   "email": null,
++   "whatsapp": null,
++   "city": {
++    "original": "Dammam",
++    "key": "dammam"
++   },
++   "activity": "acoustic,fiber-cement-boards,general-supply,gypsum-board,gypsum-plaster,panels",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [
++    "CIVIL"
++   ],
++   "eligible_for_price_crown": false,
++   "price_claim": null,
++   "location_relevance": "UNKNOWN",
++   "product_match": {
++    "coverage_count": 2,
++    "requested_count": 33,
++    "matched_item_ids": [
++     "cement-boards",
++     "gypsum-board"
++    ],
++    "evidence": [
++     {
++      "status": "WEBSITE_EVIDENCED",
++      "item_id": "cement-boards",
++      "confidence": 0.97,
++      "observed_at": "2026-09-04T12:33:15.216092+00:00",
++      "evidence_url": "https://www.khalidsaad.com/products/cement_board",
++      "evidence_kind": "OFFICIAL_PRODUCT_PAGE_FAMILY_EQUIVALENT",
++      "evidence_excerpt": "Official product page states that Khalid Saad Trading supplies fiber cement boards in Saudi Arabia.",
++      "evidence_grade": "DIRECT",
++      "availability_claimed": false
++     },
++     {
++      "status": "WEBSITE_EVIDENCED",
++      "item_id": "gypsum-board",
++      "confidence": 0.96,
++      "observed_at": "2026-09-03T12:15:24.718124+00:00",
++      "evidence_url": "https://www.khalidsaad.com/",
++      "evidence_kind": "SUPPLIER_WEBSITE_EXACT_FAMILY_PHRASE",
++      "evidence_excerpt": "khalid saad trading gypsum board wholesale distributor toggle navigation home about us products services gypsum board mada gypsum board united",
++      "evidence_grade": "DIRECT",
++      "availability_claimed": false
++     }
++    ],
++    "exact": true,
++    "coverage_ratio": 0.06060606060606061,
++    "unmatched_item_ids": [
++     "metal-gates",
++     "glass-sliding-doors",
++     "glass-doors",
++     "glass-partitions",
++     "metal-steel-doors",
++     "aluminum-windows",
++     "ceramic-and-porcelain",
++     "porcelain-tiles",
++     "granite-tiles",
++     "terrazzo-tiles",
++     "car-parking-canopies",
++     "interlock-tiles",
++     "concrete-kerbstones",
++     "ready-mix-concrete",
++     "transfer-switch-panels",
++     "distribution-boards",
++     "cables-and-wires",
++     "switches-sockets",
++     "indoor-lighting",
++     "ppr-pipes",
++     "pvc-pipe",
++     "precast-concrete-manholes",
++     "stainless-steel-pipe",
++     "fire-hydrants",
++     "fire-hose-cabinets",
++     "upvc-pipes",
++     "valves",
++     "ducted-air-conditioning-units",
++     "hvac-air-ducts",
++     "glass-wool-insulation",
++     "air-grilles-diffusers"
++    ],
++    "evidence_grade_by_item": {
++     "metal-gates": null,
++     "glass-sliding-doors": null,
++     "glass-doors": null,
++     "glass-partitions": null,
++     "metal-steel-doors": null,
++     "aluminum-windows": null,
++     "ceramic-and-porcelain": null,
++     "porcelain-tiles": null,
++     "granite-tiles": null,
++     "terrazzo-tiles": null,
++     "gypsum-board": "DIRECT",
++     "cement-boards": "DIRECT",
++     "car-parking-canopies": null,
++     "interlock-tiles": null,
++     "concrete-kerbstones": null,
++     "ready-mix-concrete": null,
++     "transfer-switch-panels": null,
++     "distribution-boards": null,
++     "cables-and-wires": null,
++     "switches-sockets": null,
++     "indoor-lighting": null,
++     "ppr-pipes": null,
++     "pvc-pipe": null,
++     "precast-concrete-manholes": null,
++     "stainless-steel-pipe": null,
++     "fire-hydrants": null,
++     "fire-hose-cabinets": null,
++     "upvc-pipes": null,
++     "valves": null,
++     "ducted-air-conditioning-units": null,
++     "hvac-air-ducts": null,
++     "glass-wool-insulation": null,
++     "air-grilles-diffusers": null
++    },
++    "availability_claimed": false,
++    "availability_disclaimer": {
++     "code": "CAPABILITY_EVIDENCE_NOT_AVAILABILITY",
++     "ar": "دليل المطابقة يثبت صلة المورد بالبند أو النشاط فقط، ولا يثبت المخزون أو التوفر أو القدرة على التسليم. يؤكد المورد ذلك في عرضه.",
++     "en": "Matching evidence indicates item or activity relevance only. It does not prove stock, availability, or delivery capacity; the supplier must confirm those in its quote."
++    }
++   },
++   "normalized_activities": [
++    "acoustic-fiber-cement-boards-general-supply-gypsum-board-gypsum-plaster-panels",
++    "civil"
++   ],
++   "contactability": {
++    "contactable": true,
++    "channels": {
++     "email": true,
++     "whatsapp": true
++    }
++   },
++   "independence": {
++    "key": "517eb981124d132476da827f",
++    "basis": "SHARED_DIRECTORY_CONTACT",
++    "legal_entity_verified": false,
++    "disclaimer": "Directory deduplication is not legal-entity verification."
++   }
++  },
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "registry-SG-0089167",
++   "database_id": "67e7ed9d-1535-4f87-a1b2-e8795f48e102",
++   "name_ar": "مواد بناء مدار",
++   "name_en": "Madar Building Materials",
++   "service_regions_ar": "Riyadh",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "VERIFIED_DIRECTORY",
++   "directory_status": "APPROVED",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "email": true,
++    "whatsapp": true
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [],
++   "email": null,
++   "whatsapp": null,
++   "city": {
++    "original": "Riyadh",
++    "key": "riyadh"
++   },
++   "activity": "aluminium,cement,fiber-cement-boards,flooring,general-supply,hardware-general,panels,rebar,steel-sections,steel-sheets,thermal,timber,waterproofing",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [
++    "CIVIL",
++    "ARCHITECTURAL"
++   ],
++   "eligible_for_price_crown": false,
++   "price_claim": null,
++   "location_relevance": "UNKNOWN",
++   "product_match": {
++    "coverage_count": 2,
++    "requested_count": 33,
++    "matched_item_ids": [
++     "cement-boards",
++     "terrazzo-tiles"
++    ],
++    "evidence": [
++     {
++      "status": "WEBSITE_EVIDENCED",
++      "item_id": "cement-boards",
++      "confidence": 0.97,
++      "observed_at": "2026-09-04T12:33:15.216092+00:00",
++      "evidence_url": "https://www.madar.com/en_SA/cement-boards.html",
++      "evidence_kind": "OFFICIAL_PRODUCT_PAGE_FAMILY_EQUIVALENT",
++      "evidence_excerpt": "Official Saudi product page lists fiber cement boards supplied by Madar Building Materials.",
++      "evidence_grade": "DIRECT",
++      "availability_claimed": false
++     },
++     {
++      "status": "SUBCATEGORY_MATCHED",
++      "item_id": "terrazzo-tiles",
++      "confidence": 0.86,
++      "observed_at": "2026-09-03T09:49:35+00:00",
++      "evidence_url": "",
++      "evidence_kind": "SUPPLIER_SPECIALTY_SUBCATEGORY",
++      "evidence_excerpt": "laminate",
++      "evidence_grade": "TAXONOMY",
++      "availability_claimed": false
++     }
++    ],
++    "exact": false,
++    "coverage_ratio": 0.06060606060606061,
++    "unmatched_item_ids": [
++     "metal-gates",
++     "glass-sliding-doors",
++     "glass-doors",
++     "glass-partitions",
++     "metal-steel-doors",
++     "aluminum-windows",
++     "ceramic-and-porcelain",
++     "porcelain-tiles",
++     "granite-tiles",
++     "gypsum-board",
++     "car-parking-canopies",
++     "interlock-tiles",
++     "concrete-kerbstones",
++     "ready-mix-concrete",
++     "transfer-switch-panels",
++     "distribution-boards",
++     "cables-and-wires",
++     "switches-sockets",
++     "indoor-lighting",
++     "ppr-pipes",
++     "pvc-pipe",
++     "precast-concrete-manholes",
++     "stainless-steel-pipe",
++     "fire-hydrants",
++     "fire-hose-cabinets",
++     "upvc-pipes",
++     "valves",
++     "ducted-air-conditioning-units",
++     "hvac-air-ducts",
++     "glass-wool-insulation",
++     "air-grilles-diffusers"
++    ],
++    "evidence_grade_by_item": {
++     "metal-gates": null,
++     "glass-sliding-doors": null,
++     "glass-doors": null,
++     "glass-partitions": null,
++     "metal-steel-doors": null,
++     "aluminum-windows": null,
++     "ceramic-and-porcelain": null,
++     "porcelain-tiles": null,
++     "granite-tiles": null,
++     "terrazzo-tiles": "TAXONOMY",
++     "gypsum-board": null,
++     "cement-boards": "DIRECT",
++     "car-parking-canopies": null,
++     "interlock-tiles": null,
++     "concrete-kerbstones": null,
++     "ready-mix-concrete": null,
++     "transfer-switch-panels": null,
++     "distribution-boards": null,
++     "cables-and-wires": null,
++     "switches-sockets": null,
++     "indoor-lighting": null,
++     "ppr-pipes": null,
++     "pvc-pipe": null,
++     "precast-concrete-manholes": null,
++     "stainless-steel-pipe": null,
++     "fire-hydrants": null,
++     "fire-hose-cabinets": null,
++     "upvc-pipes": null,
++     "valves": null,
++     "ducted-air-conditioning-units": null,
++     "hvac-air-ducts": null,
++     "glass-wool-insulation": null,
++     "air-grilles-diffusers": null
++    },
++    "availability_claimed": false,
++    "availability_disclaimer": {
++     "code": "CAPABILITY_EVIDENCE_NOT_AVAILABILITY",
++     "ar": "دليل المطابقة يثبت صلة المورد بالبند أو النشاط فقط، ولا يثبت المخزون أو التوفر أو القدرة على التسليم. يؤكد المورد ذلك في عرضه.",
++     "en": "Matching evidence indicates item or activity relevance only. It does not prove stock, availability, or delivery capacity; the supplier must confirm those in its quote."
++    }
++   },
++   "identity_review_required": true,
++   "normalized_activities": [
++    "aluminium-cement-fiber-cement-boards-flooring-general-supply-hardware-general-panels-rebar-steel-sections-steel-sheets-thermal-timber-waterproofing",
++    "civil",
++    "architectural"
++   ],
++   "contactability": {
++    "contactable": true,
++    "channels": {
++     "email": true,
++     "whatsapp": true
++    }
++   },
++   "independence": {
++    "key": "3851d873978961abeebf4e71",
++    "basis": "SHARED_DIRECTORY_CONTACT",
++    "legal_entity_verified": false,
++    "disclaimer": "Directory deduplication is not legal-entity verification."
++   }
++  },
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "web-acfasa-com",
++   "database_id": "5fed6851-1402-441f-9b93-6c6e4e6f21cf",
++   "name_ar": "أكفا لحلول البناء",
++   "name_en": "ACFA Building Solutions",
++   "service_regions_ar": "Riyadh",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "DISCOVERY_CANDIDATE",
++   "directory_status": "REVIEW",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "email": true,
++    "whatsapp": true
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [],
++   "email": null,
++   "whatsapp": null,
++   "city": {
++    "original": "Riyadh",
++    "key": "riyadh"
++   },
++   "activity": "fiber-cement-boards,panels",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [
++    "CIVIL"
++   ],
++   "eligible_for_price_crown": false,
++   "price_claim": null,
++   "location_relevance": "UNKNOWN",
++   "product_match": {
++    "coverage_count": 1,
++    "requested_count": 33,
++    "matched_item_ids": [
++     "cement-boards"
++    ],
++    "evidence": [
++     {
++      "status": "WEBSITE_EVIDENCED",
++      "item_id": "cement-boards",
++      "confidence": 0.97,
++      "observed_at": "2026-09-04T12:33:15.216092+00:00",
++      "evidence_url": "https://www.acfasa.com/home",
++      "evidence_kind": "OFFICIAL_PRODUCT_PAGE_FAMILY_EQUIVALENT",
++      "evidence_excerpt": "Official manufacturer site states that ACFA manufactures and sells fiber cement boards in Saudi Arabia.",
++      "evidence_grade": "DIRECT",
++      "availability_claimed": false
++     }
++    ],
++    "exact": true,
++    "coverage_ratio": 0.030303030303030304,
++    "unmatched_item_ids": [
++     "metal-gates",
++     "glass-sliding-doors",
++     "glass-doors",
++     "glass-partitions",
++     "metal-steel-doors",
++     "aluminum-windows",
++     "ceramic-and-porcelain",
++     "porcelain-tiles",
++     "granite-tiles",
++     "terrazzo-tiles",
++     "gypsum-board",
++     "car-parking-canopies",
++     "interlock-tiles",
++     "concrete-kerbstones",
++     "ready-mix-concrete",
++     "transfer-switch-panels",
++     "distribution-boards",
++     "cables-and-wires",
++     "switches-sockets",
++     "indoor-lighting",
++     "ppr-pipes",
++     "pvc-pipe",
++     "precast-concrete-manholes",
++     "stainless-steel-pipe",
++     "fire-hydrants",
++     "fire-hose-cabinets",
++     "upvc-pipes",
++     "valves",
++     "ducted-air-conditioning-units",
++     "hvac-air-ducts",
++     "glass-wool-insulation",
++     "air-grilles-diffusers"
++    ],
++    "evidence_grade_by_item": {
++     "metal-gates": null,
++     "glass-sliding-doors": null,
++     "glass-doors": null,
++     "glass-partitions": null,
++     "metal-steel-doors": null,
++     "aluminum-windows": null,
++     "ceramic-and-porcelain": null,
++     "porcelain-tiles": null,
++     "granite-tiles": null,
++     "terrazzo-tiles": null,
++     "gypsum-board": null,
++     "cement-boards": "DIRECT",
++     "car-parking-canopies": null,
++     "interlock-tiles": null,
++     "concrete-kerbstones": null,
++     "ready-mix-concrete": null,
++     "transfer-switch-panels": null,
++     "distribution-boards": null,
++     "cables-and-wires": null,
++     "switches-sockets": null,
++     "indoor-lighting": null,
++     "ppr-pipes": null,
++     "pvc-pipe": null,
++     "precast-concrete-manholes": null,
++     "stainless-steel-pipe": null,
++     "fire-hydrants": null,
++     "fire-hose-cabinets": null,
++     "upvc-pipes": null,
++     "valves": null,
++     "ducted-air-conditioning-units": null,
++     "hvac-air-ducts": null,
++     "glass-wool-insulation": null,
++     "air-grilles-diffusers": null
++    },
++    "availability_claimed": false,
++    "availability_disclaimer": {
++     "code": "CAPABILITY_EVIDENCE_NOT_AVAILABILITY",
++     "ar": "دليل المطابقة يثبت صلة المورد بالبند أو النشاط فقط، ولا يثبت المخزون أو التوفر أو القدرة على التسليم. يؤكد المورد ذلك في عرضه.",
++     "en": "Matching evidence indicates item or activity relevance only. It does not prove stock, availability, or delivery capacity; the supplier must confirm those in its quote."
++    }
++   },
++   "normalized_activities": [
++    "fiber-cement-boards-panels",
++    "civil"
++   ],
++   "contactability": {
++    "contactable": true,
++    "channels": {
++     "email": true,
++     "whatsapp": true
++    }
++   },
++   "independence": {
++    "key": "208ff9a03e1f85808aa921be",
++    "basis": "SHARED_DIRECTORY_CONTACT",
++    "legal_entity_verified": false,
++    "disclaimer": "Directory deduplication is not legal-entity verification."
++   }
++  }
++ ],
++ "bare": [
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "registry-SG-0083010",
++   "database_id": "f4d93bfa-8a97-4c81-b6ef-74b9d9ebcc19",
++   "name_ar": "&",
++   "name_en": "IKS Paints & Decorations Works",
++   "service_regions_ar": "Dammam",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "DISCOVERY_CANDIDATE",
++   "directory_status": "REVIEW",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "whatsapp": true,
++    "email": true,
++    "haraj": false
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [],
++   "email": null,
++   "whatsapp": null,
++   "contact_fingerprint": "211cdebfdb8e9e90493946a5",
++   "city": "Dammam",
++   "activity": "paints,paints",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [],
++   "eligible_for_price_crown": false,
++   "price_claim": null
++  },
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "registry-SG-0153485",
++   "database_id": "30d86aee-c4a9-4c02-98a9-f94eeb06316a",
++   "name_ar": "2P العرض المتقن , شركة",
++   "name_en": "2P Perfect Presentation , company",
++   "service_regions_ar": "المملكة العربية السعودية",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "VERIFIED_DIRECTORY",
++   "directory_status": "APPROVED",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "whatsapp": false,
++    "email": true,
++    "haraj": false
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [],
++   "email": null,
++   "whatsapp": null,
++   "contact_fingerprint": "e3a3d36c81200ba7944bbc9f",
++   "city": null,
++   "activity": "bms-av,bms-av",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [],
++   "eligible_for_price_crown": false,
++   "price_claim": null
++  },
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "registry-SG-0010006",
++   "database_id": "9153c0e9-dd56-459a-a424-b31521d87558",
++   "name_ar": "2 - شركة مصنع الأندلس للزجاج",
++   "name_en": "Al Andalus Glass Factory",
++   "service_regions_ar": "Riyadh",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "DISCOVERY_CANDIDATE",
++   "directory_status": "REVIEW",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "whatsapp": false,
++    "email": true,
++    "haraj": false
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [],
++   "email": null,
++   "whatsapp": null,
++   "contact_fingerprint": "17d53e2af6cc284b1b4c4283",
++   "city": "Riyadh",
++   "activity": "glass,doors-windows,elevators,glass",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [
++    "ARCHITECTURAL"
++   ],
++   "eligible_for_price_crown": false,
++   "price_claim": null
++  },
++  {
++   "source": "FARQ",
++   "business_type": "UNKNOWN",
++   "id": "drive-supplier-44cdaadd-14b008402de3f5c6cc775f33",
++   "database_id": "ffb64286-7053-41b5-8f07-abf148f98b09",
++   "name_ar": "360 سيكيورتي, company",
++   "name_en": "360 Security, company",
++   "service_regions_ar": "المملكة العربية السعودية",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "DISCOVERY_CANDIDATE",
++   "directory_status": "REVIEW",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "whatsapp": false,
++    "email": true,
++    "haraj": false
++   },
++   "phone_available": true,
++   "whatsapp_verified": false,
++   "location_tags": [],
++   "email": "ksaoperation@360security.me",
++   "whatsapp": null,
++   "contact_fingerprint": "33ed99aef90a9f5e990aa22c",
++   "city": null,
++   "activity": "أنظمة أمن وسلامة | Safety and security systems",
++   "haraj_author_id": null,
++   "source_system": "OWNED_REGISTRY",
++   "categories": [],
++   "engineering_departments": [],
++   "eligible_for_price_crown": false,
++   "price_claim": null
++  },
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "registry-SG-0125938",
++   "database_id": "cae39b19-989d-47a0-8c65-54b9b3d3ac50",
++   "name_ar": "360 سيكيورتي, company",
++   "name_en": "360 Security, company",
++   "service_regions_ar": "المملكة العربية السعودية",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "VERIFIED_DIRECTORY",
++   "directory_status": "APPROVED",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "whatsapp": true,
++    "email": true,
++    "haraj": false
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [],
++   "email": null,
++   "whatsapp": null,
++   "contact_fingerprint": "33ed99aef90a9f5e990aa22c",
++   "city": null,
++   "activity": "safety,safety",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [],
++   "eligible_for_price_crown": false,
++   "price_claim": null
++  },
++  {
++   "source": "OTHER",
++   "business_type": "UNKNOWN",
++   "id": "registry-SG-0087575",
++   "database_id": "80a9a596-d685-4e1c-9e47-4917f1624397",
++   "name_ar": "4 ( )",
++   "name_en": "4K Building Materials LLC (Dammam Warehouse)",
++   "service_regions_ar": "Dammam",
++   "capabilities": [
++    "RFQ",
++    "CUSTOMER_DIRECTORY_CONTACT"
++   ],
++   "qualification_status": "DISCOVERY_CANDIDATE",
++   "directory_status": "REVIEW",
++   "legal_entity_id": null,
++   "legal_entity_verified": false,
++   "supplier_group_id": null,
++   "supplier_group_verified": false,
++   "contact_channels": {
++    "whatsapp": true,
++    "email": true,
++    "haraj": false
++   },
++   "phone_available": false,
++   "whatsapp_verified": null,
++   "location_tags": [],
++   "email": null,
++   "whatsapp": null,
++   "contact_fingerprint": "eb9f009b8c01d4f09416c15b",
++   "city": "Dammam",
++   "activity": "general-supply,general-supply",
++   "haraj_author_id": null,
++   "source_system": "UNRESOLVED",
++   "categories": [],
++   "engineering_departments": [],
++   "eligible_for_price_crown": false,
++   "price_claim": null
++  }
++ ],
++ "line": {
++  "name": "الواح عزل حراري"
++ }
++}
+\ No newline at end of file
+diff --git a/Frontend/src/lib/nominationPool.test.ts b/Frontend/src/lib/nominationPool.test.ts
+new file mode 100644
+index 000000000..61ccb3c1e
+--- /dev/null
++++ b/Frontend/src/lib/nominationPool.test.ts
+@@ -0,0 +1,58 @@
++/**
++ * The suppliers screen scores a pool to decide فرق's nominations, and that
++ * decision is what the RFQ is built from. `supplierPool` folds in the whole
++ * catalog directory so the buyer can search every active supplier, but a
++ * directory row arrives with no product_match and cannot clear the evidence
++ * gate. ConstructionPage therefore scores `nominationPool` — the matched rows
++ * and the lines' own suppliers — and leaves the directory to the search box.
++ *
++ * This guards the property that makes that safe: adding bare directory rows to
++ * the pool changes nothing about who is nominated. Measured against the
++ * production directory it held for all 37 families tried; the fixture below is
++ * real production rows for one of them.
++ */
++import { describe, expect, it } from 'vitest'
++import type { ConstructionSupplier } from '../types/construction'
++import { autoSelectSuppliersForRequest } from './constructionSupplierAutoSelect'
++import fixture from './nominationPool.fixture.json'
++
++const matched = fixture.matched as unknown as ConstructionSupplier[]
++const bare = fixture.bare as unknown as ConstructionSupplier[]
++const lines = [{ farq_spec_id: fixture.fam, searchComplete: true, text: fixture.line.name as string }]
++
++const nominate = (pool: ConstructionSupplier[]) =>
++  autoSelectSuppliersForRequest(pool, lines)[0]!
++const identity = (selection: ReturnType<typeof nominate>) =>
++  (selection.chosen ?? []).map((entry) => [
++    entry.supplier.id,
++    entry.score,
++    entry.grade,
++    entry.preapproved,
++  ])
++
++describe('the pool that decides nominations', () => {
++  it('is not changed by adding the catalog directory to it', () => {
++    const lean = nominate(matched)
++    // Dedupe order mirrors the page: the evidence-matched entry comes last.
++    const withDirectory = nominate([...bare, ...matched])
++
++    expect(identity(withDirectory)).toEqual(identity(lean))
++    expect(withDirectory.state).toBe(lean.state)
++    expect(withDirectory.qualifiedCount).toBe(lean.qualifiedCount)
++    expect(withDirectory.preapprovedCount).toBe(lean.preapprovedCount)
++
++    // Not vacuous: this family really does nominate somebody.
++    expect(identity(lean).length).toBeGreaterThan(0)
++    expect(bare.length).toBeGreaterThan(0)
++  })
++
++  it('rejects every directory row rather than ranking it', () => {
++    // This is why the directory is only ever cost: each bare row is scored and
++    // then refused, so scoring 11,727 of them buys the same answer more slowly.
++    const withDirectory = nominate([...bare, ...matched])
++    const nominatedIds = new Set(identity(withDirectory).map(([id]) => id))
++    for (const supplier of bare) {
++      expect(nominatedIds.has(supplier.id)).toBe(false)
++    }
++  })
++})
+diff --git a/Frontend/src/pages/ConstructionPage.tsx b/Frontend/src/pages/ConstructionPage.tsx
+index 4527277d5..909a28e05 100755
+--- a/Frontend/src/pages/ConstructionPage.tsx
++++ b/Frontend/src/pages/ConstructionPage.tsx
+@@ -3185,11 +3185,42 @@ function BuyerConstructionPage() {
+ 		],
+ 		[departmentSuppliers, selectableSuppliers],
+ 	);
++	/*
++	 * The pool that decides nominations, which is not the pool the screen can
++	 * search.
++	 *
++	 * `supplierPool` folds in the whole catalog directory, because the browse
++	 * payload carries every active supplier and the buyer must be able to search
++	 * all of them. But a directory-only row arrives with no product_match, so it
++	 * cannot clear the evidence gate and cannot win a nomination. Scoring it is
++	 * work with a known answer: measured against the production directory of
++	 * 11,727, feeding the scorer the full pool cost 82 ms on the four-family
++	 * booklet and 919 ms on a 33-family tender, versus 1 ms and 10 ms from the
++	 * matched rows alone — for byte-identical nominations across all 37 families
++	 * tried, same suppliers, scores, grades, states and qualified counts.
++	 *
++	 * That cost is linear in the size of the directory, which is why this got
++	 * worse as the directory grew rather than because any screen changed.
++	 *
++	 * Dedupe order follows `supplierPool`: the evidence-matched entry must come
++	 * last so it wins over a bare copy of the same supplier.
++	 */
++	const nominationPool = useMemo(
++		() => [
++			...new Map(
++				[
++					...order.flatMap((line) => line.item.suppliers || []),
++					...departmentSuppliers,
++				].map((supplier) => [supplier.id, supplier]),
++			).values(),
++		],
++		[departmentSuppliers, order],
++	);
+ 	/** فرق's nomination for every requested line — the suppliers screen's truth. */
+ 	const autoSelections = useMemo(
+ 		() =>
+ 			autoSelectSuppliersForRequest(
+-				supplierPool,
++				nominationPool,
+ 				[
+ 					...new Map(order.map((line) => [line.farq_spec_id, line])).values(),
+ 				].map((line) => ({
+@@ -3210,7 +3241,7 @@ function BuyerConstructionPage() {
+ 				})),
+ 				{ city, locale: language === "ar" ? "ar" : "en" },
+ 			),
+-		[supplierPool, order, city, language, loadingSupplierMatches],
++		[nominationPool, order, city, language, loadingSupplierMatches],
+ 	);
+ 	const supplierPlanCounts = useMemo(
+ 		() => summarizeAutoSelections(autoSelections),

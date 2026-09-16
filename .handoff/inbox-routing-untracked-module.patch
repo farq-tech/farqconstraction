@@ -1,0 +1,529 @@
+diff --git a/api/lib/construction/gmail-sync.js b/api/lib/construction/gmail-sync.js
+index 346927a6c..be38d3bf4 100644
+--- a/api/lib/construction/gmail-sync.js
++++ b/api/lib/construction/gmail-sync.js
+@@ -4,6 +4,8 @@ const {historyPlan}=require('./gmail-history');
+ const { resolveEvidence,saveArrival,canonicalEmail } = require('./inbox-arrivals');
+ const { convert } = require('html-to-text');
+ const { mailbox, messageIds, bounded, hint } = require('./inbox-mail');
++// Signals shared with the Resend webhook path — see inbox-routing.js.
++const { extractRfqTokens, foldName, fromDisplayName, senderLabel, nameOverlap, narrowRfqCandidates, exclusionReason } = require('./inbox-routing');
+ const ROLES = ['ADMIN','PROCUREMENT','APPROVER','MANAGEMENT'];
+ const clean = (s,n) => String(s || '').replace(/\u0000/g,'').slice(0,n);
+ const error = (code) => Object.assign(new Error(code),{code});
+@@ -40,29 +42,66 @@ function bodyText(message) {
+   if(attachments) text+='\n[تحتوي الرسالة على مرفقات؛ افتح البريد الأصلي في Gmail لعرضها. / Attachments are available in Gmail.]';
+   return {text:clean(text || '[رسالة بلا نص / No text content]',100000),truncated:text.length>100000};
+ }
++/**
++ * Why a message can never be routed, named so a zero-capture sync is
++ * diagnosable from `inbox_arrivals` instead of vanishing into a `continue`.
++ */
++function excludeReason(message,candidates) {
++  const h=headers(message); const sender=mailbox(h.from);
++  if(!sender) return 'NO_SENDER';
++  if(sender==='info@farq.sa') return 'SELF_SENDER';
++  if((message.labelIds || []).some(x=>['SENT','DRAFT','SPAM','TRASH'].includes(x))) return 'EXCLUDED_LABEL';
++  const timestamp=Number(message.internalDate);
++  if(!Number.isFinite(timestamp) || timestamp<=0) return 'INVALID_TIMESTAMP';
++  if(!candidates.some(c=>new Date(c.created_at).getTime()<=timestamp)) return 'NO_ELIGIBLE_INVITE';
++  return null;
++}
+ function chooseInvite(message,candidates,replyAddress,strict=false) {
++  // Strict mode reports the exclusion so the caller can record it; the
++  // non-strict path keeps returning null, as its callers expect.
++  const excluded=excludeReason(message,candidates);
++  if(excluded) return strict?{skip:true,reason:excluded}:null;
+   const h=headers(message); const sender=mailbox(h.from);
+-  if(!sender || sender==='info@farq.sa' || (message.labelIds || []).some(x=>['SENT','DRAFT','SPAM','TRASH'].includes(x))) return null;
+   const timestamp=Number(message.internalDate);
+-  if(!Number.isFinite(timestamp) || timestamp<=0) return null;
+-  const possible=candidates.filter(c=>c.emails.includes(sender) && new Date(c.created_at).getTime()<=timestamp);
++  // Company-scoped invites (buyer already constrained in SQL). Do not require
++  // From ∈ supplier_contacts — Zendesk/CC often rewrite the From address.
++  const eligible=candidates.filter(c=>new Date(c.created_at).getTime()<=timestamp);
++  const byEmail=eligible.filter(c=>(c.emails || []).includes(sender));
+   const recipients=String(h.to || '').split(',').map(mailbox).filter(Boolean);
+   const refs=messageIds([h['in-reply-to'],h.references].filter(Boolean));
+-  const precise=possible.filter(c=>recipients.includes(replyAddress(c.id)) || c.references.some(r=>refs.includes(r)));
+-  // Existing dispatch subjects carry RFQ-<8 hex>. Match only a unique explicit
+-  // reference; prefix collisions/multiple versions remain ambiguous.
+-  const requestIds=[...String(h.subject || '').toUpperCase().matchAll(/(?:^|[^A-Z0-9])RFQ-([A-F0-9]{8})(?=$|[^A-Z0-9])/g)].map(m=>m[1]);
+-  const bySubject=possible.filter(c=>requestIds.includes(String(c.rfq_id || '').slice(0,8).toUpperCase()));
++  const display=fromDisplayName(h.from);
++  // Dispatch subjects: «طلب عرض سعر ELE-RFQ-…». Also scan Gmail snippet / plain body.
++  const requestIds=extractRfqTokens(h.subject, message.snippet, ...(function bodyPlain() {
++    try {
++      const parts=[];
++      const visit=(part,depth=0)=>{ if(!part||depth>8)return; if(part.mimeType==='text/plain'&&part.body?.data) parts.push(Buffer.from(String(part.body.data).slice(0,80000),'base64url').toString('utf8')); for(const child of part.parts||[]) visit(child,depth+1); };
++      visit(message.payload); return parts;
++    } catch { return []; }
++  })());
++  const byRfq=eligible.filter(c=>requestIds.includes(String(c.rfq_id || '').slice(0,8).toUpperCase()));
++  const bySubject=narrowRfqCandidates(byRfq, byEmail, display, sender);
++  const byAlias=eligible.filter(c=>recipients.includes(replyAddress(c.id)));
++  const byRefs=eligible.filter(c=>(c.references || []).some(r=>refs.includes(r)));
+   if(strict) {
+-    if(!possible.length) return null;
+     const decision=resolveEvidence([
+-      {kind:'ALIAS',present:recipients.some(r=>candidates.some(c=>replyAddress(c.id)===r)),ids:possible.filter(c=>recipients.includes(replyAddress(c.id))).map(c=>c.id)},
+-      {kind:'REFERENCES',present:refs.length>0,ids:possible.filter(c=>c.references.some(r=>refs.includes(r))).map(c=>c.id)},
++      {kind:'ALIAS',present:byAlias.length>0,ids:byAlias.map(c=>c.id)},
++      {kind:'REFERENCES',present:refs.length>0,ids:byRefs.map(c=>c.id)},
+       {kind:'RFQ_SUBJECT',present:requestIds.length>0,ids:bySubject.map(c=>c.id)}
+     ]);
+-    return decision.state==='RESOLVED' ? {...possible.find(c=>c.id===decision.inviteId),routing:decision} : {ambiguous:true,routing:{...decision,candidates:decision.candidates.length?decision.candidates:possible.map(c=>c.id)}};
++    const pool=eligible;
++    return decision.state==='RESOLVED' ? {...pool.find(c=>c.id===decision.inviteId),routing:decision} : {ambiguous:true,routing:{...decision,candidates:decision.candidates.length?decision.candidates:pool.map(c=>c.id)}};
++  }
++  // Non-strict: alias/refs first, else unique RFQ (+ email/name narrow), else unique supplier email.
++  const precise=[...new Map([...byAlias,...byRefs].map(c=>[c.id,c])).values()];
++  let matches;
++  if(precise.length) {
++    matches=requestIds.length ? precise.filter(c=>byRfq.some(r=>r.id===c.id)) : precise;
++    if(!matches.length) matches=precise;
++  } else if(requestIds.length) {
++    matches=bySubject;
++  } else {
++    matches=byEmail;
+   }
+-  const matches=precise.length ? (requestIds.length?precise.filter(c=>bySubject.includes(c)):precise) : requestIds.length?bySubject:possible;
+   return matches.length===1 ? matches[0] : matches.length>1 ? {ambiguous:true} : null;
+ }
+ function receipt(mailboxName,id) {
+@@ -103,11 +142,14 @@ function createGmailSync({pool,env=process.env,fetchImpl=fetch,replyAddress=()=>
+       await client.query('insert into construction.gmail_sync_state(owner_id) values($1) on conflict do nothing',[owner]);
+       const progress=(await client.query('select *,retry_at>now() cooling from construction.gmail_sync_state where owner_id=$1 for update',[owner])).rows[0];
+       if(progress.cooling) { await client.query('commit'); return {state:progress.state,waiting:true}; }
+-      const candidates=(await client.query(`select i.id,i.created_at,r.id rfq_id,c.emails,
++      const candidates=(await client.query(`select i.id,i.created_at,r.id rfq_id,s.name_ar,s.name_en,
++        coalesce(c.emails,'{}'::text[]) emails,
+         coalesce((select array_agg(m.internet_message_id) from construction.inbox_messages m where m.invite_id=i.id and m.internet_message_id is not null),'{}'::text[]) as references
+         from construction.rfq_invites i join construction.rfq_versions v on v.id=i.rfq_version_id
+-        join construction.rfqs r on r.id=v.rfq_id join construction.supplier_contacts c on c.supplier_id=i.supplier_id
+-        where r.buyer_user_id=$1 and cardinality(c.emails)>0`,[owner])).rows.map(c=>({...c,emails:c.emails.map(mailbox).filter(Boolean)}));
++        join construction.rfqs r on r.id=v.rfq_id
++        join construction.suppliers s on s.id=i.supplier_id
++        left join construction.supplier_contacts c on c.supplier_id=i.supplier_id
++        where r.buyer_user_id=$1`,[owner])).rows.map(c=>({...c,emails:(c.emails||[]).map(mailbox).filter(Boolean)}));
+       const key=Buffer.from(env.CONSTRUCTION_GMAIL_TOKEN_KEY || '','base64');
+       const refresh=unseal(connected.refresh_token_encrypted,key,owner);
+       const tokens=await json('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:env.CONSTRUCTION_GMAIL_CLIENT_ID,client_secret:env.CONSTRUCTION_GMAIL_CLIENT_SECRET,refresh_token:refresh,grant_type:'refresh_token'}).toString()});
+@@ -132,7 +174,7 @@ function createGmailSync({pool,env=process.env,fetchImpl=fetch,replyAddress=()=>
+         const manual=strict?(await client.query("select invite_id from construction.inbox_arrivals where owner_id=$1 and provider='GMAIL' and account_id='info@farq.sa' and external_id=$2 and state='RESOLVED' and resolved_by is not null",[owner,m.id])).rows[0]:null;
+         const approved=manual && candidates.find(c=>c.id===manual.invite_id && c.emails.includes(mailbox(headers(metadata).from)));
+         const match=approved?{...approved,manual:true,routing:{reason:'MANUAL_RESOLUTION'}}:chooseInvite(metadata,candidates,replyAddress,strict);
+-        if(!match || match.ambiguous) return {match,metadata};
++        if(!match || match.ambiguous || match.skip) return {match,metadata};
+         const providerId=`gmail:info@farq.sa:${m.id}`;
+         const existing=await client.query('select 1 from construction.inbox_messages where channel=\'EMAIL\' and provider_message_id=$1',[providerId]);
+         if(existing.rows.length) return {duplicate:true};
+@@ -147,6 +189,12 @@ function createGmailSync({pool,env=process.env,fetchImpl=fetch,replyAddress=()=>
+       const messages=outcomes.map(r=>r.value);
+       for(const m of messages) {
+         if(m.deleted){const prior=await client.query("select 1 from construction.inbox_arrivals where provider='GMAIL' and account_id='info@farq.sa' and external_id=$1",[m.deleted]);if(prior.rows.length){await client.query("update construction.inbox_arrivals set state='CONFLICT',evidence=evidence || '{\"source_deleted\":true}'::jsonb,revision=revision+1 where provider='GMAIL' and account_id='info@farq.sa' and external_id=$1 and state='RESOLVED' and message_id is null",[m.deleted]);continue;}await saveArrival(client,{ownerId:owner,provider:'GMAIL',accountId:'info@farq.sa',externalId:m.deleted,state:'NO_MATCH',evidence:{reason:'SOURCE_DELETED'},payload:{provider_id:m.deleted}});continue;}
++        // An excluded message used to disappear with no arrival and no counter,
++        // which is why a sync that captured nothing could not be explained.
++        if(m.match?.skip) {
++          if(strict) await saveArrival(client,{ownerId:owner,provider:'GMAIL',accountId:'info@farq.sa',externalId:m.metadata.id,state:'NO_MATCH',evidence:{reason:exclusionReason(m.match.reason,{subject:headers(m.metadata).subject,snippet:m.metadata.snippet})},payload:{provider_id:m.metadata.id,sender:mailbox(headers(m.metadata).from),subject:clean(headers(m.metadata).subject,500)},occurredAt:Number.isFinite(Number(m.metadata.internalDate))&&Number(m.metadata.internalDate)>0?new Date(Number(m.metadata.internalDate)).toISOString():null});
++          continue;
++        }
+         if(m.match?.ambiguous) {
+           ambiguous++;
+           if(strict) await saveArrival(client,{ownerId:owner,provider:'GMAIL',accountId:'info@farq.sa',externalId:m.metadata.id,state:m.match.routing.state,candidates:m.match.routing.candidates,evidence:{reason:m.match.routing.reason},payload:{provider_id:m.metadata.id,sender:mailbox(headers(m.metadata).from),subject:clean(headers(m.metadata).subject,500)},occurredAt:new Date(Number(m.metadata.internalDate)).toISOString()});
+@@ -159,13 +207,13 @@ function createGmailSync({pool,env=process.env,fetchImpl=fetch,replyAddress=()=>
+         const insert=async()=>{ const inserted=await client.query(`insert into construction.inbox_messages
+           (invite_id,channel,provider_email_id,provider_message_id,provider_event_id,sender,subject,body_text,body_truncated,correspondence_captured,received_at,internet_message_id,reference_ids,reply_recipient,kind_hint)
+           values($1,'EMAIL',$2,$3,$3,$4,$5,$6,$7,true,$8,$9,$10::jsonb,$11,$12)
+-          on conflict do nothing returning id`,[m.match.id,receipt('info@farq.sa',m.full.id),m.providerId,mailbox(h.from),clean(h.subject,500),body.text,body.truncated,new Date(Number(m.full.internalDate)).toISOString(),internetId,JSON.stringify(messageIds(h.references)),mailbox(h.from),hint(body.text)]);
++          on conflict do nothing returning id`,[m.match.id,receipt('info@farq.sa',m.full.id),m.providerId,senderLabel(h.from) || mailbox(h.from),clean(h.subject,500),body.text,body.truncated,new Date(Number(m.full.internalDate)).toISOString(),internetId,JSON.stringify(messageIds(h.references)),mailbox(h.from),hint(body.text)]);
+         if(inserted.rows.length) {captured++; await client.query('insert into construction.inbox_threads(invite_id) values($1) on conflict do nothing',[m.match.id]);}
+         return inserted.rows[0] || (await client.query("select id from construction.inbox_messages where provider_message_id=$1 and channel='EMAIL'",[m.providerId])).rows[0]; };
+         if(strict) {
+           const result=await canonicalEmail(client,{ownerId:owner,accountId:'info@farq.sa',internetId,inviteId:m.match.id,sender:mailbox(h.from),subject:clean(h.subject,500),text:body.text},insert);
+           if(m.match.manual && !result.conflict)await client.query("update construction.inbox_arrivals set message_id=$3 where owner_id=$1 and provider='GMAIL' and external_id=$2 and state='RESOLVED'",[owner,m.full.id,result.id]);
+-          await saveArrival(client,{ownerId:owner,provider:'GMAIL',accountId:'info@farq.sa',externalId:m.full.id,state:result.conflict?'CONFLICT':'RESOLVED',candidates:[m.match.id],inviteId:result.conflict?null:m.match.id,messageId:result.id,evidence:{reason:result.conflict?'EMAIL_IDENTITY_CONFLICT':m.match.routing.reason},payload:{provider_id:m.full.id,sender:mailbox(h.from),subject:clean(h.subject,500)},occurredAt:new Date(Number(m.full.internalDate)).toISOString()});
++          await saveArrival(client,{ownerId:owner,provider:'GMAIL',accountId:'info@farq.sa',externalId:m.full.id,state:result.conflict?'CONFLICT':'RESOLVED',candidates:[m.match.id],inviteId:result.conflict?null:m.match.id,messageId:result.id,evidence:{reason:result.conflict?'EMAIL_IDENTITY_CONFLICT':m.match.routing.reason,...(result.duplicate?{duplicate_of_existing_message:true}:{}),...(result.fingerprint_changed?{fingerprint_changed:true}:{})},payload:{provider_id:m.full.id,sender:mailbox(h.from),subject:clean(h.subject,500)},occurredAt:new Date(Number(m.full.internalDate)).toISOString()});
+         } else await insert();
+       }
+       const stillAllowed=await client.query(`select 1 from construction.gmail_connections g where g.owner_id=$1 and g.authorized_by=$2 and exists(select 1 from construction.access_users a where a.user_id=$2 and a.active and a.role='ADMIN' and coalesce(a.scope_owner_user_id,a.user_id)=$1) and exists(select 1 from construction.access_users a where a.user_id=$3 and a.active and a.role=any($4::text[]) and coalesce(a.scope_owner_user_id,a.user_id)=$1)`,[owner,connected.authorized_by,actor.userId,ROLES]);
+@@ -188,4 +236,4 @@ function createGmailSync({pool,env=process.env,fetchImpl=fetch,replyAddress=()=>
+     } finally {client?.release(); running=false;}
+   };
+ }
+-module.exports={createGmailSync,chooseInvite,bodyText,receipt,unseal};
++module.exports={createGmailSync,chooseInvite,bodyText,receipt,unseal,extractRfqTokens,foldName,fromDisplayName,senderLabel,nameOverlap,narrowRfqCandidates};
+diff --git a/api/lib/construction/inbox-routing.js b/api/lib/construction/inbox-routing.js
+new file mode 100644
+index 000000000..a1afd0874
+--- /dev/null
++++ b/api/lib/construction/inbox-routing.js
+@@ -0,0 +1,193 @@
++'use strict';
++
++// Shared inbound-routing signals. Both the Gmail reconciliation path and the
++// Resend webhook path must read the same evidence from a message, otherwise a
++// Zendesk-style reply routes on one channel and is held on the other.
++const { mailbox } = require('./inbox-mail');
++
++const clean = (s, n) => String(s || '').replace(/\u0000/g, '').slice(0, n);
++
++/** ELE-RFQ-51D17AF6 / RFQ-51D17AF6 from subject, snippet, or body text. */
++function extractRfqTokens(...parts) {
++  const text = parts.map((p) => String(p || '')).join('\n').toUpperCase();
++  return [...new Set([...text.matchAll(/(?:^|[^A-Z0-9])RFQ-([A-F0-9]{8})(?=$|[^A-Z0-9])/g)].map((m) => m[1]))];
++}
++
++function foldName(value) {
++  return String(value || '')
++    .toLowerCase()
++    .normalize('NFKC')
++    .replace(/[\u064B-\u065F\u0670]/g, '')
++    .replace(/[^\p{L}\p{N}]+/gu, '')
++    .slice(0, 120);
++}
++
++/** "دهانات الجزيرة via Zendesk" <agent@…> → دهانات الجزيرة */
++function fromDisplayName(fromHeader) {
++  const raw = String(fromHeader || '').trim();
++  if (!raw || /[\r\n\u0000]/.test(raw)) return null;
++  const angled = raw.match(/^"?([^"<>]+)"?\s*<[^>]+>$/);
++  let name = (angled ? angled[1] : (!raw.includes('@') ? raw : '')).trim();
++  if (!name) return null;
++  name = name.replace(/\s+via\s+\S.*$/i, '').trim();
++  return name.slice(0, 160) || null;
++}
++
++function senderLabel(fromHeader) {
++  const display = fromDisplayName(fromHeader);
++  const email = mailbox(fromHeader);
++  if (display && email) return clean(`${display} <${email}>`, 320);
++  return display || email || null;
++}
++
++/**
++ * Mail domains shared by unrelated senders. A hit here proves nothing about
++ * identity, so narrowing on one would hand a supplier's quote to whichever
++ * invited supplier happens to use that provider — a wrong attribution, which is
++ * worse than staying ambiguous. Free/consumer providers only; a supplier's own
++ * domain is exactly the signal we want to keep.
++ */
++const SHARED_EMAIL_DOMAINS = new Set([
++  'gmail.com', 'googlemail.com',
++  'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'outlook.sa', 'live.com', 'msn.com',
++  'yahoo.com', 'yahoo.co.uk', 'ymail.com', 'rocketmail.com',
++  'icloud.com', 'me.com', 'mac.com', 'aol.com',
++  'proton.me', 'protonmail.com', 'gmx.com', 'gmx.net', 'mail.com', 'zoho.com',
++  'yandex.com', 'yandex.ru', 'mail.ru', 'bk.ru', 'list.ru', 'inbox.ru',
++  'qq.com', '163.com', '126.com', 'naver.com', 'daum.net', 'hanmail.net', 'rediffmail.com',
++  'web.de', 't-online.de', 'free.fr', 'orange.fr', 'laposte.net', 'libero.it', 'sfr.fr',
++]);
++
++function emailDomain(value) {
++  const at = String(value || '').lastIndexOf('@');
++  return at < 1 ? null : String(value).slice(at + 1).toLowerCase() || null;
++}
++
++/**
++ * Invites whose supplier holds an address on the sender's own domain. Empty for
++ * shared providers, and empty when the sender has no usable domain: callers
++ * treat an empty result as "no narrowing", never as a contradiction.
++ */
++function domainCandidates(candidates, address) {
++  const domain = emailDomain(address);
++  if (!domain || SHARED_EMAIL_DOMAINS.has(domain)) return [];
++  return candidates.filter((c) => (c.emails || []).some((e) => emailDomain(e) === domain));
++}
++
++function nameOverlap(display, candidate) {
++  const d = foldName(display);
++  if (!d || d.length < 2) return false;
++  return [candidate.name_ar, candidate.name_en]
++    .map(foldName)
++    .filter((n) => n.length >= 2)
++    .some((n) => d.includes(n) || n.includes(d));
++}
++
++/** Prefer unique RFQ hit; if many invites share the RFQ, narrow by email then From display name. Fail closed. */
++function narrowRfqCandidates(byRfq, byEmail, display, address) {
++  if (byRfq.length <= 1) return byRfq;
++  const emailHit = byRfq.filter((c) => byEmail.some((e) => e.id === c.id));
++  if (emailHit.length === 1) return emailHit;
++  if (emailHit.length > 1) return emailHit;
++  // Replying from another mailbox on the company's own domain — estimation@,
++  // sales@, a named person — is ordinary supplier behaviour, so the address on
++  // file misses a genuine quote. The domain narrows it; returning several
++  // invites keeps the pool ambiguous rather than picking one of them.
++  const domainHit = domainCandidates(byRfq, address);
++  if (domainHit.length) return domainHit;
++  if (!display) return byRfq;
++  const named = byRfq.filter((c) => nameOverlap(display, c));
++  return named.length ? named : byRfq;
++}
++
++/**
++ * Splits "arrived before any invitation existed" into the two very different
++ * things it covers. Mail that names a request is a supplier answering an RFQ
++ * this database no longer has — a decision the owner must see. Mail that names
++ * nothing is newsletters and notifications, which need no decision and, at 124
++ * of 150 messages in a full rescan, bury everything that does.
++ *
++ * The token is the signal on purpose: thread headers would let automated
++ * support desks in, since they reply in threads too.
++ */
++function exclusionReason(reason, { subject, snippet } = {}) {
++  if (reason !== 'NO_ELIGIBLE_INVITE') return reason;
++  return extractRfqTokens(subject, snippet).length ? 'REPLY_TO_UNKNOWN_RFQ' : reason;
++}
++
++/** Reasons recorded for the audit trail but never shown as work to decide. */
++const NON_ACTIONABLE_REASONS = ['NO_ELIGIBLE_INVITE'];
++
++/** Invites whose RFQ id prefix appears as an ELE-RFQ-… token in the message. */
++function rfqTokenCandidates(candidates, requestIds) {
++  if (!requestIds.length) return [];
++  return candidates.filter((c) => requestIds.includes(String(c.rfq_id || '').slice(0, 8).toUpperCase()));
++}
++
++/**
++ * Subject-reference and display-name evidence for a candidate pool.
++ * `from` is a raw From header, `text` any body/snippet to scan for the token.
++ * `tokenInvites` are the company's invites on the RFQ named in the subject —
++ * they may lie outside the candidate pool, which is what lets a wrong
++ * reference contradict the pool instead of reading as no evidence at all.
++ */
++function messageRoutingSignals({ candidates, tokenInvites = [], from, subject, text, sender }) {
++  const address = sender || mailbox(from);
++  const display = fromDisplayName(from);
++  const requestIds = extractRfqTokens(subject, text);
++  const byEmail = address ? candidates.filter((c) => (c.emails || []).includes(address)) : [];
++  const named = address ? tokenInvites.filter((c) => (c.emails || []).includes(address)) : [];
++  const byRfq = rfqTokenCandidates(tokenInvites.length ? tokenInvites : candidates, requestIds);
++  const bySubject = narrowRfqCandidates(byRfq, named.length ? named : byEmail, display, address);
++  const byName = display ? candidates.filter((c) => nameOverlap(display, c)) : [];
++  return { address, display, requestIds, byEmail, byRfq, bySubject, byName };
++}
++
++/** Company-scoped invites on the RFQs named by ELE-RFQ-… tokens in a message. */
++async function loadTokenInvites(client, ownerId, requestIds) {
++  if (!requestIds.length) return [];
++  const result = await client.query(
++    `select i.id,r.id rfq_id,s.name_ar,s.name_en,coalesce(c.emails,'{}'::text[]) emails
++       from construction.rfq_invites i
++       join construction.rfq_versions v on v.id=i.rfq_version_id
++       join construction.rfqs r on r.id=v.rfq_id
++       join construction.suppliers s on s.id=i.supplier_id
++       left join construction.supplier_contacts c on c.supplier_id=i.supplier_id
++      where r.buyer_user_id=$1 and upper(left(r.id::text,8))=any($2::text[]) limit 200`,
++    [ownerId, requestIds],
++  );
++  return result.rows.map((c) => ({ ...c, emails: (c.emails || []).map(mailbox).filter(Boolean) }));
++}
++
++/**
++ * Evidence for an inbound email delivered to a signed reply alias.
++ * ALIAS is authoritative on its own; the other groups narrow a delivery that
++ * decoded several aliases, or contradict one that points at another request.
++ */
++function aliasEvidenceSets({ candidates, signals, references = [], referenced = [] }) {
++  return [
++    { kind: 'ALIAS', present: true, ids: candidates.map((c) => c.id) },
++    { kind: 'SENDER_EMAIL', present: Boolean(signals.address), ids: signals.byEmail.map((c) => c.id) },
++    { kind: 'REFERENCES', present: references.length > 0, ids: referenced },
++    { kind: 'RFQ_SUBJECT', present: signals.requestIds.length > 0, ids: signals.bySubject.map((c) => c.id) },
++    { kind: 'DISPLAY_NAME', present: Boolean(signals.display), ids: signals.byName.map((c) => c.id) },
++  ];
++}
++
++module.exports = {
++  extractRfqTokens,
++  foldName,
++  fromDisplayName,
++  senderLabel,
++  nameOverlap,
++  narrowRfqCandidates,
++  emailDomain,
++  domainCandidates,
++  SHARED_EMAIL_DOMAINS,
++  exclusionReason,
++  NON_ACTIONABLE_REASONS,
++  rfqTokenCandidates,
++  messageRoutingSignals,
++  loadTokenInvites,
++  aliasEvidenceSets,
++};
+diff --git a/api/lib/construction/inbox-unresolved.js b/api/lib/construction/inbox-unresolved.js
+index 5eb40c7a8..aa82a41d8 100644
+--- a/api/lib/construction/inbox-unresolved.js
++++ b/api/lib/construction/inbox-unresolved.js
+@@ -2,9 +2,18 @@
+ const { canonicalEmail } = require("./inbox-arrivals");
+ const { fail, UUID, held } = require("./inbox-mail");
+ const { captureConversation } = require("./conversation-capture");
++const {
++	NON_ACTIONABLE_REASONS,
++	SHARED_EMAIL_DOMAINS,
++} = require("./inbox-routing");
++// Seeing what arrived and deciding where it goes are different acts. Reading
++// the list carries the same company-wide read as any other thread, so
++// MANAGEMENT belongs here; routing an arrival stays with ADMIN and PROCUREMENT
++// in resolve() below, and the two lists must not be merged.
++const LIST_ROLES = ["ADMIN", "PROCUREMENT", "MANAGEMENT"];
++const ROUTE_ROLES = ["ADMIN", "PROCUREMENT"];
+ async function unresolved(client, actor, query = {}) {
+-	if (!["ADMIN", "PROCUREMENT"].includes(actor.role))
+-		throw fail(403, "INBOX_FORBIDDEN");
++	if (!LIST_ROLES.includes(actor.role)) throw fail(403, "INBOX_FORBIDDEN");
+ 	let before = null;
+ 	if (query.cursor) {
+ 		try {
+@@ -17,8 +26,23 @@ async function unresolved(client, actor, query = {}) {
+ 	}
+ 	const rows = (
+ 		await client.query(
+-			`select a.id,a.provider,a.state,a.revision,a.ingested_at,a.evidence,a.candidate_invites,a.payload from construction.inbox_arrivals a where a.owner_id=$1 and a.state<>'RESOLVED' and ($2::timestamptz is null or (a.ingested_at,a.id)<($2::timestamptz,$3::uuid)) order by a.ingested_at desc,a.id desc limit 26`,
+-			[actor.actorId, before?.at || null, before?.id || null],
++			// Mail that predates every invitation and names no request is kept for
++			// the audit trail but is not work: 139 of the 150 messages in a rescan
++			// would otherwise bury the replies that need a decision. Two guards
++			// keep that from hiding anything real — the token is re-read from the
++			// subject rather than trusted from the reason, so rows written before
++			// this distinction existed are not hidden retroactively; and a sender
++			// on a known supplier's domain is always shown, because a supplier
++			// writing without quoting the request is still a supplier. Measured on
++			// the live window, that second guard admits 2 of those 139.
++			`select a.id,a.provider,a.state,a.revision,a.ingested_at,a.evidence,a.candidate_invites,a.payload from construction.inbox_arrivals a where a.owner_id=$1 and a.state<>'RESOLVED' and not (a.evidence->>'reason' = any($4::text[]) and coalesce(a.payload->>'subject','') !~* '(^|[^a-z0-9])rfq-[a-f0-9]{8}([^a-z0-9]|$)' and not exists (select 1 from construction.supplier_contacts sc, unnest(sc.emails) e where lower(split_part(e,'@',2)) = lower(split_part(coalesce(a.payload->>'sender',''),'@',2)) and lower(split_part(e,'@',2)) <> all($5::text[]))) and ($2::timestamptz is null or (a.ingested_at,a.id)<($2::timestamptz,$3::uuid)) order by a.ingested_at desc,a.id desc limit 26`,
++			[
++				actor.actorId,
++				before?.at || null,
++				before?.id || null,
++				NON_ACTIONABLE_REASONS,
++				[...SHARED_EMAIL_DOMAINS],
++			],
+ 		)
+ 	).rows;
+ 	const allIds = [...new Set(rows.flatMap((r) => r.candidate_invites))];
+@@ -35,9 +59,13 @@ async function unresolved(client, actor, query = {}) {
+ 			const selected = candidates.filter((c) =>
+ 				candidate_invites.includes(c.id),
+ 			);
++			// An arrival that names no candidate invite implicates no other
++			// buyer's RFQ, so the isolation rule (every candidate must be this
++			// buyer's) holds trivially; hiding its body only kept the owner
++			// from reading unroutable mail sent to his own mailbox.
+ 			const visible =
+ 				selected.length === candidate_invites.length &&
+-				selected.length > 0 &&
++				(candidate_invites.length === 0 || selected.length > 0) &&
+ 				selected.every((c) => !held(c.rfq_snapshot));
+ 			return {
+ 				...r,
+@@ -63,8 +91,7 @@ async function unresolved(client, actor, query = {}) {
+ 	};
+ }
+ async function resolve(client, actor, params, body) {
+-	if (!["ADMIN", "PROCUREMENT"].includes(actor.role))
+-		throw fail(403, "INBOX_FORBIDDEN");
++	if (!ROUTE_ROLES.includes(actor.role)) throw fail(403, "INBOX_FORBIDDEN");
+ 	if (
+ 		!UUID.test(params.id || "") ||
+ 		!UUID.test(body.invite_id || "") ||
+diff --git a/api/tests/construction-inbox-routing-domain.test.js b/api/tests/construction-inbox-routing-domain.test.js
+new file mode 100644
+index 000000000..11b57848b
+--- /dev/null
++++ b/api/tests/construction-inbox-routing-domain.test.js
+@@ -0,0 +1,93 @@
++'use strict';
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const { narrowRfqCandidates, domainCandidates, emailDomain, exclusionReason,
++  NON_ACTIONABLE_REASONS } = require('../lib/construction/inbox-routing');
++const { chooseInvite } = require('../lib/construction/gmail-sync');
++
++const rfq = 'd9e7fbd7-1261-413e-a3d0-155061aded0d';
++const glass = { id: 'aaaaaaaa-1111-4111-8111-111111111111', rfq_id: rfq, created_at: '2026-09-10T23:07:09Z', emails: ['info@glasslineco.com'], name_ar: 'زجاج', name_en: 'Glassline' };
++const other = { id: 'bbbbbbbb-2222-4222-8222-222222222222', rfq_id: rfq, created_at: '2026-09-10T23:07:09Z', emails: ['sales@othersupplier.com'], name_ar: 'مورد', name_en: 'Other' };
++const third = { id: 'cccccccc-3333-4333-8333-333333333333', rfq_id: rfq, created_at: '2026-09-10T23:07:09Z', emails: ['bids@thirdco.com'], name_ar: 'ثالث', name_en: 'Third' };
++
++test('a reply from another mailbox on the supplier domain narrows to that supplier', () => {
++  const pool = [glass, other, third];
++  const narrowed = narrowRfqCandidates(pool, [], null, 'estimation@glasslineco.com');
++  assert.deepEqual(narrowed.map((c) => c.id), [glass.id]);
++});
++
++test('shared mail domains never narrow, even when one invited supplier uses them', () => {
++  const consumer = { ...glass, emails: ['glassline.sales@gmail.com'] };
++  const pool = [consumer, other, third];
++  // Exactly one invited supplier is on gmail.com, so a naive domain rule would
++  // hand every gmail reply to them. It must stay ambiguous instead.
++  assert.deepEqual(domainCandidates(pool, 'someone.else@gmail.com'), []);
++  assert.equal(narrowRfqCandidates(pool, [], null, 'someone.else@gmail.com').length, 3);
++  for (const shared of ['outlook.com', 'hotmail.com', 'yahoo.com', 'icloud.com', 'proton.me']) {
++    assert.deepEqual(domainCandidates([{ ...glass, emails: [`x@${shared}`] }], `y@${shared}`), []);
++  }
++});
++
++test('a domain shared by several invited suppliers stays ambiguous rather than picking one', () => {
++  const sister = { ...other, id: 'dddddddd-4444-4444-8444-444444444444', emails: ['quotes@glasslineco.com'] };
++  const narrowed = narrowRfqCandidates([glass, sister, third], [], null, 'estimation@glasslineco.com');
++  assert.equal(narrowed.length, 2, 'both invited suppliers on the domain survive');
++  assert.ok(narrowed.length > 1, 'more than one candidate keeps the decision ambiguous');
++});
++
++test('the exact address on file still wins, and narrowing never returns empty', () => {
++  const byEmail = [other];
++  assert.deepEqual(narrowRfqCandidates([glass, other], byEmail, null, 'estimation@glasslineco.com').map((c) => c.id), [other.id]);
++  // Evidence discipline: a present signal must never come back empty, or it
++  // reads as a contradiction and holds real replies.
++  for (const address of ['nobody@unknown-domain.com', '', null, 'malformed', '@nodomain.com']) {
++    assert.ok(narrowRfqCandidates([glass, other], [], null, address).length > 0);
++  }
++});
++
++test('emailDomain ignores malformed senders', () => {
++  assert.equal(emailDomain('a@b.com'), 'b.com');
++  assert.equal(emailDomain('UPPER@Example.COM'), 'example.com');
++  assert.equal(emailDomain('@nodomain.com'), null);
++  assert.equal(emailDomain('nodomain'), null);
++  assert.equal(emailDomain(null), null);
++});
++
++test('end to end: the Glassline reply resolves instead of sitting ambiguous', () => {
++  const message = {
++    id: 'ff01',
++    internalDate: String(Date.parse('2026-09-16T05:35:19Z')),
++    snippet: '',
++    payload: { mimeType: 'text/plain', headers: [
++      { name: 'From', value: 'Jessie Pericon <estimation@glasslineco.com>' },
++      { name: 'Subject', value: 'Re: طلب عرض سعر ELE-RFQ-D9E7FBD7 — القسم الكهربائي' },
++    ], body: { data: Buffer.from('quotation attached').toString('base64url') } },
++  };
++  const pool = [glass, other, third].map((c) => ({ ...c, references: [] }));
++  const decided = chooseInvite(message, pool, () => null, true);
++  assert.equal(decided.ambiguous, undefined, 'no longer ambiguous');
++  assert.equal(decided.id, glass.id);
++  assert.equal(decided.routing.state, 'RESOLVED');
++});
++
++test('a supplier answering a request this database lost gets its own reason', () => {
++  const reply = { subject: 'Re: طلب عرض سعر ELE-RFQ-2BE693F2 — توريد المواد الكهربائية' };
++  assert.equal(exclusionReason('NO_ELIGIBLE_INVITE', reply), 'REPLY_TO_UNKNOWN_RFQ');
++  // The token may only survive in the snippet when the subject was rewritten.
++  assert.equal(exclusionReason('NO_ELIGIBLE_INVITE', { subject: 'Quotation', snippet: 'regarding CIV-RFQ-507DC0A0' }), 'REPLY_TO_UNKNOWN_RFQ');
++});
++
++test('automated mail stays non-actionable, including threaded support desks', () => {
++  for (const subject of [
++    'Turn on Advanced Protection',
++    '[Case #28602145866089001] Manual registration failure',
++    'Your AI visibility changed this week',
++  ]) assert.equal(exclusionReason('NO_ELIGIBLE_INVITE', { subject }), 'NO_ELIGIBLE_INVITE');
++  assert.ok(NON_ACTIONABLE_REASONS.includes('NO_ELIGIBLE_INVITE'));
++  assert.ok(!NON_ACTIONABLE_REASONS.includes('REPLY_TO_UNKNOWN_RFQ'), 'orphaned replies stay visible');
++});
++
++test('reasons that already describe a routing decision are never rewritten', () => {
++  for (const reason of ['NO_SENDER', 'SELF_SENDER', 'EXCLUDED_LABEL', 'INVALID_TIMESTAMP'])
++    assert.equal(exclusionReason(reason, { subject: 'Re: ELE-RFQ-2BE693F2' }), reason);
++});

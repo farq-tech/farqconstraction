@@ -1,0 +1,623 @@
+[
+ {
+  "page": 27,
+  "id": 1,
+  "desc_reversed": "معدات انشاء مبنى المحكمة البنود جميع حسب جدول الكميات للموضح طبقا بالمواصفات الفنية",
+  "qty": "1",
+  "unit": "عدد",
+  "mandatory": "لا",
+  "code": null
+ },
+ {
+  "page": 28,
+  "id": 1,
+  "desc_reversed": "حديدي درابزين",
+  "qty": "385",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2011"
+ },
+ {
+  "page": 28,
+  "id": 2,
+  "desc_reversed": "الرئيسي المدخل بوابة",
+  "qty": "3",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2031"
+ },
+ {
+  "page": 28,
+  "id": 3,
+  "desc_reversed": "الافراد لمدخل بوابة",
+  "qty": "3",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2031"
+ },
+ {
+  "page": 28,
+  "id": 4,
+  "desc_reversed": "( منزلق ) سحاب زجاجي باب",
+  "qty": "7",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2030"
+ },
+ {
+  "page": 28,
+  "id": 5,
+  "desc_reversed": "سيكوريت باب",
+  "qty": "25",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2034"
+ },
+ {
+  "page": 28,
+  "id": 6,
+  "desc_reversed": "سيكوريت زجاج قواطع",
+  "qty": "480",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2034"
+ },
+ {
+  "page": 28,
+  "id": 7,
+  "desc_reversed": "معدني باب",
+  "qty": "20",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2031"
+ },
+ {
+  "page": 28,
+  "id": 8,
+  "desc_reversed": "خشب باب",
+  "qty": "144",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2031"
+ },
+ {
+  "page": 28,
+  "id": 9,
+  "desc_reversed": "ألمنيوم نوافذ",
+  "qty": "274",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2036"
+ },
+ {
+  "page": 28,
+  "id": 10,
+  "desc_reversed": "سقفي منور",
+  "qty": "607",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2035"
+ },
+ {
+  "page": 28,
+  "id": 11,
+  "desc_reversed": "اسمنتية لياسة",
+  "qty": "5340",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2049"
+ },
+ {
+  "page": 28,
+  "id": 12,
+  "desc_reversed": "بلاستيك دهان",
+  "qty": "2080",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2048"
+ },
+ {
+  "page": 28,
+  "id": 13,
+  "desc_reversed": "حوائط سيراميك",
+  "qty": "976",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2041"
+ },
+ {
+  "page": 28,
+  "id": 14,
+  "desc_reversed": "أرضيات بورسلان",
+  "qty": "5600",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2041"
+ },
+ {
+  "page": 28,
+  "id": 15,
+  "desc_reversed": "بورسلان وزرة",
+  "qty": "3360",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2041"
+ },
+ {
+  "page": 28,
+  "id": 16,
+  "desc_reversed": "أرضيات سيراميك",
+  "qty": "336",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2041"
+ },
+ {
+  "page": 28,
+  "id": 17,
+  "desc_reversed": "سيراميك وزرة",
+  "qty": "110",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2041"
+ },
+ {
+  "page": 29,
+  "id": 18,
+  "desc_reversed": "للدرج جرانيت",
+  "qty": "468",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2040"
+ },
+ {
+  "page": 29,
+  "id": 19,
+  "desc_reversed": "تيرازو بلاط",
+  "qty": "379",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2009"
+ },
+ {
+  "page": 29,
+  "id": 20,
+  "desc_reversed": "الجبس لألواح هيكل",
+  "qty": "1750",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2046"
+ },
+ {
+  "page": 29,
+  "id": 21,
+  "desc_reversed": "بورد جبسوم ألواح",
+  "qty": "1750",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2045"
+ },
+ {
+  "page": 29,
+  "id": 22,
+  "desc_reversed": "جدران لعزل خشب",
+  "qty": "720",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2039"
+ },
+ {
+  "page": 29,
+  "id": 23,
+  "desc_reversed": "من ورأسية أفقية للرطوبة عازلة طبقة الساخن البيتومين",
+  "qty": "110",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2021"
+ },
+ {
+  "page": 29,
+  "id": 24,
+  "desc_reversed": "بيتومين عازل",
+  "qty": "2100",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2021"
+ },
+ {
+  "page": 29,
+  "id": 25,
+  "desc_reversed": "بالبوليستر مسلح بيتومين عازل",
+  "qty": "5140",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2017"
+ },
+ {
+  "page": 29,
+  "id": 26,
+  "desc_reversed": "حراري عزل الواح",
+  "qty": "4300",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2027"
+ },
+ {
+  "page": 29,
+  "id": 27,
+  "desc_reversed": "السيارات لمواقف مظلات",
+  "qty": "30",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2050"
+ },
+ {
+  "page": 29,
+  "id": 28,
+  "desc_reversed": "انترلوك بلاط",
+  "qty": "750",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2009"
+ },
+ {
+  "page": 29,
+  "id": 29,
+  "desc_reversed": "خرسانة بردورات",
+  "qty": "92",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2009"
+ },
+ {
+  "page": 29,
+  "id": 30,
+  "desc_reversed": "خرسانة بردورات",
+  "qty": "750",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2009"
+ },
+ {
+  "page": 29,
+  "id": 31,
+  "desc_reversed": "مفرغ اسمني بلوك",
+  "qty": "4118",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2007"
+ },
+ {
+  "page": 29,
+  "id": 32,
+  "desc_reversed": "رغوية خفيفة خرسانة",
+  "qty": "4300",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2002"
+ },
+ {
+  "page": 29,
+  "id": 33,
+  "desc_reversed": "المسلحة للخرسانة تسليح حديد",
+  "qty": "770",
+  "unit": "طن",
+  "mandatory": "نعم",
+  "code": "2001"
+ },
+ {
+  "page": 30,
+  "id": 34,
+  "desc_reversed": "أرضيات خرسانة",
+  "qty": "8950",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2003"
+ },
+ {
+  "page": 30,
+  "id": 35,
+  "desc_reversed": "عادية خرسانة",
+  "qty": "40",
+  "unit": "3 م",
+  "mandatory": "نعم",
+  "code": "2003"
+ },
+ {
+  "page": 30,
+  "id": 36,
+  "desc_reversed": "قواعد خرسانة",
+  "qty": "4265",
+  "unit": "3 م",
+  "mandatory": "نعم",
+  "code": "2004"
+ },
+ {
+  "page": 30,
+  "id": 37,
+  "desc_reversed": "والكمرات للأعمدة خرسانة",
+  "qty": "2790",
+  "unit": "3 م",
+  "mandatory": "نعم",
+  "code": "2003"
+ },
+ {
+  "page": 30,
+  "id": 38,
+  "desc_reversed": "المتوسط الجهد كابلات",
+  "qty": "200",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2083"
+ },
+ {
+  "page": 30,
+  "id": 39,
+  "desc_reversed": "تحويل مفتاح",
+  "qty": "1",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2085"
+ },
+ {
+  "page": 30,
+  "id": 40,
+  "desc_reversed": "توزيع لوحات",
+  "qty": "12",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2096"
+ },
+ {
+  "page": 30,
+  "id": 41,
+  "desc_reversed": "لوحةكهرباء",
+  "qty": "1",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2096"
+ },
+ {
+  "page": 30,
+  "id": 42,
+  "desc_reversed": "نحاسية كابلات",
+  "qty": "2210",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2094"
+ },
+ {
+  "page": 30,
+  "id": 100,
+  "desc_reversed": "قاطع",
+  "qty": "47",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2085"
+ },
+ {
+  "page": 30,
+  "id": 32,
+  "desc_reversed": "قاطع",
+  "qty": "2",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2085"
+ },
+ {
+  "page": 30,
+  "id": 45,
+  "desc_reversed": "سخان مخرج",
+  "qty": "2",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2088"
+ },
+ {
+  "page": 30,
+  "id": 46,
+  "desc_reversed": "تأريض نظام",
+  "qty": "1",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2092"
+ },
+ {
+  "page": 30,
+  "id": 47,
+  "desc_reversed": "إنارة وحدات",
+  "qty": "1460",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2087"
+ },
+ {
+  "page": 30,
+  "id": 48,
+  "desc_reversed": "والأفياش القوى مخارج",
+  "qty": "505",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2088"
+ },
+ {
+  "page": 30,
+  "id": 49,
+  "desc_reversed": "وبيانات هاتف مخرج",
+  "qty": "140",
+  "unit": "عدد",
+  "mandatory": "لا",
+  "code": null
+ },
+ {
+  "page": 30,
+  "id": 50,
+  "desc_reversed": "المياه والحارة الباردة أنابيب",
+  "qty": "2080",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2066"
+ },
+ {
+  "page": 31,
+  "id": 51,
+  "desc_reversed": "صحي صرف أنابيب",
+  "qty": "750",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2102"
+ },
+ {
+  "page": 31,
+  "id": 52,
+  "desc_reversed": "الأمطار مياه أنابيب",
+  "qty": "400",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2064"
+ },
+ {
+  "page": 31,
+  "id": 53,
+  "desc_reversed": "مانهول",
+  "qty": "18",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2106"
+ },
+ {
+  "page": 31,
+  "id": 54,
+  "desc_reversed": "مانهول أغطية",
+  "qty": "18",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2107"
+ },
+ {
+  "page": 31,
+  "id": 55,
+  "desc_reversed": "الحريق مياه أنابيب",
+  "qty": "3740",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2054"
+ },
+ {
+  "page": 31,
+  "id": 56,
+  "desc_reversed": "خارجية حريق حنفية",
+  "qty": "4",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2055"
+ },
+ {
+  "page": 31,
+  "id": 57,
+  "desc_reversed": "حريق صندوق",
+  "qty": "16",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2057"
+ },
+ {
+  "page": 31,
+  "id": 58,
+  "desc_reversed": "UPVC مواسير",
+  "qty": "280",
+  "unit": "ط م",
+  "mandatory": "نعم",
+  "code": "2062"
+ },
+ {
+  "page": 31,
+  "id": 59,
+  "desc_reversed": "صمام",
+  "qty": "1",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2052"
+ },
+ {
+  "page": 31,
+  "id": 60,
+  "desc_reversed": "مرحاض",
+  "qty": "42",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2058"
+ },
+ {
+  "page": 31,
+  "id": 61,
+  "desc_reversed": "يدي غسيل حوض",
+  "qty": "2",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2058"
+ },
+ {
+  "page": 31,
+  "id": 62,
+  "desc_reversed": "كهربائي سخان",
+  "qty": "40",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2063"
+ },
+ {
+  "page": 31,
+  "id": 63,
+  "desc_reversed": "بالأبواب التحكم نظام",
+  "qty": "28",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2033"
+ },
+ {
+  "page": 31,
+  "id": 64,
+  "desc_reversed": "مياه خزان",
+  "qty": "3",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2067"
+ },
+ {
+  "page": 31,
+  "id": 65,
+  "desc_reversed": "والتدفئة التكييف وحدات",
+  "qty": "24",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2069"
+ },
+ {
+  "page": 31,
+  "id": 66,
+  "desc_reversed": "والتهوية والتكييف التبريد قنوات",
+  "qty": "40",
+  "unit": "طن",
+  "mandatory": "نعم",
+  "code": "2079"
+ },
+ {
+  "page": 31,
+  "id": 67,
+  "desc_reversed": "التكييف لمجاري حرارى عزل",
+  "qty": "3500",
+  "unit": "2 م",
+  "mandatory": "نعم",
+  "code": "2075"
+ },
+ {
+  "page": 32,
+  "id": 68,
+  "desc_reversed": "مخارجالتهوية",
+  "qty": "855",
+  "unit": "عدد",
+  "mandatory": "نعم",
+  "code": "2073"
+ }
+]

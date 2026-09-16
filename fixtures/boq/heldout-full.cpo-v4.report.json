@@ -1,0 +1,120 @@
+{
+  "label": "full",
+  "measured_at": "2026-09-16T11:18:19.036Z",
+  "provenance": {
+    "ontology_payload": "/Volumes/Extreme SSD/cunstraction/farqconstraction/src/lib/procurementOntology.data.json",
+    "ontology_version": "cpo-v4",
+    "ontology_payload_sha256_16": "4750053d720aacec",
+    "ontology_fingerprint": null,
+    "repo_payload_sha256_16": "4750053d720aacec",
+    "repo_payload_version_note": "repo tree is cpo-v4 in progress; NOT used for these numbers",
+    "resolver_code_rev": null,
+    "api_code_rev": null,
+    "ai_calls": 0
+  },
+  "set": {
+    "path": "fixtures/boq/heldout-b3-10.full.flat.txt",
+    "lines": 81752
+  },
+  "three_levels": {
+    "A_specific_intent": {
+      "n": 48895,
+      "pct": 59.81
+    },
+    "B_family_resolved": {
+      "n": 30057,
+      "pct": 36.77,
+      "method": {
+        "ontology": 10642,
+        "semantic_recovery": 19415
+      }
+    },
+    "C_true_unknown": {
+      "n": 2800,
+      "pct": 3.42,
+      "metadata": {
+        "ai_eligible": 2800,
+        "rejected": 0
+      }
+    }
+  },
+  "A_confidence_distribution": {
+    "A>=0.9": 48895,
+    "A0.8-0.9": 0,
+    "A<0.8": 0
+  },
+  "top_families_A": [
+    [
+      "cable_accessories",
+      15079
+    ],
+    [
+      "fasteners",
+      10569
+    ],
+    [
+      "pipes_fittings",
+      5984
+    ],
+    [
+      "switchgear_panels",
+      5258
+    ],
+    [
+      "power_cables",
+      4851
+    ],
+    [
+      "pipe_supports",
+      1624
+    ],
+    [
+      "structured_cabling",
+      1104
+    ],
+    [
+      "valves",
+      1024
+    ],
+    [
+      "hvac_equipment",
+      658
+    ],
+    [
+      "paving",
+      504
+    ],
+    [
+      "road_furniture",
+      504
+    ],
+    [
+      "interior_systems",
+      500
+    ],
+    [
+      "racks_enclosures",
+      468
+    ],
+    [
+      "lighting",
+      336
+    ],
+    [
+      "fire_fighting",
+      210
+    ],
+    [
+      "irrigation_systems",
+      96
+    ],
+    [
+      "network_switching",
+      84
+    ],
+    [
+      "floor_tiling",
+      42
+    ]
+  ]
+}

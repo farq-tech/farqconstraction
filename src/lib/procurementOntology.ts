@@ -136,10 +136,43 @@ export type OntologyResolution = {
   }
 }
 
+/**
+ * A condition attached to specific terms, so a term can be decisive in one
+ * context and inert in another WITHOUT splitting it into a new alias.
+ *
+ * The three-tier rule (strong decides / weak+context decides / weak alone never
+ * decides) turned out to be necessary but not sufficient. Measuring 10,219 real
+ * tender lines produced 434 confident-but-wrong resolutions, and all of them
+ * share one shape: a term that is genuinely strong for its family fired on a
+ * line where the surrounding words said it was something else. «قطاع» is
+ * decisive for steel sections and inert on a 0.45 mm gypsum stud; «كابل» is
+ * decisive for power cable and inert on a fibre line; «حريق» is a product for
+ * fire fighting and an ADJECTIVE on fire-rated MDF.
+ *
+ * A guard expresses that directly:
+ *   require_any     — the term is inert unless one of these appears in the line
+ *   block_any       — the term is inert if any of these appears in the line
+ *   blocked_by_head — the term is inert when the PRODUCT HEAD is one of these,
+ *                     i.e. the term is the object being acted on, not the
+ *                     product being bought («عزل مواسير» is insulation,
+ *                     «حامل ماسورة» is a support — neither is a pipe)
+ *
+ * Guards are ontology CONTENT, declared in the data and inherited down the
+ * chain like terms are. They are not per-line patches.
+ */
+type TermGuard = {
+  terms: string[]
+  require_any?: string[]
+  block_any?: string[]
+  blocked_by_head?: string[]
+  note?: string
+}
+
 type TermTiers = {
   strong_terms?: string[]
   weak_terms?: string[]
   context_terms?: string[]
+  term_guards?: TermGuard[]
 }
 
 type ArchetypeRules = {
@@ -211,11 +244,23 @@ export const FACET_DEFS = DATA.facets
 
 const ARABIC_INDIC = /[\u0660-\u0669]/g
 
+/**
+ * Superscript digits, which carry real meaning in this domain: a cable is sized
+ * in «مم²» and concrete in «م³». Left unfolded, «مم²» never matched the «مم2»
+ * vocabulary, so the cross-section — the strongest evidence that a line is a
+ * cable at all — was invisible on every cable line in a 10,219-line catalogue.
+ */
+const SUPERSCRIPT_DIGITS: Record<string, string> = {
+  '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+  '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+}
+
 /** Matching-only normalization. Never rewrites the buyer's visible line. */
 export function normalizeProcurementText(text: string): string {
   return String(text || '')
     .replace(/[\u064B-\u0652\u0640]/g, '')
     .replace(ARABIC_INDIC, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (d) => SUPERSCRIPT_DIGITS[d])
     .replace(/[أإآٱ]/g, 'ا')
     .replace(/ة/g, 'ه')
     .replace(/[ىي]/g, 'ي')
@@ -315,18 +360,50 @@ const termCache = new Map<string, CompiledTerm>()
  * optional proclitics on each Arabic word, whitespace-flexible joins, and hard
  * boundaries at both ends.
  */
+/**
+ * THE NISBA SUFFIX, which turns a material noun into the adjective naming the
+ * thing made of it: «خشب» wood → «خشبي» wooden, «معدن» metal → «معدني»,
+ * «زجاج» glass → «زجاجي». Arabic BOQs use the two interchangeably, so «باب
+ * خشب» and «باب خشبي» are one product written two ways — and before this the
+ * first stopped at the family while the second reached `wooden_door`, a whole
+ * intent lost to one letter. Handling it as morphology rather than as an alias
+ * per phrase is what makes it generalise: the proclitics above are prefixes,
+ * this is the matching enclitic.
+ */
+const AR_NISBA = '(?:يات|يين|يه|ي)?'
+
+/** The stem a nisba adjective is built on, or the word unchanged. */
+function nisbaStem(word: string): string {
+  for (const suffix of ['يات', 'يين', 'يه', 'ي']) {
+    if (!word.endsWith(suffix)) continue
+    const stem = word.slice(0, -suffix.length)
+    // A floor of three letters keeps real words whose ending merely looks like
+    // a nisba — «صحيه», «ري» — from being shortened into a near-wildcard.
+    if (stem.length >= 3) return stem
+  }
+  return word
+}
+
 function compileTerm(term: string): CompiledTerm {
   const cached = termCache.get(term)
   if (cached) return cached
   const words = term.split(' ').filter(Boolean)
   const body = words
     .map((word) =>
-      ARABIC_LETTER.test(word[0] || '') ? `${AR_PROCLITIC}${escapeRegex(word)}` : escapeRegex(word),
+      ARABIC_LETTER.test(word[0] || '')
+        ? `${AR_PROCLITIC}${escapeRegex(nisbaStem(word))}${AR_NISBA}`
+        : escapeRegex(word),
     )
     .join('\\s+')
-  // Proclitics only ever prepend characters, so every bare word remains a
-  // substring — the longest one is a cheap necessary condition.
-  const probe = words.reduce((longest, word) => (word.length > longest.length ? word : longest), '')
+  // Proclitics only ever prepend characters and the nisba only ever appends
+  // them, so every STEM remains a substring — the longest is a cheap necessary
+  // condition. Probing the unstemmed word would reject «باب خشب» against the
+  // term «باب خشبي» before the pattern ever ran, silently defeating the rule
+  // above.
+  const probe = words.reduce((longest, word) => {
+    const stem = ARABIC_LETTER.test(word[0] || '') ? nisbaStem(word) : word
+    return stem.length > longest.length ? stem : longest
+  }, '')
   const compiled: CompiledTerm = {
     re: new RegExp(`${LEAD_GUARD}(${body})${TRAIL_GUARD}`, 'u'),
     probe,
@@ -377,15 +454,243 @@ export function termIndex(rawHaystack: string, rawTerm: string): number {
 
 type TermHit = { term: string; index: number; score: number; inHead: boolean }
 
-function bestHit(head: string, full: string, terms: string[] | undefined): TermHit | null {
+/**
+ * ATTRIBUTE CLAUSES ARE DESCRIPTION, NOT PRODUCT.
+ *
+ * A Saudi BOQ line names the product first and then lists its attributes, each
+ * one introduced by an explicit keyword: «وصلة PPR Elbow مقاس 50 مم **ربط**
+ * Solvent Cement», «VCD Opposed Blade **مادة** Aluminium», «Backflow Preventer
+ * **توصيل** Lug». The word after the keyword describes the product — it is not
+ * the product.
+ *
+ * Treating that text as decidable is a single defect with many faces, and it
+ * was the whole of a 5.84% confident-wrong rate on truly held-out batches:
+ * `solvent` sent 1,984 pipe fittings to lubricants, `aluminium` sent 331 dampers
+ * to façade systems, `lug` sent 64 backflow preventers to cable terminations.
+ * The perverse consequence is that a MORE detailed line resolved WORSE, because
+ * every added attribute was another chance for a stray word to win — the
+ * opposite of what more text should do.
+ *
+ * The rule is positional, not a keyword blacklist: a term may decide only if
+ * its match STARTS outside every attribute clause. That distinction is what
+ * keeps «مقياس ضغط» working — the term starts at «مقياس», before the «ضغط»
+ * clause opens — while refusing a bare «ضغط» that appears only as a value.
+ */
+const ATTRIBUTE_CLAUSE_KEYS = [
+  // Arabic BOQ attribute introducers.
+  'ربط', 'ماده', 'تشطيب', 'توصيل', 'تصنيف', 'لون', 'درجه', 'فيه', 'حركه',
+  'موديل', 'طراز', 'تشغيل', 'سماكه', 'مقاس', 'قطر', 'عرض', 'عمق', 'ارتفاع',
+  'وزن', 'سعه', 'كثافه', 'جهد', 'تيار', 'قدره', 'مطابق', 'حسب', 'نمط',
+  // English equivalents, for spec-sheet phrasing.
+  'material', 'finish', 'colour', 'color', 'class', 'rating', 'size',
+  'thickness', 'width', 'depth', 'height', 'weight', 'voltage', 'pattern',
+]
+
+/**
+ * THE SAME CONSTRUCTION, SPOKEN THE OTHER WAY.
+ *
+ * The keyword list above was learned from generated archives, which introduce
+ * an attribute with an explicit noun («... **مادة** الخرسانة المسلحة»). Real
+ * booklets introduce the same attribute with a PREPOSITION («حديد تسليح
+ * **للخرسانة** المسلحة»), and the proof that this is one construction rather
+ * than two is that inserting the archive's keyword into the booklet's sentence
+ * made it resolve correctly. The rule was right; its vocabulary came from one
+ * register and was verified only there.
+ *
+ * This list is DERIVED from the 136 real booklet lines rather than guessed, and
+ * the derivation is the reason two obvious-looking candidates are absent:
+ *
+ *   • bare «ب» prefix — 14 occurrences, **0** of them prepositional. It matched
+ *     «بلاستيك», «بورسلان», «بورد», «بيتومين», «بلوك». Rejected outright.
+ *   • bare «ل» prefix — 12 occurrences, 10 prepositional, and the 2 failures
+ *     were «لياسة» and «لوحات», which are the plaster family's own term and the
+ *     distribution-board term. Adopting it would have suppressed both.
+ *
+ * What survived: the «لل» and «بال» proclitics (لـ/بـ + the definite article,
+ * which cannot be confused with a noun's first letters) and the closed-class
+ * standalone prepositions, which can never be a product head.
+ */
+const PROCLITIC_CLAUSE_OPENERS: Array<{ prefix: string; minStem: number }> = [
+  // «للخرسانة», «للرطوبة», «للأعمدة», «للدرج» — 7 of 7 attested cases genuine.
+  { prefix: 'لل', minStem: 3 },
+  // «بالبوليستر», «بالأبواب». The stem floor is what keeps «بالته» — a pallet,
+  // not بـ+الـ+noun — from opening a clause over its own name.
+  { prefix: 'بال', minStem: 4 },
+]
+
+/**
+ * Standalone prepositions. «من» is the attested one; the rest are the same
+ * closed class and were checked to collide with no deciding term in the
+ * vocabulary. «على» is deliberately excluded: unattested here, and it does
+ * collide («العمل على الارتفاعات», «التعرف على الوجه»).
+ */
+const PREPOSITION_CLAUSE_KEYS = ['من', 'مع', 'في', 'عن', 'الى']
+
+/** Every occurrence of `term` in already-normalized `text`. */
+function allTermIndices(text: string, term: string): number[] {
+  const out: number[] = []
+  let from = 0
+  while (from < text.length) {
+    const at = termIndex(text.slice(from), term)
+    if (at < 0) break
+    out.push(from + at)
+    from += at + Math.max(term.length, 1)
+  }
+  return out
+}
+
+/**
+ * Half-open character ranges holding attribute VALUES. A keyword at position 0
+ * is the product itself («مقاس 100» as a whole line is not a description of
+ * anything), so only openers with content before them open a clause.
+ *
+ * AN OPENER IS NOT PART OF THE VALUE IT INTRODUCES. The first version started
+ * each region AT the keyword, which meant a term whose first word happened to
+ * be a keyword could never decide anywhere except position 0 — «كابل تيار خفيف
+ * 2x1.5» is an ordinary booklet line, and `voltage transformer`, `material
+ * lift`, `thickness gauge`, `height rescue kit`, «ماده رابطه» and «ماده معالجه»
+ * were all suppressed the same way. The supply side found this by implementing
+ * the rule independently and testing it back against this resolver. So a
+ * separate-token opener contributes its END as the value start, while a
+ * PROCLITIC is glued to its value and contributes its own start.
+ */
+function attributeRegions(rawText: string): Array<[number, number]> {
+  const text = ensureNormalized(rawText)
+  if (!text) return []
+  // [where the clause is anchored, where its value begins]
+  const opened: Array<[number, number]> = []
+
+  const pushToken = (key: string) => {
+    const normalized = normalizeTerm(key)
+    if (!normalized) return
+    for (const at of allTermIndices(text, normalized)) {
+      if (at <= 0) continue
+      opened.push([at, at + normalized.length])
+    }
+  }
+  for (const key of ATTRIBUTE_CLAUSE_KEYS) pushToken(key)
+  for (const key of PREPOSITION_CLAUSE_KEYS) pushToken(key)
+
+  // Proclitics are recognised on word starts, and only when what follows is
+  // long enough to be a noun rather than the rest of an ordinary word.
+  for (const { prefix, minStem } of PROCLITIC_CLAUSE_OPENERS) {
+    let from = 0
+    for (;;) {
+      const at = text.indexOf(prefix, from)
+      if (at < 0) break
+      from = at + prefix.length
+      if (at <= 0) continue
+      const before = text[at - 1]!
+      if (/[\p{L}\p{N}]/u.test(before)) continue
+      let end = at + prefix.length
+      while (end < text.length && /[\u0621-\u064A]/.test(text[end]!)) end++
+      if (end - (at + prefix.length) < minStem) continue
+      // The value carries the proclitic, so a term matching it — which
+      // `termIndex` reports at the proclitic's own position — falls inside.
+      opened.push([at, at])
+    }
+  }
+
+  if (!opened.length) return []
+  opened.sort((a, b) => a[0] - b[0])
+  const regions: Array<[number, number]> = []
+  for (let i = 0; i < opened.length; i++) {
+    const [anchor, valueStart] = opened[i]!
+    // A clause runs to the next clause's anchor, or to end of line.
+    let end = text.length
+    for (let j = i + 1; j < opened.length; j++) {
+      if (opened[j]![0] > anchor) {
+        end = opened[j]![0]
+        break
+      }
+    }
+    if (valueStart < end) regions.push([valueStart, end])
+  }
+  return regions
+}
+
+const regionMemo = new Map<string, Array<[number, number]>>()
+function attributeRegionsMemo(text: string): Array<[number, number]> {
+  const hit = regionMemo.get(text)
+  if (hit !== undefined) return hit
+  const value = attributeRegions(text)
+  if (regionMemo.size > 64) regionMemo.clear()
+  regionMemo.set(text, value)
+  return value
+}
+
+function startsInsideAttribute(index: number, regions: Array<[number, number]>): boolean {
+  for (const [from, to] of regions) {
+    if (index >= from && index < to) return true
+  }
+  return false
+}
+
+/**
+ * PRODUCT-HEAD RULE. Arabic and English both put the product before the thing
+ * it acts on: «عزل مواسير تكييف» is insulation for pipes, «Clevis Hanger
+ * لمواسير DN100» is a hanger for pipes. Neither is a pipe. So a concept that
+ * appears EARLIER in the head than the matched term identifies the product, and
+ * the matched term is merely the object being described.
+ *
+ * Position, not mere presence, is what makes this general: «ماسورة معزولة»
+ * (pre-insulated pipe) still resolves as a pipe, because there the pipe leads.
+ */
+function precededInHead(head: string, term: string, concepts: string[]): boolean {
+  const termAt = termIndex(head, normalizeTerm(term))
+  for (const concept of concepts) {
+    const normalized = normalizeTerm(concept)
+    if (!normalized) continue
+    const at = termIndex(head, normalized)
+    if (at < 0) continue
+    // The term may sit outside the head entirely; any leading concept wins then.
+    if (termAt < 0 || at < termAt) return true
+  }
+  return false
+}
+
+/** A term is inert when its guard's conditions are not met. */
+function guardAllows(term: string, head: string, full: string, guards: TermGuard[]): boolean {
+  const normalizedTerm = normalizeTerm(term)
+  for (const guard of guards) {
+    if (!guard.terms.some((t) => normalizeTerm(t) === normalizedTerm)) continue
+    if (guard.require_any && !guard.require_any.some((t) => termIndex(full, normalizeTerm(t)) >= 0)) {
+      return false
+    }
+    if (guard.block_any?.some((t) => termIndex(full, normalizeTerm(t)) >= 0)) return false
+    if (guard.blocked_by_head && precededInHead(head, term, guard.blocked_by_head)) return false
+  }
+  return true
+}
+
+function bestHit(
+  head: string,
+  full: string,
+  terms: string[] | undefined,
+  guards?: TermGuard[],
+  /**
+   * Attribute clauses are skipped for DECIDING hits and honoured for the
+   * fallback retry, so a term buried in a description still proves the line
+   * speaks known vocabulary (Level B semantic recovery) without being allowed
+   * to name the product.
+   */
+  allowAttributeText = false,
+): TermHit | null {
   if (!terms?.length) return null
+  const headRegions = allowAttributeText ? [] : attributeRegionsMemo(head)
+  const fullRegions = allowAttributeText ? [] : attributeRegionsMemo(full)
   let best: TermHit | null = null
   for (const term of terms) {
     const normalized = normalizeTerm(term)
     if (!normalized) continue
+    if (guards?.length && !guardAllows(term, head, full, guards)) continue
     let index = termIndex(head, normalized)
     const inHead = index >= 0
-    if (index < 0) index = termIndex(full, normalized)
+    if (index >= 0 && startsInsideAttribute(index, headRegions)) continue
+    if (index < 0) {
+      index = termIndex(full, normalized)
+      if (index >= 0 && startsInsideAttribute(index, fullRegions)) continue
+    }
     if (index < 0) continue
     const score = (inHead ? 1000 : 300) - index * 2 + normalized.length * 3
     if (!best || score > best.score) best = { term, index, score, inHead }
@@ -400,13 +705,44 @@ export type TierDecision = { decided: boolean; tier: DecisionTier; hit: TermHit 
  * strong and weak terms are preferred in the head concept.
  */
 export function decideByTiers(head: string, full: string, tiers: TermTiers): TierDecision {
-  const strong = bestHit(head, full, tiers.strong_terms)
+  // Guards apply to the positive signal only: a guarded term that is inert here
+  // must not decide, but it may still provide context for some other family.
+  const guards = tiers.term_guards
+  const strong = bestHit(head, full, tiers.strong_terms, guards)
   if (strong) return { decided: true, tier: 'strong', hit: strong, score: strong.score + 400 }
 
-  const weak = bestHit(head, full, tiers.weak_terms)
-  if (!weak) return { decided: false, tier: 'none', hit: null, score: 0 }
+  const weak = bestHit(head, full, tiers.weak_terms, guards)
+  if (!weak) {
+    // A guard removes a term's right to DECIDE, not the fact that the line
+    // speaks known vocabulary. Returning the guarded-out hit keeps the line in
+    // semantic recovery (honest Level B, searchable, never poolable) instead of
+    // dropping it to an unresolved C — «Band Saw» is still a saw even where the
+    // tool context needed to commit to a supplier pool is absent.
+    // The retry drops BOTH eligibility rules — guards and the attribute-clause
+    // rule — because both remove the right to DECIDE, not the fact that the
+    // line speaks known vocabulary. It covers the STRONG tier too: a strong
+    // term buried in an attribute clause («... ربط Solvent Cement») is
+    // suppressed for exactly the same reason, and without this it would fall
+    // past recovery into a false unknown.
+    const guardedOut =
+      bestHit(head, full, tiers.weak_terms, undefined, true) ??
+      bestHit(head, full, tiers.strong_terms, undefined, true)
+    return { decided: false, tier: 'none', hit: guardedOut, score: 0 }
+  }
 
-  const context = bestHit(full, full, tiers.context_terms)
+  // A TERM MAY NOT BE ITS OWN CONTEXT. Several families list a word in both
+  // weak_terms and context_terms, which quietly promoted "weak alone" to
+  // "weak + context" and defeated the three-tier rule: bare «filter» satisfied
+  // itself and sent an irrigation filter disc to respirator filters, and bare
+  // «حريق» sent a fire-RATED MDF board to fire fighting. Context must be a
+  // SECOND, different signal.
+  const weakTerm = normalizeTerm(weak.term)
+  const contextTerms = tiers.context_terms?.filter((t) => normalizeTerm(t) !== weakTerm)
+  // CONTEXT IS DESCRIPTION BY DEFINITION, so it is read from the whole line
+  // including attribute clauses. «... مادة Aluminium» must not let `aluminium`
+  // NAME the product, yet it is exactly the evidence that a weak «قطاع» is a
+  // façade profile. The attribute rule restricts deciding, never corroborating.
+  const context = bestHit(full, full, contextTerms, undefined, true)
   if (context) {
     return { decided: true, tier: 'weak_with_context', hit: weak, score: weak.score }
   }
@@ -420,13 +756,16 @@ function mergeTiers(...layers: (TermTiers | undefined)[]): TermTiers {
   const strong: string[] = []
   const weak: string[] = []
   const context: string[] = []
+  const guards: TermGuard[] = []
   for (const layer of layers) {
     if (!layer) continue
     if (layer.strong_terms) strong.push(...layer.strong_terms)
     if (layer.weak_terms) weak.push(...layer.weak_terms)
     if (layer.context_terms) context.push(...layer.context_terms)
+    // Guards inherit like veto does: declare once high, refine below.
+    if (layer.term_guards) guards.push(...layer.term_guards)
   }
-  return { strong_terms: strong, weak_terms: weak, context_terms: context }
+  return { strong_terms: strong, weak_terms: weak, context_terms: context, term_guards: guards }
 }
 
 type MergedRules = {
@@ -992,10 +1331,12 @@ function resolveIntentNode(
   const decisions = new Map<string, TierDecision>()
   for (const node of nodes) {
     // Own terms only for the positive signal; context inherited down the chain.
+    const inherited = intentTiers(node)
     const own: TermTiers = {
       strong_terms: node.intent.strong_terms,
       weak_terms: node.intent.weak_terms,
-      context_terms: intentTiers(node).context_terms,
+      context_terms: inherited.context_terms,
+      term_guards: inherited.term_guards,
     }
     const decision = decideByTiers(head, full, own)
     if (decision.decided) decisions.set(node.intent.id, decision)
@@ -1052,7 +1393,9 @@ export function resolveOntology(lineName: string): OntologyResolution {
   // («كاميرا حراريه») that lives in a different family.
   let derived: { node: IntentNode; hit: TermHit } | null = null
   for (const node of ALL_INTENT_NODES) {
-    const hit = bestHit(head, body, node.intent.strong_terms)
+    // Derivation must honour guards too, or a term that is inert for its own
+    // family would still drag in the whole ancestor chain from the side.
+    const hit = bestHit(head, body, node.intent.strong_terms, intentTiers(node).term_guards)
     if (!hit || !UNIQUE_STRONG_TERMS.has(normalizeTerm(hit.term))) continue
     if (!derived || hit.score > derived.hit.score) derived = { node, hit }
   }

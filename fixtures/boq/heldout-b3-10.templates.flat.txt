@@ -1,0 +1,827 @@
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Grey مقاومة 40MPa
+توريد Explosion-Proof LED 20W Zone1 Ex db Optic Wide
+توريد Linear LED طول 300 مم قدرة 8W تركيب Recessed
+توريد Track Spotlight LED 3W زاوية 10° CCT 2700K جسم White
+توريد ماسورة HDPE Corrugated قطر 100 مم SN4 وصلة Socket Rubber Ring
+توريد قناة تصريف Polymer Concrete عرض 100 مم عمق 100 مم فئة A15
+توريد AHU سعة 1000 CFM تكوين CHW Coil فلترة G4
+توريد Square Diffuser 4-Way مقاس 100×100 مم تشطيب RAL9010
+توريد Water-Cooled Centrifugal Chiller سعة 30 TR
+توريد VCD Opposed Blade مقاس 150×150 مم مادة GI
+توريد FCU سعة 200 CFM نظام 2-Pipe محرك AC Motor
+توريد Flexible Duct Uninsulated قطر 80 مم تصنيف Class0
+توريد Fiber Patch Cord OS2 LC-LC Duplex طول 1 م غلاف LSZH
+توريد Managed Switch 5 Port Non-PoE Uplink 1G SFP L2
+توريد Patch Cord Cat6 طول 0.25 م لون Blue غلاف LSZH
+توريد Rack Cabinet Wall Mount 4U عمق 350 مم باب Glass Door
+توريد أسطوانة نظام إطفاء FM-200 سعة 20 كجم
+توريد Elbow 90 لشبكة الحريق DN25 ضغط 300psi
+توريد رشاش Pendent K2.8 درجة 57°C تشطيب Chrome
+توريد Dripper تصريف 1 لتر/ساعة وصلة 4mm Barb نوع Standard
+توريد ماسورة ري HDPE قطر 16 مم PN6 لون Black
+توريد Pop-Up Sprinkler مدى 2 م زاوية 90° ضغط 2bar
+توريد لوحة مرورية Regulatory مقاس 300×500 مم Reflective Type IV
+توريد ACB 3P 630A Icu 50kA Trip LSI
+توريد Electrical Enclosure Sheet Steel مقاس 200×300×150 مم IP54
+توريد Junction Box PVC مقاس 75×75×50 مم IP44
+توريد MCB 1P 2A Curve B Icn 6kA
+توريد MCCB 3P 80A Icu 25kA Trip Thermal-Magnetic
+توريد RCCB 2P 16A 10mA Type AC
+توريد سلك H07V-K مساحة 1.5 مم² لون Black
+توريد Cable Tray عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة Pre-Galvanized
+توريد كابل MV Cu/XLPE/SWA/PVC 1C×35 مم² جهد 6.6kV
+توريد كابل Cu/XLPE/Unarmored/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Fire Resistant LSZH PH30 2C×1.5 مم² Unarmored
+توريد Cable Tray Elbow 90 عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد ماسورة كهرباء EMT قطر 16 مم
+توريد وصلة EMT Coupling قطر 16 مم
+توريد Metal Baffle عرض 30 مم ارتفاع 30 مم تشطيب White
+توريد Expansion Joint Cover Floor-to-Floor عرض 75 مم حركة ±25 مم Non-Fire Rated
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون White
+توريد Homogeneous Vinyl سماكة 2 مم لون Grey
+توريد 90° Angle Bracket لنظام Strut 41×21 مم تشطيب Zinc
+توريد Strut Channel 41×21 مم سماكة 1.5 مم طول 2 م مادة Pre-Galvanized
+توريد Wedge Anchor M5×20 مم تشطيب Zinc
+توريد Heavy Hex Nut M6 تشطيب Zinc
+توريد Hex Bolt M5×20 مم Grade 8.8 HDG
+توريد Flat Washer M6 تشطيب Zinc
+توريد Gasket EPDM Full Face DN15 PN10 سماكة 1.5 مم
+توريد Clevis Hanger DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد Ball Valve DN15 PN10 جسم Brass
+توريد Weld Neck Flange Carbon Steel A105 DN15 تصنيف PN10
+توريد وصلة PPR Elbow 90 مقاس 16 مم PN6
+توريد وصلة Carbon Steel Elbow 90 DN15 SCH160
+توريد قطاع C Purlin عمق 80 مم جناح 40 مم سماكة 1.2 مم Grade G350
+توريد Explosion-Proof LED 20W Zone1 Ex db Optic Medium
+توريد Linear LED طول 300 مم قدرة 8W تركيب Surface
+توريد Track Spotlight LED 3W زاوية 10° CCT 2700K جسم Black
+توريد ماسورة HDPE Corrugated قطر 100 مم SN4 وصلة Welded Coupler
+توريد قناة تصريف Polymer Concrete عرض 100 مم عمق 100 مم فئة B125
+توريد AHU سعة 1000 CFM تكوين CHW Coil فلترة G4+F7
+توريد VCD Opposed Blade مقاس 150×150 مم مادة Aluminium
+توريد FCU سعة 200 CFM نظام 2-Pipe محرك EC Motor
+توريد Fiber Patch Cord OS2 LC-LC Duplex طول 1 م غلاف OFNR
+توريد Patch Cord Cat6 طول 0.25 م لون Blue غلاف PVC
+توريد Rack Cabinet Wall Mount 4U عمق 350 مم باب Perforated Door
+توريد أسطوانة نظام إطفاء Novec 1230 سعة 20 كجم
+توريد رشاش Pendent K2.8 درجة 57°C تشطيب White
+توريد Dripper تصريف 1 لتر/ساعة وصلة 4mm Barb نوع Pressure Compensating
+توريد ماسورة ري HDPE قطر 16 مم PN6 لون Purple Reclaimed Water
+توريد لوحة مرورية Regulatory مقاس 300×500 مم Reflective Type XI
+توريد ACB 3P 630A Icu 50kA Trip LSIG
+توريد MCCB 3P 80A Icu 25kA Trip Electronic LSI
+توريد RCCB 2P 16A 10mA Type A
+توريد سلك H07V-K مساحة 1.5 مم² لون Red
+توريد Cable Tray عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة HDG
+توريد كابل MV Cu/XLPE/SWA/LSZH 1C×35 مم² جهد 6.6kV
+توريد كابل Fire Resistant LSZH PH30 2C×1.5 مم² SWA
+توريد وصلة EMT Connector قطر 16 مم
+توريد Metal Baffle عرض 30 مم ارتفاع 30 مم تشطيب Black
+توريد Expansion Joint Cover Floor-to-Floor عرض 75 مم حركة ±25 مم 1h Fire Rated
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Black
+توريد Heterogeneous Vinyl سماكة 2 مم لون Grey
+توريد 90° Angle Bracket لنظام Strut 41×21 مم تشطيب HDG
+توريد Strut Channel 41×21 مم سماكة 1.5 مم طول 2 م مادة HDG
+توريد Wedge Anchor M5×20 مم تشطيب HDG
+توريد Heavy Hex Nut M6 تشطيب HDG
+توريد Hex Bolt M5×20 مم Grade 12.9 Black
+توريد Flat Washer M6 تشطيب HDG
+توريد Ball Valve DN15 PN10 جسم Ductile Iron
+توريد Explosion-Proof LED 20W Zone1 Ex db Optic Narrow
+توريد Linear LED طول 300 مم قدرة 8W تركيب Suspended
+توريد Track Spotlight LED 3W زاوية 10° CCT 2700K جسم Grey
+توريد قناة تصريف Polymer Concrete عرض 100 مم عمق 100 مم فئة C250
+توريد Square Diffuser 4-Way مقاس 100×100 مم تشطيب Anodized Silver
+توريد VCD Opposed Blade مقاس 150×150 مم مادة SS304
+توريد Flexible Duct Uninsulated قطر 80 مم تصنيف UL181
+توريد Managed Switch 5 Port Non-PoE Uplink 10G SFP+ L2
+توريد Patch Cord Cat6 طول 0.25 م لون Black غلاف LSZH
+توريد Rack Cabinet Wall Mount 4U عمق 350 مم باب Solid Door
+توريد أسطوانة نظام إطفاء IG-541 سعة 20 كجم
+توريد رشاش Pendent K2.8 درجة 57°C تشطيب Black
+توريد Dripper تصريف 1 لتر/ساعة وصلة 4mm Barb نوع Self-Flushing
+توريد لوحة مرورية Warning مقاس 300×500 مم Reflective Type IV
+توريد MCCB 3P 80A Icu 25kA Trip Electronic LSIG
+توريد RCCB 2P 16A 10mA Type B
+توريد سلك H07V-K مساحة 1.5 مم² لون Blue
+توريد Cable Tray عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة SS304
+توريد Cable Tray Tee عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد وصلة EMT Elbow 90 قطر 16 مم
+توريد Metal Baffle عرض 30 مم ارتفاع 30 مم تشطيب Grey
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Grey
+توريد Conductive ESD Vinyl سماكة 2 مم لون Grey
+توريد 90° Angle Bracket لنظام Strut 41×21 مم تشطيب SS304
+توريد Strut Channel 41×21 مم سماكة 1.5 مم طول 2 م مادة SS304
+توريد Wedge Anchor M5×20 مم تشطيب A4 Stainless
+توريد Heavy Hex Nut M6 تشطيب A4 Stainless
+توريد Hex Bolt M5×20 مم Grade A4-80 Stainless
+توريد Flat Washer M6 تشطيب A4 Stainless
+توريد Ball Valve DN15 PN10 جسم Carbon Steel
+توريد وصلة Carbon Steel Tee Equal DN15 SCH160
+توريد قطاع C Purlin عمق 80 مم جناح 40 مم سماكة 1.2 مم Grade S350GD
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Red مقاومة 40MPa
+توريد Explosion-Proof LED 20W Zone2 Ex ec Optic Wide
+توريد قناة تصريف Polymer Concrete عرض 100 مم عمق 100 مم فئة D400
+توريد AHU سعة 1000 CFM تكوين CHW Coil فلترة G4+H13
+توريد Square Diffuser 4-Way مقاس 100×100 مم تشطيب Wood Effect
+توريد VCD Parallel Blade مقاس 150×150 مم مادة GI
+توريد Flexible Duct Insulated 25mm قطر 80 مم تصنيف Class0
+توريد Patch Cord Cat6 طول 0.25 م لون Black غلاف PVC
+توريد Rack Cabinet Floor Standing 4U عمق 350 مم باب Glass Door
+توريد رشاش Pendent K2.8 درجة 57°C تشطيب Brass
+توريد لوحة مرورية Warning مقاس 300×500 مم Reflective Type XI
+توريد MCB 1P 2A Curve C Icn 6kA
+توريد سلك H07V-K مساحة 1.5 مم² لون Yellow
+توريد Cable Tray Cross عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Metal Baffle عرض 30 مم ارتفاع 30 مم تشطيب Wood Effect
+توريد Expansion Joint Cover Wall-to-Wall عرض 75 مم حركة ±25 مم Non-Fire Rated
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Wood Effect
+توريد Static Dissipative Vinyl سماكة 2 مم لون Grey
+توريد Flat Plate 2-Hole لنظام Strut 41×21 مم تشطيب Zinc
+توريد Sleeve Anchor M5×20 مم تشطيب Zinc
+توريد Gasket NBR Full Face DN15 PN10 سماكة 1.5 مم
+توريد Clevis Hanger DN15 تشطيب HDG قضيب تعليق M8
+توريد Ball Valve DN15 PN10 جسم SS316
+توريد وصلة Carbon Steel Tee Reducing DN15 SCH10
+توريد Explosion-Proof LED 20W Zone2 Ex ec Optic Medium
+توريد قناة تصريف Polymer Concrete عرض 100 مم عمق 100 مم فئة E600
+توريد AHU سعة 1000 CFM تكوين DX Coil فلترة G4
+توريد Linear Slot 1-Slot مقاس 100×100 مم تشطيب RAL9010
+توريد VCD Parallel Blade مقاس 150×150 مم مادة Aluminium
+توريد Managed Switch 5 Port Non-PoE Uplink 25G SFP28 L2
+توريد Patch Cord Cat6 طول 0.25 م لون Grey غلاف LSZH
+توريد Rack Cabinet Floor Standing 4U عمق 350 مم باب Perforated Door
+توريد أسطوانة نظام إطفاء CO2 سعة 20 كجم
+توريد Tee لشبكة الحريق DN25 ضغط 300psi
+توريد لوحة مرورية Directional مقاس 300×500 مم Reflective Type IV
+توريد Electrical Enclosure SS304 مقاس 200×300×150 مم IP54
+توريد سلك H07V-K مساحة 1.5 مم² لون Green/Yellow
+توريد Cable Tray Reducer عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد وصلة EMT Locknut قطر 16 مم
+توريد Metal Baffle عرض 30 مم ارتفاع 30 مم تشطيب Anodized
+توريد Expansion Joint Cover Wall-to-Wall عرض 75 مم حركة ±25 مم 1h Fire Rated
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Bronze
+توريد Safety Vinyl سماكة 2 مم لون Grey
+توريد Flat Plate 2-Hole لنظام Strut 41×21 مم تشطيب HDG
+توريد Sleeve Anchor M5×20 مم تشطيب HDG
+توريد Nyloc Nut M6 تشطيب Zinc
+توريد Spring Washer M6 تشطيب Zinc
+توريد Weld Neck Flange Carbon Steel A105 DN15 تصنيف Class150
+توريد Explosion-Proof LED 20W Zone2 Ex ec Optic Narrow
+توريد قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة A15
+توريد AHU سعة 1000 CFM تكوين DX Coil فلترة G4+F7
+توريد VCD Parallel Blade مقاس 150×150 مم مادة SS304
+توريد Flexible Duct Insulated 25mm قطر 80 مم تصنيف UL181
+توريد Patch Cord Cat6 طول 0.25 م لون Grey غلاف PVC
+توريد Rack Cabinet Floor Standing 4U عمق 350 مم باب Solid Door
+توريد لوحة مرورية Directional مقاس 300×500 مم Reflective Type XI
+توريد Junction Box GI مقاس 75×75×50 مم IP44
+توريد سلك H07V-K مساحة 1.5 مم² لون Brown
+توريد Cable Tray Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد وصلة EMT Bushing قطر 16 مم
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون White
+توريد Homogeneous Vinyl سماكة 2 مم لون Blue
+توريد Flat Plate 2-Hole لنظام Strut 41×21 مم تشطيب SS304
+توريد Sleeve Anchor M5×20 مم تشطيب A4 Stainless
+توريد Nyloc Nut M6 تشطيب HDG
+توريد Spring Washer M6 تشطيب HDG
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Yellow مقاومة 40MPa
+توريد Explosion-Proof LED 20W Dust Zone21 Optic Wide
+توريد قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة B125
+توريد Linear Slot 1-Slot مقاس 100×100 مم تشطيب Anodized Silver
+توريد Backdraft Damper مقاس 150×150 مم مادة GI
+توريد Managed Switch 5 Port PoE+ Uplink 1G SFP L2
+توريد Patch Cord Cat6 طول 0.25 م لون Red غلاف LSZH
+توريد Reducer لشبكة الحريق DN25 ضغط 300psi
+توريد Dripper تصريف 1 لتر/ساعة وصلة 1/4in Barb نوع Standard
+توريد لوحة مرورية Information مقاس 300×500 مم Reflective Type IV
+توريد MCB 1P 2A Curve D Icn 6kA
+توريد سلك H07V-K مساحة 1.5 مم² لون Grey
+توريد Cable Tray Vertical Outside Bend عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد وصلة EMT Inspection Tee قطر 16 مم
+توريد Expansion Joint Cover Floor-to-Wall عرض 75 مم حركة ±25 مم Non-Fire Rated
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون Black
+توريد Heterogeneous Vinyl سماكة 2 مم لون Blue
+توريد Chemical Anchor Stud M5×20 مم تشطيب Zinc
+توريد Nyloc Nut M6 تشطيب A4 Stainless
+توريد Spring Washer M6 تشطيب A4 Stainless
+توريد Gasket Spiral Wound SS316/Graphite DN15 PN10 سماكة 1.5 مم
+توريد Clevis Hanger DN15 تشطيب SS304 قضيب تعليق M8
+توريد Slip-On Flange Carbon Steel A105 DN15 تصنيف PN10
+توريد Explosion-Proof LED 20W Dust Zone21 Optic Medium
+توريد قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة C250
+توريد AHU سعة 1000 CFM تكوين DX Coil فلترة G4+H13
+توريد Linear Slot 1-Slot مقاس 100×100 مم تشطيب Wood Effect
+توريد Backdraft Damper مقاس 150×150 مم مادة Aluminium
+توريد Patch Cord Cat6 طول 0.25 م لون Red غلاف PVC
+توريد Dripper تصريف 1 لتر/ساعة وصلة 1/4in Barb نوع Pressure Compensating
+توريد لوحة مرورية Information مقاس 300×500 مم Reflective Type XI
+توريد سلك H07V-K مساحة 1.5 مم² لون Orange
+توريد Cable Tray End Cap عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد وصلة EMT Adaptor قطر 16 مم
+توريد Expansion Joint Cover Floor-to-Wall عرض 75 مم حركة ±25 مم 1h Fire Rated
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون Grey
+توريد Conductive ESD Vinyl سماكة 2 مم لون Blue
+توريد Chemical Anchor Stud M5×20 مم تشطيب HDG
+توريد Explosion-Proof LED 20W Dust Zone21 Optic Narrow
+توريد قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة D400
+توريد AHU سعة 1000 CFM تكوين Heat Recovery فلترة G4
+توريد Backdraft Damper مقاس 150×150 مم مادة SS304
+توريد Managed Switch 5 Port PoE+ Uplink 10G SFP+ L2
+توريد Patch Cord Cat6 طول 0.25 م لون Green غلاف LSZH
+توريد Rigid Coupling لشبكة الحريق DN25 ضغط 300psi
+توريد Dripper تصريف 1 لتر/ساعة وصلة 1/4in Barb نوع Self-Flushing
+توريد Cable Tray Elbow 90 عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون Wood Effect
+توريد Static Dissipative Vinyl سماكة 2 مم لون Blue
+توريد Chemical Anchor Stud M5×20 مم تشطيب A4 Stainless
+توريد Flange Nut M6 تشطيب Zinc
+توريد Nord-Lock Washer M6 تشطيب Zinc
+توريد وصلة Carbon Steel Reducer Concentric DN15 SCH160
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Charcoal مقاومة 40MPa
+توريد قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة E600
+توريد AHU سعة 1000 CFM تكوين Heat Recovery فلترة G4+F7
+توريد Smoke Damper مقاس 150×150 مم مادة GI
+توريد Semi-Rigid Aluminium Duct قطر 80 مم تصنيف Class0
+توريد Patch Cord Cat6 طول 0.25 م لون Green غلاف PVC
+توريد Dripper تصريف 1 لتر/ساعة وصلة 1/8in Thread نوع Standard
+توريد Expansion Joint Cover Ceiling Joint عرض 75 مم حركة ±25 مم Non-Fire Rated
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون Bronze
+توريد Safety Vinyl سماكة 2 مم لون Blue
+توريد Beam Clamp لنظام Strut 41×21 مم تشطيب Zinc
+توريد Concrete Screw Anchor M5×20 مم تشطيب Zinc
+توريد Flange Nut M6 تشطيب HDG
+توريد Nord-Lock Washer M6 تشطيب HDG
+توريد Gasket PTFE Envelope DN15 PN10 سماكة 1.5 مم
+توريد وصلة Carbon Steel Reducer Eccentric DN15 SCH160
+توريد قناة تصريف Precast Concrete عرض 100 مم عمق 100 مم فئة A15
+توريد Smoke Damper مقاس 150×150 مم مادة Aluminium
+توريد Managed Switch 5 Port PoE+ Uplink 25G SFP28 L2
+توريد Patch Cord Cat6 طول 0.25 م لون Yellow غلاف LSZH
+توريد Flexible Coupling لشبكة الحريق DN25 ضغط 300psi
+توريد Dripper تصريف 1 لتر/ساعة وصلة 1/8in Thread نوع Pressure Compensating
+توريد Junction Box Aluminium مقاس 75×75×50 مم IP44
+توريد Cable Tray Tee عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد ماسورة كهرباء IMC قطر 16 مم
+توريد Expansion Joint Cover Ceiling Joint عرض 75 مم حركة ±25 مم 1h Fire Rated
+توريد Homogeneous Vinyl سماكة 2 مم لون Green
+توريد Beam Clamp لنظام Strut 41×21 مم تشطيب HDG
+توريد Concrete Screw Anchor M5×20 مم تشطيب HDG
+توريد Flange Nut M6 تشطيب A4 Stainless
+توريد Nord-Lock Washer M6 تشطيب A4 Stainless
+توريد Slip-On Flange Carbon Steel A105 DN15 تصنيف Class150
+توريد وصلة PPR Tee Equal مقاس 16 مم PN6
+توريد وصلة Carbon Steel Weld Neck Flange DN15 SCH160
+توريد قناة تصريف Precast Concrete عرض 100 مم عمق 100 مم فئة B125
+توريد AHU سعة 1000 CFM تكوين Heat Recovery فلترة G4+H13
+توريد Smoke Damper مقاس 150×150 مم مادة SS304
+توريد Semi-Rigid Aluminium Duct قطر 80 مم تصنيف UL181
+توريد Patch Cord Cat6 طول 0.25 م لون Yellow غلاف PVC
+توريد Dripper تصريف 1 لتر/ساعة وصلة 1/8in Thread نوع Self-Flushing
+توريد Cable Tray Cross عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Heterogeneous Vinyl سماكة 2 مم لون Green
+توريد Beam Clamp لنظام Strut 41×21 مم تشطيب SS304
+توريد Concrete Screw Anchor M5×20 مم تشطيب A4 Stainless
+توريد وصلة Carbon Steel Slip-On Flange DN15 SCH160
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Beige مقاومة 40MPa
+توريد قناة تصريف Precast Concrete عرض 100 مم عمق 100 مم فئة C250
+توريد Fire Damper 120min مقاس 150×150 مم مادة GI
+توريد Patch Cord Cat6 طول 0.25 م لون White غلاف LSZH
+توريد Mechanical Tee لشبكة الحريق DN25 ضغط 300psi
+توريد Pop-Up Sprinkler مدى 2 م زاوية Adjustable° ضغط 2bar
+توريد Electrical Enclosure GRP مقاس 200×300×150 مم IP54
+توريد Cable Tray Reducer عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Conductive ESD Vinyl سماكة 2 مم لون Green
+توريد Channel Nut M8 لنظام Strut 41×21 مم تشطيب Zinc
+توريد Undercut Anchor M5×20 مم تشطيب Zinc
+توريد Castle Nut M6 تشطيب Zinc
+توريد Belleville Washer M6 تشطيب Zinc
+توريد Gasket Non-Asbestos CNAF DN15 PN10 سماكة 1.5 مم
+توريد Split Ring Hanger DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد Blind Flange Carbon Steel A105 DN15 تصنيف PN10
+توريد وصلة Carbon Steel Blind Flange DN15 SCH160
+توريد قناة تصريف Precast Concrete عرض 100 مم عمق 100 مم فئة D400
+توريد Fire Damper 120min مقاس 150×150 مم مادة Aluminium
+توريد Patch Cord Cat6 طول 0.25 م لون White غلاف PVC
+توريد Cable Tray Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Static Dissipative Vinyl سماكة 2 مم لون Green
+توريد Channel Nut M8 لنظام Strut 41×21 مم تشطيب HDG
+توريد Undercut Anchor M5×20 مم تشطيب HDG
+توريد Castle Nut M6 تشطيب HDG
+توريد Belleville Washer M6 تشطيب HDG
+توريد وصلة Carbon Steel Cap DN15 SCH160
+توريد قناة تصريف Precast Concrete عرض 100 مم عمق 100 مم فئة E600
+توريد Fire Damper 120min مقاس 150×150 مم مادة SS304
+توريد Patch Cord Cat6 طول 0.25 م لون Orange غلاف LSZH
+توريد Grooved Flange لشبكة الحريق DN25 ضغط 300psi
+توريد Cable Tray Vertical Outside Bend عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Safety Vinyl سماكة 2 مم لون Green
+توريد Channel Nut M8 لنظام Strut 41×21 مم تشطيب SS304
+توريد Undercut Anchor M5×20 مم تشطيب A4 Stainless
+توريد Castle Nut M6 تشطيب A4 Stainless
+توريد Belleville Washer M6 تشطيب A4 Stainless
+توريد وصلة Carbon Steel Cross DN15 SCH160
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Brown مقاومة 40MPa
+توريد Motorized Damper مقاس 150×150 مم مادة GI
+توريد Patch Cord Cat6 طول 0.25 م لون Orange غلاف PVC
+توريد Junction Box SS316 مقاس 75×75×50 مم IP44
+توريد Cable Tray End Cap عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Microperforated لون White
+توريد Homogeneous Vinyl سماكة 2 مم لون Red
+توريد Split Ring Hanger DN15 تشطيب HDG قضيب تعليق M8
+توريد وصلة PPR Tee Reducing مقاس 16 مم PN6
+توريد Egg Crate Grille مقاس 100×100 مم تشطيب RAL9010
+توريد Motorized Damper مقاس 150×150 مم مادة Aluminium
+توريد End Cap لشبكة الحريق DN25 ضغط 300psi
+توريد Cable Tray Elbow 90 عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Microperforated لون Black
+توريد Heterogeneous Vinyl سماكة 2 مم لون Red
+توريد Coupling Nut M6 تشطيب Zinc
+توريد Fender Washer M6 تشطيب Zinc
+توريد Blind Flange Carbon Steel A105 DN15 تصنيف Class150
+توريد Motorized Damper مقاس 150×150 مم مادة SS304
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Microperforated لون Grey
+توريد Conductive ESD Vinyl سماكة 2 مم لون Red
+توريد Coupling Nut M6 تشطيب HDG
+توريد Fender Washer M6 تشطيب HDG
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Grey مقاومة 40MPa
+توريد Egg Crate Grille مقاس 100×100 مم تشطيب Anodized Silver
+توريد Pressure Relief Damper مقاس 150×150 مم مادة GI
+توريد Cable Tray Tee عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Microperforated لون Wood Effect
+توريد Static Dissipative Vinyl سماكة 2 مم لون Red
+توريد Coupling Nut M6 تشطيب A4 Stainless
+توريد Fender Washer M6 تشطيب A4 Stainless
+توريد Split Ring Hanger DN15 تشطيب SS304 قضيب تعليق M8
+توريد Socket Weld Flange Carbon Steel A105 DN15 تصنيف PN10
+توريد Egg Crate Grille مقاس 100×100 مم تشطيب Wood Effect
+توريد Pressure Relief Damper مقاس 150×150 مم مادة Aluminium
+توريد Cable Tray Cross عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Microperforated لون Bronze
+توريد Safety Vinyl سماكة 2 مم لون Red
+توريد Return Air Grille مقاس 100×100 مم تشطيب RAL9010
+توريد Pressure Relief Damper مقاس 150×150 مم مادة SS304
+توريد Cable Tray Reducer عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد ماسورة كهرباء RGS قطر 16 مم
+توريد Homogeneous Vinyl سماكة 2 مم لون Beige
+توريد Jam Nut M6 تشطيب Zinc
+توريد Square Washer M6 تشطيب Zinc
+توريد وصلة PPR Reducer مقاس 16 مم PN6
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Red مقاومة 40MPa
+توريد Duct Access Door مقاس 150×150 مم مادة GI
+توريد Cable Tray Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Heterogeneous Vinyl سماكة 2 مم لون Beige
+توريد Base Plate لنظام Strut 41×21 مم تشطيب Zinc
+توريد Jam Nut M6 تشطيب HDG
+توريد Hex Bolt M5×55 مم Grade 8.8 Zinc
+توريد Square Washer M6 تشطيب HDG
+توريد Return Air Grille مقاس 100×100 مم تشطيب Anodized Silver
+توريد Air-Cooled Scroll Chiller سعة 1200 TR
+توريد Duct Access Door مقاس 150×150 مم مادة Aluminium
+توريد Cable Tray Vertical Outside Bend عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Conductive ESD Vinyl سماكة 2 مم لون Beige
+توريد Base Plate لنظام Strut 41×21 مم تشطيب HDG
+توريد Jam Nut M6 تشطيب A4 Stainless
+توريد Square Washer M6 تشطيب A4 Stainless
+توريد Socket Weld Flange Carbon Steel A105 DN15 تصنيف Class150
+توريد Return Air Grille مقاس 100×100 مم تشطيب Wood Effect
+توريد Air-Cooled Screw Chiller سعة 1200 TR
+توريد Duct Access Door مقاس 150×150 مم مادة SS304
+توريد Cable Tray End Cap عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Static Dissipative Vinyl سماكة 2 مم لون Beige
+توريد Base Plate لنظام Strut 41×21 مم تشطيب SS304
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Yellow مقاومة 40MPa
+توريد Fresh Air Louver مقاس 100×100 مم تشطيب RAL9010
+توريد Water-Cooled Screw Chiller سعة 1200 TR
+توريد كابل MV Cu/XLPE/AWA/PVC 1C×35 مم² جهد 6.6kV
+توريد Safety Vinyl سماكة 2 مم لون Beige
+توريد Cantilever Arm 300mm لنظام Strut 41×21 مم تشطيب Zinc
+توريد Cap Nut M6 تشطيب Zinc
+توريد Riser Clamp DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد Threaded Flange Carbon Steel A105 DN15 تصنيف PN10
+توريد كابل MV Cu/XLPE/AWA/LSZH 1C×35 مم² جهد 6.6kV
+توريد Homogeneous Vinyl سماكة 2 مم لون Black
+توريد Cantilever Arm 300mm لنظام Strut 41×21 مم تشطيب HDG
+توريد Cap Nut M6 تشطيب HDG
+توريد وصلة PPR Socket Coupler مقاس 16 مم PN6
+توريد Fresh Air Louver مقاس 100×100 مم تشطيب Anodized Silver
+توريد Fiber Patch Cord OS2 LC-SC Duplex طول 1 م غلاف LSZH
+توريد Heterogeneous Vinyl سماكة 2 مم لون Black
+توريد Cantilever Arm 300mm لنظام Strut 41×21 مم تشطيب SS304
+توريد Cap Nut M6 تشطيب A4 Stainless
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Charcoal مقاومة 40MPa
+توريد Fresh Air Louver مقاس 100×100 مم تشطيب Wood Effect
+توريد Fiber Patch Cord OS2 LC-SC Duplex طول 1 م غلاف OFNR
+توريد Conductive ESD Vinyl سماكة 2 مم لون Black
+توريد Riser Clamp DN15 تشطيب HDG قضيب تعليق M8
+توريد Jet Nozzle مقاس 100×100 مم تشطيب RAL9010
+توريد رشاش Upright K2.8 درجة 57°C تشطيب Chrome
+توريد Static Dissipative Vinyl سماكة 2 مم لون Black
+توريد Threaded Flange Carbon Steel A105 DN15 تصنيف Class150
+توريد رشاش Upright K2.8 درجة 57°C تشطيب White
+توريد Safety Vinyl سماكة 2 مم لون Black
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Beige مقاومة 40MPa
+توريد Jet Nozzle مقاس 100×100 مم تشطيب Anodized Silver
+توريد رشاش Upright K2.8 درجة 57°C تشطيب Black
+توريد ماسورة كهرباء Liquid Tight Flexible قطر 16 مم
+توريد Riser Clamp DN15 تشطيب SS304 قضيب تعليق M8
+توريد وصلة PPR Union مقاس 16 مم PN6
+توريد Jet Nozzle مقاس 100×100 مم تشطيب Wood Effect
+توريد رشاش Upright K2.8 درجة 57°C تشطيب Brass
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Brown مقاومة 40MPa
+توريد وصلة PPR Male Adaptor مقاس 16 مم PN6
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Tumbled لون Grey مقاومة 40MPa
+توريد U-Bolt Clamp DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Tumbled لون Red مقاومة 40MPa
+توريد U-Bolt Clamp DN15 تشطيب HDG قضيب تعليق M8
+توريد وصلة PPR Female Adaptor مقاس 16 مم PN6
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Tumbled لون Yellow مقاومة 40MPa
+توريد U-Bolt Clamp DN15 تشطيب SS304 قضيب تعليق M8
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Tumbled لون Charcoal مقاومة 40MPa
+توريد وصلة PPR End Cap مقاس 16 مم PN6
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Tumbled لون Beige مقاومة 40MPa
+توريد كابل MV Cu/XLPE/Unarmored/PVC 1C×35 مم² جهد 6.6kV
+توريد Pipe Shoe DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد كابل MV Cu/XLPE/Unarmored/LSZH 1C×35 مم² جهد 6.6kV
+توريد وصلة PPR Flange Adaptor مقاس 16 مم PN6
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Tumbled لون Brown مقاومة 40MPa
+توريد Pipe Shoe DN15 تشطيب HDG قضيب تعليق M8
+توريد Fiber Patch Cord OS2 SC-SC Duplex طول 1 م غلاف LSZH
+توريد Fiber Patch Cord OS2 SC-SC Duplex طول 1 م غلاف OFNR
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Exposed Aggregate لون Grey مقاومة 40MPa
+توريد Pipe Shoe DN15 تشطيب SS304 قضيب تعليق M8
+توريد وصلة PPR Cross مقاس 16 مم PN6
+توريد رشاش Sidewall K2.8 درجة 57°C تشطيب Chrome
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Exposed Aggregate لون Red مقاومة 40MPa
+توريد رشاش Sidewall K2.8 درجة 57°C تشطيب White
+توريد رشاش Sidewall K2.8 درجة 57°C تشطيب Black
+توريد رشاش Sidewall K2.8 درجة 57°C تشطيب Brass
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Exposed Aggregate لون Yellow مقاومة 40MPa
+توريد Gasket EPDM Full Face DN15 Class150 سماكة 1.5 مم
+توريد Pipe Saddle DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد وصلة PPR Repair Coupling مقاس 16 مم PN6
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Exposed Aggregate لون Charcoal مقاومة 40MPa
+توريد Gasket NBR Full Face DN15 Class150 سماكة 1.5 مم
+توريد Pipe Saddle DN15 تشطيب HDG قضيب تعليق M8
+توريد وصلة PPR Stub End مقاس 16 مم PN6
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Exposed Aggregate لون Beige مقاومة 40MPa
+توريد Gasket Spiral Wound SS316/Graphite DN15 Class150 سماكة 1.5 مم
+توريد Pipe Saddle DN15 تشطيب SS304 قضيب تعليق M8
+توريد Concrete Paver مقاس 200×100×50 مم تشطيب Exposed Aggregate لون Brown مقاومة 40MPa
+توريد Gasket PTFE Envelope DN15 Class150 سماكة 1.5 مم
+توريد Gasket Non-Asbestos CNAF DN15 Class150 سماكة 1.5 مم
+توريد Roller Hanger DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد Roller Hanger DN15 تشطيب HDG قضيب تعليق M8
+توريد Fiber Patch Cord OS2 LC-LC Simplex طول 1 م غلاف LSZH
+توريد Roller Hanger DN15 تشطيب SS304 قضيب تعليق M8
+توريد Fiber Patch Cord OS2 LC-LC Simplex طول 1 م غلاف OFNR
+توريد وصلة IMC Coupling قطر 16 مم
+توريد وصلة IMC Connector قطر 16 مم
+توريد وصلة IMC Elbow 90 قطر 16 مم
+توريد كابل Cu/XLPE/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV
+توريد رشاش Concealed Pendent K2.8 درجة 57°C تشطيب Chrome
+توريد وصلة IMC Locknut قطر 16 مم
+توريد Spring Hanger DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد رشاش Concealed Pendent K2.8 درجة 57°C تشطيب White
+توريد وصلة IMC Bushing قطر 16 مم
+توريد رشاش Concealed Pendent K2.8 درجة 57°C تشطيب Black
+توريد وصلة IMC Inspection Tee قطر 16 مم
+توريد رشاش Concealed Pendent K2.8 درجة 57°C تشطيب Brass
+توريد وصلة IMC Adaptor قطر 16 مم
+توريد Spring Hanger DN15 تشطيب HDG قضيب تعليق M8
+توريد Spring Hanger DN15 تشطيب SS304 قضيب تعليق M8
+توريد Guide Support DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد Guide Support DN15 تشطيب HDG قضيب تعليق M8
+توريد Guide Support DN15 تشطيب SS304 قضيب تعليق M8
+توريد Fiber Patch Cord OS2 MPO-MPO 12F طول 1 م غلاف LSZH
+توريد Fiber Patch Cord OS2 MPO-MPO 12F طول 1 م غلاف OFNR
+توريد Anchor Support DN15 تشطيب Zinc Plated قضيب تعليق M8
+توريد Anchor Support DN15 تشطيب HDG قضيب تعليق M8
+توريد Anchor Support DN15 تشطيب SS304 قضيب تعليق M8
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Black
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Red
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Blue
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Yellow
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Green/Yellow
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Brown
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Grey
+توريد سلك THHN/THWN-2 مساحة 1.5 مم² لون Orange
+توريد كابل MV Al/XLPE/SWA/PVC 1C×35 مم² جهد 6.6kV
+توريد كابل MV Al/XLPE/SWA/LSZH 1C×35 مم² جهد 6.6kV
+توريد Fiber Patch Cord OM3 LC-LC Duplex طول 1 م غلاف LSZH
+توريد Fiber Patch Cord OM3 LC-LC Duplex طول 1 م غلاف OFNR
+توريد وصلة RGS Coupling قطر 16 مم
+توريد وصلة RGS Connector قطر 16 مم
+توريد وصلة RGS Elbow 90 قطر 16 مم
+توريد وصلة RGS Locknut قطر 16 مم
+توريد وصلة RGS Bushing قطر 16 مم
+توريد كابل Cu/XLPE/STA/PVC 1C×1.5 مم² 0.6/1kV
+توريد وصلة RGS Inspection Tee قطر 16 مم
+توريد وصلة RGS Adaptor قطر 16 مم
+توريد كابل MV Al/XLPE/AWA/PVC 1C×35 مم² جهد 6.6kV
+توريد كابل MV Al/XLPE/AWA/LSZH 1C×35 مم² جهد 6.6kV
+توريد Fiber Patch Cord OM3 LC-SC Duplex طول 1 م غلاف LSZH
+توريد Fiber Patch Cord OM3 LC-SC Duplex طول 1 م غلاف OFNR
+توريد كابل MV Al/XLPE/Unarmored/PVC 1C×35 مم² جهد 6.6kV
+توريد كابل MV Al/XLPE/Unarmored/LSZH 1C×35 مم² جهد 6.6kV
+توريد Fiber Patch Cord OM3 SC-SC Duplex طول 1 م غلاف LSZH
+توريد Fiber Patch Cord OM3 SC-SC Duplex طول 1 م غلاف OFNR
+توريد Fiber Patch Cord OM3 LC-LC Simplex طول 1 م غلاف LSZH
+توريد Fiber Patch Cord OM3 LC-LC Simplex طول 1 م غلاف OFNR
+توريد Patch Cord Cat6A طول 0.25 م لون Blue غلاف LSZH
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Black
+توريد وصلة PVC Heavy Duty Coupling قطر 16 مم
+توريد Patch Cord Cat6A طول 0.25 م لون Blue غلاف PVC
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Red
+توريد وصلة PVC Heavy Duty Connector قطر 16 مم
+توريد Patch Cord Cat6A طول 0.25 م لون Black غلاف LSZH
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Blue
+توريد وصلة PVC Heavy Duty Elbow 90 قطر 16 مم
+توريد Patch Cord Cat6A طول 0.25 م لون Black غلاف PVC
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Yellow
+توريد Patch Cord Cat6A طول 0.25 م لون Grey غلاف LSZH
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Green/Yellow
+توريد وصلة PVC Heavy Duty Locknut قطر 16 مم
+توريد Patch Cord Cat6A طول 0.25 م لون Grey غلاف PVC
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Brown
+توريد وصلة PVC Heavy Duty Bushing قطر 16 مم
+توريد Patch Cord Cat6A طول 0.25 م لون Red غلاف LSZH
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Grey
+توريد وصلة PVC Heavy Duty Inspection Tee قطر 16 مم
+توريد Patch Cord Cat6A طول 0.25 م لون Red غلاف PVC
+توريد سلك BS6004 PVC Wire مساحة 1.5 مم² لون Orange
+توريد وصلة PVC Heavy Duty Adaptor قطر 16 مم
+توريد Patch Cord Cat6A طول 0.25 م لون Green غلاف LSZH
+توريد Patch Cord Cat6A طول 0.25 م لون Green غلاف PVC
+توريد كابل Cu/XLPE/STA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Patch Cord Cat6A طول 0.25 م لون Yellow غلاف LSZH
+توريد Patch Cord Cat6A طول 0.25 م لون Yellow غلاف PVC
+توريد Patch Cord Cat6A طول 0.25 م لون White غلاف LSZH
+توريد Patch Cord Cat6A طول 0.25 م لون White غلاف PVC
+توريد Patch Cord Cat6A طول 0.25 م لون Orange غلاف LSZH
+توريد Patch Cord Cat6A طول 0.25 م لون Orange غلاف PVC
+توريد Gate Valve DN15 PN10 جسم Brass
+توريد Gate Valve DN15 PN10 جسم Ductile Iron
+توريد Gate Valve DN15 PN10 جسم Carbon Steel
+توريد Gate Valve DN15 PN10 جسم SS316
+توريد Fiber Patch Cord OM3 MPO-MPO 12F طول 1 م غلاف LSZH
+توريد Fiber Patch Cord OM3 MPO-MPO 12F طول 1 م غلاف OFNR
+توريد وصلة UPVC Heavy Duty Coupling قطر 16 مم
+توريد وصلة UPVC Heavy Duty Connector قطر 16 مم
+توريد وصلة UPVC Heavy Duty Elbow 90 قطر 16 مم
+توريد وصلة UPVC Heavy Duty Locknut قطر 16 مم
+توريد وصلة UPVC Heavy Duty Bushing قطر 16 مم
+توريد وصلة UPVC Heavy Duty Inspection Tee قطر 16 مم
+توريد وصلة UPVC Heavy Duty Adaptor قطر 16 مم
+توريد كابل Cu/PVC/Unarmored/PVC 1C×1.5 مم² 0.6/1kV
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Black
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Red
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Blue
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Yellow
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Green/Yellow
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Brown
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Grey
+توريد سلك LSZH Single Core مساحة 1.5 مم² لون Orange
+توريد وصلة Flexible Metallic Coupling قطر 16 مم
+توريد وصلة Flexible Metallic Connector قطر 16 مم
+توريد وصلة Flexible Metallic Elbow 90 قطر 16 مم
+توريد وصلة Flexible Metallic Locknut قطر 16 مم
+توريد وصلة Flexible Metallic Bushing قطر 16 مم
+توريد وصلة Flexible Metallic Inspection Tee قطر 16 مم
+توريد وصلة Flexible Metallic Adaptor قطر 16 مم
+توريد كابل Cu/PVC/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV
+توريد وصلة Liquid Tight Flexible Coupling قطر 16 مم
+توريد وصلة Liquid Tight Flexible Connector قطر 16 مم
+توريد وصلة Liquid Tight Flexible Elbow 90 قطر 16 مم
+توريد وصلة Liquid Tight Flexible Locknut قطر 16 مم
+توريد وصلة Liquid Tight Flexible Bushing قطر 16 مم
+توريد وصلة Liquid Tight Flexible Inspection Tee قطر 16 مم
+توريد وصلة Liquid Tight Flexible Adaptor قطر 16 مم
+توريد كابل Cu/PVC/SWA/PVC 1C×1.5 مم² 0.6/1kV
+توريد Butterfly Valve DN15 PN10 جسم Brass
+توريد Butterfly Valve DN15 PN10 جسم Ductile Iron
+توريد Butterfly Valve DN15 PN10 جسم Carbon Steel
+توريد Butterfly Valve DN15 PN10 جسم SS316
+توريد وصلة Stainless 304L Elbow 90 DN15 SCH10
+توريد وصلة Stainless 304L Tee Equal DN15 SCH10
+توريد وصلة Stainless 304L Tee Reducing DN15 SCH10
+توريد وصلة Stainless 304L Reducer Concentric DN15 SCH10
+توريد Weld Neck Flange Stainless 304 DN15 تصنيف PN10
+توريد وصلة Stainless 304L Reducer Eccentric DN15 SCH10
+توريد Weld Neck Flange Stainless 304 DN15 تصنيف Class150
+توريد Slip-On Flange Stainless 304 DN15 تصنيف PN10
+توريد وصلة Stainless 304L Weld Neck Flange DN15 SCH10
+توريد Slip-On Flange Stainless 304 DN15 تصنيف Class150
+توريد كابل Cu/PVC/SWA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Blind Flange Stainless 304 DN15 تصنيف PN10
+توريد وصلة Stainless 304L Slip-On Flange DN15 SCH10
+توريد Blind Flange Stainless 304 DN15 تصنيف Class150
+توريد وصلة Stainless 304L Blind Flange DN15 SCH10
+توريد Socket Weld Flange Stainless 304 DN15 تصنيف PN10
+توريد Socket Weld Flange Stainless 304 DN15 تصنيف Class150
+توريد وصلة Stainless 304L Cap DN15 SCH10
+توريد Threaded Flange Stainless 304 DN15 تصنيف PN10
+توريد وصلة Stainless 304L Cross DN15 SCH10
+توريد Threaded Flange Stainless 304 DN15 تصنيف Class150
+توريد كابل Cu/PVC/STA/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Cu/PVC/STA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Check Valve Swing DN15 PN10 جسم Brass
+توريد Check Valve Swing DN15 PN10 جسم Ductile Iron
+توريد Check Valve Swing DN15 PN10 جسم Carbon Steel
+توريد Check Valve Swing DN15 PN10 جسم SS316
+توريد كابل Cu/EPR/Unarmored/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Cu/EPR/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV
+توريد كابل Cu/EPR/SWA/PVC 1C×1.5 مم² 0.6/1kV
+توريد Check Valve Dual Plate DN15 PN10 جسم Brass
+توريد Check Valve Dual Plate DN15 PN10 جسم Ductile Iron
+توريد Check Valve Dual Plate DN15 PN10 جسم Carbon Steel
+توريد Check Valve Dual Plate DN15 PN10 جسم SS316
+توريد كابل Cu/EPR/SWA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد كابل Cu/EPR/STA/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Cu/EPR/STA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Globe Valve DN15 PN10 جسم Brass
+توريد Globe Valve DN15 PN10 جسم Ductile Iron
+توريد Globe Valve DN15 PN10 جسم Carbon Steel
+توريد Globe Valve DN15 PN10 جسم SS316
+توريد كابل Al/XLPE/Unarmored/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/XLPE/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV
+توريد وصلة PP-RCT Elbow 90 مقاس 16 مم PN6
+توريد وصلة PP-RCT Tee Equal مقاس 16 مم PN6
+توريد وصلة PP-RCT Tee Reducing مقاس 16 مم PN6
+توريد وصلة PP-RCT Reducer مقاس 16 مم PN6
+توريد كابل Al/XLPE/SWA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد وصلة PP-RCT Socket Coupler مقاس 16 مم PN6
+توريد وصلة PP-RCT Union مقاس 16 مم PN6
+توريد وصلة PP-RCT Male Adaptor مقاس 16 مم PN6
+توريد وصلة PP-RCT Female Adaptor مقاس 16 مم PN6
+توريد Cable Ladder عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة Pre-Galvanized
+توريد Cable Ladder عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة HDG
+توريد Cable Ladder عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة SS304
+توريد وصلة PP-RCT End Cap مقاس 16 مم PN6
+توريد وصلة PP-RCT Flange Adaptor مقاس 16 مم PN6
+توريد وصلة PP-RCT Cross مقاس 16 مم PN6
+توريد وصلة PP-RCT Repair Coupling مقاس 16 مم PN6
+توريد وصلة PP-RCT Stub End مقاس 16 مم PN6
+توريد Needle Valve DN15 PN10 جسم Brass
+توريد Needle Valve DN15 PN10 جسم Ductile Iron
+توريد Needle Valve DN15 PN10 جسم Carbon Steel
+توريد Needle Valve DN15 PN10 جسم SS316
+توريد كابل Al/XLPE/STA/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/XLPE/STA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Weld Neck Flange Ductile Iron DN15 تصنيف PN10
+توريد Weld Neck Flange Ductile Iron DN15 تصنيف Class150
+توريد Slip-On Flange Ductile Iron DN15 تصنيف PN10
+توريد Slip-On Flange Ductile Iron DN15 تصنيف Class150
+توريد Blind Flange Ductile Iron DN15 تصنيف PN10
+توريد Blind Flange Ductile Iron DN15 تصنيف Class150
+توريد Socket Weld Flange Ductile Iron DN15 تصنيف PN10
+توريد Socket Weld Flange Ductile Iron DN15 تصنيف Class150
+توريد Threaded Flange Ductile Iron DN15 تصنيف PN10
+توريد Threaded Flange Ductile Iron DN15 تصنيف Class150
+توريد كابل Al/PVC/Unarmored/PVC 1C×1.5 مم² 0.6/1kV
+توريد Diaphragm Valve DN15 PN10 جسم Brass
+توريد Diaphragm Valve DN15 PN10 جسم Ductile Iron
+توريد Diaphragm Valve DN15 PN10 جسم Carbon Steel
+توريد Diaphragm Valve DN15 PN10 جسم SS316
+توريد كابل Al/PVC/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/PVC/SWA/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/PVC/SWA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Cable Ladder Elbow 90 عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Cable Ladder Tee عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Cable Ladder Cross عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Cable Ladder Reducer عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Cable Ladder Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Cable Ladder Vertical Outside Bend عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Cable Ladder End Cap عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized
+توريد Cable Ladder Elbow 90 عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Cable Ladder Tee عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Cable Ladder Cross عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Cable Ladder Reducer عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Cable Ladder Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Cable Ladder Vertical Outside Bend عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Cable Ladder End Cap عرض 50 مم ارتفاع 25 مم مادة HDG
+توريد Cable Ladder Elbow 90 عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Cable Ladder Tee عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Cable Ladder Cross عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Cable Ladder Reducer عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Cable Ladder Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Cable Ladder Vertical Outside Bend عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Cable Ladder End Cap عرض 50 مم ارتفاع 25 مم مادة SS304
+توريد Foot Valve DN15 PN10 جسم Brass
+توريد Foot Valve DN15 PN10 جسم Ductile Iron
+توريد Foot Valve DN15 PN10 جسم Carbon Steel
+توريد Foot Valve DN15 PN10 جسم SS316
+توريد كابل Al/PVC/STA/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/PVC/STA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/EPR/Unarmored/PVC 1C×1.5 مم² 0.6/1kV
+توريد Float Valve DN15 PN10 جسم Brass
+توريد Float Valve DN15 PN10 جسم Ductile Iron
+توريد Float Valve DN15 PN10 جسم Carbon Steel
+توريد Float Valve DN15 PN10 جسم SS316
+توريد كابل Al/EPR/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/EPR/SWA/PVC 1C×1.5 مم² 0.6/1kV
+توريد قطاع Z Purlin عمق 80 مم جناح 40 مم سماكة 1.2 مم Grade G350
+توريد قطاع Z Purlin عمق 80 مم جناح 40 مم سماكة 1.2 مم Grade S350GD
+توريد كابل Al/EPR/SWA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Pressure Reducing Valve DN15 PN10 جسم Brass
+توريد Pressure Reducing Valve DN15 PN10 جسم Ductile Iron
+توريد Pressure Reducing Valve DN15 PN10 جسم Carbon Steel
+توريد Pressure Reducing Valve DN15 PN10 جسم SS316
+توريد كابل Al/EPR/STA/PVC 1C×1.5 مم² 0.6/1kV
+توريد كابل Al/EPR/STA/LSZH 1C×1.5 مم² 0.6/1kV
+توريد Pressure Relief Valve DN15 PN10 جسم Brass
+توريد Pressure Relief Valve DN15 PN10 جسم Ductile Iron
+توريد Pressure Relief Valve DN15 PN10 جسم Carbon Steel
+توريد Pressure Relief Valve DN15 PN10 جسم SS316
+توريد وصلة HDPE PE100 Elbow 90 مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Tee Equal مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Tee Reducing مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Reducer مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Socket Coupler مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Union مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Male Adaptor مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Female Adaptor مقاس 16 مم PN6
+توريد وصلة HDPE PE100 End Cap مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Flange Adaptor مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Cross مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Repair Coupling مقاس 16 مم PN6
+توريد وصلة HDPE PE100 Stub End مقاس 16 مم PN6
+توريد Pressure Sustaining Valve DN15 PN10 جسم Brass
+توريد Pressure Sustaining Valve DN15 PN10 جسم Ductile Iron
+توريد Pressure Sustaining Valve DN15 PN10 جسم Carbon Steel
+توريد Pressure Sustaining Valve DN15 PN10 جسم SS316
+توريد Balancing Valve DN15 PN10 جسم Brass
+توريد Balancing Valve DN15 PN10 جسم Ductile Iron
+توريد Balancing Valve DN15 PN10 جسم Carbon Steel
+توريد Balancing Valve DN15 PN10 جسم SS316
+توريد PICV DN15 PN10 جسم Brass
+توريد PICV DN15 PN10 جسم Ductile Iron
+توريد PICV DN15 PN10 جسم Carbon Steel
+توريد PICV DN15 PN10 جسم SS316
+توريد Motorized 2-Way Valve DN15 PN10 جسم Brass
+توريد Motorized 2-Way Valve DN15 PN10 جسم Ductile Iron
+توريد Motorized 2-Way Valve DN15 PN10 جسم Carbon Steel
+توريد Motorized 2-Way Valve DN15 PN10 جسم SS316
+توريد Solenoid Valve DN15 PN10 جسم Brass
+توريد Solenoid Valve DN15 PN10 جسم Ductile Iron
+توريد Solenoid Valve DN15 PN10 جسم Carbon Steel
+توريد Solenoid Valve DN15 PN10 جسم SS316
+توريد وصلة UPVC Elbow 90 مقاس 16 مم PN6
+توريد وصلة UPVC Tee Equal مقاس 16 مم PN6
+توريد وصلة UPVC Tee Reducing مقاس 16 مم PN6
+توريد وصلة UPVC Reducer مقاس 16 مم PN6
+توريد وصلة UPVC Socket Coupler مقاس 16 مم PN6
+توريد وصلة UPVC Union مقاس 16 مم PN6
+توريد وصلة UPVC Male Adaptor مقاس 16 مم PN6
+توريد وصلة UPVC Female Adaptor مقاس 16 مم PN6
+توريد وصلة UPVC End Cap مقاس 16 مم PN6
+توريد وصلة UPVC Flange Adaptor مقاس 16 مم PN6
+توريد وصلة UPVC Cross مقاس 16 مم PN6
+توريد وصلة UPVC Repair Coupling مقاس 16 مم PN6
+توريد وصلة UPVC Stub End مقاس 16 مم PN6
+توريد Backflow Preventer DN15 PN10 جسم Brass
+توريد Backflow Preventer DN15 PN10 جسم Ductile Iron
+توريد Backflow Preventer DN15 PN10 جسم Carbon Steel
+توريد Backflow Preventer DN15 PN10 جسم SS316
+توريد Vacuum Breaker DN15 PN10 جسم Brass
+توريد Vacuum Breaker DN15 PN10 جسم Ductile Iron
+توريد Vacuum Breaker DN15 PN10 جسم Carbon Steel
+توريد Vacuum Breaker DN15 PN10 جسم SS316
+توريد Air Release Valve DN15 PN10 جسم Brass
+توريد Air Release Valve DN15 PN10 جسم Ductile Iron
+توريد Air Release Valve DN15 PN10 جسم Carbon Steel
+توريد Air Release Valve DN15 PN10 جسم SS316
+توريد Y-Strainer DN15 PN10 جسم Brass
+توريد Y-Strainer DN15 PN10 جسم Ductile Iron
+توريد Y-Strainer DN15 PN10 جسم Carbon Steel
+توريد Y-Strainer DN15 PN10 جسم SS316
+توريد Basket Strainer DN15 PN10 جسم Brass
+توريد Basket Strainer DN15 PN10 جسم Ductile Iron
+توريد Basket Strainer DN15 PN10 جسم Carbon Steel
+توريد Basket Strainer DN15 PN10 جسم SS316
+توريد وصلة CPVC Elbow 90 مقاس 16 مم PN6
+توريد وصلة CPVC Tee Equal مقاس 16 مم PN6
+توريد وصلة CPVC Tee Reducing مقاس 16 مم PN6
+توريد وصلة CPVC Reducer مقاس 16 مم PN6
+توريد وصلة CPVC Socket Coupler مقاس 16 مم PN6
+توريد وصلة CPVC Union مقاس 16 مم PN6
+توريد وصلة CPVC Male Adaptor مقاس 16 مم PN6
+توريد وصلة CPVC Female Adaptor مقاس 16 مم PN6
+توريد وصلة CPVC End Cap مقاس 16 مم PN6
+توريد وصلة CPVC Flange Adaptor مقاس 16 مم PN6
+توريد وصلة CPVC Cross مقاس 16 مم PN6
+توريد وصلة CPVC Repair Coupling مقاس 16 مم PN6
+توريد وصلة CPVC Stub End مقاس 16 مم PN6
+توريد وصلة PEX Elbow 90 مقاس 16 مم PN6
+توريد وصلة PEX Tee Equal مقاس 16 مم PN6
+توريد وصلة PEX Tee Reducing مقاس 16 مم PN6
+توريد وصلة PEX Reducer مقاس 16 مم PN6
+توريد وصلة PEX Socket Coupler مقاس 16 مم PN6
+توريد وصلة PEX Union مقاس 16 مم PN6
+توريد وصلة PEX Male Adaptor مقاس 16 مم PN6
+توريد وصلة PEX Female Adaptor مقاس 16 مم PN6
+توريد وصلة PEX End Cap مقاس 16 مم PN6
+توريد وصلة PEX Flange Adaptor مقاس 16 مم PN6
+توريد وصلة PEX Cross مقاس 16 مم PN6
+توريد وصلة PEX Repair Coupling مقاس 16 مم PN6
+توريد وصلة PEX Stub End مقاس 16 مم PN6

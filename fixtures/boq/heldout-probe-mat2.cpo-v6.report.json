@@ -1,0 +1,64 @@
+{
+  "label": "probe-mat2",
+  "measured_at": "2026-09-16T15:03:08.424Z",
+  "provenance": {
+    "ontology_payload": "/Volumes/Extreme SSD/cunstraction/farqconstraction/src/lib/procurementOntology.data.json",
+    "ontology_version": "cpo-v6",
+    "ontology_payload_sha256_16": "1483e668f2d3012f",
+    "ontology_fingerprint": null,
+    "repo_payload_sha256_16": "1483e668f2d3012f",
+    "repo_payload_version_note": "repo tree is cpo-v4 in progress; NOT used for these numbers",
+    "resolver_code_rev": null,
+    "api_code_rev": null,
+    "ai_calls": 0
+  },
+  "set": {
+    "path": "/tmp/probe-mat2.txt",
+    "lines": 12
+  },
+  "three_levels": {
+    "A_specific_intent": {
+      "n": 12,
+      "pct": 100
+    },
+    "B_family_resolved": {
+      "n": 0,
+      "pct": 0,
+      "method": {
+        "ontology": 0,
+        "semantic_recovery": 0
+      }
+    },
+    "C_true_unknown": {
+      "n": 0,
+      "pct": 0,
+      "metadata": {
+        "ai_eligible": 0,
+        "rejected": 0
+      }
+    }
+  },
+  "A_confidence_distribution": {
+    "A>=0.9": 12,
+    "A0.8-0.9": 0,
+    "A<0.8": 0
+  },
+  "top_families_A": [
+    [
+      "interior_systems",
+      5
+    ],
+    [
+      "floor_tiling",
+      3
+    ],
+    [
+      "concrete_admixtures",
+      2
+    ],
+    [
+      "architectural_cladding",
+      2
+    ]
+  ]
+}

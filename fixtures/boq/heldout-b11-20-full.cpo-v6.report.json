@@ -1,0 +1,124 @@
+{
+  "label": "b11-20-full",
+  "measured_at": "2026-09-16T14:57:38.266Z",
+  "provenance": {
+    "ontology_payload": "/Volumes/Extreme SSD/cunstraction/farqconstraction/src/lib/procurementOntology.data.json",
+    "ontology_version": "cpo-v6",
+    "ontology_payload_sha256_16": "1483e668f2d3012f",
+    "ontology_fingerprint": null,
+    "repo_payload_sha256_16": "1483e668f2d3012f",
+    "repo_payload_version_note": "repo tree is cpo-v4 in progress; NOT used for these numbers",
+    "resolver_code_rev": null,
+    "api_code_rev": null,
+    "ai_calls": 0
+  },
+  "set": {
+    "path": "fixtures/boq/heldout-b11-20.full.flat.txt",
+    "lines": 102190
+  },
+  "three_levels": {
+    "A_specific_intent": {
+      "n": 79111,
+      "pct": 77.42
+    },
+    "B_family_resolved": {
+      "n": 22881,
+      "pct": 22.39,
+      "method": {
+        "ontology": 17051,
+        "semantic_recovery": 5830
+      }
+    },
+    "C_true_unknown": {
+      "n": 198,
+      "pct": 0.19,
+      "metadata": {
+        "ai_eligible": 198,
+        "rejected": 0
+      }
+    }
+  },
+  "A_confidence_distribution": {
+    "A>=0.9": 79111,
+    "A0.8-0.9": 0,
+    "A<0.8": 0
+  },
+  "top_families_A": [
+    [
+      "pipes_fittings",
+      29805
+    ],
+    [
+      "cable_accessories",
+      13327
+    ],
+    [
+      "valves",
+      5120
+    ],
+    [
+      "lighting",
+      4331
+    ],
+    [
+      "power_cables",
+      4284
+    ],
+    [
+      "precast_drainage",
+      3614
+    ],
+    [
+      "movement_joint_systems",
+      2891
+    ],
+    [
+      "pipe_supports",
+      2280
+    ],
+    [
+      "structured_cabling",
+      2189
+    ],
+    [
+      "hvac_equipment",
+      2124
+    ],
+    [
+      "fire_fighting",
+      1999
+    ],
+    [
+      "switchgear_panels",
+      1784
+    ],
+    [
+      "thermal_insulation",
+      1547
+    ],
+    [
+      "paving",
+      999
+    ],
+    [
+      "road_furniture",
+      999
+    ],
+    [
+      "interior_systems",
+      991
+    ],
+    [
+      "floor_tiling",
+      374
+    ],
+    [
+      "glazing",
+      286
+    ],
+    [
+      "network_switching",
+      167
+    ]
+  ]
+}

@@ -1,0 +1,655 @@
+diff --git a/api/lib/construction/memory-repository.js b/api/lib/construction/memory-repository.js
+index 5375fa04f..fca7eeb93 100755
+--- a/api/lib/construction/memory-repository.js
++++ b/api/lib/construction/memory-repository.js
+@@ -18,6 +18,7 @@ const { selectBestOffer } = require('./domain');
+ const { createInitialRfqVersion, createAmendedRfqVersion, createQuoteVersion } = require('./rfq-artifacts');
+ const { inferDepartments, normalizeDepartment } = require('./engineering-departments');
+ const { packageValidation, supplierPayload } = require('./rfq-packages');
++const { canWriteProcurement, canWriteSuppliers } = require('./roles');
+ 
+ function validationError(message, code = 'CONSTRUCTION_VALIDATION_FAILED') {
+   const error = new TypeError(message);
+@@ -26,6 +27,13 @@ function validationError(message, code = 'CONSTRUCTION_VALIDATION_FAILED') {
+   return error;
+ }
+ 
++function forbiddenError(message = 'Procurement access required') {
++  const error = new Error(message);
++  error.status = 403;
++  error.code = 'CONSTRUCTION_FORBIDDEN';
++  return error;
++}
++
+ function publicSupplier(supplier) {
+   return {
+     id: supplier.id,
+@@ -341,6 +349,7 @@ function createMemoryConstructionRepository({ dispatcher, now = () => new Date()
+       };
+     },
+     async createCustomItem({ body, actor }) {
++      if (!canWriteProcurement(actor)) throw forbiddenError();
+       const nameAr = String(body?.name_ar || '').trim();
+       const nameEn = String(body?.name_en || '').trim();
+       const category = String(body?.category || '').trim().toLowerCase();
+@@ -472,6 +481,7 @@ function createMemoryConstructionRepository({ dispatcher, now = () => new Date()
+       return { projects: ownedProjects, awards: ownedAwards, invoices: ownedInvoices, totals: { budget: null, committed: 0, received: 0, invoiced: 0, paid: 0, remaining: null } };
+     },
+     async createProject({ body, actor }) {
++      if (!['ADMIN', 'PROCUREMENT'].includes(actor?.role)) throw forbiddenError('Project access denied');
+       if (!String(body?.name || '').trim()) throw validationError('Project name is required');
+       const project = { id: crypto.randomUUID(), owner_user_id: actor.actorId, name: String(body.name).trim(), code: body.code || null, site_address: body.site_address || null, approved_budget: body.approved_budget ?? null, currency: 'SAR', active: true, created_at: now().toISOString() };
+       projects.set(project.id, project);
+@@ -521,6 +531,7 @@ function createMemoryConstructionRepository({ dispatcher, now = () => new Date()
+       return { id: crypto.randomUUID(), invoice_id: params.id, ...body, recorded_by: actor.actorId };
+     },
+     async importSuppliers({ body, actor }) {
++      if (!canWriteSuppliers(actor)) throw forbiddenError();
+       const rows = Array.isArray(body?.suppliers) ? body.suppliers.slice(0, 500) : [];
+       if (!rows.length) throw validationError('At least one supplier is required', 'CONSTRUCTION_SUPPLIER_IMPORT_EMPTY');
+       const imported = rows.map((row, index) => {
+@@ -536,6 +547,7 @@ function createMemoryConstructionRepository({ dispatcher, now = () => new Date()
+       return { imported, imported_count: imported.length };
+     },
+     async createRfq({ body, actor, requestId }) {
++      if (!canWriteProcurement(actor)) throw forbiddenError();
+       const dispatchNow = body?.manual_send !== true;
+       if (body.project_id) {
+         const project = projects.get(body.project_id);
+@@ -586,6 +598,7 @@ function createMemoryConstructionRepository({ dispatcher, now = () => new Date()
+       return { ...serializeRfq(record), previous_matches: previousMatches };
+     },
+     async sendRfqInvite({ params, actor, body, requestId }) {
++      if (!canWriteProcurement(actor)) throw forbiddenError();
+       const record = ownRfq(params.id, actor); if (!record) return null;
+       const invite = invites.get(params.inviteId); if (!invite || invite.rfq_id !== record.id) return null;
+       if (invite.delivery_status === 'SENT') return serializeRfq(record);
+@@ -596,6 +609,7 @@ function createMemoryConstructionRepository({ dispatcher, now = () => new Date()
+       await persist(); return serializeRfq(record);
+     },
+     async createRfqVersion({ params, body, actor }) {
++      if (!canWriteProcurement(actor)) throw forbiddenError();
+       const record = ownRfq(params.id, actor);
+       if (!record) return null;
+       const version = createAmendedRfqVersion({ previousVersion: currentVersion(record), versionId: crypto.randomUUID(), input: body, actorId: actor.actorId, createdAt: now().toISOString() });
+diff --git a/api/lib/construction/roles.js b/api/lib/construction/roles.js
+new file mode 100644
+index 000000000..b4c7462f4
+--- /dev/null
++++ b/api/lib/construction/roles.js
+@@ -0,0 +1,128 @@
++'use strict';
++
++/**
++ * The construction role vocabulary, in one place.
++ *
++ * There are two kinds of role here, and conflating them is a real hazard: the
++ * roles a person can be granted, and a synthetic role only the platform gives
++ * itself. `'BUYER'` looks like dead code from every call site — it is absent
++ * from the `construction.access_users` check constraint, so no row can ever
++ * hold it and no invitation can ever produce it. Deleting it on that reading
++ * would break BOQ recovery, because `boq-recovery-worker.js` builds its own
++ * actor with exactly that role in order to act for a company scope with no
++ * human request behind it.
++ *
++ * So it stays, named and explained, and the invariant that actually matters is
++ * enforced instead: `'BUYER'` must never be grantable to an account.
++ */
++
++/**
++ * Roles assignable to a person.
++ *
++ * MIRRORS the check constraint on `construction.access_users.role`
++ * (db/migrations/construction/20260902065519_construction_role_accounts_scope.sql).
++ * `construction-roles.test.js` fails if the two drift apart.
++ */
++const GRANTABLE_ROLES = Object.freeze([
++	'ADMIN',
++	'ENGINEER',
++	'PROCUREMENT',
++	'APPROVER',
++	'FINANCE',
++	'MANAGEMENT',
++]);
++
++/**
++ * Roles the platform synthesizes for its own background work. No account can
++ * hold one: they exist only on in-memory actors built by workers, which is why
++ * they are deliberately NOT in the database constraint.
++ */
++const SYSTEM_ROLES = Object.freeze(['BUYER']);
++
++/** The role `boq-recovery-worker.js` acts under when no human asked. */
++const SYSTEM_BOQ_ACTOR_ROLE = 'BUYER';
++
++/**
++ * Who may drive the BOQ pipeline — catalog recovery, supplier discovery and
++ * registry search. The buying roles, plus the worker's synthetic actor.
++ *
++ * This list used to be copy-pasted into three modules, which is how it became
++ * unclear whether the synthetic role was load-bearing or leftover.
++ */
++const BOQ_PIPELINE_ROLES = Object.freeze([
++	'ADMIN',
++	'PROCUREMENT',
++	'ENGINEER',
++	SYSTEM_BOQ_ACTOR_ROLE,
++]);
++
++/**
++ * Who may change procurement state — raise an RFQ, send an invite, amend a
++ * version, add a catalog item.
++ *
++ * The roles left out are deliberate. APPROVER, FINANCE and MANAGEMENT are
++ * review and oversight roles: they exist to look at procurement and sign off on
++ * it, not to originate it. MANAGEMENT in particular is what a client contact
++ * gets, and a client must not be able to raise an RFQ or mail a supplier in the
++ * company's name.
++ *
++ * Note this is authorization only. It says nothing about WHICH rows a role can
++ * see — every granted member still reads the whole company scope, because
++ * construction ignores the per-project fields `business` models. See
++ * `.handoff/AUTH_PHASES_0_2_DONE.md`.
++ */
++const PROCUREMENT_WRITE_ROLES = Object.freeze(['ADMIN', 'PROCUREMENT', 'ENGINEER']);
++
++/**
++ * Who may write to the supplier directory.
++ *
++ * The same three human roles, plus the synthetic pipeline actor. That addition
++ * is load-bearing, not a loophole: `adoptDiscoverySupplier` in
++ * supplier-discovery-runtime.js calls `importSuppliers` on the pipeline's
++ * behalf, and it admits BOQ_PIPELINE_ROLES. Gating the import to the three
++ * human roles alone would make that path throw for the worker's actor.
++ *
++ * It grants no human any extra reach, because `'BUYER'` is not grantable — the
++ * `construction.access_users` check constraint cannot store it, and
++ * `construction-roles.test.js` fails if that ever stops being true.
++ */
++const SUPPLIER_WRITE_ROLES = Object.freeze([...PROCUREMENT_WRITE_ROLES, SYSTEM_BOQ_ACTOR_ROLE]);
++
++/** True when `actor` may originate or change procurement state. */
++function canWriteProcurement(actor) {
++	return Boolean(actor?.actorId) && PROCUREMENT_WRITE_ROLES.includes(actor.role);
++}
++
++/** True when `actor` may write to the supplier directory. */
++function canWriteSuppliers(actor) {
++	return Boolean(actor?.actorId) && SUPPLIER_WRITE_ROLES.includes(actor.role);
++}
++
++/** True when `role` may be assigned to a person. */
++function isGrantableRole(role) {
++	return GRANTABLE_ROLES.includes(String(role || '').trim().toUpperCase());
++}
++
++/** True when `role` is only ever worn by platform background work. */
++function isSystemRole(role) {
++	return SYSTEM_ROLES.includes(String(role || '').trim().toUpperCase());
++}
++
++/** True when `actor` may drive the BOQ pipeline. */
++function canRunBoqPipeline(actor) {
++	return Boolean(actor?.actorId) && BOQ_PIPELINE_ROLES.includes(actor.role);
++}
++
++module.exports = {
++	GRANTABLE_ROLES,
++	SYSTEM_ROLES,
++	SYSTEM_BOQ_ACTOR_ROLE,
++	BOQ_PIPELINE_ROLES,
++	PROCUREMENT_WRITE_ROLES,
++	SUPPLIER_WRITE_ROLES,
++	isGrantableRole,
++	isSystemRole,
++	canRunBoqPipeline,
++	canWriteProcurement,
++	canWriteSuppliers,
++};
+diff --git a/api/lib/construction/supabase-repository.js b/api/lib/construction/supabase-repository.js
+index 28a1dda60..78c657066 100755
+--- a/api/lib/construction/supabase-repository.js
++++ b/api/lib/construction/supabase-repository.js
+@@ -6,6 +6,7 @@ const { buildRfqQuoteComparison } = require('./rfq-quote-comparison');
+ const crypto = require('crypto');
+ const { brandKey: normalizeBrandKey, brandKeySql, parseMatchLines, loadBrandRouting, applyLineRouting } = require('./supplier-brand-matching');
+ const { harajAuthorId } = require('./haraj-invite');
++const { canWriteProcurement, canWriteSuppliers } = require('./roles');
+ const { selectHarajCandidates, harajCitySpellings, searchSupplyFamilies } = require('./haraj-candidates');
+ const quoteTotalsModule = import('./quote-totals.mjs');
+ const { createCompanyInbox } = require('./company-inbox');
+@@ -1537,6 +1538,7 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+     },
+     async createCustomItem({ body, actor }) {
+       if (!actor?.actorId) throw httpError('Authentication required', 401, 'CONSTRUCTION_AUTH_REQUIRED');
++      if (!canWriteProcurement(actor)) throw httpError('Procurement access required', 403, 'CONSTRUCTION_FORBIDDEN');
+       const input = customItemInput(body);
+       return tx(async (client) => {
+         const suffix = crypto.randomUUID();
+@@ -2028,6 +2030,10 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+       return { status: 'QUEUED', price_claim_created: false };
+     },
+     async importSuppliers({ body, actor }) {
++      if (!actor?.actorId) throw httpError('Authentication required', 401, 'CONSTRUCTION_AUTH_REQUIRED');
++      // canWriteSuppliers, not canWriteProcurement: adoptDiscoverySupplier
++      // imports through here with the pipeline's actor. See roles.js.
++      if (!canWriteSuppliers(actor)) throw httpError('Procurement access required', 403, 'CONSTRUCTION_FORBIDDEN');
+       const rows = Array.isArray(body?.suppliers) ? body.suppliers.slice(0, 500) : [];
+       const requestedItemIds = [...new Set((body?.item_ids || []).map(String).map((value) => value.trim()).filter(Boolean))].slice(0, 200);
+       if (!rows.length) throw httpError('At least one supplier is required', 400, 'CONSTRUCTION_SUPPLIER_IMPORT_EMPTY');
+@@ -2103,6 +2109,7 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+       return { previously_sent: matches.length > 0, exact_request_previously_sent: matches.some((match) => match.same_request), matches };
+     },
+     async createRfq({ body, actor, requestId }) {
++      if (!canWriteProcurement(actor)) throw httpError('Procurement access required', 403, 'CONSTRUCTION_FORBIDDEN');
+       const dispatchNow = body?.manual_send !== true;
+       const department = normalizeDepartment(body?.engineering_department);
+       if (!department) throw httpError('Engineering department is required', 400, 'CONSTRUCTION_ENGINEERING_DEPARTMENT_REQUIRED');
+@@ -2373,6 +2380,7 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+       return { ...(await serializeRfq(created.rfq.id, actor)), previous_matches: previousMatches };
+     },
+     async sendRfqInvite({ params, actor, body, requestId }) {
++      if (!canWriteProcurement(actor)) throw httpError('Procurement access required', 403, 'CONSTRUCTION_FORBIDDEN');
+       const row = (await pool.query(`select i.*, v.rfq_id, v.id as version_id, v.payload, s.external_key, s.name_ar, s.name_en, s.source_system, s.supplied_items_text, s.city, s.directory_metadata, c.whatsapp_e164, c.emails from construction.rfq_invites i join construction.rfq_versions v on v.id=i.rfq_version_id join construction.rfqs r on r.id=v.rfq_id join construction.suppliers s on s.id=i.supplier_id left join construction.supplier_contacts c on c.supplier_id=s.id where i.id=$1 and r.id=$2 and r.buyer_user_id=$3`, [params.inviteId, params.id, actor.actorId])).rows[0];
+       if (!row) return null;
+       if (row.delivery_status === 'SENT') return serializeRfq(params.id, actor);
+@@ -2461,7 +2469,8 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+         rfqs,
+       };
+     },
+-    async createRfqVersion() {
++    async createRfqVersion({ actor } = {}) {
++      if (!canWriteProcurement(actor)) throw httpError('Procurement access required', 403, 'CONSTRUCTION_FORBIDDEN');
+       throw httpError('RFQ amendment requires resend workflow', 409, 'CONSTRUCTION_RFQ_RESEND_REQUIRED');
+     },
+     async closeRfqSubmissions({ params, body, actor }) {
+@@ -2758,7 +2767,7 @@ function createSupabaseConstructionRepository({ connectionString, dispatcher, po
+       };
+     },
+     async createProject({ body, actor }) {
+-      if (!['ADMIN','PROCUREMENT','MANAGEMENT'].includes(actor.role)) throw httpError('Project access denied', 403, 'CONSTRUCTION_FORBIDDEN');
++      if (!['ADMIN','PROCUREMENT'].includes(actor.role)) throw httpError('Project access denied', 403, 'CONSTRUCTION_FORBIDDEN');
+       const name = String(body?.name || '').trim();
+       if (name.length < 2) throw httpError('Project name is required', 400, 'CONSTRUCTION_PROJECT_NAME_REQUIRED');
+       const budget = body?.approved_budget === '' || body?.approved_budget == null ? null : Number(body.approved_budget);
+diff --git a/api/tests/construction-boq-rfq-readiness.test.js b/api/tests/construction-boq-rfq-readiness.test.js
+index aeda3b556..855fc28b9 100644
+--- a/api/tests/construction-boq-rfq-readiness.test.js
++++ b/api/tests/construction-boq-rfq-readiness.test.js
+@@ -17,8 +17,8 @@ test('a stale browser cannot create or send a pending BOQ requirement',async()=>
+  const repo={...createSupabaseConstructionRepository({pool,dispatcher:{sender:{},cc:[],dispatchMany(){writes++;throw Error('MUST_NOT_SEND')}}})};
+  repo.getBoqRecovery=async()=>({jobs:[{status:'SEARCHING_SUPPLIERS',eligible_count:0,item:{suppliers:[]}}]});
+  const body={engineering_department:'ELECTRICAL',selected_supplier_ids:['s1','s2','s3'],delivery:{site_address:'Riyadh site',required_date:'2026-10-01',unloading_requirement:'SUPPLIER_UNLOAD',delivery_required:true},commercial_terms:{currency:'SAR',payment_terms:'BANK_TRANSFER'},buyer:{company_name:'Buyer',contact_name:'Owner',email:'buyer@example.com',phone:'+966501234568'},lines:[{line_key:'one',farq_spec_id:'BOQ:one',quantity:1,uom:'EA',pack:'CUSTOM'}]};
+- await assert.rejects(repo.createRfq({body,actor:{actorId:'owner',role:'BUYER'}}),{code:'CONSTRUCTION_BOQ_NOT_RFQ_READY'});
++ await assert.rejects(repo.createRfq({body,actor:{actorId:'owner',role:'PROCUREMENT'}}),{code:'CONSTRUCTION_BOQ_NOT_RFQ_READY'});
+  repo.getBoqRecovery=async()=>({jobs:[{status:'RFQ_READY',eligible_count:3,item:{suppliers:[{id:'s1'},{id:'s2'},{id:'s4'}]}}]});
+- await assert.rejects(repo.createRfq({body,actor:{actorId:'owner',role:'BUYER'}}),{code:'CONSTRUCTION_BOQ_NOT_RFQ_READY'});
++ await assert.rejects(repo.createRfq({body,actor:{actorId:'owner',role:'PROCUREMENT'}}),{code:'CONSTRUCTION_BOQ_NOT_RFQ_READY'});
+  assert.equal(writes,0);
+ });
+diff --git a/api/tests/construction-local-runtime.test.js b/api/tests/construction-local-runtime.test.js
+index d219e24d3..ac037cfa4 100644
+--- a/api/tests/construction-local-runtime.test.js
++++ b/api/tests/construction-local-runtime.test.js
+@@ -62,7 +62,7 @@ test('catalog keeps brand facets explicit and applies the selected brand before
+ test('supplier spreadsheet imports create selectable directory contacts without legal verification', async () => {
+   const runtime = createConstructionRuntime({ NODE_ENV: 'development', CONSTRUCTION_DEMO_MODE: '1' });
+   const result = await runtime.repository.importSuppliers({
+-    actor: { actorId: 'demo:buyer-1' },
++    actor: { actorId: 'demo:buyer-1', role: 'ADMIN' },
+     body: { suppliers: [{ name_ar: 'مورد تجريبي', name_en: 'Test Supplier', city: 'Riyadh', email: 'rfq@example.com', whatsapp: '966500000000' }] },
+   });
+   assert.equal(result.imported_count, 1);
+@@ -78,7 +78,7 @@ test('supplier spreadsheet imports create selectable directory contacts without
+ test('buyer can create a bilingual custom RFQ item without publishing supplier availability', async () => {
+   const runtime = createConstructionRuntime({ NODE_ENV: 'development', CONSTRUCTION_DEMO_MODE: '1' });
+   const item = await runtime.repository.createCustomItem({
+-    actor: { actorId: 'demo:buyer-1' },
++    actor: { actorId: 'demo:buyer-1', role: 'ADMIN' },
+     body: {
+       name_ar: 'ألواح أسمنت ليفي',
+       name_en: 'Fiber cement board',
+@@ -430,7 +430,7 @@ test('RFQ history distinguishes same product from an exact repeat', async () =>
+   const catalog = await runtime.repository.listCatalog();
+   const item = catalog.items.find((candidate) => candidate.suppliers.length >= 2);
+   assert.ok(item, 'local catalog must include an item with at least two suppliers');
+-  const actor = { actorId: 'demo:buyer-1' };
++  const actor = { actorId: 'demo:buyer-1', role: 'ADMIN' };
+   const body = {
+ 		engineering_department: 'CIVIL',
+     item_id: item.id,
+@@ -460,7 +460,7 @@ test('buyer may invite contactable suppliers without catalog evidence for the re
+   assert.ok(cement);
+   assert.equal(suppliers.length, 2);
+   const created = await runtime.repository.createRfq({
+-    actor: { actorId: 'demo:buyer-manual-supplier' },
++    actor: { actorId: 'demo:buyer-manual-supplier', role: 'ADMIN' },
+     requestId: 'request-manual-supplier',
+     body: {
+ 		engineering_department: 'CIVIL',
+@@ -476,7 +476,7 @@ test('buyer may invite contactable suppliers without catalog evidence for the re
+ 
+ test('private targeting accepts confirmed business WhatsApp without inventing email', async () => {
+   const runtime = createConstructionRuntime({ NODE_ENV: 'development', CONSTRUCTION_DEMO_MODE: '1' });
+-  const actor = {actorId:'phone-only-company'};
++  const actor = {actorId:'phone-only-company',role:'ADMIN'};
+   const result = await runtime.repository.importSuppliers({actor,body:{suppliers:[{name_ar:'مورد اختبار',supplied_items:'electrical',email:'',whatsapp:'966500000001'}]}});
+   assert.equal(result.imported[0].contact_channels.email,false);
+   assert.equal(result.imported[0].contact_channels.whatsapp,true);
+diff --git a/api/tests/construction-roles.test.js b/api/tests/construction-roles.test.js
+new file mode 100644
+index 000000000..2a7fa64f7
+--- /dev/null
++++ b/api/tests/construction-roles.test.js
+@@ -0,0 +1,96 @@
++'use strict';
++
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const fs = require('node:fs');
++const path = require('node:path');
++
++const {
++	GRANTABLE_ROLES,
++	SYSTEM_ROLES,
++	SYSTEM_BOQ_ACTOR_ROLE,
++	BOQ_PIPELINE_ROLES,
++	isGrantableRole,
++	isSystemRole,
++	canRunBoqPipeline,
++} = require('../lib/construction/roles');
++
++const MIGRATIONS_DIR = path.join(__dirname, '..', 'db', 'migrations', 'construction');
++
++/**
++ * The role vocabulary the database will actually accept.
++ *
++ * Read from the migrations rather than hardcoded, and from the LAST definition
++ * in timestamp order — the constraint is created in the foundation migration
++ * and then replaced by a later `alter table ... add constraint`, so only the
++ * final one describes the live schema.
++ */
++function rolesFromMigration() {
++	const pattern = /check\s*\(\s*role\s+in\s*\(([^)]*)\)/gis;
++	let latest = null;
++	for (const file of fs.readdirSync(MIGRATIONS_DIR).sort()) {
++		if (!file.endsWith('.sql')) continue;
++		const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
++		for (const match of sql.matchAll(pattern)) latest = match[1];
++	}
++	assert.ok(latest, 'could not find the access_users role check constraint');
++	return latest
++		.split(',')
++		.map((part) => part.trim().replace(/^'|'$/g, ''))
++		.filter(Boolean);
++}
++
++test('grantable roles match the access_users check constraint exactly', () => {
++	// Drift here is silent and nasty: code offers a role the database refuses,
++	// and an invitation fails at acceptance time with a constraint violation.
++	assert.deepEqual([...GRANTABLE_ROLES].sort(), rolesFromMigration().sort());
++});
++
++test("the worker's synthetic role can never be granted to an account", () => {
++	// This is the invariant worth protecting. 'BUYER' is absent from the DB
++	// constraint on purpose, so no person can hold it — while the BOQ recovery
++	// worker still wears it to act for a company scope with no human request.
++	assert.equal(isSystemRole(SYSTEM_BOQ_ACTOR_ROLE), true);
++	assert.equal(isGrantableRole(SYSTEM_BOQ_ACTOR_ROLE), false);
++	assert.ok(!rolesFromMigration().includes(SYSTEM_BOQ_ACTOR_ROLE));
++	for (const role of SYSTEM_ROLES) assert.equal(isGrantableRole(role), false);
++});
++
++test('the BOQ pipeline accepts the worker actor and the buying roles', () => {
++	// boq-recovery-worker.js builds { actorId, userId, role: 'BUYER' }. Dropping
++	// the synthetic role from these allowlists as "dead code" silently stops
++	// BOQ recovery, which is why it now comes from one named list.
++	assert.ok(BOQ_PIPELINE_ROLES.includes(SYSTEM_BOQ_ACTOR_ROLE));
++	assert.equal(
++		canRunBoqPipeline({ actorId: 'scope-1', role: SYSTEM_BOQ_ACTOR_ROLE }),
++		true,
++	);
++	for (const role of ['ADMIN', 'PROCUREMENT', 'ENGINEER']) {
++		assert.equal(canRunBoqPipeline({ actorId: 'scope-1', role }), true);
++	}
++});
++
++test('the BOQ pipeline refuses read-only roles and unauthenticated callers', () => {
++	for (const role of ['FINANCE', 'MANAGEMENT', 'APPROVER', 'VIEWER', '']) {
++		assert.equal(canRunBoqPipeline({ actorId: 'scope-1', role }), false);
++	}
++	assert.equal(canRunBoqPipeline({ role: 'ADMIN' }), false);
++	assert.equal(canRunBoqPipeline(null), false);
++});
++
++test('an invitation can only ever produce a grantable construction role', () => {
++	// native-invitations.js maps the sector role on an accepted invitation to a
++	// construction role. Every value it can produce must be one the database
++	// accepts, or acceptance fails after the account has already been created.
++	const source = fs.readFileSync(
++		path.join(__dirname, '..', 'lib', 'business', 'native-invitations.js'),
++		'utf8',
++	);
++	const map = /\{\s*ADMIN:\s*"ADMIN",[\s\S]*?\}\[row\.sector_role\]/.exec(source);
++	assert.ok(map, 'could not find the sector-role to construction-role map');
++	const produced = [...map[0].matchAll(/:\s*"([A-Z_]+)"/g)].map((m) => m[1]);
++	assert.ok(produced.length >= 4);
++	for (const role of produced) {
++		assert.equal(isGrantableRole(role), true, `${role} is not grantable`);
++	}
++});
+diff --git a/api/tests/construction-write-role-gates.test.js b/api/tests/construction-write-role-gates.test.js
+new file mode 100644
+index 000000000..98df9d9bc
+--- /dev/null
++++ b/api/tests/construction-write-role-gates.test.js
+@@ -0,0 +1,209 @@
++'use strict';
++
++/**
++ * The five write paths a granted member must not reach, and the one background
++ * actor that must keep reaching through.
++ *
++ * WHY THIS FILE EXISTS
++ * The owner is about to grant two client contacts `MANAGEMENT`, and he accepted
++ * that they will see all 8 RFQs and 465 invites on one basis only: that they
++ * cannot change anything. Before this gate, five repository methods checked no
++ * role at all — `createRfq`, `sendRfqInvite`, `createRfqVersion`,
++ * `importSuppliers` and `createCustomItem`. Any of them would have made that
++ * acceptance false.
++ *
++ * The opposite failure is the expensive one. `boq-recovery-worker.js` acts with
++ * a synthetic `BUYER` actor that belongs to no person, and the supplier
++ * discovery adoption path calls `importSuppliers` on its behalf. Gating that
++ * import to the three human roles would kill the recovery worker silently: no
++ * error anyone sees, just BOQ requirements that quietly stop being recovered,
++ * discovered weeks later as missing data. So the worker's actor is tested
++ * against the real repository here rather than reasoned about.
++ */
++
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const { createMemoryConstructionRepository } = require('../lib/construction/memory-repository');
++const {
++	GRANTABLE_ROLES,
++	PROCUREMENT_WRITE_ROLES,
++	SUPPLIER_WRITE_ROLES,
++	SYSTEM_BOQ_ACTOR_ROLE,
++	canRunBoqPipeline,
++} = require('../lib/construction/roles');
++
++const SCOPE = 'scope-owner';
++const actorWith = (role) => ({ actorId: SCOPE, userId: SCOPE, role });
++
++/** The actor `boq-recovery-worker.js` builds when no human asked. */
++const WORKER_ACTOR = { actorId: SCOPE, userId: SCOPE, role: SYSTEM_BOQ_ACTOR_ROLE };
++
++/** Roles a person can hold that must NOT be able to write procurement. */
++const READ_ONLY_ROLES = GRANTABLE_ROLES.filter((role) => !PROCUREMENT_WRITE_ROLES.includes(role));
++
++function repository() {
++	return createMemoryConstructionRepository({ dispatcher: { dispatch: async () => ({ status: 'SENT' }) } });
++}
++
++function rfqInput() {
++	return {
++		manual_send: true,
++		item_id: 'white-natural-marble-flooring',
++		selected_supplier_ids: ['marble-sa', 'quraishi-marble'],
++		delivery: {
++			site_address: 'الرياض • حي النرجس',
++			required_date: '2026-10-01',
++			unloading_requirement: 'SUPPLIER_UNLOAD',
++			delivery_required: true,
++		},
++		commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER' },
++		buyer: {
++			company_name: 'مقاولات فرق',
++			contact_name: 'مسؤول المشتريات',
++			email: 'buyer@example.com',
++			phone: '+966500000000',
++		},
++		line: { farq_spec_id: 'MARBLE-NATURAL-WHITE-VEINED-FLOORING-M2', quantity: 300, uom: 'M2', pack: 'SLAB_OR_TILE' },
++	};
++}
++
++/**
++ * The five gated calls, each with a request that is otherwise well formed.
++ *
++ * Authorization is asserted on its own: a permitted role may still fail on
++ * request content, and that is not a gate failure. So the allowed cases assert
++ * only "not CONSTRUCTION_FORBIDDEN", which is precisely the gate's contract.
++ */
++const WRITE_PATHS = [
++	{
++		name: 'createRfq',
++		call: (repo, actor) => repo.createRfq({ body: rfqInput(), actor, requestId: `r-${actor.role}` }),
++	},
++	{
++		name: 'sendRfqInvite',
++		call: (repo, actor) => repo.sendRfqInvite({ params: { id: 'rfq-1', inviteId: 'invite-1' }, body: {}, actor, requestId: `s-${actor.role}` }),
++	},
++	{
++		name: 'createRfqVersion',
++		call: (repo, actor) => repo.createRfqVersion({ params: { id: 'rfq-1' }, body: rfqInput(), actor }),
++	},
++	{
++		name: 'createCustomItem',
++		call: (repo, actor) =>
++			repo.createCustomItem({
++				actor,
++				body: {
++					name_ar: 'صنف مخصص',
++					name_en: 'Custom item',
++					category: 'electrical',
++					unit: 'EA',
++					specifications: [{ key: 'voltage', name_ar: 'الجهد', name_en: 'Voltage', value: '220V' }],
++				},
++			}),
++	},
++];
++
++const SUPPLIER_IMPORT = {
++	name: 'importSuppliers',
++	call: (repo, actor) =>
++		repo.importSuppliers({
++			actor,
++			body: {
++				suppliers: [{ name_ar: 'مورد', name_en: 'Supplier', email: 'supplier@example.com' }],
++				item_ids: ['white-natural-marble-flooring'],
++			},
++		}),
++};
++
++async function forbiddenCode(call) {
++	try {
++		await call();
++		return null;
++	} catch (error) {
++		return error.code || null;
++	}
++}
++
++test('MANAGEMENT can no longer create a project', async () => {
++	// The last buyer-side write an oversight account could reach. Kept as its
++	// own test because the owner's acceptance of company-wide read visibility
++	// is conditioned on this specific answer.
++	assert.equal(
++		await forbiddenCode(() => repository().createProject({ actor: actorWith('MANAGEMENT'), body: { name: 'مشروع' } })),
++		'CONSTRUCTION_FORBIDDEN',
++	);
++	for (const role of ['ADMIN', 'PROCUREMENT']) {
++		assert.notEqual(
++			await forbiddenCode(() => repository().createProject({ actor: actorWith(role), body: { name: 'مشروع' } })),
++			'CONSTRUCTION_FORBIDDEN',
++			`${role} must still create projects`,
++		);
++	}
++});
++
++test('oversight roles cannot originate or change procurement', async () => {
++	// APPROVER, FINANCE and MANAGEMENT review procurement; they do not create it.
++	assert.deepEqual(READ_ONLY_ROLES, ['APPROVER', 'FINANCE', 'MANAGEMENT']);
++	for (const role of READ_ONLY_ROLES) {
++		for (const path of [...WRITE_PATHS, SUPPLIER_IMPORT]) {
++			assert.equal(
++				await forbiddenCode(() => path.call(repository(), actorWith(role))),
++				'CONSTRUCTION_FORBIDDEN',
++				`${role} must not reach ${path.name}`,
++			);
++		}
++	}
++});
++
++test('buying roles still reach every write path', async () => {
++	for (const role of PROCUREMENT_WRITE_ROLES) {
++		for (const path of [...WRITE_PATHS, SUPPLIER_IMPORT]) {
++			assert.notEqual(
++				await forbiddenCode(() => path.call(repository(), actorWith(role))),
++				'CONSTRUCTION_FORBIDDEN',
++				`${role} must still reach ${path.name}`,
++			);
++		}
++	}
++});
++
++test('an actor with no id is refused before any role comparison', async () => {
++	for (const path of [...WRITE_PATHS, SUPPLIER_IMPORT]) {
++		const code = await forbiddenCode(() => path.call(repository(), { role: 'ADMIN' }));
++		assert.ok(
++			code === 'CONSTRUCTION_FORBIDDEN' || code === 'CONSTRUCTION_AUTH_REQUIRED',
++			`${path.name} must refuse an actor with no id, got ${code}`,
++		);
++	}
++});
++
++test('the BOQ recovery worker actor still reaches everything it uses', async () => {
++	// The worker's role is synthetic, so it must never be grantable — otherwise
++	// the supplier-import allowance below would become human reach.
++	assert.ok(!GRANTABLE_ROLES.includes(SYSTEM_BOQ_ACTOR_ROLE));
++	assert.ok(canRunBoqPipeline(WORKER_ACTOR));
++
++	// matchBoqCatalog is the only repository method boq-recovery-worker.js calls.
++	const catalog = await repository().matchBoqCatalog({
++		actor: WORKER_ACTOR,
++		body: { rows: [{ key: 'j1', name: 'رخام أبيض', quantity: 10, uom: 'M2' }] },
++	});
++	assert.ok(Array.isArray(catalog.rows), 'recovery worker must still match the catalog');
++
++	// And the import the discovery adoption path performs for the pipeline.
++	assert.notEqual(
++		await forbiddenCode(() => SUPPLIER_IMPORT.call(repository(), WORKER_ACTOR)),
++		'CONSTRUCTION_FORBIDDEN',
++		'gating importSuppliers must not break supplier discovery adoption',
++	);
++});
++
++test('the worker actor role stays inside the supplier import allowance', () => {
++	// A guard against the silent failure, not a restatement of the constant.
++	// If someone narrows importSuppliers to the three human roles, this fails
++	// here instead of the recovery worker dying quietly in production.
++	const source = require('fs').readFileSync(require.resolve('../lib/construction/boq-recovery-worker.js'), 'utf8');
++	const role = source.match(/role\s*:\s*["'](\w+)["']/)?.[1];
++	assert.equal(role, SYSTEM_BOQ_ACTOR_ROLE, 'boq-recovery-worker.js no longer builds the actor this gate expects');
++	assert.ok(SUPPLIER_WRITE_ROLES.includes(role), 'the worker actor must keep supplier-import access');
++});

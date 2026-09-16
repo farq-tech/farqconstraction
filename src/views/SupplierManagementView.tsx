@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { NavProps, SupplierEntry } from '../types'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import {
+  constructionRateLimitSec,
   listSupplierImportBatches,
   revertSupplierImportBatch,
   type SupplierImportBatch,
@@ -26,14 +27,29 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [batches, setBatches] = useState<SupplierImportBatch[]>([])
+  const [activeBatch, setActiveBatch] = useState<string | null>(null)
+  const [reverting, setReverting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', city: '', phone: '', email: '', category: '', notes: '' })
   const [suppliers, setSuppliers] = useState<SupplierEntry[]>([])
   const [total, setTotal] = useState(0)
+  /**
+   * Whether `total` came from the API rather than being the initial 0.
+   *
+   * Without this the header asserts «٠ مورد في كتالوج فرق» on every failure,
+   * which reads as "your catalogue is empty" when the truth is "we could not
+   * read it". A directory of 11,727 suppliers reporting zero has already sent
+   * the owner hunting for a configuration problem that did not exist.
+   */
+  const [totalKnown, setTotalKnown] = useState(false)
   const [source, setSource] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Seconds the API is still refusing us, or null when the failure is real. */
+  const [rateLimitSec, setRateLimitSec] = useState<number | null>(null)
   const [offset, setOffset] = useState(0)
 
   useEffect(() => {
@@ -51,20 +67,29 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
       if (append) setLoadingMore(true)
       else setLoading(true)
       setError(null)
+      setRateLimitSec(null)
       try {
         const result = await listConstructionSuppliers({
           query: debounced || undefined,
           limit: PAGE_SIZE,
           offset: nextOffset,
+          importBatchId: activeBatch,
         })
         setTotal(result.total)
+        setTotalKnown(true)
         setSource(result.source)
         setSuppliers((prev) => (append ? [...prev, ...result.suppliers] : result.suppliers))
         setOffset(nextOffset)
       } catch (err) {
-        if (!append) {
+        const wait = constructionRateLimitSec(err)
+        setRateLimitSec(wait)
+        // A rate limit is a speed cap on the next request; it says nothing
+        // about the directory. Blanking the list here is what turns sixty
+        // seconds of waiting into «٠ مورد» and a hunt for a broken database.
+        if (!append && wait == null) {
           setSuppliers([])
           setTotal(0)
+          setTotalKnown(false)
         }
         setError(err instanceof Error ? err.message : 'تعذر تحميل الموردين')
       } finally {
@@ -72,12 +97,55 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
         setLoadingMore(false)
       }
     },
-    [debounced],
+    [debounced, activeBatch],
   )
 
   useEffect(() => {
     void loadPage(0, false)
   }, [loadPage])
+
+  const loadBatches = useCallback(async () => {
+    try {
+      const { batches: found } = await listSupplierImportBatches()
+      setBatches(found)
+    } catch {
+      // The upload history is an aid, not the directory. A buyer who cannot
+      // read it should still see their suppliers — and should keep the chips
+      // he already has, since dropping them on a rate limit makes the filter
+      // disappear with no explanation for it.
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadBatches()
+  }, [loadBatches])
+
+  const revertBatch = useCallback(
+    async (batch: SupplierImportBatch) => {
+      const live = batch.live_supplier_count ?? batch.inserted_count ?? 0
+      if (
+        !window.confirm(
+          `سيتم إلغاء تفعيل ${live} موردًا أضافتهم دفعة «${batchTitle(batch)}». الموردون الذين طوبقوا مع سجلات قائمة لن يتأثروا، وسجل الطلبات السابق يبقى كما هو. متابعة؟`,
+        )
+      ) {
+        return
+      }
+      setReverting(true)
+      try {
+        const { deactivated_count } = await revertSupplierImportBatch(batch.id)
+        setToast(`تم التراجع عن «${batchTitle(batch)}» — أُلغي تفعيل ${deactivated_count} موردًا.`)
+        setActiveBatch(null)
+        await loadBatches()
+        await loadPage(0, false)
+      } catch (err) {
+        setToast(err instanceof Error ? err.message : 'تعذّر التراجع عن الدفعة.')
+      } finally {
+        setReverting(false)
+        setTimeout(() => setToast(null), 6000)
+      }
+    },
+    [loadBatches, loadPage],
+  )
 
   const handleAdd = () => {
     if (!form.name.trim()) return
@@ -99,10 +167,16 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-black text-[#0D1F1D]">الموردون</h1>
+          {/* Never state a count we did not read. «٠ مورد» is a claim about the
+              catalogue; "we could not read it" is a claim about the request. */}
           <p className="text-neutral-500 text-sm mt-1">
             {loading
               ? 'جاري التحميل من Farq API…'
-              : `${total.toLocaleString('ar-SA')} مورد في كتالوج فرق`}
+              : !totalKnown
+                ? 'تعذّرت قراءة عدد الموردين'
+                : `${total.toLocaleString('ar-SA')} مورد في كتالوج فرق${
+                    error ? ' · آخر قراءة ناجحة' : ''
+                  }`}
           </p>
           {source && !loading && !error && (
             <p className="text-[11px] text-neutral-400 mt-1">
@@ -110,13 +184,22 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
             </p>
           )}
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
-        >
-          <PlusIcon className="w-4 h-4" />
-          إضافة مورد
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[#123F3A]/25 text-[#123F3A] font-bold rounded-xl hover:bg-[#f0faf7] transition-colors text-sm"
+          >
+            <UploadIcon className="w-4 h-4" />
+            رفع قائمة
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
+          >
+            <PlusIcon className="w-4 h-4" />
+            إضافة مورد
+          </button>
+        </div>
       </div>
 
       <div className="relative mb-6">
@@ -130,13 +213,98 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
         />
       </div>
 
-      {error && (
-        <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-800">
-          <div className="font-bold mb-1">تعذر الاتصال ببيانات الموردين الحقيقية</div>
-          <div className="text-red-700/90">{error}</div>
-          <div className="text-xs mt-2 text-red-600/80">
-            شغّل Farq API محلياً (أو عيّن VITE_API_PROXY_TARGET)، ضع CONSTRUCTION_DB_URL في api/.env، وللوضع بدون تسجيل دخول أضف CONSTRUCTION_DEMO_MODE=1 ثم أعد تشغيل الـ API — ليس Vite.
+      {batches.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-neutral-500">القوائم المرفوعة:</span>
+            <button
+              onClick={() => setActiveBatch(null)}
+              className={`text-[11px] px-2.5 py-1 rounded-full font-bold transition-colors ${
+                activeBatch === null
+                  ? 'bg-[#123F3A] text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              الكل
+            </button>
+            {batches
+              .filter((batch) => batch.status !== 'REVERTED')
+              .map((batch) => (
+                <button
+                  key={batch.id}
+                  onClick={() => setActiveBatch(activeBatch === batch.id ? null : batch.id)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full font-bold transition-colors ${
+                    activeBatch === batch.id
+                      ? 'bg-[#123F3A] text-white'
+                      : 'bg-[#f0faf7] text-[#123F3A] hover:bg-[#CFF5DC]'
+                  }`}
+                >
+                  {batchTitle(batch)} · {(batch.live_supplier_count ?? 0).toLocaleString('ar-SA')}
+                </button>
+              ))}
           </div>
+
+          {/* The three facts that make an upload reversible: which file, when, by whom. */}
+          {activeBatch &&
+            batches
+              .filter((batch) => batch.id === activeBatch)
+              .map((batch) => (
+                <div
+                  key={batch.id}
+                  className="mt-3 rounded-2xl border border-[#CFF5DC] bg-[#f0faf7] px-4 py-3 flex items-center justify-between gap-4"
+                >
+                  <div className="text-[11px] text-neutral-600 leading-relaxed">
+                    <span className="font-black text-[#0D1F1D]">{batchTitle(batch)}</span>
+                    {batch.filename ? ` · ${batch.filename}` : ''}
+                    {batchDate(batch) ? ` · ${batchDate(batch)}` : ''}
+                    {batch.created_by_label ? ` · بواسطة ${batch.created_by_label}` : ''}
+                    <div className="mt-0.5">
+                      أُضيف {(batch.inserted_count ?? 0).toLocaleString('ar-SA')} · طوبق{' '}
+                      {(batch.matched_count ?? 0).toLocaleString('ar-SA')} · رُفض{' '}
+                      {(batch.rejected_count ?? 0).toLocaleString('ar-SA')}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => void revertBatch(batch)}
+                    disabled={reverting}
+                    className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {reverting ? 'جارٍ التراجع…' : 'تراجع عن الدفعة'}
+                  </button>
+                </div>
+              ))}
+        </div>
+      )}
+
+      {error && (
+        <div
+          className={`mb-6 rounded-2xl border px-5 py-4 text-sm ${
+            rateLimitSec != null
+              ? 'border-amber-100 bg-amber-50 text-amber-900'
+              : 'border-red-100 bg-red-50 text-red-800'
+          }`}
+        >
+          <div className="font-bold mb-1">
+            {rateLimitSec != null ? 'تجاوزنا حد المحاولات' : 'تعذر الاتصال ببيانات الموردين الحقيقية'}
+          </div>
+          <div className={rateLimitSec != null ? 'text-amber-800/90' : 'text-red-700/90'}>{error}</div>
+          {rateLimitSec != null ? (
+            <div className="text-xs mt-2 text-amber-700/90 leading-relaxed">
+              حدّ سرعة مؤقّت على كل مسارات /api/construction، وليس انقطاعًا في قاعدة البيانات ولا نقصًا في
+              الإعدادات.{' '}
+              {/* Only claim a fallback list when one is actually on screen —
+                  otherwise this sentence is its own small untruth. */}
+              {suppliers.length > 0
+                ? 'القائمة المعروضة أعلاه هي آخر قراءة ناجحة.'
+                : 'لم نقرأ الكتالوج بعد، فلا يوجد ما نعرضه — وهذا لا يعني أنه فارغ.'}
+            </div>
+          ) : (
+            /* The flag checklist is a real diagnosis for a real outage. Printing
+               it for a rate limit is what sends him chasing correct settings. */
+            <div className="text-xs mt-2 text-red-600/80">
+              شغّل Farq API محلياً (أو عيّن VITE_API_PROXY_TARGET)، ضع CONSTRUCTION_DB_URL في api/.env، وللوضع بدون تسجيل دخول أضف CONSTRUCTION_DEMO_MODE=1 ثم أعد تشغيل الـ API — ليس Vite.
+            </div>
+          )}
         </div>
       )}
 
@@ -148,7 +316,10 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
         </div>
       )}
 
-      {!loading && !error && (
+      {/* Rows survive a failure that left us holding them. Hiding the directory
+          behind the banner is the other half of «٠ مورد»: the count says empty
+          and the empty screen agrees with it. */}
+      {!loading && (!error || suppliers.length > 0) && (
         <div className="space-y-3">
           {suppliers.map((s) => (
             <button
@@ -166,6 +337,23 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
                     {s.qualificationStatus === 'VERIFIED_DIRECTORY' && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#CFF5DC] text-[#1a7a45] font-bold">
                         موثّق
+                      </span>
+                    )}
+                    {/* Names the upload, not just the fact of one — «مرفوع» alone
+                        would not tell a bad list from a good one. */}
+                    {s.importBatchId && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EAF2FF] text-[#1d4ed8] font-bold"
+                        title={`من قائمة مرفوعة: ${
+                          batches.find((batch) => batch.id === s.importBatchId)
+                            ? batchTitle(batches.find((batch) => batch.id === s.importBatchId)!)
+                            : s.importBatchId
+                        }`}
+                      >
+                        مرفوع
+                        {batches.find((batch) => batch.id === s.importBatchId)
+                          ? ` · ${batchTitle(batches.find((batch) => batch.id === s.importBatchId)!)}`
+                          : ''}
                       </span>
                     )}
                   </div>
@@ -265,6 +453,16 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
             </div>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <SupplierImportModal
+          onClose={() => setShowImport(false)}
+          onImported={(batch) => {
+            void loadBatches()
+            setActiveBatch(batch?.id || null)
+          }}
+        />
       )}
 
       {toast && (

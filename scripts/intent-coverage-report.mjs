@@ -148,7 +148,7 @@ try {
       c_ai_eligible: u.ai_eligible,
       c_rejected: u.rejected,
       not_supply: batch.not_supply,
-      local_usable_pct: pct(c.specific_intent + c.family, batch.line_count),
+      local_usable_pct: pct(c.specific_intent + c.local_resolved, batch.line_count),
       baseline_dictionary_resolved: legacyResolved,
       baseline_dictionary_pct: pct(legacyResolved, batch.line_count),
       ancestor_derived: derived.length,

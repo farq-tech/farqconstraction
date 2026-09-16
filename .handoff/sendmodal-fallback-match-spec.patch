@@ -1,0 +1,1037 @@
+From: performance lane
+Subject: [PATCH] SendModal: send the tender's technical column on the fallback
+ match, and only ask about unresolved lines
+
+Applies to: a9c61b3 (farqconstraction, src/views/SendModal.tsx clean at that
+revision). Independent of the taxonomy_candidates join patch, which touches the
+API repository only.
+
+WHAT THIS IS
+------------
+SendModal calls POST /api/construction/boq/match a second time before creating
+the RFQ, after the upload has already matched the same booklet. Two defects in
+that call, one correctness and one cost:
+
+1. It omitted the tender's technical column although item.spec is right there.
+   The upload sends it; this call did not. So the fallback answered a poorer
+   question and could name a different material. Measured on a real 69-line
+   tender, two lines diverged:
+
+       line-48  "وحدات إنارة"                    upload indoor-lighting / fallback lighting
+       line-51  "أنابيب الباردة والحارة المياه"  upload ppr-pipes      / fallback pvc-pipe
+
+   PVC and PPR are different materials sold by different suppliers, so the
+   second one sends the RFQ to a pool that cannot quote the item. Sending the
+   field makes both calls ask the same question: re-measured, the fallback now
+   returns the upload's answer on both lines, and disagrees with the upload on
+   0 of 69 lines.
+
+2. It asked about every ready line, including the ones the upload had already
+   resolved. buildRfqLinesFromItems reads item.farqSpecId first and consults
+   specIdForLine only where it is empty, so those answers were discarded on
+   arrival. On the same tender that is 69 lines asked where 30 are consumed.
+
+WHAT IT DOES NOT CHANGE
+-----------------------
+The RFQ lines. Verified by content, not by count, against the real API answers
+for that tender: the 69 built lines are byte-identical (JSON.stringify equal)
+under all three payloads — as it was, narrowed, and narrowed with the spec.
+39 lines carry a spec id, 30 carry null, each keeps its own name_ar and
+original_name.
+
+Sending the spec changes the answer for 0 of the 30 lines the fallback actually
+feeds. Both divergent lines were resolved by the upload, so narrowing already
+stops the fallback being consulted for them; the spec removes the class of
+disagreement rather than one instance of it.
+
+COST
+----
+One fewer full-booklet match per send: 2.7-3.4s and 2.13MB become ~1.9s and
+1.52MB on this tender (30 lines instead of 69), and nothing at all when the
+upload resolved every line. Fixed request cost per upload is unchanged at 21 —
+this narrows the request, it does not remove it. Removing it needs a one-line
+marker in parseBoq.ts, deliberately deferred while that file's lane repairs the
+parser.
+
+Note for the countdown lane: the send step's match is now proportional to
+unresolved lines rather than to booklet size, and is skipped entirely when there
+are none, so timing estimates calibrated against the old behaviour will run long.
+
+TEST
+----
+src/lib/sendModalMatchNarrowing.test.ts, 6 assertions over a fixture that is
+real API output for that tender (upload answers, spec-less fallback, narrowed,
+narrowed-with-spec). The last one reads SendModal.tsx and asserts the payload
+still carries the field, because the other five mirror the payload rather than
+importing it — the handler builds it inline — and therefore pass even with the
+field dropped. Verified: removing `spec: item.spec` fails that one test and only
+that one.
+
+diff --git a/src/lib/sendModalMatchNarrowing.test.ts b/src/lib/sendModalMatchNarrowing.test.ts
+new file mode 100644
+index 0000000..4b325b3
+--- /dev/null
++++ b/src/lib/sendModalMatchNarrowing.test.ts
+@@ -0,0 +1,922 @@
++/**
++ * SendModal asks Farq to match the tender a second time before it creates the
++ * RFQ. That call is a fallback: buildRfqLinesFromItems reads item.farqSpecId
++ * first and consults specIdForLine only where it is empty. Two things follow,
++ * and both are guarded here, because the lines built on this path are the lines
++ * suppliers actually receive.
++ *
++ *   1. The call is narrowed to the lines that still have no spec id.
++ *   2. It sends the tender's technical column, which it used to drop even though
++ *      the item carries it. Dropping it made the fallback answer a poorer
++ *      question than the upload did: on a hot/cold water line it returned
++ *      pvc-pipe where the upload returned ppr-pipes — a different material sold
++ *      by a different pool of suppliers.
++ *
++ * Every map below is what the real API returned for a real 69-line tender.
++ */
++import { readFileSync } from 'node:fs'
++import { describe, expect, it } from 'vitest'
++import type { BOQItem } from '../types'
++import { buildRfqLinesFromItems } from './rfqPackages'
++
++const fixture: {
++  lines: Array<{ id: number; lineKey: string; name: string; qty: string; unit: string; spec: string }>
++  /** The upload's answers, sent WITH the technical column. Become item.farqSpecId. */
++  upload: Record<string, string | null>
++  /** The fallback as it was: every ready line, no technical column. */
++  fallbackBare: Record<string, string | null>
++  /** Narrowed to the unresolved lines, still without the column. */
++  narrowedBare: Record<string, string | null>
++  /** Narrowed AND carrying the column — what ships. */
++  narrowedWithSpec: Record<string, string | null>
++} = {
++ "lines": [
++  {
++   "id": 1,
++   "lineKey": "line-1",
++   "name": "جميع البنود حسب جدول الكميات",
++   "qty": "1",
++   "unit": "عدد",
++   "spec": "طبقا للموضح بالمواصفات الفنية"
++  },
++  {
++   "id": 2,
++   "lineKey": "line-2",
++   "name": "درابزين حديدي",
++   "qty": "385",
++   "unit": "م ط",
++   "spec": "درابزين حديدى لزوم الرامب والسلالم الداخلية من قطاعات الحديد المفرغة"
++  },
++  {
++   "id": 3,
++   "lineKey": "line-3",
++   "name": "بوابة المدخل الرئيسي",
++   "qty": "3",
++   "unit": "عدد",
++   "spec": "بوابة المدخل الرئيسي ضلفتين مقاس 3.00×4.00متر"
++  },
++  {
++   "id": 4,
++   "lineKey": "line-4",
++   "name": "بوابة لمدخل الافراد",
++   "qty": "3",
++   "unit": "عدد",
++   "spec": "بوابة لمدخل الافراد مقاس 2×1.50متر"
++  },
++  {
++   "id": 5,
++   "lineKey": "line-5",
++   "name": "باب زجاجي سحاب (منزلق)",
++   "qty": "7",
++   "unit": "عدد",
++   "spec": "باب سحاب من االزجاج نموذج (ب1) مقاس 1.50 × 3.00 م"
++  },
++  {
++   "id": 6,
++   "lineKey": "line-6",
++   "name": "باب سيكوريت",
++   "qty": "25",
++   "unit": "عدد",
++   "spec": "باب مفصلى من االزجاج السيكوريت نموذج (ب2) مقاس 2.00 × 2.50 م نموذج (ب3) مقاس 1.20 × 3.00 م"
++  },
++  {
++   "id": 7,
++   "lineKey": "line-7",
++   "name": "قواطع زجاج سيكوريت",
++   "qty": "480",
++   "unit": "م2",
++   "spec": "زجاج سكوريت لزوم االقواطع الزجاجية الداخلية"
++  },
++  {
++   "id": 8,
++   "lineKey": "line-8",
++   "name": "باب معدني",
++   "qty": "20",
++   "unit": "عدد",
++   "spec": "باب معدنى نموذج (ب4) مقاس 0.90 × 2.20 م نموذج (ب6) مقاس 1.10 × 2.40 م"
++  },
++  {
++   "id": 9,
++   "lineKey": "line-9",
++   "name": "باب خشب",
++   "qty": "144",
++   "unit": "عدد",
++   "spec": "باب مفصلى خشب نموذج (ب5) مقاس 1.50 × 2.20 م ونموذج (ب7) مقاس 0.80 × 2.20 م ونموذج (ب8) مقاس 0.80 × 2.20 م"
++  },
++  {
++   "id": 10,
++   "lineKey": "line-10",
++   "name": "نوافذ ألمنيوم",
++   "qty": "274",
++   "unit": "عدد",
++   "spec": "شبابيك من الالمونيوم نموذج (ش1) مقاس 1.00 × 3.00 م ونموذج (ش2) مقاس 9.00 × 4.00 م نموذج (ش3) مقاس 10.20 × 3.50 م ونموذج (ش4) مقاس 5.00 × 3.50 م"
++  },
++  {
++   "id": 11,
++   "lineKey": "line-11",
++   "name": "منور سقفي",
++   "qty": "607",
++   "unit": "م2",
++   "spec": "تغطية معدنية للمنور على شكل جملون باستخدام مقاطع معدنية مع ألواح لكسان"
++  },
++  {
++   "id": 12,
++   "lineKey": "line-12",
++   "name": "لياسة اسمنتية",
++   "qty": "5340",
++   "unit": "م2",
++   "spec": "لياسة اسمنتية فوق الاسطح الخرسانية والمباني الطوب سماكة متوسطة 15 ملم على طبقات"
++  },
++  {
++   "id": 13,
++   "lineKey": "line-13",
++   "name": "دهان بلاستيك",
++   "qty": "2080",
++   "unit": "م2",
++   "spec": "دهانات بلاستيكية النصف لامع للحوائط الداخلية"
++  },
++  {
++   "id": 14,
++   "lineKey": "line-14",
++   "name": "سيراميك حوائط",
++   "qty": "976",
++   "unit": "م2",
++   "spec": "سيراميك حوائط30 ×30 ×6 ملم مزجج لزوم حوائط الحمامات والأوفيس"
++  },
++  {
++   "id": 15,
++   "lineKey": "line-15",
++   "name": "بورسلان أرضيات",
++   "qty": "5600",
++   "unit": "م2",
++   "spec": "بورسلان 60×60سم أرضيات"
++  },
++  {
++   "id": 16,
++   "lineKey": "line-16",
++   "name": "وزرة بورسلان",
++   "qty": "3360",
++   "unit": "م ط",
++   "spec": "وزرة من البورسلان ارتفاع 10 سم"
++  },
++  {
++   "id": 17,
++   "lineKey": "line-17",
++   "name": "سيراميك أرضيات",
++   "qty": "336",
++   "unit": "م2",
++   "spec": "سيراميك 30×30سم أرضيات سيراميك مانع للانزلاق لزوم الحمامات والاوفيس والمغاسل"
++  },
++  {
++   "id": 18,
++   "lineKey": "line-18",
++   "name": "وزرة سيراميك",
++   "qty": "110",
++   "unit": "م ط",
++   "spec": "وزرة سيراميك بارتفاع 10 سم مانع للانزلاق لزوم الاوفيس"
++  },
++  {
++   "id": 19,
++   "lineKey": "line-19",
++   "name": "جرانيت للدرج",
++   "qty": "468",
++   "unit": "م ط",
++   "spec": "درج جرانيت صناعى بلون اسود لزوم السلالم"
++  },
++  {
++   "id": 20,
++   "lineKey": "line-20",
++   "name": "بلاط تيرازو",
++   "qty": "379",
++   "unit": "م2",
++   "spec": "بلاط تيرازو مقاس 30سم×30سم×3سم ذو بحص رخام"
++  },
++  {
++   "id": 21,
++   "lineKey": "line-21",
++   "name": "هيكل لألواح الجبس",
++   "qty": "1750",
++   "unit": "م ط",
++   "spec": "قاطع من قطاعات الألومنيوم والحديد المجلفن سمك 10 سم لتركيب ألواح جبسوم بورد"
++  },
++  {
++   "id": 22,
++   "lineKey": "line-22",
++   "name": "ألواح جبسوم بورد",
++   "qty": "1750",
++   "unit": "م ط",
++   "spec": "ألواح جبسوم بورد مغلف بورق الحائط مقاومة للماء والحريق حتى 30 دقيقة مع وضع عازل صوتي"
++  },
++  {
++   "id": 23,
++   "lineKey": "line-23",
++   "name": "خشب لعزل جدران",
++   "qty": "720",
++   "unit": "م2",
++   "spec": "ألواح خشبية سماكة 18 مم لجدران قاعات المحاكم مغطاة بألواح شرائح خشبية من خشب الصنوبر سماكة 2ملم"
++  },
++  {
++   "id": 24,
++   "lineKey": "line-24",
++   "name": "طبقة عازلة للرطوبة أفقية ورأسية من البيتومين الساخن",
++   "qty": "110",
++   "unit": "م2",
++   "spec": "طبقة عازلة للرطوبة أفقية ورأسية من البيتومين الساخن"
++  },
++  {
++   "id": 25,
++   "lineKey": "line-25",
++   "name": "عازل بيتومين",
++   "qty": "2100",
++   "unit": "م2",
++   "spec": "عازل للرطوبة وجهي دهان بيتومين على البارد بمعدل لايقل عن (1.5) ليتر/ م2 للخرسانات الملامسة للردم"
++  },
++  {
++   "id": 26,
++   "lineKey": "line-26",
++   "name": "عازل بيتومين مسلح بالبوليستر",
++   "qty": "5140",
++   "unit": "م2",
++   "spec": "طبقة عازلة للرطوبة افقيه للأسطح العلوية لفائف البيتومين المسلح بالبولستر الذي لايسيل في درجة حراره اقل من110مئويه وبوزن لايقل عن200غم /م2"
++  },
++  {
++   "id": 27,
++   "lineKey": "line-27",
++   "name": "الواح عزل حراري",
++   "qty": "4300",
++   "unit": "م2",
++   "spec": "عازل حراري للسطح عبارة عن ألواح من البولسترين سمك 7سم"
++  },
++  {
++   "id": 28,
++   "lineKey": "line-28",
++   "name": "مظلات لمواقف السيارات",
++   "qty": "30",
++   "unit": "عدد",
++   "spec": "مظلات لمواقف السيارات طبقًا للابعاد الموقف موضحه بالرسومات"
++  },
++  {
++   "id": 29,
++   "lineKey": "line-29",
++   "name": "بلاط انترلوك",
++   "qty": "750",
++   "unit": "م2",
++   "spec": "سمك 8سم ملون"
++  },
++  {
++   "id": 30,
++   "lineKey": "line-30",
++   "name": "بردورات خرسانة",
++   "qty": "92",
++   "unit": "م ط",
++   "spec": "بردورات من الخرسانة العادية (لزوم الزراعة) مقاس 10×20×50سم"
++  },
++  {
++   "id": 31,
++   "lineKey": "line-31",
++   "name": "بردورات خرسانة",
++   "qty": "750",
++   "unit": "م ط",
++   "spec": "بردورات من الخرسانة العادية (لزوم الارصفة) مقاس 50×30×15 سم"
++  },
++  {
++   "id": 32,
++   "lineKey": "line-32",
++   "name": "بلوك اسمني مفرغ",
++   "qty": "4118",
++   "unit": "م2",
++   "spec": "بلوك اسمنتي مفرغ سماكات 10 و 20 و30سم"
++  },
++  {
++   "id": 33,
++   "lineKey": "line-33",
++   "name": "خرسانة خفيفة رغوية",
++   "qty": "4300",
++   "unit": "م2",
++   "spec": "خرسانة رغوية سماكة 8سم وذات اجهاد 50كم/سم2"
++  },
++  {
++   "id": 34,
++   "lineKey": "line-34",
++   "name": "حديد تسليح للخرسانة المسلحة",
++   "qty": "770",
++   "unit": "طن",
++   "spec": "حديد تسليح للخرسانة المسلحة Grade 60 حد خضوع لايقل عن 420 نيوتن/مم2 لتسليح بحديد مطلي بالايبو كسي"
++  },
++  {
++   "id": 35,
++   "lineKey": "line-35",
++   "name": "خرسانة أرضيات",
++   "qty": "8950",
++   "unit": "م2",
++   "spec": "ارضية خرسانية لزوم الارضيات إجهاد كسر مكعبي لايقل عن 35 ميجاباسكال بسمك متوسط 10 سم و15سم"
++  },
++  {
++   "id": 36,
++   "lineKey": "line-36",
++   "name": "خرسانة عادية",
++   "qty": "40",
++   "unit": "م3",
++   "spec": "خرسانة عادية بحيث لا تقل مقاومة الضغط للخرسانة بعد 28 يوم عن 21 ميجا باسكال"
++  },
++  {
++   "id": 37,
++   "lineKey": "line-37",
++   "name": "خرسانة قواعد",
++   "qty": "4265",
++   "unit": "م3",
++   "spec": "خرسانة مسلحة لزوم القواعد واللبشة المسلحة لأبنية لموقع العام بحيث لا تقل مقاومة الضغط للخرسانة بعد 28 يوم عن 40 ميجا"
++  },
++  {
++   "id": 38,
++   "lineKey": "line-38",
++   "name": "خرسانة للأعمدة والكمرات",
++   "qty": "2790",
++   "unit": "م3",
++   "spec": "خرسانة مسلحة لزوم الأعمدة والكمرات والبلاطات لأبنية الموقع العام المختلفة (خارج المبنى الرئيسي والخزان) بحيث لاتقل مقاومة الضغط للخرسانة بعد 28 يوم عن 35 ميجا باسكال"
++  },
++  {
++   "id": 39,
++   "lineKey": "line-39",
++   "name": "كابلات الجهد المتوسط",
++   "qty": "200",
++   "unit": "م ط",
++   "spec": "كابلات الجهد المتوسط للتوصيل من نقطة الكهرباء للجهد المتوسط وحتى المحول الكهربائي المقترح"
++  },
++  {
++   "id": 40,
++   "lineKey": "line-40",
++   "name": "مفتاح تحويل",
++   "qty": "1",
++   "unit": "عدد",
++   "spec": "مفتاح تحويل آلى (ATS) بسعة 400 أمبير ثلاثي -(ULlisted) MOTORIZED WITH ELECTRICAL AND MECHANICAL LOCK بدرجةحماية IP54"
++  },
++  {
++   "id": 41,
++   "lineKey": "line-41",
++   "name": "لوحات توزيع",
++   "qty": "12",
++   "unit": "عدد",
++   "spec": "لوحات توزيع 400 فولت تصنع حسب NEMA"
++  },
++  {
++   "id": 42,
++   "lineKey": "line-42",
++   "name": "لوحةكهرباء",
++   "qty": "1",
++   "unit": "عدد",
++   "spec": "لوحة الكهرباء لغرفة المضخات (PUMP.RM) بدرجة حماية لا تقل عن (IP 64) تيار القصر KA.25"
++  },
++  {
++   "id": 43,
++   "lineKey": "line-43",
++   "name": "كابلات نحاسية",
++   "qty": "2210",
++   "unit": "م ط",
++   "spec": "كابلات نحاسية نوع XLPE , ولها جهـد عـزل (600/1000) فـولت"
++  },
++  {
++   "id": 44,
++   "lineKey": "line-44",
++   "name": "قاطع 100 امبير",
++   "qty": "47",
++   "unit": "عدد",
++   "spec": "قاطع فصل 100 أمبير 400 فولت, مزود بمفتاح فصل وتوصيل مقاوم للماء والحرارة من النوع الخارجى."
++  },
++  {
++   "id": 45,
++   "lineKey": "line-45",
++   "name": "قاطع 32 امبير",
++   "qty": "2",
++   "unit": "عدد",
++   "spec": "قاطع فصل 32 أمبير 220 فولت"
++  },
++  {
++   "id": 46,
++   "lineKey": "line-46",
++   "name": "مخرج سخان",
++   "qty": "2",
++   "unit": "عدد",
++   "spec": "مخرج وحدة سخان من أسلاك قطاع : (2 × 6 + 4 ملم"
++  },
++  {
++   "id": 47,
++   "lineKey": "line-47",
++   "name": "نظام تأريض",
++   "qty": "1",
++   "unit": "عدد",
++   "spec": "نظام التأريض لاتزيد المقاومة عن 5 أوم"
++  },
++  {
++   "id": 48,
++   "lineKey": "line-48",
++   "name": "وحدات إنارة",
++   "qty": "1460",
++   "unit": "عدد",
++   "spec": "وحدات الانارة الداخلية من النوع (LED) - وحدة انارة من النوع (F4) حتى (F9)"
++  },
++  {
++   "id": 49,
++   "lineKey": "line-49",
++   "name": "مخارج القوى والأفياش",
++   "qty": "505",
++   "unit": "عدد",
++   "spec": "بريزة قوى مفردة (13) أمبير 220 فولت ذو قطبين وقطب ارضي"
++  },
++  {
++   "id": 50,
++   "lineKey": "line-50",
++   "name": "مخرج هاتف وبيانات",
++   "qty": "140",
++   "unit": "عدد",
++   "spec": "مخرج هاتف وداتا IP-RJ45"
++  },
++  {
++   "id": 51,
++   "lineKey": "line-51",
++   "name": "أنابيب الباردة والحارة المياه",
++   "qty": "2080",
++   "unit": "م ط",
++   "spec": "مواسير تغذية المياه الباردة والحارة PPR-PN20 و UPVC"
++  },
++  {
++   "id": 52,
++   "lineKey": "line-52",
++   "name": "أنابيب صرف صحي",
++   "qty": "750",
++   "unit": "م ط",
++   "spec": "مواسير الصرف خارج المبنى بحيث تكون من اليو، بي، في، سي الدرجة الخامسة (UPVC Class 5) قطر 75 حتى 200مم"
++  },
++  {
++   "id": 53,
++   "lineKey": "line-53",
++   "name": "أنابيب مياه الأمطار",
++   "qty": "400",
++   "unit": "م ط",
++   "spec": "مواسير من نوع (U.P.V.C Class-4)"
++  },
++  {
++   "id": 54,
++   "lineKey": "line-54",
++   "name": "مانهول",
++   "qty": "18",
++   "unit": "عدد",
++   "spec": "غرفة تفتيش من الخرسانة المسلحة ومنهول من الخرسانة المسلحة 120 سم"
++  },
++  {
++   "id": 55,
++   "lineKey": "line-55",
++   "name": "أغطية مانهول",
++   "qty": "18",
++   "unit": "عدد",
++   "spec": "أغطية غرف التفتيش من حديد الزهر الثقيل وزن لا يقل عن140 كجم"
++  },
++  {
++   "id": 56,
++   "lineKey": "line-56",
++   "name": "أنابيب مياه الحريق",
++   "qty": "3740",
++   "unit": "م ط",
++   "spec": "مواسير مياه الحريق من النوع UPVC CALSS قطر 100+160مم"
++  },
++  {
++   "id": 57,
++   "lineKey": "line-57",
++   "name": "حنفية حريق خارجية",
++   "qty": "4",
++   "unit": "عدد",
++   "spec": "حنفيات حريق خارجية FIRE HYDRANT قطر 4 بوصة"
++  },
++  {
++   "id": 58,
++   "lineKey": "line-58",
++   "name": "صندوق حريق",
++   "qty": "16",
++   "unit": "عدد",
++   "spec": "صندوق حريق (ماء) من الستانلس ستيل الغير قابل للصدأ"
++  },
++  {
++   "id": 59,
++   "lineKey": "line-59",
++   "name": "مواسير UPVC",
++   "qty": "280",
++   "unit": "م ط",
++   "spec": "مواسير من البلاستيـك UPVC CLASS 5 قطر 50حتى 100مم"
++  },
++  {
++   "id": 60,
++   "lineKey": "line-60",
++   "name": "صمام",
++   "qty": "1",
++   "unit": "عدد",
++   "spec": "محابس تحكم وقفل Electrical Solenoid Valve بقطر 2 بوصة ومصنعة من مادة النايلون المقوى بالزجاج وتتحمل ضغط حتى 220 رطل/بوصة مربعة"
++  },
++  {
++   "id": 61,
++   "lineKey": "line-61",
++   "name": "مرحاض",
++   "qty": "42",
++   "unit": "عدد",
++   "spec": "مرحاض افرنجى وشرقي وذوي الحتياجات من البورسلان بكامل مستلزماته"
++  },
++  {
++   "id": 62,
++   "lineKey": "line-62",
++   "name": "حوض غسيل يدي",
++   "qty": "2",
++   "unit": "عدد",
++   "spec": "حوض غسيل أيدي من البورسلان"
++  },
++  {
++   "id": 63,
++   "lineKey": "line-63",
++   "name": "سخان كهربائي",
++   "qty": "40",
++   "unit": "عدد",
++   "spec": "سخان كهربائي"
++  },
++  {
++   "id": 64,
++   "lineKey": "line-64",
++   "name": "نظام التحكم بالأبواب",
++   "qty": "28",
++   "unit": "عدد",
++   "spec": "نظام التحكم في الأبواب (Access control system)"
++  },
++  {
++   "id": 65,
++   "lineKey": "line-65",
++   "name": "خزان مياه",
++   "qty": "3",
++   "unit": "عدد",
++   "spec": "خزان علوى من البولى ايثيلين لمياه الشرب"
++  },
++  {
++   "id": 66,
++   "lineKey": "line-66",
++   "name": "وحدات التكييف والتدفئة",
++   "qty": "24",
++   "unit": "عدد",
++   "spec": "وحدات التكييف والتدفئة المدمجة جميع الوحدات تكون بارد - حار"
++  },
++  {
++   "id": 67,
++   "lineKey": "line-67",
++   "name": "قنوات التبريد والتكييف والتهوية",
++   "qty": "40",
++   "unit": "طن",
++   "spec": "مجــاري الهــواء قطاعات مستطيلة (بحسب المخططات المعتمدة وسماكات الصاج تبعا ل(SMACNA)"
++  },
++  {
++   "id": 68,
++   "lineKey": "line-68",
++   "name": "عزل حرارى لمجاري التكييف",
++   "qty": "3500",
++   "unit": "م2",
++   "spec": "عزل حرارى من الصوف الزجاجى لمجاري التكييف"
++  },
++  {
++   "id": 69,
++   "lineKey": "line-69",
++   "name": "مخارجالتهوية",
++   "qty": "855",
++   "unit": "عدد",
++   "spec": "مخارج هواء"
++  }
++ ],
++ "upload": {
++  "line-1": null,
++  "line-2": null,
++  "line-3": "metal-gates",
++  "line-4": "metal-gates",
++  "line-5": "glass-sliding-doors",
++  "line-6": "glass-doors",
++  "line-7": "glass-partitions",
++  "line-8": "metal-steel-doors",
++  "line-9": null,
++  "line-10": "aluminum-windows",
++  "line-11": null,
++  "line-12": null,
++  "line-13": null,
++  "line-14": "ceramic-and-porcelain",
++  "line-15": "porcelain-tiles",
++  "line-16": null,
++  "line-17": "ceramic-and-porcelain",
++  "line-18": null,
++  "line-19": "granite-tiles",
++  "line-20": "terrazzo-tiles",
++  "line-21": "gypsum-board",
++  "line-22": null,
++  "line-23": null,
++  "line-24": null,
++  "line-25": null,
++  "line-26": null,
++  "line-27": "cement-boards",
++  "line-28": "car-parking-canopies",
++  "line-29": "interlock-tiles",
++  "line-30": "concrete-kerbstones",
++  "line-31": "concrete-kerbstones",
++  "line-32": null,
++  "line-33": "ready-mix-concrete",
++  "line-34": null,
++  "line-35": "ready-mix-concrete",
++  "line-36": "ready-mix-concrete",
++  "line-37": null,
++  "line-38": "ready-mix-concrete",
++  "line-39": null,
++  "line-40": "transfer-switch-panels",
++  "line-41": "distribution-boards",
++  "line-42": null,
++  "line-43": "cables-and-wires",
++  "line-44": null,
++  "line-45": null,
++  "line-46": "switches-sockets",
++  "line-47": null,
++  "line-48": "indoor-lighting",
++  "line-49": null,
++  "line-50": null,
++  "line-51": "ppr-pipes",
++  "line-52": null,
++  "line-53": "pvc-pipe",
++  "line-54": "precast-concrete-manholes",
++  "line-55": null,
++  "line-56": "stainless-steel-pipe",
++  "line-57": "fire-hydrants",
++  "line-58": "fire-hose-cabinets",
++  "line-59": "upvc-pipes",
++  "line-60": "valves",
++  "line-61": null,
++  "line-62": null,
++  "line-63": null,
++  "line-64": null,
++  "line-65": null,
++  "line-66": "ducted-air-conditioning-units",
++  "line-67": "hvac-air-ducts",
++  "line-68": "glass-wool-insulation",
++  "line-69": "air-grilles-diffusers"
++ },
++ "fallbackBare": {
++  "line-1": null,
++  "line-2": null,
++  "line-3": "metal-gates",
++  "line-4": "metal-gates",
++  "line-5": "glass-sliding-doors",
++  "line-6": "glass-doors",
++  "line-7": "glass-partitions",
++  "line-8": "metal-steel-doors",
++  "line-9": null,
++  "line-10": "aluminum-windows",
++  "line-11": null,
++  "line-12": null,
++  "line-13": null,
++  "line-14": "ceramic-and-porcelain",
++  "line-15": "porcelain-tiles",
++  "line-16": null,
++  "line-17": "ceramic-and-porcelain",
++  "line-18": null,
++  "line-19": "granite-tiles",
++  "line-20": "terrazzo-tiles",
++  "line-21": "gypsum-board",
++  "line-22": null,
++  "line-23": null,
++  "line-24": null,
++  "line-25": null,
++  "line-26": null,
++  "line-27": "cement-boards",
++  "line-28": "car-parking-canopies",
++  "line-29": "interlock-tiles",
++  "line-30": "concrete-kerbstones",
++  "line-31": "concrete-kerbstones",
++  "line-32": null,
++  "line-33": "ready-mix-concrete",
++  "line-34": null,
++  "line-35": "ready-mix-concrete",
++  "line-36": "ready-mix-concrete",
++  "line-37": null,
++  "line-38": "ready-mix-concrete",
++  "line-39": null,
++  "line-40": "transfer-switch-panels",
++  "line-41": "distribution-boards",
++  "line-42": null,
++  "line-43": "cables-and-wires",
++  "line-44": null,
++  "line-45": null,
++  "line-46": "switches-sockets",
++  "line-47": null,
++  "line-48": "lighting",
++  "line-49": null,
++  "line-50": null,
++  "line-51": "pvc-pipe",
++  "line-52": null,
++  "line-53": "pvc-pipe",
++  "line-54": "precast-concrete-manholes",
++  "line-55": null,
++  "line-56": "stainless-steel-pipe",
++  "line-57": "fire-hydrants",
++  "line-58": "fire-hose-cabinets",
++  "line-59": "upvc-pipes",
++  "line-60": "valves",
++  "line-61": null,
++  "line-62": null,
++  "line-63": null,
++  "line-64": null,
++  "line-65": null,
++  "line-66": "ducted-air-conditioning-units",
++  "line-67": "hvac-air-ducts",
++  "line-68": "glass-wool-insulation",
++  "line-69": "air-grilles-diffusers"
++ },
++ "narrowedBare": {
++  "line-1": null,
++  "line-2": null,
++  "line-9": null,
++  "line-11": null,
++  "line-12": null,
++  "line-13": null,
++  "line-16": null,
++  "line-18": null,
++  "line-22": null,
++  "line-23": null,
++  "line-24": null,
++  "line-25": null,
++  "line-26": null,
++  "line-32": null,
++  "line-34": null,
++  "line-37": null,
++  "line-39": null,
++  "line-42": null,
++  "line-44": null,
++  "line-45": null,
++  "line-47": null,
++  "line-49": null,
++  "line-50": null,
++  "line-52": null,
++  "line-55": null,
++  "line-61": null,
++  "line-62": null,
++  "line-63": null,
++  "line-64": null,
++  "line-65": null
++ },
++ "narrowedWithSpec": {
++  "line-1": null,
++  "line-2": null,
++  "line-9": null,
++  "line-11": null,
++  "line-12": null,
++  "line-13": null,
++  "line-16": null,
++  "line-18": null,
++  "line-22": null,
++  "line-23": null,
++  "line-24": null,
++  "line-25": null,
++  "line-26": null,
++  "line-32": null,
++  "line-34": null,
++  "line-37": null,
++  "line-39": null,
++  "line-42": null,
++  "line-44": null,
++  "line-45": null,
++  "line-47": null,
++  "line-49": null,
++  "line-50": null,
++  "line-52": null,
++  "line-55": null,
++  "line-61": null,
++  "line-62": null,
++  "line-63": null,
++  "line-64": null,
++  "line-65": null
++ }
++}
++
++const parseQty = (qty: string) => Number(String(qty).replace(/,/g, '')) || 1
++
++function itemsFrom(uploadAnswers: Record<string, string | null>): BOQItem[] {
++  return fixture.lines.map((line) => ({
++    id: line.id,
++    name: line.name,
++    qty: line.qty,
++    unit: line.unit,
++    spec: line.spec,
++    status: 'ready',
++    supplierCount: 3,
++    suppliers: [],
++    farqSpecId: uploadAnswers[line.lineKey] || undefined,
++    lineKey: line.lineKey,
++  }))
++}
++
++const build = (items: BOQItem[], answers: Record<string, string | null>) =>
++  buildRfqLinesFromItems(items, {
++    specIdForLine: (key) => answers[key] ?? undefined,
++    // The client adapter never returns a uom, so this cannot contribute.
++    uomForLine: () => undefined,
++    parseQty,
++  })
++
++/** The payload SendModal builds for the fallback. */
++const payloadFor = (items: BOQItem[]) =>
++  items
++    .filter((item) => !item.farqSpecId)
++    .map((item) => ({
++      line_key: item.lineKey || `line-${item.id}`,
++      name_ar: item.name,
++      quantity: parseQty(item.qty),
++      uom: item.unit || 'عدد',
++      spec: item.spec,
++    }))
++
++describe("SendModal's fallback boq/match call", () => {
++  it('leaves every RFQ line identical by content, not just by count', () => {
++    const items = itemsFrom(fixture.upload)
++    const asItWas = build(items, fixture.fallbackBare)
++    const narrowed = build(items, fixture.narrowedBare)
++    const shipping = build(items, fixture.narrowedWithSpec)
++
++    // Narrowing changed nothing, and sending the spec changed nothing either.
++    expect(narrowed).toEqual(asItWas)
++    expect(shipping).toEqual(asItWas)
++    expect(JSON.stringify(shipping)).toBe(JSON.stringify(asItWas))
++
++    // Not a vacuous pass: state what these lines are.
++    expect(shipping).toHaveLength(69)
++    expect(shipping.filter((l) => l.farq_spec_id)).toHaveLength(39)
++    expect(shipping.filter((l) => l.farq_spec_id === null)).toHaveLength(30)
++    // Each line keeps its own name — the wrong-name regression stays fixed.
++    for (const [i, line] of shipping.entries()) {
++      expect(line.name_ar).toBe(fixture.lines[i]!.name)
++      expect(line.original_name).toBe(fixture.lines[i]!.name)
++    }
++  })
++
++  it('asks about exactly the unresolved lines, and cannot alter the rest', () => {
++    const items = itemsFrom(fixture.upload)
++    const asked = payloadFor(items).map((l) => l.line_key).sort()
++    expect(asked).toEqual(Object.keys(fixture.narrowedWithSpec).sort())
++    expect(asked).toHaveLength(30)
++    const built = build(items, fixture.narrowedWithSpec)
++    for (const item of items.filter((i) => i.farqSpecId)) {
++      expect(built.find((l) => l.line_key === item.lineKey)?.farq_spec_id).toBe(item.farqSpecId)
++    }
++  })
++
++  it('sends the technical column for every line it asks about', () => {
++    // The omission this guards against: the field is on the item, so leaving it
++    // out of the payload is silent and costs accuracy rather than erroring.
++    const payload = payloadFor(itemsFrom(fixture.upload))
++    expect(payload).toHaveLength(30)
++    for (const line of payload) {
++      const source = fixture.lines.find((l) => l.lineKey === line.line_key)!
++      expect(line.spec).toBe(source.spec)
++      expect(line.spec).toBeTruthy()
++    }
++  })
++
++  it('agrees with the upload once it sends the same field', () => {
++    // Without the column the fallback named a different material on two lines.
++    const diverged = Object.keys(fixture.upload).filter(
++      (key) => fixture.upload[key] !== fixture.fallbackBare[key],
++    )
++    expect(diverged).toEqual(['line-48', 'line-51'])
++    expect(fixture.upload['line-48']).toBe('indoor-lighting')
++    expect(fixture.fallbackBare['line-48']).toBe('lighting')
++    expect(fixture.upload['line-51']).toBe('ppr-pipes')
++    expect(fixture.fallbackBare['line-51']).toBe('pvc-pipe')
++
++    // Both are lines the upload resolved, so narrowing already stops the
++    // fallback being consulted for them — and with the column sent, the whole
++    // class of disagreement is gone: the fallback agrees with the upload on
++    // every line it is asked about.
++    const items = itemsFrom(fixture.upload)
++    const askedKeys = new Set(payloadFor(items).map((l) => l.line_key))
++    expect(askedKeys.has('line-48')).toBe(false)
++    expect(askedKeys.has('line-51')).toBe(false)
++    for (const key of askedKeys) {
++      expect(fixture.narrowedWithSpec[key]).toBe(fixture.upload[key])
++    }
++  })
++
++  it('builds that payload in SendModal itself, not only here', () => {
++    // payloadFor above mirrors SendModal's construction, so on its own it cannot
++    // catch the field being dropped from the view again — which is the bug this
++    // file exists for. Bind to the source too. If a later change to the send
++    // handler trips this, that is the right moment for a human to look: this
++    // payload decides which suppliers are asked to quote.
++    const source = readFileSync(new URL('../views/SendModal.tsx', import.meta.url), 'utf8')
++    const block = source.slice(source.indexOf('const matchPayload'), source.indexOf('const matched'))
++    expect(block).toContain('spec: item.spec')
++    expect(block).toContain('needSpecId')
++    expect(source).toContain('readyItems.filter((item) => !item.farqSpecId)')
++  })
++
++  it('still resolves every line when the upload match failed entirely', () => {
++    // parseBoq swallows a failed upload match, leaving every item without a spec
++    // id — narrowing then selects all of them, so nothing is lost.
++    const items = itemsFrom({})
++    expect(payloadFor(items)).toHaveLength(69)
++    expect(build(items, fixture.upload).filter((l) => l.farq_spec_id)).toHaveLength(39)
++  })
++})
+diff --git a/src/views/SendModal.tsx b/src/views/SendModal.tsx
+index bce3cd6..94ccefc 100644
+--- a/src/views/SendModal.tsx
++++ b/src/views/SendModal.tsx
+@@ -636,15 +636,33 @@ export function SendModal({
+ 
+     try {
+       touchActivity({ step: 'مطابقة البنود مع كتالوج Farq…', channel: 'SETUP', index: 0, total: 0 })
++      // Only the lines that still have no spec id are worth asking about.
++      // `buildRfqLinesFromItems` reads `item.farqSpecId` first and falls back to
++      // `specIdForLine` only when it is empty, so re-asking about a line the
++      // upload already resolved cannot change the RFQ — it just pays for a
++      // second multi-megabyte answer on the screen the buyer is waiting on.
++      // What remains is what the fallback is actually for: an upload whose match
++      // call failed, and lines past the upload's 80-line match cap.
++      const needSpecId = readyItems.filter((item) => !item.farqSpecId)
+       const matchPayload = {
+-        lines: readyItems.map((item) => ({
++        lines: needSpecId.map((item) => ({
+           line_key: item.lineKey || `line-${item.id}`,
+           name_ar: item.name,
+           quantity: parseQty(item.qty),
+           uom: item.unit || 'عدد',
++          // The tender's technical column, which the upload sends and this call
++          // used to drop even though the item carries it. Without it the fallback
++          // answers a poorer question than the upload did and can name a
++          // different material: on a hot/cold water line it returned pvc-pipe
++          // where the upload, reading the spec, returned ppr-pipes — a pool of
++          // suppliers that cannot quote the item. Sending it makes both calls ask
++          // the same thing, so they cannot disagree.
++          spec: item.spec,
+         })),
+       }
+-      const matched = await matchConstructionBoqCatalog(matchPayload).catch(() => null)
++      const matched = needSpecId.length
++        ? await matchConstructionBoqCatalog(matchPayload).catch(() => null)
++        : null
+       touchActivity({ step: 'اكتملت المطابقة — تجهيز البنود…', channel: 'SETUP' })
+       const matchRows = matched?.rows || matched?.matches || []
+       const byKey = new Map(matchRows.map((row) => [row.line_key, row]))
