@@ -1,0 +1,2173 @@
+{
+  "version": "cpo-v2",
+  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
+  "learning": { "promote_after_occurrences": 5 },
+
+  "archetypes": {
+    "structural_steel_supplier": { "label_ar": "موردو الحديد الإنشائي", "patterns": ["حديد انشائي", "قطاعات حديد", "فولاذ", "structural steel", "steel sections", "مصنع حديد", "steel stockist", "stockist"] },
+    "metal_trading": { "label_ar": "تجارة المعادن", "patterns": ["تجاره معادن", "معادن", "metal trading", "metals", "steel trading", "steel distributor"] },
+    "rebar_supplier": { "label_ar": "موردو حديد التسليح", "patterns": ["حديد تسليح", "اسياخ حديد", "rebar", "reinforcement steel"] },
+    "ready_mix_supplier": { "label_ar": "الخرسانة الجاهزة", "patterns": ["خرسانه", "خرسانه جاهزه", "ready mix", "readymix", "concrete", "صبه جاهزه", "بلوك"] },
+    "cladding_supplier": { "label_ar": "موردو الكلادينج والتجليد", "patterns": ["كلادينج", "تجليد", "كسوه", "cladding", "الوكبوند", "acp panels", "تلبيس"] },
+    "fitout_contractor": { "label_ar": "مقاولو التشطيبات", "patterns": ["تشطيبات", "تشطيب", "fit out", "fitout", "ديكور", "ديكورات", "interior fit", "اعمال داخليه"] },
+    "joinery_supplier": { "label_ar": "النجارة والأعمال الخشبية", "patterns": ["نجاره", "اعمال خشبيه", "joinery", "carpentry", "اثاث خشبي", "خشب", "mdf"] },
+    "interior_finishing": { "label_ar": "التشطيبات الداخلية", "patterns": ["تشطيبات داخليه", "interior finishing", "جبس", "اسقف مستعاره", "قواطع"] },
+    "paint_only_supplier": { "label_ar": "موردو الدهانات فقط", "patterns": ["دهانات", "دهان", "طلاء", "بويات", "بويه", "paints", "paint", "coatings only"] },
+    "waterproofing_supplier": { "label_ar": "العزل", "patterns": ["عزل", "waterproofing", "ممبرين", "insulation", "عزل مايي", "عزل حراري"] },
+    "flooring_supplier": { "label_ar": "الأرضيات", "patterns": ["ارضيات", "بلاط", "سيراميك", "بورسلان", "flooring", "tiles", "رخام", "marble"] },
+    "general_building_materials": { "label_ar": "مواد البناء العامة", "patterns": ["مواد بناء", "building materials", "مقاولات عامه", "general contracting", "مواد انشاييه"] },
+    "general_trading": { "label_ar": "تجارة عامة", "patterns": ["تجاره عامه", "general trading", "مؤسسه تجاريه", "trading est", "trading company"] },
+    "warehouse_equipment_supplier": { "label_ar": "تجهيزات المستودعات", "patterns": ["رفوف", "مستودعات", "racking", "shelving", "storage systems", "warehouse", "تخزين"] },
+    "material_handling_supplier": { "label_ar": "معدات المناولة", "patterns": ["مناوله", "رافعات شوكيه", "forklift", "material handling", "معدات مناوله", "pallet truck"] },
+    "lifting_equipment_supplier": { "label_ar": "معدات الرفع", "patterns": ["معدات رفع", "اوناش", "crane", "lifting", "hoist", "سلاسل رفع", "rigging"] },
+    "weighing_supplier": { "label_ar": "الموازين", "patterns": ["ميزان", "موازين", "scales", "weighing", "weighbridge"] },
+    "pump_supplier": { "label_ar": "المضخات", "patterns": ["مضخات", "مضخه", "pumps", "pumping"] },
+    "valve_supplier": { "label_ar": "المحابس والصمامات", "patterns": ["محابس", "صمامات", "valves", "valve"] },
+    "pipe_fittings_supplier": { "label_ar": "المواسير والوصلات", "patterns": ["مواسير", "انابيب", "pipes", "fittings", "وصلات", "piping"] },
+    "water_treatment_supplier": { "label_ar": "معالجة المياه", "patterns": ["معالجه مياه", "تحليه", "water treatment", "فلاتر مياه", "reverse osmosis"] },
+    "hvac_supplier": { "label_ar": "التكييف والتهوية", "patterns": ["تكييف", "تهويه", "hvac", "تبريد", "air conditioning", "chiller", "ventilation"] },
+    "plumbing_only_supplier": { "label_ar": "السباكة فقط", "patterns": ["سباكه", "plumbing", "اعمال صحيه"] },
+    "sanitary_ware_supplier": { "label_ar": "الأدوات الصحية", "patterns": ["ادوات صحيه", "اطقم حمامات", "sanitary ware", "خلاطات", "مغاسل"] },
+    "fire_fighting_supplier": { "label_ar": "مكافحة الحريق", "patterns": ["مكافحه الحريق", "اطفاء", "fire fighting", "fire protection", "حريق", "طفايات", "sprinkler"] },
+    "fire_alarm_supplier": { "label_ar": "أنظمة إنذار الحريق", "patterns": ["انذار", "fire alarm", "كشف الحريق", "انظمه انذار", "detection systems"] },
+    "electrical_distributor": { "label_ar": "موزعو المواد الكهربائية", "patterns": ["مواد كهرباييه", "كهرباييه", "electrical", "كهرباء", "electric supplies", "electrical distribution"] },
+    "switchgear_supplier": { "label_ar": "لوحات التوزيع", "patterns": ["لوحات كهرباييه", "switchgear", "لوحات توزيع", "panel boards", "mdb", "mcc"] },
+    "cable_supplier": { "label_ar": "الكابلات", "patterns": ["كابلات", "كيابل", "cables", "اسلاك", "wires", "wiring"] },
+    "generator_supplier": { "label_ar": "المولدات", "patterns": ["مولدات", "generators", "genset", "مولدات ديزل", "diesel generator"] },
+    "ups_supplier": { "label_ar": "أنظمة الطاقة الاحتياطية", "patterns": ["ups", "انظمه طاقه", "بطاريات", "batteries", "power systems", "طاقه احتياطيه", "power protection"] },
+    "lighting_supplier": { "label_ar": "الإنارة", "patterns": ["اناره", "اضاءه", "lighting", "مصابيح", "led lighting", "luminaire"] },
+    "transformer_supplier": { "label_ar": "المحولات", "patterns": ["محولات", "transformers", "transformer"] },
+    "safety_equipment_supplier": { "label_ar": "معدات السلامة", "patterns": ["سلامه", "safety", "مهمات سلامه", "وقايه", "معدات سلامه", "safety equipment", "industrial safety"] },
+    "ppe_supplier": { "label_ar": "مهمات الوقاية الشخصية", "patterns": ["مهمات وقايه", "ppe", "personal protective", "ملابس عمل", "workwear", "احذيه سلامه", "قفازات"] },
+    "industrial_tools_supplier": { "label_ar": "العدد والأدوات الصناعية", "patterns": ["عدد وادوات", "ادوات", "tools", "hardware", "معدات صناعيه", "industrial supplies", "toolings"] },
+    "welding_supplier": { "label_ar": "اللحام", "patterns": ["لحام", "welding", "الكترودات", "electrodes", "welding supplies"] },
+    "gas_equipment_supplier": { "label_ar": "الغازات ومعداتها", "patterns": ["غازات", "gases", "اسطوانات", "cylinders", "اكسجين", "oxygen", "acetylene"] },
+    "cleaning_equipment_supplier": { "label_ar": "معدات النظافة", "patterns": ["نظافه", "cleaning", "تنظيف", "غسالات ضغط", "cleaning equipment"] },
+    "instrumentation_supplier": { "label_ar": "أجهزة القياس والمعايرة", "patterns": ["اجهزه قياس", "قياس", "instruments", "instrumentation", "معايره", "calibration", "اجهزه فحص", "test equipment"] },
+    "data_center_integrator": { "label_ar": "مكاملو مراكز البيانات", "patterns": ["مراكز البيانات", "data center", "datacenter", "حلول مراكز بيانات", "dc solutions"] },
+    "cybersecurity_integrator": { "label_ar": "مكاملو الأمن السيبراني", "patterns": ["امن سيبراني", "cybersecurity", "cyber security", "امن معلومات", "information security", "infosec"] },
+    "network_integrator": { "label_ar": "مكاملو الشبكات", "patterns": ["شبكات", "networks", "networking", "اتصالات", "telecom", "حلول شبكات", "تيار خفيف"] },
+    "it_hardware_supplier": { "label_ar": "موردو أجهزة الحاسب", "patterns": ["حاسب", "كمبيوتر", "computers", "تقنيه المعلومات", "information technology", "اجهزه حاسب", "خوادم", "servers", "storage", "it solutions"] },
+    "cctv_security_supplier": { "label_ar": "أنظمة المراقبة", "patterns": ["مراقبه", "كاميرات", "cctv", "surveillance", "انظمه امنيه", "security systems"] },
+    "access_control_supplier": { "label_ar": "أنظمة التحكم بالدخول", "patterns": ["تحكم بالدخول", "access control", "بوابات", "انظمه دخول", "turnstile"] },
+    "av_supplier": { "label_ar": "الصوتيات والمرئيات", "patterns": ["صوتيات", "audio visual", "شاشات عرض", "display systems"] },
+    "printing_supplier": { "label_ar": "الطباعة والترقيم", "patterns": ["طباعه", "printing", "ملصقات", "labels", "barcode", "ترقيم"] }
+  },
+
+  "facets": {
+    "dimensions": { "kind": "measure", "label_ar": "الأبعاد", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*x\\s*(\\d+(?:\\.\\d+)?)(?:\\s*x\\s*(\\d+(?:\\.\\d+)?))?" },
+    "section_type": { "kind": "enum", "label_ar": "نوع القطاع", "supplier_pool_affecting": false, "values": {
+      "rhs": ["rhs", "rectangular hollow", "قطاع مستطيل", "مستطيل مجوف"],
+      "shs": ["shs", "square hollow", "قطاع مربع", "مربع مجوف"],
+      "chs": ["chs", "circular hollow", "قطاع دايري", "انبوب دايري"],
+      "ipe": ["ipe", "ipn", "i beam", "i-beam", "كمره", "كمرة"],
+      "heb": ["heb", "hea", "hem", "h beam", "h-beam"],
+      "upn": ["upn", "upe", "channel", "قطاع يو", "قناه"],
+      "angle": ["angle", "زاويه", "زاوية", "equal angle", "قطاع زاويه"],
+      "flat": ["flat bar", "فلات", "شريحه حديد", "بار مسطح"],
+      "round": ["round bar", "حديد دايري", "سيخ دايري"],
+      "plate": ["plate", "لوح حديد", "بليت"]
+    } },
+    "grade": { "kind": "measure", "label_ar": "الدرجة", "supplier_pool_affecting": false, "pattern": "\\b(s235|s275|s355|a36|a572|st37|st52|gr\\s?\\d{2,3}|ss\\s?304l?|ss\\s?316l?|304l?|316l?)\\b" },
+    "finish": { "kind": "enum", "label_ar": "التشطيب", "supplier_pool_affecting": true, "values": {
+      "galvanized": ["مجلفن", "galvanized", "galvanised", "hdg", "gi", "مغلفن"],
+      "painted": ["مدهون", "painted", "powder coated", "مطلي", "دهان فرن"],
+      "black": ["اسود", "black steel", "خام"],
+      "coated": ["coated", "مغلف", "epoxy coated", "pvdf"]
+    } },
+    "length_m": { "kind": "measure", "label_ar": "الطول", "supplier_pool_affecting": false, "pattern": "(?:طول|ارتفاع|length|height)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:م|m|متر)?" },
+    "thickness_mm": { "kind": "measure", "label_ar": "السماكة", "supplier_pool_affecting": false, "pattern": "(?:سماكه|سماكة|thickness)\\s*(\\d+(?:\\.\\d+)?)|(\\d+(?:\\.\\d+)?)\\s*(?:mm|مم)\\b" },
+    "material": { "kind": "enum", "label_ar": "المادة", "supplier_pool_affecting": true, "values": {
+      "stainless": ["ستانلس", "stainless", "ss 304", "ss 316", "316l", "304l"],
+      "cast_iron": ["زهر", "cast iron", "ductile iron", "حديد زهر"],
+      "brass": ["نحاس اصفر", "brass", "bronze", "برونز"],
+      "copper": ["نحاس", "copper", "cu"],
+      "steel": ["حديد", "فولاذ", "steel", "carbon steel"],
+      "aluminium": ["المنيوم", "aluminium", "aluminum", "acp", "الوكبوند"],
+      "pvc": ["pvc", "upvc", "بي في سي"],
+      "polymer": ["pe", "hdpe", "ppr", "ptfe", "epdm", "بولي", "polymer", "nitrile", "نيتريل"],
+      "wood": ["خشب", "mdf", "hpl", "خشبي", "plywood", "ابلكاش"],
+      "gypsum": ["جبس", "gypsum", "جبسم"],
+      "stone": ["حجر", "رخام", "granite", "جرانيت", "marble"],
+      "glass": ["زجاج", "glass", "polycarbonate", "بولي كربونيت"],
+      "concrete": ["خرسانه", "concrete"]
+    } },
+    "surface": { "kind": "enum", "label_ar": "السطح", "supplier_pool_affecting": false, "values": {
+      "column": ["اعمده", "اعمدة", "عمود", "column", "columns", "pillar"],
+      "wall": ["جدار", "جداري", "جدران", "wall", "walls"],
+      "ceiling": ["سقف", "اسقف", "سقفي", "ceiling", "soffit"],
+      "facade": ["واجهه", "واجهات", "facade", "elevation"],
+      "floor": ["ارضيه", "ارضيات", "floor", "flooring"]
+    } },
+    "application": { "kind": "enum", "label_ar": "الاستخدام", "supplier_pool_affecting": true, "values": {
+      "interior": ["داخلي", "داخليه", "interior", "indoor"],
+      "exterior": ["خارجي", "خارجيه", "exterior", "outdoor"],
+      "industrial": ["صناعي", "صناعيه", "industrial", "heavy duty"],
+      "marine": ["بحري", "marine", "offshore"],
+      "hazardous": ["مناطق خطره", "hazardous", "atex", "explosion proof", "مضاد للانفجار"]
+    } },
+    "pump_type": { "kind": "enum", "label_ar": "نوع المضخة", "supplier_pool_affecting": true, "values": {
+      "end_suction": ["end suction", "سحب طرفي"],
+      "vertical_multistage": ["vertical multistage", "multistage", "متعدده المراحل", "عموديه متعدده"],
+      "submersible": ["submersible", "غاطسه", "غاطسة", "dewatering", "نزح"],
+      "sump": ["sump", "حفره", "sump pit"],
+      "sewage": ["sewage", "صرف صحي", "مجاري", "non-clog"],
+      "fire": ["fire pump", "مضخه حريق", "jockey"],
+      "booster": ["booster", "تعزيز", "pressure boosting"],
+      "dosing": ["dosing", "جرعات", "جرعه", "metering pump", "كيماويات"],
+      "circulation": ["circulation", "تدوير", "inline", "circulator"],
+      "diaphragm": ["diaphragm", "غشاييه"],
+      "gear": ["gear pump", "ترسيه"]
+    } },
+    "valve_type": { "kind": "enum", "label_ar": "نوع المحبس", "supplier_pool_affecting": false, "values": {
+      "gate": ["gate valve", "محبس بوابه", "سكينه"],
+      "butterfly": ["butterfly", "فراشه"],
+      "check": ["check valve", "non return", "عدم رجوع", "dual plate"],
+      "globe": ["globe valve", "كرويه خانقه"],
+      "ball": ["ball valve", "محبس كره", "كروي"],
+      "pressure_reducing": ["pressure reducing", "تخفيض ضغط", "prv"],
+      "strainer": ["strainer", "مصفاه", "y-strainer"],
+      "air_release": ["air release", "air vent", "تصريف هواء"],
+      "flexible_joint": ["flexible joint", "وصله مرنه", "expansion joint"],
+      "dismantling": ["dismantling joint", "وصله فك"],
+      "safety_relief": ["relief valve", "safety valve", "محبس امان"]
+    } },
+    "flow_rate": { "kind": "measure", "label_ar": "التصرف", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:m3\\s*/?\\s*(?:hr|h)|م\\s*3\\s*/?\\s*ساعه|gpm|lpm|l\\s*/\\s*h|cfm|cmh)" },
+    "head_pressure": { "kind": "measure", "label_ar": "الضغط/الرفع", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:bar|psi)|pn\\s?(\\d+)" },
+    "diameter": { "kind": "measure", "label_ar": "القطر", "supplier_pool_affecting": false, "pattern": "dn\\s?(\\d+)|(\\d+(?:\\.\\d+)?)\\s*(?:inch|بوصه|بوصة)" },
+    "power_kw": { "kind": "measure", "label_ar": "القدرة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kw|كيلو\\s*واط|hp|حصان)\\b" },
+    "capacity": { "kind": "measure", "label_ar": "السعة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kva|kvar|ah|ton|طن|لتر|ltr|l\\b|م\\s*3|m3|kg|كجم)" },
+    "voltage": { "kind": "measure", "label_ar": "الجهد", "supplier_pool_affecting": true, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kv|vdc|vac|volt)\\b" },
+    "protection_ip": { "kind": "measure", "label_ar": "درجة الحماية", "supplier_pool_affecting": false, "pattern": "\\bip\\s?(\\d{2})\\b" },
+    "data_speed": { "kind": "measure", "label_ar": "السرعة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:gbe|gbps|gb\\s*/\\s*s|mbps|tbps|g\\b)" },
+    "storage_capacity": { "kind": "measure", "label_ar": "سعة التخزين", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:tb|gb|pb)\\b" },
+    "rack_units": { "kind": "measure", "label_ar": "وحدات الرف", "supplier_pool_affecting": false, "pattern": "(?:بارتفاع|ارتفاع|مقاس|height)?\\s*(\\d+)\\s*u\\b" },
+    "range_m": { "kind": "measure", "label_ar": "المدى", "supplier_pool_affecting": false, "pattern": "(?:مدى|بطول|range|بمدي)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:م|m|متر)?" },
+    "accuracy": { "kind": "measure", "label_ar": "الدقة", "supplier_pool_affecting": false, "pattern": "(?:دقه|دقة|accuracy|±)\\s*±?\\s*(\\d+(?:\\.\\d+)?)" },
+    "standard": { "kind": "measure", "label_ar": "المواصفة", "supplier_pool_affecting": true, "pattern": "\\b(en\\s?\\d{2,5}|iec\\s?\\d{3,5}|astm\\s?[a-z]?\\d+|ansi\\s?[a-z0-9.]+|ul\\s?\\/?\\s?fm|nfpa\\s?\\d+|iso\\s?\\d{3,5})\\b" },
+    "protection_class": { "kind": "enum", "label_ar": "فئة الحماية", "supplier_pool_affecting": false, "values": {
+      "arc_flash": ["arc flash", "قوس كهربايي"],
+      "flame_retardant": ["مقاوم للهب", "flame retardant", "fr coverall", "lszh"],
+      "cut_resistant": ["مقاوم للقطع", "cut resistant", "cut level"],
+      "chemical": ["كيمياييه", "chemical resistant", "type 5", "type 6"],
+      "anti_static": ["مضاد للكهرباء الساكنه", "anti static", "esd"],
+      "high_visibility": ["عاليه الوضوح", "high visibility", "hi-vis", "عاكسه", "class 3"]
+    } },
+    "interface": { "kind": "enum", "label_ar": "الواجهة", "supplier_pool_affecting": false, "values": {
+      "usb": ["usb"],
+      "ethernet": ["ethernet", "شبكه", "rj45", "lan"],
+      "wireless": ["wifi", "wireless", "لاسلكي", "bluetooth"],
+      "serial": ["serial", "rs232", "rs485"],
+      "hdmi": ["hdmi", "displayport", "vga"]
+    } },
+    "print_technology": { "kind": "enum", "label_ar": "تقنية الطباعة", "supplier_pool_affecting": true, "values": {
+      "thermal": ["حراريه", "thermal transfer", "direct thermal", "حراري"],
+      "laser": ["ليزر", "laser"],
+      "inkjet": ["نافثه للحبر", "inkjet"],
+      "dye_sublimation": ["dye sublimation", "retransfer", "تصعيد"],
+      "dot_matrix": ["dot matrix", "مصفوفه نقطيه"]
+    } },
+    "camera_form": { "kind": "enum", "label_ar": "شكل الكاميرا", "supplier_pool_affecting": false, "values": {
+      "dome": ["dome", "قبه"],
+      "bullet": ["bullet", "اسطوانيه"],
+      "ptz": ["ptz", "pan tilt zoom", "متحركه"],
+      "fisheye": ["fisheye", "بانوراميه", "360"]
+    } },
+    "resolution_mp": { "kind": "measure", "label_ar": "الدقة", "supplier_pool_affecting": false, "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:mp|ميجابكسل|megapixel)" },
+    "credential_type": { "kind": "enum", "label_ar": "نوع بيانات الدخول", "supplier_pool_affecting": false, "values": {
+      "rfid": ["rfid", "mifare", "125khz", "13.56"],
+      "biometric": ["بصمه", "biometric", "fingerprint", "وجه", "face"],
+      "pin": ["pin", "رقم سري", "keypad"],
+      "mobile": ["mobile credential", "ble", "nfc"]
+    } }
+  },
+
+  "sectors": {
+    "STRUCTURAL_METALS": {
+      "domain": "structural",
+      "context_terms": ["حديد", "فولاذ", "steel", "معادن", "انشايي"],
+      "supplier_terms": ["حديد", "فولاذ", "steel", "معادن"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["paint_only_supplier", "sanitary_ware_supplier", "ppe_supplier", "cybersecurity_integrator"]
+    },
+    "BUILDING_ENVELOPE": {
+      "domain": "envelope",
+      "context_terms": ["مبنى", "غلاف", "سقف", "جدار", "building"],
+      "supplier_terms": ["مواد بناء", "عزل", "الواح"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["sanitary_ware_supplier", "cybersecurity_integrator", "ppe_supplier"]
+    },
+    "ARCHITECTURAL_FINISHES": {
+      "domain": "finishes",
+      "context_terms": ["تشطيب", "ديكور", "finishes", "interior"],
+      "supplier_terms": ["تشطيبات", "ديكورات", "fit out", "finishes"],
+      "negative_terms": ["حديد تسليح", "خرسانه جاهزه", "ready mix"],
+      "soft_conflicts": ["general_building_materials", "general_trading"],
+      "hard_conflicts": ["rebar_supplier", "ready_mix_supplier", "cybersecurity_integrator", "sanitary_ware_supplier"]
+    },
+    "WAREHOUSE_LOGISTICS": {
+      "domain": "warehouse",
+      "context_terms": ["مستودع", "مستودعات", "تخزين", "مناوله", "warehouse", "logistics"],
+      "supplier_terms": ["مستودعات", "مناوله", "تخزين", "logistics"],
+      "soft_conflicts": ["general_trading", "general_building_materials"],
+      "hard_conflicts": ["paint_only_supplier", "sanitary_ware_supplier", "cybersecurity_integrator", "ready_mix_supplier"]
+    },
+    "MEP_WATER": {
+      "domain": "mep",
+      "context_terms": ["مياه", "ميكانيكيه", "mep", "mechanical", "hydraulic"],
+      "supplier_terms": ["ميكانيكيه", "mep", "mechanical"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["paint_only_supplier", "cybersecurity_integrator", "ppe_supplier", "rebar_supplier"]
+    },
+    "FIRE": {
+      "domain": "fire",
+      "context_terms": ["حريق", "اطفاء", "سلامه", "fire", "ul", "fm", "nfpa"],
+      "supplier_terms": ["مكافحه الحريق", "سلامه", "fire"],
+      "soft_conflicts": ["plumbing_only_supplier", "general_building_materials", "general_trading"],
+      "hard_conflicts": ["sanitary_ware_supplier", "paint_only_supplier", "cybersecurity_integrator", "rebar_supplier", "ready_mix_supplier"]
+    },
+    "ELECTRICAL": {
+      "domain": "electrical",
+      "context_terms": ["كهرباء", "كهربايي", "electrical", "كهرباييه", "volt", "kv"],
+      "supplier_terms": ["كهرباييه", "electrical", "كهرباء"],
+      "soft_conflicts": ["general_trading", "general_building_materials"],
+      "hard_conflicts": ["paint_only_supplier", "sanitary_ware_supplier", "ready_mix_supplier", "ppe_supplier"]
+    },
+    "SAFETY_PPE": {
+      "domain": "safety",
+      "context_terms": ["سلامه", "حمايه", "وقايه", "safety", "protective", "en", "ansi"],
+      "supplier_terms": ["سلامه", "مهمات سلامه", "safety", "ppe"],
+      "negative_terms": ["خرسانه", "حديد تسليح"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ready_mix_supplier", "rebar_supplier", "paint_only_supplier", "cybersecurity_integrator", "sanitary_ware_supplier"]
+    },
+    "TOOLS_WORKSHOP": {
+      "domain": "tools",
+      "context_terms": ["عده", "ادوات", "ورشه", "tools", "workshop", "صناعي"],
+      "supplier_terms": ["عدد وادوات", "tools", "معدات صناعيه"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ready_mix_supplier", "cybersecurity_integrator", "sanitary_ware_supplier", "paint_only_supplier"]
+    },
+    "INSTRUMENTS": {
+      "domain": "instruments",
+      "context_terms": ["قياس", "معايره", "فحص", "دقه", "instrument", "calibration", "accuracy"],
+      "supplier_terms": ["اجهزه قياس", "instruments", "معايره"],
+      "soft_conflicts": ["general_trading"],
+      "hard_conflicts": ["ready_mix_supplier", "paint_only_supplier", "sanitary_ware_supplier", "rebar_supplier"]
+    },
+    "DATACENTER_ICT": {
+      "domain": "ict",
+      "context_terms": ["تقنيه المعلومات", "شبكه", "شبكات", "مركز بيانات", "data center", "enterprise", "it", "rack"],
+      "supplier_terms": ["تقنيه المعلومات", "it", "شبكات", "data center"],
+      "negative_terms": [],
+      "soft_conflicts": ["general_trading", "general_building_materials"],
+      "hard_conflicts": ["ready_mix_supplier", "paint_only_supplier", "sanitary_ware_supplier", "plumbing_only_supplier", "rebar_supplier"]
+    }
+  },
+
+  "families": [
+    {
+      "id": "structural_steel",
+      "sector": "STRUCTURAL_METALS",
+      "label_ar": "الحديد الإنشائي والقطاعات",
+      "strong_terms": ["قطاع حديد", "قطاعات حديد", "حديد انشايي", "فولاذ انشايي", "structural steel", "steel section", "hollow section", "rolled section", "steel profile", "كمره حديد", "زاويه حديد", "rhs", "shs", "chs", "upn", "upe", "ipe", "ipn", "heb", "hea", "rectangular hollow section", "square hollow section", "circular hollow section", "channel section", "angle bar", "flat bar", "قطاع مجوف", "بروفيل حديد"],
+      "weak_terms": ["قطاع", "section", "beam", "angle", "channel", "زاويه"],
+      "context_terms": ["حديد", "فولاذ", "steel", "s275", "s355", "mill certificate", "مجلفن"],
+      "supplier_terms": ["حديد", "فولاذ", "steel", "قطاعات", "معادن"],
+      "preferred_archetypes": ["structural_steel_supplier", "metal_trading"],
+      "allowed_archetypes": ["general_building_materials", "rebar_supplier"],
+      "facets": [
+        { "name": "section_type", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "grade", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": true },
+        { "name": "length_m", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "categories": [
+        {
+          "id": "steel_sections",
+          "label_ar": "القطاعات الحديدية",
+          "strong_terms": ["قطاع حديد", "steel section", "hollow section"],
+          "intents": [
+            {
+              "id": "structural_steel_section",
+              "label_ar": "قطاع حديد إنشائي",
+              "strong_terms": ["قطاع حديد", "steel section", "hollow section", "rhs", "shs", "chs", "upn", "ipe", "heb", "hea", "زاويه حديد", "angle bar", "flat bar", "كمره حديد", "rectangular hollow section", "square hollow section"],
+              "weak_terms": ["قطاع", "section", "beam", "angle", "channel", "زاويه"],
+              "context_terms": ["حديد", "فولاذ", "steel", "s275", "s355", "mill certificate"],
+              "facets": [
+                { "name": "section_type", "supplier_pool_affecting": false },
+                { "name": "dimensions", "supplier_pool_affecting": false },
+                { "name": "grade", "supplier_pool_affecting": false },
+                { "name": "finish", "supplier_pool_affecting": true },
+                { "name": "length_m", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "metal_sheet_coil",
+      "sector": "STRUCTURAL_METALS",
+      "label_ar": "الصاج واللفائف",
+      "strong_terms": ["صاج مجلفن", "لفايف صاج", "steel coil", "steel sheet", "gi coil", "gi sheet", "chequered plate", "صاج مضلع", "لوح حديد"],
+      "weak_terms": ["صاج", "لفايف", "coil", "sheet", "plate"],
+      "context_terms": ["مجلفن", "galvanized", "سماكه", "z275", "لفايف", "الواح", "حديد"],
+      "supplier_terms": ["صاج", "لفايف", "steel sheet", "معادن"],
+      "preferred_archetypes": ["structural_steel_supplier", "metal_trading"],
+      "allowed_archetypes": ["general_building_materials"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": true },
+        { "name": "grade", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "metal_grating_walkway",
+      "sector": "STRUCTURAL_METALS",
+      "label_ar": "المشبك المعدني والممرات",
+      "strong_terms": ["steel grating", "مشبك معدني", "mezzanine grating", "grating panel", "درج معدني", "سلم معدني", "handrail", "درابزين", "ميزانين"],
+      "weak_terms": ["grating", "walkway", "mezzanine", "درج", "سلم"],
+      "context_terms": ["معدني", "حديد", "steel", "galvanized", "مجلفن", "منصه"],
+      "supplier_terms": ["معادن", "حديد", "grating"],
+      "preferred_archetypes": ["structural_steel_supplier", "metal_trading"],
+      "allowed_archetypes": ["warehouse_equipment_supplier", "general_building_materials"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": true },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "rebar_mesh",
+      "sector": "STRUCTURAL_METALS",
+      "label_ar": "حديد التسليح والشبك",
+      "strong_terms": ["حديد تسليح", "اسياخ تسليح", "rebar", "reinforcement bar", "شبك حديد", "wire mesh", "welded mesh", "شبك ملحوم"],
+      "weak_terms": ["تسليح", "mesh", "شبك"],
+      "context_terms": ["حديد", "steel", "قطر", "mm"],
+      "supplier_terms": ["حديد تسليح", "rebar"],
+      "preferred_archetypes": ["rebar_supplier", "structural_steel_supplier"],
+      "allowed_archetypes": ["general_building_materials", "metal_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "grade", "supplier_pool_affecting": false }
+      ]
+    },
+
+    {
+      "id": "sandwich_panel",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "ألواح الساندوتش بانل",
+      "strong_terms": ["ساندوتش بانل", "sandwich panel", "لوح ساندوتش", "بانل جدار", "بانل سقف", "pir panel", "puf panel", "rockwool panel"],
+      "weak_terms": ["بانل", "panel"],
+      "context_terms": ["جدار", "سقف", "عزل", "سماكه", "pir", "puf", "wall", "roof"],
+      "supplier_terms": ["ساندوتش بانل", "الواح", "عزل"],
+      "preferred_archetypes": ["waterproofing_supplier", "general_building_materials", "cladding_supplier"],
+      "allowed_archetypes": ["structural_steel_supplier", "metal_trading"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": true },
+        { "name": "application", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "translucent_roofing",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "ألواح الإضاءة الطبيعية",
+      "strong_terms": ["بولي كربونيت", "polycarbonate", "twinwall", "لوح شفاف", "fiberglass sheet", "منور سقفي", "skylight"],
+      "weak_terms": ["منور", "لوح", "sheet"],
+      "context_terms": ["شفاف", "uv", "سقف", "طبيعيه", "translucent"],
+      "supplier_terms": ["الواح", "بولي كربونيت", "مواد بناء"],
+      "preferred_archetypes": ["general_building_materials", "cladding_supplier"],
+      "allowed_archetypes": ["waterproofing_supplier"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "waterproofing",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "العزل المائي والحراري",
+      "strong_terms": ["ممبرين", "waterproofing membrane", "tpo", "بيتومين", "bitumen", "عزل مايي", "عزل حراري", "waterproofing", "صوف صخري", "rockwool"],
+      "weak_terms": ["عزل", "membrane", "insulation"],
+      "context_terms": ["سماكه", "مايي", "حراري", "سقف", "اساسات", "roll"],
+      "supplier_terms": ["عزل", "waterproofing", "ممبرين"],
+      "preferred_archetypes": ["waterproofing_supplier"],
+      "allowed_archetypes": ["general_building_materials", "flooring_supplier"],
+      "soft_conflicts": ["paint_only_supplier"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "application", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "industrial_doors",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "الأبواب والشتر الصناعي",
+      "strong_terms": ["roller shutter", "شتر معدني", "باب صناعي", "industrial door", "sectional door", "باب حريق", "fire door", "shutter door"],
+      "weak_terms": ["باب", "ابواب", "door", "بوابه", "شتر"],
+      "context_terms": ["معدني", "motorized", "كهربايي", "صناعي", "حريق", "galvanized", "m x"],
+      "supplier_terms": ["ابواب", "doors", "شتر", "معادن"],
+      "preferred_archetypes": ["metal_trading", "general_building_materials", "joinery_supplier"],
+      "allowed_archetypes": ["structural_steel_supplier", "fitout_contractor", "warehouse_equipment_supplier"],
+      "hard_conflicts": ["paint_only_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": true }
+      ]
+    },
+
+    {
+      "id": "architectural_cladding",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "الكسوة والتجليد",
+      "strong_terms": ["تجليد", "كسوه", "تلبيس", "cladding", "كلادينج", "الوكبوند", "acp", "wall panel", "تكسيه", "surface covering"],
+      "weak_terms": ["covering", "تغليف", "panel"],
+      "context_terms": ["اعمده", "جدار", "سقف", "واجهه", "ديكور", "تشطيب", "interior", "exterior", "mdf", "خشب"],
+      "supplier_terms": ["تشطيبات", "ديكورات", "fit out", "كسوه", "تجليد", "joinery", "نجاره"],
+      "negative_terms": ["حديد تسليح", "خرسانه جاهزه", "ready mix", "rebar"],
+      "preferred_archetypes": ["cladding_supplier", "fitout_contractor", "joinery_supplier"],
+      "allowed_archetypes": ["interior_finishing", "general_building_materials", "metal_trading"],
+      "hard_conflicts": ["paint_only_supplier", "plumbing_only_supplier"],
+      "facets": [
+        { "name": "surface", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "application", "supplier_pool_affecting": true },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "categories": [
+        {
+          "id": "cladding",
+          "label_ar": "التجليد",
+          "strong_terms": ["تجليد", "كسوه", "تلبيس", "cladding"],
+          "context_terms": ["اعمده", "جدار", "سقف", "واجهه", "ديكور"],
+          "intents": [
+            {
+              "id": "surface_cladding",
+              "label_ar": "تجليد أسطح",
+              "strong_terms": ["تجليد", "كسوه", "تلبيس", "cladding", "تكسيه", "surface covering"],
+              "weak_terms": ["covering", "تغليف"],
+              "facets": [
+                { "name": "surface", "supplier_pool_affecting": false },
+                { "name": "material", "supplier_pool_affecting": true },
+                { "name": "application", "supplier_pool_affecting": true },
+                { "name": "dimensions", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "column_cladding",
+              "label_ar": "تجليد أعمدة",
+              "strong_terms": ["تجليد اعمده", "كسوه اعمده", "column cladding", "تلبيس اعمده", "تجليد عمود"],
+              "weak_terms": ["اعمده", "عمود", "column", "pillar"],
+              "context_terms": ["تجليد", "كسوه", "تلبيس", "cladding"],
+              "requires": ["surface_cladding"],
+              "confidence": 0.98,
+              "facets": [
+                { "name": "surface", "supplier_pool_affecting": false },
+                { "name": "material", "supplier_pool_affecting": true },
+                { "name": "application", "supplier_pool_affecting": true },
+                { "name": "dimensions", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paints_coatings",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "الدهانات",
+      "strong_terms": ["دهان", "دهانات", "طلاء", "بويه", "emulsion paint", "معجون", "putty"],
+      "weak_terms": ["paint", "coating", "جيسو"],
+      "context_terms": ["داخلي", "خارجي", "لتر", "جالون", "طبقه", "primer", "topcoat"],
+      "supplier_terms": ["دهانات", "paints", "تشطيبات"],
+      "preferred_archetypes": ["paint_only_supplier"],
+      "allowed_archetypes": ["fitout_contractor", "general_building_materials", "interior_finishing"],
+      "facets": [
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "application", "supplier_pool_affecting": true },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "industrial_flooring_coating",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "أرضيات ودهانات صناعية",
+      "strong_terms": ["ايبوكسي", "epoxy", "هاردنر ارضيات", "dry shake", "self leveling", "طلاء pu", "pu coating", "برايمر ايبوكسي", "floor coating", "floor hardener"],
+      "weak_terms": ["هاردنر", "hardener", "برايمر", "primer"],
+      "context_terms": ["ارضيات", "floor", "صناعي", "chemical resistant", "mm", "kg bag"],
+      "supplier_terms": ["ارضيات صناعيه", "دهانات صناعيه", "epoxy", "تشطيبات"],
+      "preferred_archetypes": ["flooring_supplier", "waterproofing_supplier", "paint_only_supplier"],
+      "allowed_archetypes": ["fitout_contractor", "general_building_materials", "interior_finishing"],
+      "hard_conflict_exceptions": ["rebar_supplier"],
+      "facets": [
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "sealants_adhesives",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "مواد السد واللواصق",
+      "strong_terms": ["joint sealant", "sealant", "سيليكون", "silicone", "مانع تسرب", "mastic", "بولي يوريثان sausage"],
+      "weak_terms": ["لاصق", "adhesive", "sausage"],
+      "context_terms": ["ml", "فواصل", "joint", "بولي يوريثان", "tube"],
+      "supplier_terms": ["مواد بناء", "تشطيبات", "sealants"],
+      "preferred_archetypes": ["general_building_materials", "waterproofing_supplier"],
+      "allowed_archetypes": ["paint_only_supplier", "fitout_contractor", "flooring_supplier"],
+      "facets": [
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "interior_systems",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "الجبس والقواطع والأسقف",
+      "strong_terms": ["جبس", "جبسم", "gypsum", "سقف مستعار", "سقف معلق", "suspended ceiling", "false ceiling", "drywall", "قواطع جبس", "قواطع زجاج"],
+      "weak_terms": ["قواطع", "partition", "ceiling"],
+      "context_terms": ["مستعار", "معلق", "الواح", "board", "داخلي", "تشطيب"],
+      "supplier_terms": ["تشطيبات", "جبس", "اسقف", "قواطع"],
+      "preferred_archetypes": ["interior_finishing", "fitout_contractor"],
+      "allowed_archetypes": ["general_building_materials", "joinery_supplier"],
+      "hard_conflicts": ["paint_only_supplier"],
+      "facets": [
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "thickness_mm", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "floor_tiling",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "الأرضيات والبلاط",
+      "strong_terms": ["ارضيات", "بلاط", "سيراميك", "بورسلان", "بورسلين", "رخام", "flooring", "ceramic tiles", "porcelain", "vinyl flooring", "فينيل", "نعلات", "skirting", "باركيه", "parquet"],
+      "weak_terms": ["tiles", "ارضيه", "floor"],
+      "context_terms": ["م2", "مقاس", "تشطيب", "لاصق", "انهاء"],
+      "supplier_terms": ["ارضيات", "بلاط", "tiles", "تشطيبات"],
+      "preferred_archetypes": ["flooring_supplier"],
+      "allowed_archetypes": ["fitout_contractor", "general_building_materials", "interior_finishing"],
+      "hard_conflicts": ["paint_only_supplier"],
+      "facets": [
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": true }
+      ]
+    },
+
+    {
+      "id": "storage_racking",
+      "sector": "WAREHOUSE_LOGISTICS",
+      "label_ar": "أنظمة الرفوف والتخزين",
+      "strong_terms": ["pallet rack", "pallet racking", "racking system", "rack protector", "shelving bay", "long span shelving", "boltless shelving", "cantilever rack", "cantilever upright", "cantilever arm", "bin storage cabinet", "رفوف تخزين", "رف بالتات", "mezzanine floor", "rack upright", "rack beam"],
+      "weak_terms": ["rack", "shelving", "رف", "رفوف", "cantilever", "upright", "beam", "bay", "طبليه", "بالته"],
+      "context_terms": ["تخزين", "مستودع", "pallet", "حموله", "kg", "galvanized", "storage", "shelves", "مواد طويله", "long materials", "arm", "heavy duty", "بلاستيك"],
+      "supplier_terms": ["رفوف", "مستودعات", "racking", "shelving", "تخزين", "storage systems"],
+      "preferred_archetypes": ["warehouse_equipment_supplier"],
+      "allowed_archetypes": ["material_handling_supplier", "structural_steel_supplier", "metal_trading", "industrial_tools_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "dock_equipment",
+      "sector": "WAREHOUSE_LOGISTICS",
+      "label_ar": "تجهيزات أرصفة التحميل",
+      "strong_terms": ["dock leveller", "dock leveler", "dock shelter", "dock bumper", "wheel guide", "loading ramp", "رصيف تحميل", "منصه تحميل", "dock seal"],
+      "weak_terms": ["dock", "leveller", "ramp", "bumper", "رامب"],
+      "context_terms": ["تحميل", "loading", "trailer", "hydraulic", "docking", "bay"],
+      "supplier_terms": ["مستودعات", "مناوله", "dock equipment", "warehouse"],
+      "preferred_archetypes": ["warehouse_equipment_supplier", "material_handling_supplier"],
+      "allowed_archetypes": ["lifting_equipment_supplier", "metal_trading", "industrial_tools_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "material_handling",
+      "sector": "WAREHOUSE_LOGISTICS",
+      "label_ar": "معدات المناولة",
+      "strong_terms": ["pallet truck", "رافعه شوكيه", "forklift", "stacker", "platform trolley", "hand pallet", "material lift", "chain block", "رافعه سلسله", "جك هيدروليكي", "pallet jack", "reach truck", "order picker", "electric chain hoist"],
+      "weak_terms": ["عربه", "trolley", "hoist", "رافعه", "lift", "truck"],
+      "context_terms": ["مناوله", "تحميل", "بالته", "pallet", "kg", "ton", "طن", "handling", "warehouse"],
+      "supplier_terms": ["مناوله", "material handling", "رافعات", "مستودعات"],
+      "preferred_archetypes": ["material_handling_supplier", "warehouse_equipment_supplier"],
+      "allowed_archetypes": ["lifting_equipment_supplier", "industrial_tools_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "lifting_gear",
+      "sector": "WAREHOUSE_LOGISTICS",
+      "label_ar": "معدات ومستلزمات الرفع",
+      "strong_terms": ["web sling", "حزام رفع", "chain sling", "سلسله رفع", "wire rope sling", "shackle", "شاكل", "eye bolt", "lifting hook", "خطاف رفع", "lifting beam", "load binder", "ratchet strap", "حزام تثبيت", "beam clamp", "مشبك عارضه", "plate clamp", "ملزمه رفع", "lifting magnet", "مغناطيس رفع", "permanent lifting magnet", "load cell", "crane load cell", "ميزان حموله", "dynamometer", "مقياس حموله", "swivel hoist ring"],
+      "weak_terms": ["sling", "rope", "hook", "strap", "حبل", "clamp", "مشبك", "مغناطيس", "magnet"],
+      "context_terms": ["رفع", "حموله", "ton", "طن", "lifting", "سعه", "rigging", "kg", "crane", "ونش"],
+      "supplier_terms": ["معدات رفع", "lifting", "rigging", "سلامه"],
+      "preferred_archetypes": ["lifting_equipment_supplier", "material_handling_supplier"],
+      "allowed_archetypes": ["safety_equipment_supplier", "industrial_tools_supplier", "warehouse_equipment_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "length_m", "supplier_pool_affecting": false },
+        { "name": "standard", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "weighing_equipment",
+      "sector": "WAREHOUSE_LOGISTICS",
+      "label_ar": "الموازين الصناعية",
+      "strong_terms": ["ميزان ارضي", "ميزان منصه", "floor scale", "platform scale", "weighbridge", "crane scale", "counting scale", "digital floor scale", "موازين صناعيه"],
+      "weak_terms": ["ميزان", "scale", "موازين"],
+      "context_terms": ["ton", "طن", "kg", "كجم", "منصه", "رقمي", "digital", "platform"],
+      "supplier_terms": ["موازين", "scales", "weighing", "اجهزه قياس"],
+      "preferred_archetypes": ["weighing_supplier", "instrumentation_supplier"],
+      "allowed_archetypes": ["warehouse_equipment_supplier", "industrial_tools_supplier", "material_handling_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "accuracy", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "waste_containers",
+      "sector": "WAREHOUSE_LOGISTICS",
+      "label_ar": "حاويات النفايات",
+      "strong_terms": ["حاويه نفايات", "waste container", "waste bin", "سله مهملات", "حاويه فرز", "recycling bin", "skip container"],
+      "weak_terms": ["حاويه", "container", "bin", "سله"],
+      "context_terms": ["نفايات", "waste", "لتر", "فرز", "متنقله", "مهملات"],
+      "supplier_terms": ["نظافه", "حاويات", "cleaning", "مستودعات"],
+      "preferred_archetypes": ["cleaning_equipment_supplier", "warehouse_equipment_supplier"],
+      "allowed_archetypes": ["general_trading", "industrial_tools_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+
+    {
+      "id": "pumps",
+      "sector": "MEP_WATER",
+      "label_ar": "المضخات",
+      "strong_terms": ["مضخه", "مضخات", "pump", "pumps", "booster set", "pressure booster", "dewatering pump", "submersible pump", "مضخه غاطسه", "طلمبه"],
+      "weak_terms": ["pumping", "booster", "ضخ"],
+      "context_terms": ["مياه", "حريق", "صرف", "kw", "m3", "bar", "head", "impeller", "flow"],
+      "supplier_terms": ["مضخات", "pumps", "ميكانيكيه", "mep"],
+      "preferred_archetypes": ["pump_supplier"],
+      "allowed_archetypes": ["pipe_fittings_supplier", "valve_supplier", "hvac_supplier", "water_treatment_supplier", "plumbing_only_supplier", "general_building_materials"],
+      "facets": [
+        { "name": "pump_type", "supplier_pool_affecting": true },
+        { "name": "flow_rate", "supplier_pool_affecting": false },
+        { "name": "head_pressure", "supplier_pool_affecting": false },
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "categories": [
+        {
+          "id": "industrial_pumps",
+          "label_ar": "المضخات الصناعية",
+          "strong_terms": ["مضخه", "pump"],
+          "intents": [
+            {
+              "id": "industrial_pump",
+              "label_ar": "مضخة صناعية",
+              "strong_terms": ["مضخه", "مضخات", "pump", "pumps", "booster set", "submersible pump", "مضخه غاطسه", "طلمبه"],
+              "weak_terms": ["ضخ", "booster"],
+              "facets": [
+                { "name": "pump_type", "supplier_pool_affecting": true },
+                { "name": "flow_rate", "supplier_pool_affecting": false },
+                { "name": "head_pressure", "supplier_pool_affecting": false },
+                { "name": "power_kw", "supplier_pool_affecting": false },
+                { "name": "material", "supplier_pool_affecting": true },
+                { "name": "application", "supplier_pool_affecting": true }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "valves",
+      "sector": "MEP_WATER",
+      "label_ar": "المحابس والصمامات",
+      "strong_terms": ["محبس", "محابس", "صمام", "gate valve", "butterfly valve", "check valve", "globe valve", "ball valve", "y-strainer", "air release valve", "pressure reducing valve", "flexible joint", "dismantling joint", "وصله مرنه", "مصفاه"],
+      "weak_terms": ["valve", "strainer", "joint"],
+      "context_terms": ["dn", "pn", "inch", "بوصه", "flanged", "ductile", "brass", "مياه"],
+      "supplier_terms": ["محابس", "صمامات", "valves", "مواسير"],
+      "preferred_archetypes": ["valve_supplier", "pipe_fittings_supplier"],
+      "allowed_archetypes": ["pump_supplier", "plumbing_only_supplier", "hvac_supplier", "fire_fighting_supplier", "general_building_materials"],
+      "facets": [
+        { "name": "valve_type", "supplier_pool_affecting": false },
+        { "name": "diameter", "supplier_pool_affecting": false },
+        { "name": "head_pressure", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "pipes_fittings",
+      "sector": "MEP_WATER",
+      "label_ar": "المواسير والوصلات",
+      "strong_terms": ["ماسوره", "مواسير", "انبوب", "انابيب", "steel pipe", "ppr pipe", "upvc pipe", "hdpe pipe", "فلنجه", "flange", "كوع", "elbow", "coupling"],
+      "weak_terms": ["pipe", "piping", "fitting", "وصله", "tee"],
+      "context_terms": ["dn", "inch", "بوصه", "سماكه", "مياه", "صرف", "schedule"],
+      "supplier_terms": ["مواسير", "pipes", "fittings", "سباكه"],
+      "preferred_archetypes": ["pipe_fittings_supplier", "plumbing_only_supplier"],
+      "allowed_archetypes": ["valve_supplier", "pump_supplier", "hvac_supplier", "general_building_materials", "fire_fighting_supplier"],
+      "facets": [
+        { "name": "diameter", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "head_pressure", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "flow_instrumentation",
+      "sector": "MEP_WATER",
+      "label_ar": "أجهزة قياس السريان",
+      "strong_terms": ["flowmeter", "flow meter", "عداد تصرف", "مقياس تصرف", "flow switch", "مقياس ضغط", "pressure gauge", "manometer", "level gauge", "مقياس منسوب", "level switch", "electromagnetic flowmeter", "tamper switch"],
+      "weak_terms": ["gauge", "switch", "meter", "مقياس"],
+      "context_terms": ["dn", "ضغط", "تصرف", "منسوب", "ma", "ip", "مياه", "flow"],
+      "supplier_terms": ["اجهزه قياس", "instruments", "instrumentation", "مضخات"],
+      "preferred_archetypes": ["instrumentation_supplier", "valve_supplier"],
+      "allowed_archetypes": ["pump_supplier", "pipe_fittings_supplier", "water_treatment_supplier", "hvac_supplier"],
+      "facets": [
+        { "name": "diameter", "supplier_pool_affecting": false },
+        { "name": "flow_rate", "supplier_pool_affecting": false },
+        { "name": "accuracy", "supplier_pool_affecting": false },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "water_tanks",
+      "sector": "MEP_WATER",
+      "label_ar": "خزانات المياه",
+      "strong_terms": ["خزان مياه", "خزان grp", "خزان ستانلس", "water tank", "sectional tank", "خزان بوليثيلين", "خزان علوي", "خزان ارضي"],
+      "weak_terms": ["خزان", "tank"],
+      "context_terms": ["مياه", "water", "grp", "ستانلس", "م3", "m3", "sectional", "insulated", "علوي", "ارضي"],
+      "supplier_terms": ["خزانات", "tanks", "مياه", "مواد بناء"],
+      "preferred_archetypes": ["water_treatment_supplier", "pipe_fittings_supplier", "general_building_materials"],
+      "allowed_archetypes": ["plumbing_only_supplier", "pump_supplier", "metal_trading"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "water_treatment",
+      "sector": "MEP_WATER",
+      "label_ar": "معالجة المياه",
+      "strong_terms": ["فلتر مياه", "فلتر رملي", "فلتر كربوني", "water softener", "softener", "مزيل عسر", "ro skid", "reverse osmosis", "uv sterilizer", "معالجه مياه", "dosing tank", "cartridge filter", "filter housing", "softener duplex", "تحليه"],
+      "weak_terms": ["فلتر", "filter", "membrane", "خرطوشه", "cartridge"],
+      "context_terms": ["مياه", "water", "م3", "m3", "ساعه", "micron", "activated carbon", "brackish"],
+      "supplier_terms": ["معالجه مياه", "water treatment", "فلاتر", "تحليه"],
+      "preferred_archetypes": ["water_treatment_supplier"],
+      "allowed_archetypes": ["pump_supplier", "pipe_fittings_supplier", "valve_supplier", "plumbing_only_supplier"],
+      "facets": [
+        { "name": "flow_rate", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "hvac_equipment",
+      "sector": "MEP_WATER",
+      "label_ar": "تجهيزات التكييف والتهوية",
+      "strong_terms": ["ahu", "وحده مناوله هواء", "air handling unit", "fahu", "fresh air unit", "وحده هواء نقي", "fcu", "fan coil", "vrf", "مكيف", "تكييف", "chiller", "مبرد مياه", "duct", "دكت", "مجري هواء", "exhaust fan", "شفاط", "دايفيوزر", "diffuser", "air outlet", "vav box", "vav", "vav terminal", "package unit", "package ac", "وحده تكييف مجمعه", "split unit", "hepa filter", "فلتر hepa", "bag filter", "فلتر كيسي", "pre filter", "فلتر هواء", "air filter", "fire smoke damper", "smoke damper", "دامبر حريق", "دامبر دخان", "motorized damper", "دامبر هواء", "volume damper", "heat recovery wheel", "منفاخ هواء صناعي", "high velocity blower", "دفايه صناعيه", "space heater"],
+      "weak_terms": ["مروحه", "fan", "grille", "cooling", "تبريد", "damper", "دامبر", "filter", "فلتر", "blower", "منفاخ", "دفايه", "heater"],
+      "context_terms": ["هواء", "cfm", "تكييف", "تهويه", "ton", "kw", "air", "ventilation", "tr", "gel seal", "pressure independent", "heat recovery", "actuator", "صناعي"],
+      "supplier_terms": ["تكييف", "hvac", "تهويه", "تبريد"],
+      "preferred_archetypes": ["hvac_supplier"],
+      "allowed_archetypes": ["electrical_distributor", "pipe_fittings_supplier", "general_building_materials", "data_center_integrator"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "flow_rate", "supplier_pool_affecting": false },
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "categories": [
+        {
+          "id": "air_distribution",
+          "label_ar": "توزيع الهواء والفلترة",
+          "strong_terms": ["vav", "damper", "دامبر", "hepa filter", "bag filter"],
+          "context_terms": ["هواء", "cfm", "تكييف", "تهويه", "air"],
+          "intents": [
+            {
+              "id": "vav_terminal",
+              "label_ar": "وحدات VAV",
+              "strong_terms": ["vav box", "vav terminal", "variable air volume", "وحده vav"],
+              "weak_terms": ["vav"],
+              "facets": [
+                { "name": "flow_rate", "supplier_pool_affecting": false },
+                { "name": "dimensions", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "air_filtration",
+              "label_ar": "فلاتر الهواء",
+              "strong_terms": ["hepa filter", "فلتر hepa", "bag filter", "فلتر كيسي", "pre filter", "air filter", "فلتر هواء", "carbon filter هواء"],
+              "weak_terms": ["filter", "فلتر"],
+              "context_terms": ["هواء", "air", "cfm", "gel seal", "synthetic media", "h13", "f7", "f9"],
+              "facets": [
+                { "name": "dimensions", "supplier_pool_affecting": false },
+                { "name": "standard", "supplier_pool_affecting": true }
+              ]
+            },
+            {
+              "id": "hvac_damper",
+              "label_ar": "دامبرات الهواء والحريق",
+              "strong_terms": ["fire smoke damper", "smoke damper", "دامبر حريق", "دامبر دخان", "motorized damper", "volume damper", "دامبر هواء"],
+              "weak_terms": ["damper", "دامبر"],
+              "context_terms": ["هواء", "air", "ul", "actuator", "حريق", "دخان", "motorized"],
+              "facets": [
+                { "name": "dimensions", "supplier_pool_affecting": false },
+                { "name": "standard", "supplier_pool_affecting": true }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sanitary_ware",
+      "sector": "MEP_WATER",
+      "label_ar": "الأدوات الصحية",
+      "strong_terms": ["ادوات صحيه", "مغسله", "مغاسل", "كرسي حمام", "sanitary ware", "شطاف", "مبوله", "خلاط مغسله"],
+      "weak_terms": ["خلاط", "mixer", "shower", "دش", "wc"],
+      "context_terms": ["حمام", "صحيه", "sanitary", "سيراميك", "porcelain"],
+      "supplier_terms": ["ادوات صحيه", "sanitary", "سباكه"],
+      "preferred_archetypes": ["sanitary_ware_supplier", "plumbing_only_supplier"],
+      "allowed_archetypes": ["pipe_fittings_supplier", "general_building_materials"],
+      "facets": [
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+
+    {
+      "id": "fire_fighting",
+      "sector": "FIRE",
+      "label_ar": "مكافحة الحريق",
+      "strong_terms": ["مضخه حريق", "fire pump", "jockey pump", "sprinkler", "رشاش حريق", "حنفيه حريق", "fire hydrant", "pillar hydrant", "landing valve", "hose reel", "بكره خرطوم", "صندوق حريق", "fire cabinet", "طفايه", "طفايات", "fire extinguisher", "alarm check valve", "zone control valve", "foam extinguisher", "fm200", "نظام اطفاء", "fire suppression", "خرطوم حريق", "fire hose", "siamese connection", "esfr"],
+      "weak_terms": ["hydrant", "extinguisher", "حريق", "اطفاء", "حنفيه"],
+      "context_terms": ["حريق", "fire", "ul", "fm", "nfpa", "gpm", "bar", "اطفاء", "سلامه"],
+      "supplier_terms": ["مكافحه الحريق", "اطفاء", "fire fighting", "fire protection", "سلامه", "حريق"],
+      "preferred_archetypes": ["fire_fighting_supplier"],
+      "allowed_archetypes": ["fire_alarm_supplier", "safety_equipment_supplier", "pipe_fittings_supplier", "valve_supplier", "pump_supplier"],
+      "facets": [
+        { "name": "diameter", "supplier_pool_affecting": false },
+        { "name": "head_pressure", "supplier_pool_affecting": false },
+        { "name": "standard", "supplier_pool_affecting": true }
+      ],
+      "categories": [
+        {
+          "id": "suppression",
+          "label_ar": "الإطفاء",
+          "strong_terms": ["حنفيه حريق", "sprinkler", "hose reel", "نظام اطفاء", "طفايه", "مضخه حريق"],
+          "context_terms": ["حريق", "fire", "ul", "fm", "nfpa"],
+          "intents": [
+            {
+              "id": "fire_hydrant",
+              "label_ar": "حنفيات الحريق",
+              "strong_terms": ["حنفيه حريق", "fire hydrant", "pillar hydrant", "landing valve", "siamese connection", "underground hydrant"],
+              "weak_terms": ["hydrant", "حنفيه"],
+              "context_terms": ["حريق", "fire", "ul", "fm", "nfpa", "اطفاء"],
+              "confidence": 0.96,
+              "facets": [
+                { "name": "diameter", "supplier_pool_affecting": false },
+                { "name": "head_pressure", "supplier_pool_affecting": false },
+                { "name": "standard", "supplier_pool_affecting": true }
+              ]
+            },
+            {
+              "id": "fire_sprinkler",
+              "label_ar": "رشاشات الحريق",
+              "strong_terms": ["sprinkler", "رشاش حريق", "esfr", "upright sprinkler", "pendent sprinkler"],
+              "weak_terms": ["رشاش"],
+              "facets": [
+                { "name": "head_pressure", "supplier_pool_affecting": false },
+                { "name": "standard", "supplier_pool_affecting": true }
+              ]
+            },
+            {
+              "id": "fire_extinguisher",
+              "label_ar": "طفايات الحريق",
+              "strong_terms": ["طفايه", "طفايات", "fire extinguisher", "foam extinguisher", "co2 extinguisher", "طفايه حريق"],
+              "weak_terms": ["extinguisher"],
+              "facets": [
+                { "name": "capacity", "supplier_pool_affecting": false },
+                { "name": "standard", "supplier_pool_affecting": true }
+              ]
+            },
+            {
+              "id": "fire_pump_set",
+              "label_ar": "مضخات الحريق",
+              "strong_terms": ["مضخه حريق", "fire pump", "jockey pump", "diesel fire pump"],
+              "context_terms": ["حريق", "fire", "ul", "fm", "gpm"],
+              "facets": [
+                { "name": "flow_rate", "supplier_pool_affecting": false },
+                { "name": "head_pressure", "supplier_pool_affecting": false },
+                { "name": "power_kw", "supplier_pool_affecting": false },
+                { "name": "standard", "supplier_pool_affecting": true }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fire_detection_alarm",
+      "sector": "FIRE",
+      "label_ar": "كشف وإنذار الحريق",
+      "strong_terms": ["كاشف دخان", "كاشف حراره", "smoke detector", "heat detector", "لوحه انذار", "fire alarm panel", "منبه صوتي", "sounder", "كاسر زجاج", "break glass", "manual call point", "نظام انذار", "aspirating detection", "beam detector"],
+      "weak_terms": ["كاشف", "detector", "انذار", "alarm"],
+      "context_terms": ["حريق", "دخان", "fire", "smoke", "addressable", "nfpa", "en54"],
+      "supplier_terms": ["انذار", "fire alarm", "سلامه", "تيار خفيف"],
+      "preferred_archetypes": ["fire_alarm_supplier", "fire_fighting_supplier"],
+      "allowed_archetypes": ["electrical_distributor", "network_integrator", "safety_equipment_supplier", "cctv_security_supplier"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "voltage", "supplier_pool_affecting": true }
+      ]
+    },
+
+    {
+      "id": "switchgear_panels",
+      "sector": "ELECTRICAL",
+      "label_ar": "لوحات التوزيع والقواطع",
+      "strong_terms": ["لوحه توزيع", "لوحه كهرباء", "لوحه تحكم", "mdb", "smdb", "mcc panel", "ring main unit", "rmu", "switchgear", "mccb", "mcb", "acb", "capacitor bank", "بنك مكثفات", "active harmonic filter", "busduct", "بس دكت", "ats panel", "changeover switch", "كونتاكتور", "panel board", "distribution board", "lv mdb"],
+      "weak_terms": ["لوحه", "panel", "قاطع", "breaker", "contactor", "ats", "capacitor", "مكثفات"],
+      "context_terms": ["كهرباء", "كهربايي", "a", "ka", "kv", "form", "ip", "withdrawable", "توزيع", "kvar", "pf correction", "bank"],
+      "supplier_terms": ["لوحات كهرباييه", "switchgear", "كهرباييه", "electrical"],
+      "preferred_archetypes": ["switchgear_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["transformer_supplier", "cable_supplier", "generator_supplier", "ups_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "motor_control",
+      "sector": "ELECTRICAL",
+      "label_ar": "أجهزة تحكم المحركات",
+      "strong_terms": ["vfd", "variable frequency drive", "مغير سرعه", "soft starter", "بادئ تشغيل", "inverter drive"],
+      "weak_terms": ["drive", "starter", "inverter"],
+      "context_terms": ["kw", "محرك", "motor", "ip", "bypass", "heavy duty"],
+      "supplier_terms": ["كهرباييه", "electrical", "automation", "تحكم"],
+      "preferred_archetypes": ["electrical_distributor", "switchgear_supplier"],
+      "allowed_archetypes": ["instrumentation_supplier", "pump_supplier", "hvac_supplier"],
+      "facets": [
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "power_cables",
+      "sector": "ELECTRICAL",
+      "label_ar": "الكابلات والأسلاك",
+      "strong_terms": ["كابل", "كيبل", "كابلات", "اسلاك كهرباء", "xlpe", "swa", "كابل نحاس", "كابل مدرع", "كابل مقاوم حريق", "fire resistant cable", "control cable", "كابل تحكم", "lszh cable"],
+      "weak_terms": ["cable", "wire", "lszh"],
+      "context_terms": ["نحاس", "مساحه", "مم2", "kv", "copper", "armored", "iec", "core"],
+      "supplier_terms": ["كابلات", "cables", "كهرباييه", "electrical"],
+      "preferred_archetypes": ["cable_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["switchgear_supplier", "network_integrator", "general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "standard", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "cable_accessories",
+      "sector": "ELECTRICAL",
+      "label_ar": "ملحقات الكابلات",
+      "strong_terms": ["cable gland", "جلاند كابل", "cable lug", "copper lug", "كوسه نحاس", "heat shrink", "termination kit", "cable tray", "تراي كابلات", "مجري كابلات", "trunking", "junction box", "علبه كهرباء", "conduit كهرباء"],
+      "weak_terms": ["gland", "lug", "tray", "conduit", "box"],
+      "context_terms": ["كابل", "cable", "نحاس", "armored", "mm2", "ip", "brass"],
+      "supplier_terms": ["كابلات", "كهرباييه", "electrical", "ملحقات"],
+      "preferred_archetypes": ["cable_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["switchgear_supplier", "network_integrator", "industrial_tools_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "earthing_lightning",
+      "sector": "ELECTRICAL",
+      "label_ar": "التأريض ومانعات الصواعق",
+      "strong_terms": ["earth rod", "سيخ تاريض", "تاريض", "earthing", "grounding", "مانعه صواعق", "lightning protection", "earth pit", "غرفه تاريض", "exothermic weld", "earth bar"],
+      "weak_terms": ["bonding", "earth", "rod"],
+      "context_terms": ["نحاس", "copper", "mm", "m", "تاريض", "bonded"],
+      "supplier_terms": ["كهرباييه", "تاريض", "electrical", "earthing"],
+      "preferred_archetypes": ["electrical_distributor", "cable_supplier"],
+      "allowed_archetypes": ["switchgear_supplier", "network_integrator", "general_building_materials"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "transformers",
+      "sector": "ELECTRICAL",
+      "label_ar": "المحولات",
+      "strong_terms": ["محول جاف", "محول كهربايي", "dry type transformer", "oil immersed transformer", "محول توزيع", "محول عزل", "isolation transformer", "distribution transformer"],
+      "weak_terms": ["محول", "transformer"],
+      "context_terms": ["kva", "kv", "جاف", "dry type", "dyn", "class f", "توزيع", "عزل"],
+      "supplier_terms": ["محولات", "transformers", "كهرباييه"],
+      "preferred_archetypes": ["transformer_supplier", "switchgear_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["generator_supplier", "ups_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "generators",
+      "sector": "ELECTRICAL",
+      "label_ar": "المولدات الكهربائية",
+      "strong_terms": ["مولد ديزل", "مولد كهربايي", "مولدات", "diesel generator", "genset", "standby generator", "خزان وقود يومي", "day tank", "sound attenuated canopy"],
+      "weak_terms": ["مولد", "generator", "canopy"],
+      "context_terms": ["kva", "ديزل", "diesel", "standby", "prime", "v", "وقود", "fuel"],
+      "supplier_terms": ["مولدات", "generators", "ديزل", "كهرباييه"],
+      "preferred_archetypes": ["generator_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["switchgear_supplier", "ups_supplier", "industrial_tools_supplier", "transformer_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "power_kw", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "ups_power_backup",
+      "sector": "ELECTRICAL",
+      "label_ar": "أنظمة الطاقة غير المنقطعة",
+      "strong_terms": ["ups", "ups online", "uninterruptible power", "battery bank", "battery rack", "vrla", "static transfer switch", "dc charger", "rectifier", "طاقه غير منقطعه", "بطاريات vrla"],
+      "weak_terms": ["بطاريه", "بطاريات", "battery", "charger", "inverter"],
+      "context_terms": ["kva", "ah", "v", "modular", "phase", "front terminal", "طاقه", "backup"],
+      "supplier_terms": ["ups", "بطاريات", "انظمه طاقه", "power systems"],
+      "preferred_archetypes": ["ups_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["data_center_integrator", "switchgear_supplier", "generator_supplier", "it_hardware_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "rack_units", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "lighting",
+      "sector": "ELECTRICAL",
+      "label_ar": "الإنارة",
+      "strong_terms": ["high bay", "linear batten", "flood light", "كشاف اناره", "street light", "اناره شوارع", "bollard light", "emergency light", "exit sign", "لوحه مخرج", "اضاءه", "اناره", "led panel", "سبوت لايت", "داون لايت", "downlight", "شريط ليد", "led strip", "luminaire", "وحده اناره", "twin spot"],
+      "weak_terms": ["light", "led", "بانل", "لمبه", "مصباح"],
+      "context_terms": ["w", "lm", "k", "ip", "اناره", "اضاءه", "lighting", "optics"],
+      "supplier_terms": ["اناره", "اضاءه", "lighting", "led", "كهرباييه"],
+      "preferred_archetypes": ["lighting_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["switchgear_supplier", "general_trading", "fitout_contractor"],
+      "facets": [
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "protection_ip", "supplier_pool_affecting": false },
+        { "name": "application", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "wiring_devices",
+      "sector": "ELECTRICAL",
+      "label_ar": "مخارج ومفاتيح الكهرباء",
+      "strong_terms": ["مخرج كهرباء", "مخارج كهرباء", "افياش", "فيش كهرباء", "socket outlet", "سويتش كهرباء", "مفتاح كهرباء", "wall socket", "industrial socket", "مخرج مكيف", "usb socket", "local isolator"],
+      "weak_terms": ["مخرج", "socket", "outlet", "سويتش", "switch", "isolator"],
+      "context_terms": ["كهرباء", "كهربايي", "a", "v", "ip", "flush", "surface"],
+      "supplier_terms": ["مواد كهرباييه", "كهرباييه", "electrical"],
+      "preferred_archetypes": ["electrical_distributor"],
+      "allowed_archetypes": ["switchgear_supplier", "lighting_supplier", "general_trading", "fitout_contractor"],
+      "facets": [
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "electrical_sensors_controls",
+      "sector": "ELECTRICAL",
+      "label_ar": "الحساسات وأجهزة التحكم",
+      "strong_terms": ["motion sensor", "حساس حركه", "photocell", "خليه ضوييه", "thermostat", "ثرموستات", "bms sensor", "occupancy sensor"],
+      "weak_terms": ["مستشعر", "حساس", "sensor", "relay", "ريلاي", "timer"],
+      "context_terms": ["كهرباء", "microwave", "pir", "m height", "control", "bms", "تحكم"],
+      "supplier_terms": ["كهرباييه", "automation", "تحكم", "instruments"],
+      "preferred_archetypes": ["electrical_distributor", "instrumentation_supplier"],
+      "allowed_archetypes": ["lighting_supplier", "network_integrator", "hvac_supplier", "switchgear_supplier"],
+      "facets": [
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "range_m", "supplier_pool_affecting": false }
+      ]
+    },
+
+    {
+      "id": "head_protection",
+      "sector": "SAFETY_PPE",
+      "label_ar": "حماية الرأس",
+      "strong_terms": ["خوذه سلامه", "خوذه", "hard hat", "safety helmet", "قبعه حمايه", "bump cap", "خوذه صناعيه"],
+      "weak_terms": ["helmet", "cap", "chin strap"],
+      "context_terms": ["سلامه", "حمايه", "تهويه", "en", "ansi", "صناعيه"],
+      "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "general_trading"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "protection_class", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "eye_face_protection",
+      "sector": "SAFETY_PPE",
+      "label_ar": "حماية العين والوجه",
+      "strong_terms": ["واقي وجه", "نظاره حمايه", "نظارات حمايه", "نظاره امان", "نظارات امان", "نظاره سلامه", "safety goggle", "safety glasses", "face shield", "عدسه بديله", "درع وجه", "welding shield", "قناع لحام"],
+      "weak_terms": ["goggles", "نظاره", "نظارات", "shield", "عدسه", "visor"],
+      "context_terms": ["سلامه", "امان", "حمايه", "بولي كربونيت", "anti fog", "en", "ansi", "وجه", "عين"],
+      "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "welding_supplier", "general_trading"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "protection_class", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "hearing_protection",
+      "sector": "SAFETY_PPE",
+      "label_ar": "حماية السمع",
+      "strong_terms": ["واقي سمع", "سداده اذن", "سدادات اذن", "ear muff", "earmuff", "ear plug", "earplug", "حمايه سمع"],
+      "weak_terms": ["سمع", "hearing"],
+      "context_terms": ["سلامه", "صناعي", "db", "snr", "en", "قابله لاعاده الاستخدام"],
+      "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "general_trading"],
+      "facets": [{ "name": "standard", "supplier_pool_affecting": true }]
+    },
+    {
+      "id": "respiratory_protection",
+      "sector": "SAFETY_PPE",
+      "label_ar": "حماية الجهاز التنفسي",
+      "strong_terms": ["قناع تنفس", "جهاز تنفس", "papr", "كمامه", "respirator", "half mask", "full face mask", "مرشح غازات", "فلتر جسيمات", "particulate filter", "scba", "twin filter"],
+      "weak_terms": ["قناع", "mask", "تنفس", "مرشح"],
+      "context_terms": ["تنفس", "غازات", "جسيمات", "سلامه", "filter", "en", "p3", "abek"],
+      "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "gas_equipment_supplier", "general_trading"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "protection_class", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "protective_clothing",
+      "sector": "SAFETY_PPE",
+      "label_ar": "ملابس الحماية",
+      "strong_terms": ["ستره عاكسه", "سديري عاكس", "صدريه عاكسه", "بدله عمل", "بدله حمايه", "بدله مقاومه للهب", "fr coverall", "coverall", "flame retardant coverall", "معطف مطر", "ستره تبريد", "مريله جلديه", "hi-vis vest", "reflective vest", "ملابس عمل", "workwear", "بدله حمايه كيمياييه", "personal protective equipment", "ppe"],
+      "weak_terms": ["ستره", "بدله", "سديري", "صدريه", "vest", "apron", "مريله", "overall", "كم"],
+      "context_terms": ["سلامه", "امان", "حمايه", "عاكسه", "عاكس", "class 3", "مقاوم للهب", "مقاومه للهب", "لهب", "flame retardant", "كيمياييه", "en", "عمل"],
+      "supplier_terms": ["مهمات سلامه", "ملابس عمل", "ppe", "workwear", "سلامه"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "general_trading", "welding_supplier"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "protection_class", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "safety_footwear",
+      "sector": "SAFETY_PPE",
+      "label_ar": "أحذية السلامة",
+      "strong_terms": ["حذاء سلامه", "safety boot", "safety shoe", "rubber boot", "pvc boot", "بوت سلامه", "جزمه pvc", "حذاء صناعي"],
+      "weak_terms": ["جزمه", "boot", "حذاء", "shoe"],
+      "context_terms": ["سلامه", "مقاومه", "steel toe", "en", "كيمياييه", "صناعي"],
+      "supplier_terms": ["مهمات سلامه", "احذيه سلامه", "ppe", "safety"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "general_trading"],
+      "facets": [{ "name": "standard", "supplier_pool_affecting": true }]
+    },
+    {
+      "id": "hand_protection",
+      "sector": "SAFETY_PPE",
+      "label_ar": "حماية اليدين",
+      "strong_terms": ["قفاز", "قفازات", "قفاز نيتريل", "قفاز جلدي", "قفاز لحام", "cut resistant glove", "قفاز مضاد للاهتزاز", "قفاز كيميايي", "safety glove"],
+      "weak_terms": ["glove", "gloves"],
+      "context_terms": ["سلامه", "حمايه", "نيتريل", "جلدي", "cut level", "en", "يد"],
+      "supplier_terms": ["مهمات سلامه", "قفازات", "ppe", "safety"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "welding_supplier", "general_trading"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "fall_protection",
+      "sector": "SAFETY_PPE",
+      "label_ar": "الحماية من السقوط",
+      "strong_terms": ["حزام سلامه", "حزام امان", "full body harness", "harness", "lanyard", "حبل مزدوج", "ممتص صدمه", "shock absorber", "srl", "جهاز سحب ذاتي", "self retracting lifeline", "خط حياه", "horizontal lifeline", "نقطه تثبيت", "anchor point", "rope access", "descender", "carabiner", "كارابينر", "fall arrest", "twin lanyard"],
+      "weak_terms": ["حزام", "حبل", "lifeline", "anchor", "harness"],
+      "context_terms": ["سلامه", "سقوط", "fall", "ارتفاع", "en", "ansi", "kn", "تثبيت", "انقاذ", "rescue", "اماكن مرتفعه", "confined space"],
+      "supplier_terms": ["مهمات سلامه", "سلامه", "ppe", "safety", "معدات رفع", "انقاذ", "rescue"],
+      "preferred_archetypes": ["ppe_supplier", "safety_equipment_supplier"],
+      "allowed_archetypes": ["lifting_equipment_supplier", "industrial_tools_supplier", "general_trading"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "length_m", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ],
+      "categories": [
+        {
+          "id": "rescue_equipment",
+          "label_ar": "معدات الإنقاذ من المرتفعات والأماكن المحصورة",
+          "strong_terms": ["انقاذ", "rescue"],
+          "context_terms": ["سلامه", "ارتفاع", "confined space", "اماكن محصوره", "kn", "en"],
+          "intents": [
+            {
+              "id": "rope_grab",
+              "label_ar": "ماسك الحبل",
+              "strong_terms": ["rope grab", "ماسك حبل", "guided type fall arrester", "مانع سقوط على حبل"],
+              "weak_terms": ["grab"],
+              "facets": [
+                { "name": "standard", "supplier_pool_affecting": true },
+                { "name": "capacity", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "rescue_tripod",
+              "label_ar": "حوامل الإنقاذ الثلاثية",
+              "strong_terms": ["rescue tripod", "tripod rescue", "حامل انقاذ ثلاثي", "ثلاثي انقاذ", "confined space tripod", "حامل ثلاثي للانقاذ"],
+              "weak_terms": ["tripod", "ثلاثي"],
+              "facets": [
+                { "name": "capacity", "supplier_pool_affecting": false },
+                { "name": "length_m", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "rescue_winch",
+              "label_ar": "أوناش الإنقاذ",
+              "strong_terms": ["rescue winch", "ونش انقاذ", "man riding winch", "رافعه انقاذ", "recovery winch"],
+              "weak_terms": ["winch", "ونش"],
+              "facets": [
+                { "name": "capacity", "supplier_pool_affecting": false },
+                { "name": "length_m", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "rescue_kit",
+              "label_ar": "أطقم الإنقاذ",
+              "strong_terms": ["rescue kit", "طقم انقاذ", "rescue set", "انقاذ من الاماكن المرتفعه", "height rescue kit", "طقم انقاذ من المرتفعات"],
+              "weak_terms": ["طقم انقاذ", "kit"],
+              "facets": [
+                { "name": "standard", "supplier_pool_affecting": true }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gas_detection",
+      "sector": "SAFETY_PPE",
+      "label_ar": "كشف الغازات",
+      "strong_terms": ["كاشف غازات", "multi gas detector", "gas detector", "كاشف اكسجين", "كاشف غاز", "portable gas monitor", "كاشف h2s"],
+      "weak_terms": ["كاشف", "detector", "monitor"],
+      "context_terms": ["غاز", "gas", "اكسجين", "h2s", "co", "معايره", "سلامه", "ppm"],
+      "supplier_terms": ["سلامه", "اجهزه قياس", "safety", "instruments"],
+      "preferred_archetypes": ["safety_equipment_supplier", "instrumentation_supplier"],
+      "allowed_archetypes": ["ppe_supplier", "gas_equipment_supplier", "industrial_tools_supplier"],
+      "facets": [
+        { "name": "standard", "supplier_pool_affecting": true },
+        { "name": "accuracy", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "first_aid",
+      "sector": "SAFETY_PPE",
+      "label_ar": "الإسعافات الأولية",
+      "strong_terms": ["حقيبه اسعاف", "اسعافات اوليه", "first aid", "غسيل عين", "eye wash", "safety shower", "دش طوارئ", "نقاله طبيه", "stretcher", "aed", "مزيل رجفان"],
+      "weak_terms": ["اسعاف", "نقاله", "شنطه"],
+      "context_terms": ["طبي", "طوارئ", "اوليه", "emergency", "سلامه"],
+      "supplier_terms": ["سلامه", "اسعاف", "safety", "طبيه"],
+      "preferred_archetypes": ["safety_equipment_supplier", "ppe_supplier"],
+      "allowed_archetypes": ["general_trading", "industrial_tools_supplier"],
+      "facets": [{ "name": "capacity", "supplier_pool_affecting": false }]
+    },
+    {
+      "id": "site_safety_barriers",
+      "sector": "SAFETY_PPE",
+      "label_ar": "حواجز ولوحات السلامة",
+      "strong_terms": ["مخروط مروري", "كون مروري", "traffic cone", "شريط تحذير", "warning tape", "لافته سلامه", "safety sign", "علامه تحذير", "delineator", "speed hump", "مطب", "جرسي بلاستيكي", "lockout tagout", "loto", "حاجز امان", "wheel chock", "مصد عجلات", "wheel stop", "محدد موقف", "bollard", "عمود حماية", "spill containment", "احتواء تسرب", "صينيه احتواء", "absorbent pad", "وساده امتصاص", "وسايد امتصاص", "spill kit", "طقم تسرب"],
+      "weak_terms": ["حاجز", "barrier", "مخروط", "cone", "لافته", "sign", "tagout", "مصد", "chock", "امتصاص", "absorbent"],
+      "context_terms": ["سلامه", "تحذير", "مروري", "موقع", "بلاستيكي", "عاكس", "مطاطي", "تسرب", "spill", "صناعيه"],
+      "supplier_terms": ["سلامه", "safety", "لوحات ارشاديه", "مروريه"],
+      "preferred_archetypes": ["safety_equipment_supplier", "ppe_supplier"],
+      "allowed_archetypes": ["general_trading", "industrial_tools_supplier", "printing_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+
+    {
+      "id": "hand_tools",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "العدد اليدوية",
+      "strong_terms": ["مفك", "مفكات", "screwdriver", "مفتاح شق", "مفتاح ربط", "spanner", "wrench", "كماشه", "بنسه", "plier", "pliers set", "طقم زراديات", "مطرقه", "hammer", "زراديه", "طقم عدد", "tool set", "شنطه عدد", "tool box", "صندوق عدد", "منشار يدوي", "hand saw", "ازميل", "chisel", "عتله", "crowbar", "tin snip", "hex key", "torque wrench", "مفتاح عزم", "مفتاح انابيب", "pipe wrench", "مبرد يدوي", "socket set", "طقم لقمه", "طقم لقم", "socket wrench set", "precision files", "طقم مبارد", "مبارد هندسيه", "tap die", "tap and die", "طقم قلاوظ", "قلاوظ", "thread tap", "آلن", "allen key set"],
+      "weak_terms": ["عده", "tool", "منشار", "saw", "file", "key", "socket", "لقمه", "مبرد"],
+      "context_terms": ["يدوي", "ورشه", "طقم", "set", "chrome", "vanadium", "مقاس", "pcs", "metric", "هندسيه", "معزوله"],
+      "supplier_terms": ["عدد وادوات", "tools", "hardware", "ادوات"],
+      "preferred_archetypes": ["industrial_tools_supplier"],
+      "allowed_archetypes": ["general_trading", "general_building_materials", "welding_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "power_tools",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "العدد الكهربائية",
+      "strong_terms": ["مثقاب", "دريل", "hammer drill", "شاكوش هدم", "demolition breaker", "صاروخ قص", "جلاخه", "angle grinder", "منشار كهربايي", "circular saw", "jigsaw", "مفك كهربايي", "impact driver", "impact wrench", "مسدس مسامير", "nail gun", "core drill", "cut off saw", "bench grinder", "مخرطه", "منشار ترددي", "reciprocating saw", "sabre saw", "فريزه", "milling machine", "precision milling", "شاحن بطاريات", "battery charger", "مثقاب عمودي", "drill press"],
+      "weak_terms": ["drill", "grinder", "مسدس", "gun", "router", "planer", "شاحن", "charger"],
+      "context_terms": ["كهربايي", "w", "kw", "v", "بطاريه", "بطاريات", "brushless", "rpm", "ورشه", "مكتبيه", "منافذ", "سريع"],
+      "supplier_terms": ["عدد كهرباييه", "power tools", "عدد وادوات", "tools"],
+      "preferred_archetypes": ["industrial_tools_supplier"],
+      "allowed_archetypes": ["general_trading", "electrical_distributor", "welding_supplier"],
+      "facets": [
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "welding_equipment",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "معدات ومستهلكات اللحام",
+      "strong_terms": ["ماكينه لحام", "welding machine", "inverter welder", "welding rectifier", "الكترود", "electrode", "سلك لحام", "welding wire", "filler rod", "قناع لحام", "welding helmet", "auto darkening", "بطانيه لحام", "welding blanket", "ستاره لحام", "جهاز لحام", "mig welder", "tig welder", "plasma cutter", "قاطع بلازما", "جهاز قطع بالبلازما", "قطع بلازما", "welding table", "طاوله لحام", "modular welding table", "welding positioner", "منضده لحام"],
+      "weak_terms": ["لحام", "welding", "welder", "mig", "tig", "mma", "arc", "بلازما", "plasma"],
+      "context_terms": ["ac", "dc", "a", "kw", "كهربايي", "ورشه", "معدن", "steel", "قطع", "cutting", "cnc"],
+      "supplier_terms": ["لحام", "welding", "الكترودات", "عدد وادوات"],
+      "preferred_archetypes": ["welding_supplier", "industrial_tools_supplier"],
+      "allowed_archetypes": ["gas_equipment_supplier", "general_trading", "metal_trading", "ppe_supplier"],
+      "facets": [
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true },
+        { "name": "material", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "gas_cutting_equipment",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "معدات القطع بالغاز",
+      "strong_terms": ["اسطوانه غاز", "gas cylinder", "منظم غاز", "gas regulator", "شالوميه", "cutting torch", "اكسجين", "oxygen", "اسيتيلين", "acetylene", "argon", "ارجون", "flashback arrestor", "خرطوم غاز", "gas hose", "عربه اسطوانات"],
+      "weak_terms": ["غاز", "gas", "اسطوانه", "cylinder", "منظم", "regulator", "torch"],
+      "context_terms": ["لحام", "قطع", "welding", "bar", "لتر", "ضغط", "cutting"],
+      "supplier_terms": ["غازات", "gases", "اسطوانات", "لحام"],
+      "preferred_archetypes": ["gas_equipment_supplier", "welding_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "general_trading", "safety_equipment_supplier"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "head_pressure", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "compressors_pneumatic",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "الضواغط والمعدات الهوائية",
+      "strong_terms": ["كمبروسر", "ضاغط هواء", "air compressor", "screw compressor", "air dryer", "مجفف هواء", "air receiver", "خزان هواء", "عده هواييه", "air tool", "مسدس هواء", "air gun", "خرطوم هواء"],
+      "weak_terms": ["compressor", "ضاغط", "هوايي", "pneumatic"],
+      "context_terms": ["هواء", "air", "bar", "cfm", "kw", "صناعي"],
+      "supplier_terms": ["ضواغط", "compressors", "معدات صناعيه", "عدد وادوات"],
+      "preferred_archetypes": ["industrial_tools_supplier"],
+      "allowed_archetypes": ["general_trading", "welding_supplier", "hvac_supplier", "material_handling_supplier"],
+      "facets": [
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "flow_rate", "supplier_pool_affecting": false },
+        { "name": "head_pressure", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "cleaning_equipment",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "معدات النظافة الصناعية",
+      "strong_terms": ["غساله ضغط", "pressure washer", "jet washer", "مكنسه صناعيه", "industrial vacuum", "vacuum cleaner", "شفاط غبار", "dust extractor", "ماكينه تنظيف ارضيات", "floor scrubber", "سكرابر", "ماكينه جلي", "sweeper", "عربه نظافه"],
+      "weak_terms": ["مكنسه", "vacuum", "washer", "scrubber", "نظافه", "cleaning"],
+      "context_terms": ["ضغط", "bar", "لتر", "kw", "صناعي", "ارضيات", "غبار"],
+      "supplier_terms": ["نظافه", "cleaning", "معدات نظافه", "معدات صناعيه"],
+      "preferred_archetypes": ["cleaning_equipment_supplier", "industrial_tools_supplier"],
+      "allowed_archetypes": ["general_trading", "warehouse_equipment_supplier"],
+      "facets": [
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "head_pressure", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "workshop_furniture",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "تجهيزات الورش",
+      "strong_terms": ["طاوله عمل", "workbench", "بنش ورشه", "ملزمه", "bench vice", "خزانه عدد", "tool cabinet", "عربه عدد", "tool trolley", "رف ورشه", "pipe stand", "سندان", "anvil", "درج عدد"],
+      "weak_terms": ["طاوله", "bench", "vice", "خزانه", "cabinet", "درج", "حامل", "stand"],
+      "context_terms": ["ورشه", "عدد", "workshop", "steel", "drawers", "kg"],
+      "supplier_terms": ["عدد وادوات", "ورش", "tools", "معدات صناعيه"],
+      "preferred_archetypes": ["industrial_tools_supplier", "warehouse_equipment_supplier"],
+      "allowed_archetypes": ["general_trading", "metal_trading", "joinery_supplier"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "lubricants_chemicals",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "الزيوت والمواد الكيميائية",
+      "strong_terms": ["زيت هيدروليك", "زيت محرك", "شحم", "grease", "lubricant", "مزيل شحوم", "degreaser", "مذيب", "solvent", "سايل تبريد", "coolant", "anti seize"],
+      "weak_terms": ["زيت", "oil", "spray", "رذاذ"],
+      "context_terms": ["لتر", "تشحيم", "صناعي", "هيدروليك", "kg"],
+      "supplier_terms": ["زيوت", "lubricants", "مواد كيمياييه", "معدات صناعيه"],
+      "preferred_archetypes": ["industrial_tools_supplier", "general_trading"],
+      "allowed_archetypes": ["cleaning_equipment_supplier", "welding_supplier"],
+      "facets": [{ "name": "capacity", "supplier_pool_affecting": false }]
+    },
+    {
+      "id": "fasteners",
+      "sector": "TOOLS_WORKSHOP",
+      "label_ar": "المسامير والمثبتات",
+      "strong_terms": ["مسمار", "مسامير", "anchor bolt", "مسمار تثبيت", "chemical anchor", "برشام", "rivet", "صاموله", "دوبل"],
+      "weak_terms": ["bolt", "screw", "nut", "washer", "fastener", "وردة"],
+      "context_terms": ["mm", "تثبيت", "مجلفن", "galvanized", "stainless", "grade", "pcs"],
+      "supplier_terms": ["مسامير", "fasteners", "عدد وادوات", "hardware"],
+      "preferred_archetypes": ["industrial_tools_supplier", "general_building_materials"],
+      "allowed_archetypes": ["structural_steel_supplier", "metal_trading", "general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": true }
+      ]
+    },
+
+    {
+      "id": "measuring_instruments",
+      "sector": "INSTRUMENTS",
+      "label_ar": "أجهزة القياس",
+      "strong_terms": ["متر ليزر", "laser distance meter", "laser meter", "distance meter", "ميزان ماء", "spirit level", "laser level", "ميزان ليزر", "كلامب ميتر", "clamp meter", "افوميتر", "multimeter", "ملتيميتر", "megger", "insulation tester", "earth tester", "ميكرومتر", "micrometer", "كاليبر", "caliper", "فرنييه", "dial gauge", "thickness gauge", "كاميرا حراريه", "thermal camera", "thermal imager", "ميزان حراره", "thermometer", "مقياس رطوبه", "hygrometer", "lux meter", "مقياس اضاءه", "sound level meter", "مقياس صوت", "anemometer", "توتال ستيشن", "total station", "ثيودولايت", "theodolite", "شريط قياس", "measuring tape", "tachometer", "vibration meter", "torque tester"],
+      "weak_terms": ["مقياس", "جهاز قياس", "meter", "gauge", "tester", "level", "قياس"],
+      "context_terms": ["دقه", "accuracy", "معايره", "calibration", "ip", "مدى", "range", "قياس", "digital", "رقمي"],
+      "supplier_terms": ["اجهزه قياس", "instruments", "معايره", "calibration", "test equipment"],
+      "preferred_archetypes": ["instrumentation_supplier"],
+      "allowed_archetypes": ["industrial_tools_supplier", "electrical_distributor", "safety_equipment_supplier", "it_hardware_supplier"],
+      "facets": [
+        { "name": "range_m", "supplier_pool_affecting": false },
+        { "name": "accuracy", "supplier_pool_affecting": false },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "categories": [
+        {
+          "id": "dimensional_measurement",
+          "label_ar": "قياس الأبعاد",
+          "strong_terms": ["متر ليزر", "ميكرومتر", "كاليبر", "ميزان ماء"],
+          "context_terms": ["قياس", "دقه", "مسافه", "abbe"],
+          "intents": [
+            {
+              "id": "laser_distance_meter",
+              "label_ar": "متر ليزر",
+              "strong_terms": ["متر ليزر", "laser distance meter", "laser meter", "distance meter", "مقياس مسافه ليزر"],
+              "weak_terms": ["ليزر", "laser"],
+              "context_terms": ["مسافه", "distance", "مدى", "range", "m", "دقه"],
+              "facets": [
+                { "name": "range_m", "supplier_pool_affecting": false },
+                { "name": "accuracy", "supplier_pool_affecting": false },
+                { "name": "protection_ip", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "precision_gauge",
+              "label_ar": "أدوات قياس دقيقة",
+              "strong_terms": ["ميكرومتر", "micrometer", "كاليبر", "caliper", "فرنييه", "dial gauge", "thickness gauge", "ساعه قياس"],
+              "weak_terms": ["gauge", "مقياس سماكه"],
+              "facets": [
+                { "name": "accuracy", "supplier_pool_affecting": false },
+                { "name": "dimensions", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "level_alignment",
+              "label_ar": "أجهزة الاستواء",
+              "strong_terms": ["ميزان ماء", "spirit level", "laser level", "ميزان ليزر", "rotary level"],
+              "weak_terms": ["level", "استواء", "alignment"],
+              "facets": [
+                { "name": "range_m", "supplier_pool_affecting": false },
+                { "name": "accuracy", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "survey_instrument",
+              "label_ar": "أجهزة المساحة",
+              "strong_terms": ["توتال ستيشن", "total station", "ثيودولايت", "theodolite", "auto level مساحه", "gps مساحه"],
+              "weak_terms": ["مساحه", "survey"],
+              "facets": [
+                { "name": "accuracy", "supplier_pool_affecting": false },
+                { "name": "range_m", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "electrical_testing",
+          "label_ar": "الفحص الكهربائي",
+          "strong_terms": ["كلامب ميتر", "multimeter", "megger"],
+          "context_terms": ["كهربايي", "v", "a", "عزل", "تاريض"],
+          "intents": [
+            {
+              "id": "electrical_tester",
+              "label_ar": "أجهزة فحص كهربائي",
+              "strong_terms": ["كلامب ميتر", "clamp meter", "multimeter", "افوميتر", "ملتيميتر", "megger", "insulation tester", "earth tester", "phase rotation tester"],
+              "weak_terms": ["tester", "meter", "فاحص"],
+              "context_terms": ["كهربايي", "v", "a", "عزل", "تاريض", "ac", "dc"],
+              "facets": [
+                { "name": "accuracy", "supplier_pool_affecting": false },
+                { "name": "voltage", "supplier_pool_affecting": true }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "environmental_measurement",
+          "label_ar": "القياس البيئي والحراري",
+          "strong_terms": ["كاميرا حراريه", "lux meter", "sound level meter", "hygrometer"],
+          "context_terms": ["حراري", "بيئي", "اضاءه", "صوت", "رطوبه", "حراره"],
+          "intents": [
+            {
+              "id": "thermal_imaging",
+              "label_ar": "التصوير الحراري",
+              "strong_terms": ["كاميرا حراريه", "thermal camera", "thermal imager", "infrared camera", "تصوير حراري"],
+              "weak_terms": ["حراريه", "thermal"],
+              "context_terms": ["فحص", "صيانه", "قياس", "درجه حراره", "inspection", "°c"],
+              "facets": [
+                { "name": "accuracy", "supplier_pool_affecting": false },
+                { "name": "resolution_mp", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "environmental_meter",
+              "label_ar": "قياس بيئي",
+              "strong_terms": ["lux meter", "مقياس اضاءه", "sound level meter", "مقياس صوت", "hygrometer", "مقياس رطوبه", "anemometer", "مقياس سرعه هواء", "ميزان حراره", "thermometer"],
+              "weak_terms": ["مقياس", "meter"],
+              "context_terms": ["اضاءه", "صوت", "رطوبه", "حراره", "هواء", "db", "lux", "%rh"],
+              "facets": [
+                { "name": "accuracy", "supplier_pool_affecting": false },
+                { "name": "range_m", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "servers_compute",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "الخوادم والحوسبة",
+      "strong_terms": ["خادم", "خوادم", "سيرفر", "server", "rack server", "blade chassis", "blade compute", "عقده حوسبه", "compute node", "hyperconverged", "edge server", "محطه عمل هندسيه", "workstation"],
+      "weak_terms": ["عقده", "node", "chassis"],
+      "context_terms": ["معالج", "cpu", "u", "rack", "gpu", "مؤسسي", "enterprise", "virtual"],
+      "supplier_terms": ["خوادم", "servers", "تقنيه المعلومات", "it", "data center"],
+      "preferred_archetypes": ["it_hardware_supplier", "data_center_integrator"],
+      "allowed_archetypes": ["network_integrator", "cybersecurity_integrator", "general_trading"],
+      "facets": [
+        { "name": "rack_units", "supplier_pool_affecting": false },
+        { "name": "storage_capacity", "supplier_pool_affecting": false },
+        { "name": "data_speed", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "server_components",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "مكونات الخوادم",
+      "strong_terms": ["وحده ذاكره", "ذاكره ecc", "dimm", "بطاقه شبكه", "nic", "بطاقه تسريع", "fpga", "gpu", "raid controller", "hba", "قرص ssd", "قرص nvme", "قرص صلب", "hard disk", "hdd", "surveillance hdd", "enterprise hdd"],
+      "weak_terms": ["ram", "ذاكره", "بطاقه", "card", "قرص", "disk", "معالج", "cpu"],
+      "context_terms": ["gb", "tb", "خادم", "server", "ecc", "gbe", "pcie", "enterprise", "موسسي"],
+      "supplier_terms": ["تقنيه المعلومات", "it", "خوادم", "servers"],
+      "preferred_archetypes": ["it_hardware_supplier", "data_center_integrator"],
+      "allowed_archetypes": ["network_integrator", "general_trading"],
+      "facets": [
+        { "name": "storage_capacity", "supplier_pool_affecting": false },
+        { "name": "data_speed", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "storage_systems",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "أنظمة التخزين",
+      "strong_terms": ["مصفوفه تخزين", "storage array", "all-flash", "nvme array", "object storage", "منصه تخزين", "san switch", "storage shelf", "وحده توسعه اقراص", "nas", "storage gateway", "بوابه تخزين"],
+      "weak_terms": ["تخزين", "storage", "array", "shelf"],
+      "context_terms": ["tb", "gb", "controller", "متحكم", "fibre channel", "iscsi", "مؤسسي"],
+      "supplier_terms": ["تخزين", "storage", "تقنيه المعلومات", "it", "data center"],
+      "preferred_archetypes": ["it_hardware_supplier", "data_center_integrator"],
+      "allowed_archetypes": ["network_integrator", "cybersecurity_integrator"],
+      "facets": [
+        { "name": "storage_capacity", "supplier_pool_affecting": false },
+        { "name": "data_speed", "supplier_pool_affecting": false },
+        { "name": "rack_units", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "backup_archive",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "النسخ الاحتياطي والأرشفة",
+      "strong_terms": ["نسخ احتياطي", "backup appliance", "deduplication appliance", "محرك اشرطه", "tape drive", "lto", "خرطوشه ارشفه", "tape cartridge", "منصه ارشفه", "worm", "immutable repository", "tape library", "vtl"],
+      "weak_terms": ["backup", "ارشفه", "archive", "خرطوشه", "cartridge", "tape"],
+      "context_terms": ["tb", "مشفره", "encrypted", "نسخ", "استعاده", "retention"],
+      "supplier_terms": ["تقنيه المعلومات", "it", "backup", "تخزين"],
+      "preferred_archetypes": ["it_hardware_supplier", "data_center_integrator"],
+      "allowed_archetypes": ["cybersecurity_integrator", "network_integrator"],
+      "facets": [
+        { "name": "storage_capacity", "supplier_pool_affecting": false },
+        { "name": "rack_units", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "network_switching",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "مبدلات وموجهات الشبكة",
+      "strong_terms": ["مبدل", "سويتش شبكه", "network switch", "top-of-rack", "aggregation switch", "core switch", "موجه", "راوتر", "router", "wan router", "load balancer", "موزع احمال", "موازن احمال", "application delivery controller", "adc", "poe switch", "spine switch", "leaf switch"],
+      "weak_terms": ["switch", "سويتش"],
+      "context_terms": ["gbe", "gbps", "شبكه", "network", "ports", "منافذ", "layer", "sdn"],
+      "supplier_terms": ["شبكات", "networks", "networking", "تقنيه المعلومات", "اتصالات"],
+      "preferred_archetypes": ["network_integrator", "it_hardware_supplier", "data_center_integrator"],
+      "allowed_archetypes": ["cybersecurity_integrator", "general_trading"],
+      "facets": [
+        { "name": "data_speed", "supplier_pool_affecting": false },
+        { "name": "rack_units", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "optical_transceivers",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "الوحدات الضوئية",
+      "strong_terms": ["qsfp", "qsfp-dd", "sfp", "sfp+", "transceiver", "وحده ضوييه", "optical module", "dac cable", "aoc cable"],
+      "weak_terms": ["module", "وحده", "optical"],
+      "context_terms": ["g", "gbe", "lr", "sr", "km", "m", "fiber", "الياف"],
+      "supplier_terms": ["شبكات", "networks", "تقنيه المعلومات", "optical"],
+      "preferred_archetypes": ["network_integrator", "it_hardware_supplier"],
+      "allowed_archetypes": ["data_center_integrator", "cable_supplier"],
+      "facets": [
+        { "name": "data_speed", "supplier_pool_affecting": false },
+        { "name": "range_m", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "network_security_appliances",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "أجهزة أمن الشبكات",
+      "strong_terms": ["جدار حمايه", "firewall", "ngfw", "waf", "بوابه امنيه", "secure web gateway", "vpn concentrator", "ddos mitigation", "network tap", "nac appliance", "ips appliance"],
+      "weak_terms": ["ips", "ids", "gateway", "بوابه", "appliance"],
+      "context_terms": ["امن", "security", "gbps", "شبكه", "threat", "inspection"],
+      "supplier_terms": ["امن سيبراني", "cybersecurity", "شبكات", "امن معلومات"],
+      "preferred_archetypes": ["cybersecurity_integrator", "network_integrator"],
+      "allowed_archetypes": ["it_hardware_supplier", "data_center_integrator"],
+      "facets": [
+        { "name": "data_speed", "supplier_pool_affecting": false },
+        { "name": "rack_units", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "cybersecurity_platforms",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "منصات الأمن السيبراني",
+      "strong_terms": ["siem", "edr", "xdr", "soar", "منصه امن سيبراني", "vulnerability management", "اداره ثغرات", "pam", "privileged access management", "اداره هويات", "iam", "hsm", "وحده تشفير", "dlp", "data loss prevention", "sandbox امني", "threat intelligence", "مكافحه فيروسات", "antivirus", "casb", "otp token", "hardware token", "رموز otp", "mfa token"],
+      "weak_terms": ["امن", "security", "منصه", "platform"],
+      "context_terms": ["سيبراني", "cyber", "تشفير", "logs", "مركزي", "تدقيق", "compliance"],
+      "supplier_terms": ["امن سيبراني", "cybersecurity", "امن معلومات", "information security"],
+      "preferred_archetypes": ["cybersecurity_integrator"],
+      "allowed_archetypes": ["it_hardware_supplier", "network_integrator", "data_center_integrator"],
+      "hard_conflicts": ["ppe_supplier"],
+      "facets": [
+        { "name": "rack_units", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "structured_cabling",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "الكابلات المهيكلة",
+      "strong_terms": ["patch panel", "لوحه توصيل", "patch cord", "باتش كورد", "cat6", "cat6a", "cat7", "كابل شبكه", "fiber optic", "الياف بصريه", "mpo", "keystone", "face plate شبكه", "cable manager", "منظم كابلات", "مخرج معلومات", "مخرج بيانات", "data outlet"],
+      "weak_terms": ["patch", "cassette", "outlet", "cord"],
+      "context_terms": ["شبكه", "network", "u", "rack", "fiber", "الياف", "utp", "ftp"],
+      "supplier_terms": ["شبكات", "networks", "كابلات", "تيار خفيف", "structured cabling"],
+      "preferred_archetypes": ["network_integrator", "cable_supplier"],
+      "allowed_archetypes": ["it_hardware_supplier", "data_center_integrator", "electrical_distributor"],
+      "facets": [
+        { "name": "data_speed", "supplier_pool_affecting": false },
+        { "name": "length_m", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "racks_enclosures",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "الكبائن ورفوف الخوادم",
+      "strong_terms": ["rack cabinet", "كابينه رف", "server rack", "open frame rack", "رف open frame", "network enclosure", "كابينت شبكه", "cold aisle containment", "containment kit", "ممر هواء بارد", "ممر بارد", "blanking panel"],
+      "weak_terms": ["rack", "cabinet", "enclosure", "frame", "رف", "containment", "ممر"],
+      "context_terms": ["u", "42u", "خوادم", "server", "شبكه", "network", "قايم", "perforated", "مركز بيانات", "modular", "هواء بارد"],
+      "supplier_terms": ["مراكز البيانات", "data center", "شبكات", "racks"],
+      "preferred_archetypes": ["data_center_integrator", "it_hardware_supplier", "network_integrator"],
+      "allowed_archetypes": ["metal_trading", "warehouse_equipment_supplier", "electrical_distributor"],
+      "facets": [
+        { "name": "rack_units", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "rack_power_distribution",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "توزيع الطاقة داخل الكبائن",
+      "strong_terms": ["pdu", "rack pdu", "موزع طاقه", "metered pdu", "switched pdu", "power strip رف"],
+      "weak_terms": ["موزع", "distribution", "strip"],
+      "context_terms": ["u", "rack", "طاقه", "power", "a", "قياس", "outlets"],
+      "supplier_terms": ["مراكز البيانات", "data center", "انظمه طاقه", "كهرباييه"],
+      "preferred_archetypes": ["data_center_integrator", "ups_supplier", "electrical_distributor"],
+      "allowed_archetypes": ["it_hardware_supplier", "network_integrator", "switchgear_supplier"],
+      "facets": [
+        { "name": "rack_units", "supplier_pool_affecting": false },
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": true }
+      ]
+    },
+    {
+      "id": "dc_cooling",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "تبريد مراكز البيانات",
+      "strong_terms": ["تكييف دقيق", "precision cooling", "crac", "crah", "in-row cooling", "rear door heat exchanger", "cdu", "immersion cooling"],
+      "weak_terms": ["cooling", "تبريد", "exchanger"],
+      "context_terms": ["مركز بيانات", "data center", "kw", "chilled water", "rack", "دقيق"],
+      "supplier_terms": ["مراكز البيانات", "data center", "تكييف", "hvac"],
+      "preferred_archetypes": ["data_center_integrator", "hvac_supplier"],
+      "allowed_archetypes": ["it_hardware_supplier", "electrical_distributor"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "power_kw", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "environmental_monitoring",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "المراقبة البيئية",
+      "strong_terms": ["مراقبه بييه", "environmental monitor", "كاشف تسرب مياه", "leak detection", "حساس حراره ورطوبه", "temperature humidity sensor", "جهاز مراقبه بييه", "monitoring gateway", "متعدد المجسات"],
+      "weak_terms": ["مراقبه", "monitor", "مجسات", "sensor"],
+      "context_terms": ["بييه", "environmental", "رطوبه", "حراره", "تسرب", "مركز بيانات", "snmp"],
+      "supplier_terms": ["مراكز البيانات", "data center", "اجهزه قياس", "instruments"],
+      "preferred_archetypes": ["data_center_integrator", "instrumentation_supplier"],
+      "allowed_archetypes": ["it_hardware_supplier", "network_integrator", "electrical_distributor"],
+      "facets": [
+        { "name": "accuracy", "supplier_pool_affecting": false },
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "wireless_networking",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "الشبكات اللاسلكية",
+      "strong_terms": ["access point", "نقطه وصول", "wlan controller", "وحده تحكم wlan", "wifi 6", "mesh لاسلكي", "point to point radio", "bridge لاسلكي", "هوايي شبكه"],
+      "weak_terms": ["هوايي", "antenna", "wireless", "لاسلكي", "controller"],
+      "context_terms": ["wifi", "لاسلكي", "شبكه", "dbi", "ghz", "ap", "wlan"],
+      "supplier_terms": ["شبكات", "networks", "اتصالات", "wireless"],
+      "preferred_archetypes": ["network_integrator", "it_hardware_supplier"],
+      "allowed_archetypes": ["data_center_integrator", "cybersecurity_integrator", "av_supplier"],
+      "facets": [
+        { "name": "data_speed", "supplier_pool_affecting": false },
+        { "name": "range_m", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "end_user_computing",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "أجهزة المستخدمين",
+      "strong_terms": ["حاسب محمول", "لابتوب", "laptop", "حاسب مكتبي", "desktop", "notebook", "thin client", "docking station", "محطه ارساء", "جهاز لوحي", "tablet"],
+      "weak_terms": ["شاشه", "monitor", "display", "حاسب", "computer"],
+      "context_terms": ["بوصه", "inch", "enterprise", "مكتبي", "محمول", "ram", "ssd", "4k"],
+      "supplier_terms": ["حاسب", "كمبيوتر", "computers", "تقنيه المعلومات", "it"],
+      "preferred_archetypes": ["it_hardware_supplier"],
+      "allowed_archetypes": ["network_integrator", "general_trading", "av_supplier", "data_center_integrator"],
+      "facets": [
+        { "name": "storage_capacity", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ]
+    },
+
+    {
+      "id": "it_peripherals",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "ملحقات وأجهزة الطباعة والمسح",
+      "strong_terms": ["طابعه", "printer", "ماسح ضويي", "document scanner", "طابعه بطاقات", "card printer", "kvm switch", "لوحه مفاتيح", "keyboard", "plotter"],
+      "weak_terms": ["scanner", "ماسح", "console", "peripheral", "ملحقات"],
+      "context_terms": ["طباعه", "printing", "مستندات", "usb", "شبكه", "rack", "مكتبي", "dpi", "ppm"],
+      "supplier_terms": ["تقنيه المعلومات", "it", "طباعه", "printing", "computers"],
+      "preferred_archetypes": ["it_hardware_supplier", "printing_supplier"],
+      "allowed_archetypes": ["network_integrator", "general_trading", "access_control_supplier"],
+      "facets": [
+        { "name": "interface", "supplier_pool_affecting": false }
+      ],
+      "categories": [
+        {
+          "id": "printing_devices",
+          "label_ar": "أجهزة الطباعة",
+          "strong_terms": ["طابعه", "printer", "plotter"],
+          "context_terms": ["طباعه", "printing", "ppm", "a4", "a3", "dpi"],
+          "intents": [
+            {
+              "id": "printers",
+              "label_ar": "طابعات المستندات",
+              "strong_terms": ["طابعه ليزر", "laser printer", "inkjet printer", "طابعه نافثه للحبر", "multifunction printer", "طابعه متعدده الوظايف", "plotter", "طابعه مخططات", "طابعه شبكيه", "network printer"],
+              "weak_terms": ["طابعه", "printer"],
+              "context_terms": ["a4", "a3", "ppm", "dpi", "ليزر", "مستندات", "مكتبيه", "شبكه"],
+              "facets": [
+                { "name": "print_technology", "supplier_pool_affecting": true },
+                { "name": "interface", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "label_printers",
+              "label_ar": "طابعات الملصقات",
+              "strong_terms": ["طابعه ملصقات", "label printer", "barcode printer", "طابعه باركود", "thermal transfer printer"],
+              "weak_terms": ["ملصقات", "labels", "باركود", "barcode"],
+              "context_terms": ["حراريه", "thermal", "صناعيه", "ترقيم", "ribbon", "روول"],
+              "facets": [
+                { "name": "print_technology", "supplier_pool_affecting": true },
+                { "name": "interface", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "card_printers",
+              "label_ar": "طابعات البطاقات",
+              "strong_terms": ["طابعه بطاقات", "card printer", "id card printer", "retransfer printer", "بطاقات pvc", "pvc card", "بطاقه هويه"],
+              "weak_terms": ["بطاقات", "cards", "بطاقه"],
+              "context_terms": ["pvc", "تشفير", "هويه", "طباعه", "hologram", "dye sublimation"],
+              "facets": [
+                { "name": "print_technology", "supplier_pool_affecting": true },
+                { "name": "credential_type", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "scanning_devices",
+          "label_ar": "أجهزة المسح الضوئي",
+          "strong_terms": ["ماسح ضويي", "document scanner"],
+          "context_terms": ["مستندات", "ضويي", "adf", "dpi", "مسح"],
+          "intents": [
+            {
+              "id": "document_scanners",
+              "label_ar": "ماسحات المستندات",
+              "strong_terms": ["ماسح ضويي", "document scanner", "flatbed scanner", "sheetfed scanner", "ماسح مستندات"],
+              "weak_terms": ["scanner", "ماسح"],
+              "context_terms": ["مستندات", "ضويي", "adf", "dpi", "مسح", "duplex"],
+              "facets": [
+                { "name": "interface", "supplier_pool_affecting": false },
+                { "name": "resolution_mp", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "barcode_scanners",
+              "label_ar": "ماسحات الباركود",
+              "strong_terms": ["ماسح باركود", "barcode scanner", "قارئ باركود", "barcode reader", "handheld scanner"],
+              "weak_terms": ["باركود", "barcode", "ماسح", "قارئ"],
+              "context_terms": ["باركود", "barcode", "1d", "2d", "مستودع", "ترقيم", "usb"],
+              "facets": [
+                { "name": "interface", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "rack_management_peripherals",
+          "label_ar": "ملحقات إدارة الكبائن",
+          "strong_terms": ["kvm", "rack console"],
+          "context_terms": ["rack", "u", "اداره", "خوادم"],
+          "intents": [
+            {
+              "id": "kvm_console",
+              "label_ar": "أجهزة KVM والكونسول",
+              "strong_terms": ["kvm", "kvm switch", "rack console", "lcd console", "console رف", "out of band console", "serial console server"],
+              "weak_terms": ["console"],
+              "context_terms": ["rack", "u", "اداره", "خوادم", "منافذ", "ip"],
+              "facets": [
+                { "name": "rack_units", "supplier_pool_affecting": false },
+                { "name": "interface", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "input_peripherals",
+          "label_ar": "ملحقات الإدخال",
+          "strong_terms": ["لوحه مفاتيح", "keyboard", "ماوس", "mouse"],
+          "context_terms": ["usb", "wireless", "مكتبي", "حاسب"],
+          "intents": [
+            {
+              "id": "keyboards_peripherals",
+              "label_ar": "لوحات المفاتيح والملحقات",
+              "strong_terms": ["لوحه مفاتيح", "keyboard", "ماوس", "mouse", "usb hub", "موزع usb", "webcam", "headset"],
+              "weak_terms": ["peripheral", "ملحقات"],
+              "context_terms": ["usb", "wireless", "لاسلكي", "مكتبي", "حاسب"],
+              "facets": [
+                { "name": "interface", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "physical_security",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "الأمن المادي والمراقبة",
+      "strong_terms": ["كاميرا مراقبه", "cctv", "nvr", "ptz camera", "تحكم بالدخول", "access control", "بوابه دوران", "turnstile", "قفل مغناطيسي", "magnetic lock", "قارئ بطاقات", "card reader"],
+      "weak_terms": ["كاميرا", "camera", "قارئ", "reader", "مراقبه", "امنيه"],
+      "context_terms": ["مراقبه", "امنيه", "surveillance", "تيار خفيف", "دخول", "security"],
+      "supplier_terms": ["مراقبه", "كاميرات", "cctv", "انظمه امنيه", "تيار خفيف", "access control"],
+      "preferred_archetypes": ["cctv_security_supplier", "access_control_supplier", "network_integrator"],
+      "allowed_archetypes": ["it_hardware_supplier", "cybersecurity_integrator", "data_center_integrator"],
+      "facets": [
+        { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "categories": [
+        {
+          "id": "video_surveillance",
+          "label_ar": "المراقبة بالفيديو",
+          "strong_terms": ["كاميرا مراقبه", "ptz camera", "nvr", "cctv", "dome camera", "bullet camera", "vms", "مسجل شبكي"],
+          "weak_terms": ["كاميرا", "camera"],
+          "context_terms": ["مراقبه", "امنيه", "تيار خفيف", "video surveillance", "surveillance", "ir", "mp", "onvif"],
+          "preferred_archetypes": ["cctv_security_supplier"],
+          "allowed_archetypes": ["network_integrator", "it_hardware_supplier", "access_control_supplier"],
+          "intents": [
+            {
+              "id": "cctv_camera",
+              "label_ar": "كاميرات مراقبة ثابتة",
+              "strong_terms": ["كاميرا مراقبه", "cctv camera", "dome camera", "bullet camera", "كاميرا ثابته", "fixed camera", "كاميرا ip", "ip camera"],
+              "weak_terms": ["كاميرا", "camera"],
+              "context_terms": ["مراقبه", "امنيه", "cctv", "ir", "mp", "onvif", "poe"],
+              "facets": [
+                { "name": "camera_form", "supplier_pool_affecting": false },
+                { "name": "resolution_mp", "supplier_pool_affecting": false },
+                { "name": "protection_ip", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "ptz_camera",
+              "label_ar": "كاميرات PTZ",
+              "strong_terms": ["ptz camera", "كاميرا ptz", "pan tilt zoom", "كاميرا متحركه", "speed dome"],
+              "weak_terms": ["ptz"],
+              "context_terms": ["مراقبه", "zoom", "x", "ir", "mp"],
+              "facets": [
+                { "name": "camera_form", "supplier_pool_affecting": false },
+                { "name": "resolution_mp", "supplier_pool_affecting": false },
+                { "name": "range_m", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "nvr",
+              "label_ar": "مسجلات الفيديو الشبكية",
+              "strong_terms": ["nvr", "مسجل شبكي", "network video recorder", "dvr", "مسجل فيديو"],
+              "weak_terms": ["recorder", "مسجل"],
+              "context_terms": ["مراقبه", "قنوات", "channels", "tb", "raid"],
+              "facets": [
+                { "name": "storage_capacity", "supplier_pool_affecting": false },
+                { "name": "rack_units", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "vms",
+              "label_ar": "منصات إدارة الفيديو",
+              "strong_terms": ["vms", "منصه اداره فيديو", "video management system", "video management software"],
+              "weak_terms": ["منصه فيديو"],
+              "context_terms": ["اداره", "رخصه", "license", "قنوات", "مراقبه"],
+              "facets": [
+                { "name": "capacity", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "thermal_security_camera",
+              "label_ar": "كاميرات حرارية أمنية",
+              "strong_terms": ["كاميرا حراريه امنيه", "thermal security camera", "thermal network camera", "كاميرا حراريه للمراقبه"],
+              "weak_terms": ["كاميرا حراريه", "thermal camera"],
+              "context_terms": ["مراقبه", "امنيه", "محيط", "perimeter", "surveillance", "onvif"],
+              "facets": [
+                { "name": "resolution_mp", "supplier_pool_affecting": false },
+                { "name": "range_m", "supplier_pool_affecting": false },
+                { "name": "protection_ip", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "access_control",
+          "label_ar": "التحكم بالدخول",
+          "strong_terms": ["تحكم بالدخول", "access control", "بوابه دوران", "turnstile", "قفل مغناطيسي", "magnetic lock", "قارئ بطاقات", "card reader", "access controller", "بصمه", "biometric"],
+          "weak_terms": ["قارئ", "reader", "قفل", "lock", "بوابه"],
+          "context_terms": ["دخول", "access", "صلاحيات", "mifare", "rfid", "امنيه", "ابواب"],
+          "preferred_archetypes": ["access_control_supplier"],
+          "allowed_archetypes": ["cctv_security_supplier", "network_integrator", "it_hardware_supplier"],
+          "intents": [
+            {
+              "id": "card_reader",
+              "label_ar": "قارئات البطاقات",
+              "strong_terms": ["قارئ بطاقات", "card reader", "mifare reader", "rfid reader", "proximity reader"],
+              "weak_terms": ["قارئ", "reader"],
+              "context_terms": ["بطاقات", "دخول", "mifare", "rfid", "13.56", "125khz", "access"],
+              "facets": [
+                { "name": "credential_type", "supplier_pool_affecting": false },
+                { "name": "protection_ip", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "access_controller",
+              "label_ar": "وحدات التحكم بالدخول",
+              "strong_terms": ["access controller", "وحده تحكم دخول", "door controller", "لوحه تحكم دخول", "access control panel"],
+              "weak_terms": ["controller", "وحده تحكم"],
+              "context_terms": ["دخول", "ابواب", "doors", "access", "صلاحيات", "tcp"],
+              "facets": [
+                { "name": "capacity", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "electromagnetic_lock",
+              "label_ar": "الأقفال الكهرومغناطيسية",
+              "strong_terms": ["قفل مغناطيسي", "قفل كهرومغناطيسي", "magnetic lock", "maglock", "electric strike", "قفل كهربايي", "drop bolt"],
+              "weak_terms": ["قفل", "lock"],
+              "context_terms": ["مغناطيسي", "باب", "دخول", "kg", "fail safe", "fail secure"],
+              "facets": [
+                { "name": "capacity", "supplier_pool_affecting": false },
+                { "name": "voltage", "supplier_pool_affecting": true }
+              ]
+            },
+            {
+              "id": "biometric_reader",
+              "label_ar": "قارئات البصمة والتعرف",
+              "strong_terms": ["بصمه", "biometric reader", "fingerprint reader", "face recognition", "التعرف على الوجه", "iris reader"],
+              "weak_terms": ["biometric", "وجه"],
+              "context_terms": ["دخول", "access", "بصمه", "تعرف", "قوالب", "templates"],
+              "facets": [
+                { "name": "credential_type", "supplier_pool_affecting": false },
+                { "name": "capacity", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "rfid_credentials",
+              "label_ar": "بطاقات ووسوم التعريف",
+              "strong_terms": ["بطاقات rfid", "rfid card", "mifare card", "بطاقه rfid", "rfid tag", "وسم rfid", "asset tag", "وسوم الاصول", "proximity card"],
+              "weak_terms": ["بطاقات", "tag", "وسم"],
+              "context_terms": ["rfid", "mifare", "اصول", "asset", "دخول", "13.56", "125khz"],
+              "facets": [
+                { "name": "credential_type", "supplier_pool_affecting": false }
+              ]
+            },
+            {
+              "id": "turnstile_gate",
+              "label_ar": "البوابات الدوارة",
+              "strong_terms": ["بوابه دوران", "turnstile", "speed gate", "بوابه امنيه", "full height turnstile", "tripod turnstile"],
+              "weak_terms": ["بوابه", "gate"],
+              "context_terms": ["دوران", "دخول", "access", "امنيه", "ستانلس", "مداخل"],
+              "facets": [
+                { "name": "material", "supplier_pool_affecting": true },
+                { "name": "dimensions", "supplier_pool_affecting": false }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "network_test_tools",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "أجهزة فحص الشبكات",
+      "strong_terms": ["cable tester", "فاحص كابلات", "اختبار كابلات", "فحص كابلات", "اختبار شبكه", "فحص شبكه", "wifi tester", "جهاز اختبار اتصال", "network certifier", "tone generator", "fluke tester", "محلل طيف", "spectrum analyzer", "rf analyzer", "محلل طيف rf", "ethernet tester", "site survey kit", "عده مسح موقعي", "wifi site survey", "network impairment emulator", "محاكي bgp"],
+      "weak_terms": ["جهاز اختبار", "tester", "اختبار", "certifier", "محلل", "analyzer"],
+      "context_terms": ["شبكه", "network", "كابلات", "اتصال", "wifi", "fiber", "الياف", "cat6", "rf", "طيف", "محمول"],
+      "supplier_terms": ["شبكات", "اجهزه قياس", "instruments", "networks"],
+      "preferred_archetypes": ["instrumentation_supplier", "network_integrator"],
+      "allowed_archetypes": ["it_hardware_supplier", "industrial_tools_supplier", "data_center_integrator"],
+      "facets": [
+        { "name": "accuracy", "supplier_pool_affecting": false },
+        { "name": "data_speed", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "fiber_optic_tools",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "أدوات وأجهزة الألياف البصرية",
+      "strong_terms": ["fusion splicer", "جهاز لحام الياف", "splicer", "قاطع الياف", "cleaver", "precision cleaver", "optical power meter", "مقياس قدره ضوييه", "fiber inspection probe", "مجهر فحص الياف", "مجهر فحص موصل", "visual fault locator", "vfl", "otdr", "optical light source", "fiber stripper", "محزم الياف", "fiber cleaning kit"],
+      "weak_terms": ["الياف", "fiber", "optical", "ضوييه", "مجهر", "probe"],
+      "context_terms": ["بصريه", "optic", "نواه", "core", "splice", "db", "sm", "mm", "لحام", "فحص", "موصل", "connector"],
+      "supplier_terms": ["شبكات", "networks", "الياف بصريه", "fiber optic", "اجهزه قياس"],
+      "preferred_archetypes": ["network_integrator", "instrumentation_supplier"],
+      "allowed_archetypes": ["it_hardware_supplier", "data_center_integrator", "cable_supplier", "industrial_tools_supplier"],
+      "facets": [
+        { "name": "accuracy", "supplier_pool_affecting": false },
+        { "name": "range_m", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "network_observability",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "مراقبة وتحليل الشبكات",
+      "strong_terms": ["packet broker", "network packet broker", "packet capture", "محلل حزم", "network probe", "netflow probe", "telemetry probe", "network tap", "syslog collector", "مجمع syslog", "synthetic transaction monitoring", "synthetic monitoring", "network analyzer", "محلل شبكه", "flow collector", "npm appliance"],
+      "weak_terms": ["probe", "مجس", "broker", "collector", "مجمع", "telemetry", "netflow"],
+      "context_terms": ["شبكه", "network", "حزم", "packets", "gbps", "تحليل", "مراقبه", "snmp", "سجل", "logs", "تدقيق"],
+      "supplier_terms": ["شبكات", "networks", "مراقبه شبكات", "امن سيبراني", "تقنيه المعلومات"],
+      "preferred_archetypes": ["network_integrator", "cybersecurity_integrator"],
+      "allowed_archetypes": ["it_hardware_supplier", "data_center_integrator", "instrumentation_supplier"],
+      "facets": [
+        { "name": "data_speed", "supplier_pool_affecting": false },
+        { "name": "rack_units", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "time_synchronization",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "أجهزة التوقيت والمزامنة",
+      "strong_terms": ["ntp server", "ptp grandmaster", "جهاز توقيت شبكي", "time server", "خادم توقيت", "ntp ptp", "gnss time receiver", "مرجع توقيت"],
+      "weak_terms": ["توقيت", "ntp", "ptp", "grandmaster"],
+      "context_terms": ["شبكي", "شبكه", "network", "مرجعي", "مزامنه", "sync", "gps", "gnss", "stratum"],
+      "supplier_terms": ["شبكات", "networks", "تقنيه المعلومات", "اجهزه قياس"],
+      "preferred_archetypes": ["network_integrator", "it_hardware_supplier"],
+      "allowed_archetypes": ["data_center_integrator", "instrumentation_supplier", "cybersecurity_integrator"],
+      "facets": [
+        { "name": "rack_units", "supplier_pool_affecting": false },
+        { "name": "accuracy", "supplier_pool_affecting": false }
+      ]
+    },
+    {
+      "id": "av_communications",
+      "sector": "DATACENTER_ICT",
+      "label_ar": "الصوتيات والمرئيات وأنظمة النداء",
+      "strong_terms": ["intercom", "انتركم", "video intercom", "ip intercom", "sip station", "pa amplifier", "مكبر صوت", "امبليفاير", "public address", "نظام نداء", "نظام صوتيات", "مصفوفه ميكروفونات", "microphone array", "beamforming microphone", "واجهه صوت", "audio interface", "streaming encoder", "مشفر بث", "speaker شبكه", "network speaker", "سماعه سقفيه", "ceiling speaker", "video wall", "شاشه عرض تفاعليه", "interactive display"],
+      "weak_terms": ["صوت", "audio", "speaker", "سماعه", "ميكروفون", "microphone", "encoder", "amplifier"],
+      "context_terms": ["صوتيات", "نداء", "بث", "audio", "video", "sip", "poe", "شبكه", "w", "100 v", "عرض", "قاعه"],
+      "supplier_terms": ["صوتيات", "audio visual", "شاشات عرض", "تيار خفيف", "شبكات"],
+      "preferred_archetypes": ["av_supplier", "network_integrator"],
+      "allowed_archetypes": ["it_hardware_supplier", "cctv_security_supplier", "data_center_integrator", "electrical_distributor"],
+      "facets": [
+        { "name": "power_kw", "supplier_pool_affecting": false },
+        { "name": "interface", "supplier_pool_affecting": false }
+      ]
+    }
+  ]
+}

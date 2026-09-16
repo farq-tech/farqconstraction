@@ -1,8 +1,15 @@
+# macOS AppleDouble sidecars. This volume is exFAT/SMB, so every file gets a
+# `._name` twin that carries no source and shadows ignore rules for the real
+# file (`._.env.local` is not matched by `.env*`).
+._*
+.DS_Store
+
 node_modules/
 dist/
 build/
 .cache/
 .env*
+!.env.example
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo

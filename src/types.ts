@@ -18,12 +18,14 @@ export type AppView =
   | 'settings'
   | 'access-denied'
   | 'supplier'
+  | 'inbox'
+  | 'inbox-thread'
 
 export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'اختيارك'
-export type ChannelType = 'بريد' | 'واتساب'
+export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
 
 export interface Supplier {
-  id: number
+  id: string
   name: string
   city: string
   evidence: EvidenceType
@@ -39,6 +41,9 @@ export interface BOQItem {
   status: 'ready' | 'searching'
   supplierCount: number
   suppliers: Supplier[]
+  /** Matched Farq catalog spec when available */
+  farqSpecId?: string
+  lineKey?: string
 }
 
 export interface RFQSummary {
@@ -53,7 +58,7 @@ export interface RFQSummary {
 }
 
 export interface SupplierEntry {
-  id: number
+  id: string
   name: string
   city: string
   category: string
@@ -62,8 +67,18 @@ export interface SupplierEntry {
   interactions: number
   lastSeen: string
   manual?: boolean
+  qualificationStatus?: string
+  activity?: string
+  hasEmail?: boolean
+  hasWhatsapp?: boolean
+  hasHaraj?: boolean
+  sourceSystem?: string
+  /** The upload that created this row — null for everything the sweeps found. */
+  importBatchId?: string | null
 }
 
 export interface NavProps {
   navigate: (v: AppView) => void
+  selectedSupplierId?: string | null
+  setSelectedSupplierId?: (id: string | null) => void
 }

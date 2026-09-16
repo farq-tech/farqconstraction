@@ -1,6 +1,19 @@
 import { useState } from 'react'
+import { FarqAuthError, farqSession } from '../api/farqSession'
 import type { NavProps } from '../types'
 
+/**
+ * Real sign-in against Farq's own identity store (`POST /api/auth/login`).
+ *
+ * This screen used to be a 1.4-second `setTimeout` that navigated home no
+ * matter what was typed. Now a failed password fails, and a successful one
+ * issues a session belonging to that account.
+ *
+ * "المتابعة بدون تسجيل دخول" stays for now: demo mode is still how the app is
+ * driven locally, and the Farq API only honours it outside production with
+ * `CONSTRUCTION_DEMO_MODE=1`. It is removed once real login is proven in
+ * production, not before.
+ */
 export function LoginView({ navigate }: NavProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -9,14 +22,20 @@ export function LoginView({ navigate }: NavProps) {
 
   const canSubmit = email.trim().length > 0 && password.length > 0
 
-  const handleLogin = () => {
-    if (!canSubmit) return
+  const handleLogin = async () => {
+    if (!canSubmit || loading) return
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      await farqSession.signIn(email.trim(), password)
+      // Never keep the password in component state after it has been spent.
+      setPassword('')
       navigate('home')
-    }, 1400)
+    } catch (err) {
+      setError(loginErrorAr(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -51,7 +70,7 @@ export function LoginView({ navigate }: NavProps) {
                 placeholder="you@company.com.sa"
                 dir="ltr"
                 className="w-full border border-neutral-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#123F3A] transition-colors placeholder:text-neutral-400"
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                onKeyDown={e => e.key === 'Enter' && void handleLogin()}
               />
             </div>
             <div>
@@ -62,14 +81,15 @@ export function LoginView({ navigate }: NavProps) {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 dir="ltr"
+                autoComplete="current-password"
                 className="w-full border border-neutral-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#123F3A] transition-colors placeholder:text-neutral-400"
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                onKeyDown={e => e.key === 'Enter' && void handleLogin()}
               />
             </div>
           </div>
 
           <button
-            onClick={handleLogin}
+            onClick={() => void handleLogin()}
             disabled={!canSubmit || loading}
             className="w-full mt-6 py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
@@ -84,14 +104,26 @@ export function LoginView({ navigate }: NavProps) {
             ) : 'دخول'}
           </button>
 
+          <button
+            type="button"
+            onClick={() => navigate('home')}
+            className="w-full mt-3 py-3 border border-neutral-200 text-[#123F3A] font-bold rounded-xl hover:bg-neutral-50 transition-colors text-sm"
+          >
+            المتابعة بدون تسجيل دخول
+          </button>
+
           <div className="mt-4 text-center">
-            <button className="text-xs text-neutral-400 hover:text-[#123F3A] transition-colors">
-              نسيت كلمة المرور؟
-            </button>
+            <p className="text-[11px] text-neutral-400 leading-relaxed">
+              الحسابات على قاعدة بيانات فرق نفسها — لا تعتمد على مزوّد خارجي.
+              «المتابعة بدون تسجيل دخول» تعمل بالوضع التجريبي محليًا فقط.
+            </p>
           </div>
         </div>
 
-        {/* Supplier portal link */}
+        {/* Supplier portal link.
+            Suppliers do NOT sign in — they open the one-use link in their
+            invitation. This is a hint for a supplier who landed here by
+            mistake, not a second way into the buyer app. */}
         <div className="mt-5 text-center">
           <button
             onClick={() => navigate('supplier')}
@@ -103,4 +135,28 @@ export function LoginView({ navigate }: NavProps) {
       </div>
     </div>
   )
+}
+
+/**
+ * One cause, one instruction.
+ *
+ * A wrong password, a locked account, an API with no signing secret and an
+ * unreachable server need four different actions from the person reading this.
+ * Collapsing them into «فشل تسجيل الدخول» is what makes an operator problem
+ * look like a forgotten password.
+ */
+function loginErrorAr(err: unknown): string {
+  if (err instanceof FarqAuthError) {
+    if (err.code === 'LOCAL_AUTH_NOT_CONFIGURED') {
+      return 'خدمة الحسابات غير مهيّأة على الـ API (FARQ_AUTH_JWT_SECRET غير مضبوط) — هذه مشكلة إعداد لا كلمة مرور.'
+    }
+    if (err.code === 'ACCOUNT_LOCKED') {
+      return 'تم إيقاف المحاولات مؤقتًا بعد محاولات خاطئة متكررة — انتظر قليلًا ثم أعد المحاولة.'
+    }
+    if (err.status === 0) {
+      return 'لا يمكن الوصول إلى خدمة الحسابات — تأكد أن Farq API يعمل.'
+    }
+    return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'
+  }
+  return 'تعذّر تسجيل الدخول — أعد المحاولة.'
 }

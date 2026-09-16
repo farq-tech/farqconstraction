@@ -1,0 +1,505 @@
+{
+  "measured_at": "2026-09-16T09:36:24.241Z",
+  "contract": "three levels only (A/B/C); ai_eligible is metadata inside C, not a level",
+  "ontology": {
+    "version": "cpo-v2",
+    "port_version": "cpo-v2",
+    "port_degraded": false,
+    "port_origin": "configured-json",
+    "fingerprint": "6b04b903b356",
+    "resolver": "resolveOntology (ontology lane) — this script does not classify"
+  },
+  "vocabulary_crosscheck": {
+    "intents": {
+      "authoritative": 40,
+      "port": 40,
+      "match": true
+    },
+    "families": {
+      "authoritative": 84,
+      "port": 84,
+      "match": true
+    },
+    "pool_affecting_facets": [
+      "application",
+      "finish",
+      "material",
+      "print_technology",
+      "pump_type",
+      "standard",
+      "voltage"
+    ]
+  },
+  "cache": {
+    "enabled": true,
+    "ttl_seconds": 300,
+    "shared_layer": "none",
+    "degraded_to_in_process": true,
+    "ontology_version": "cpo-v2",
+    "ontology_fingerprint": "6b04b903b356"
+  },
+  "synthetic_pool_build": {
+    "catalog_rows": 2000,
+    "reason": "local construction DB unreachable"
+  },
+  "ai_leg": "mocked — live provider path unverified, no spend",
+  "fixtures": [
+    {
+      "fixture": "fixtures/boq/warehouse-ops-02.flat.txt",
+      "parse_source": "pdf-text",
+      "lines": 146,
+      "by_level": {
+        "A": 35,
+        "B": 111,
+        "C": 0
+      },
+      "poolable": 146,
+      "level_percent": {
+        "A": 24,
+        "B": 76,
+        "C": 0
+      },
+      "c_buckets": {
+        "ai_eligible": 0,
+        "rejected": 0
+      },
+      "not_supplyable": 0,
+      "resolve_ms": {
+        "level_a": {
+          "n": 35,
+          "mean_ms": 4.244,
+          "p50_ms": 1.636,
+          "p95_ms": 10.308,
+          "max_ms": 58.227
+        },
+        "level_b": {
+          "n": 111,
+          "mean_ms": 5.558,
+          "p50_ms": 2.506,
+          "p95_ms": 14.971,
+          "max_ms": 211.807
+        },
+        "level_c": {
+          "n": 0,
+          "mean_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "max_ms": null
+        }
+      },
+      "pool_build_ms_synthetic": {
+        "level_a": {
+          "cold": {
+            "n": 23,
+            "mean_ms": 60.785,
+            "p50_ms": 70.932,
+            "p95_ms": 78.992,
+            "max_ms": 81.706
+          },
+          "warm": {
+            "n": 23,
+            "mean_ms": 0.052,
+            "p50_ms": 0.048,
+            "p95_ms": 0.06,
+            "max_ms": 0.164
+          }
+        },
+        "level_b": {
+          "cold": {
+            "n": 41,
+            "mean_ms": 52.661,
+            "p50_ms": 51.052,
+            "p95_ms": 68.332,
+            "max_ms": 80.66
+          },
+          "warm": {
+            "n": 41,
+            "mean_ms": 0.051,
+            "p50_ms": 0.047,
+            "p95_ms": 0.063,
+            "max_ms": 0.126
+          }
+        },
+        "level_c": {
+          "cold": {
+            "n": 0,
+            "mean_ms": null,
+            "p50_ms": null,
+            "p95_ms": null,
+            "max_ms": null
+          },
+          "warm": {
+            "n": 0,
+            "mean_ms": null,
+            "p50_ms": null,
+            "p95_ms": null,
+            "max_ms": null
+          }
+        }
+      },
+      "pool_reuse": {
+        "total_lines": 146,
+        "unique_exact_intents": 15,
+        "unique_family_pools": 30,
+        "unique_pools": 64,
+        "lines_reusing_pool": 82
+      }
+    },
+    {
+      "fixture": "fixtures/boq/site-safety-02.flat.txt",
+      "parse_source": "pdf-text",
+      "lines": 158,
+      "by_level": {
+        "A": 15,
+        "B": 139,
+        "C": 4
+      },
+      "poolable": 132,
+      "level_percent": {
+        "A": 9.5,
+        "B": 88,
+        "C": 2.5
+      },
+      "c_buckets": {
+        "ai_eligible": 4,
+        "rejected": 0
+      },
+      "not_supplyable": 0,
+      "resolve_ms": {
+        "level_a": {
+          "n": 15,
+          "mean_ms": 2.314,
+          "p50_ms": 0.924,
+          "p95_ms": 8.138,
+          "max_ms": 8.138
+        },
+        "level_b": {
+          "n": 139,
+          "mean_ms": 2.465,
+          "p50_ms": 1.995,
+          "p95_ms": 6.182,
+          "max_ms": 10.127
+        },
+        "level_c": {
+          "n": 4,
+          "mean_ms": 0.476,
+          "p50_ms": 0.445,
+          "p95_ms": 0.643,
+          "max_ms": 0.643
+        }
+      },
+      "pool_build_ms_synthetic": {
+        "level_a": {
+          "cold": {
+            "n": 11,
+            "mean_ms": 70.715,
+            "p50_ms": 70.869,
+            "p95_ms": 73.55,
+            "max_ms": 73.55
+          },
+          "warm": {
+            "n": 11,
+            "mean_ms": 0.041,
+            "p50_ms": 0.038,
+            "p95_ms": 0.068,
+            "max_ms": 0.068
+          }
+        },
+        "level_b": {
+          "cold": {
+            "n": 30,
+            "mean_ms": 55.132,
+            "p50_ms": 55.197,
+            "p95_ms": 74.176,
+            "max_ms": 74.613
+          },
+          "warm": {
+            "n": 30,
+            "mean_ms": 0.041,
+            "p50_ms": 0.039,
+            "p95_ms": 0.071,
+            "max_ms": 0.074
+          }
+        },
+        "level_c": {
+          "cold": {
+            "n": 0,
+            "mean_ms": null,
+            "p50_ms": null,
+            "p95_ms": null,
+            "max_ms": null
+          },
+          "warm": {
+            "n": 0,
+            "mean_ms": null,
+            "p50_ms": null,
+            "p95_ms": null,
+            "max_ms": null
+          }
+        }
+      },
+      "pool_reuse": {
+        "total_lines": 158,
+        "unique_exact_intents": 10,
+        "unique_family_pools": 28,
+        "unique_pools": 41,
+        "lines_reusing_pool": 91
+      }
+    },
+    {
+      "fixture": "fixtures/boq/datacenter-cyber-01.flat.txt",
+      "parse_source": "pdf-text",
+      "lines": 158,
+      "by_level": {
+        "A": 19,
+        "B": 134,
+        "C": 5
+      },
+      "poolable": 120,
+      "level_percent": {
+        "A": 12,
+        "B": 84.8,
+        "C": 3.2
+      },
+      "c_buckets": {
+        "ai_eligible": 5,
+        "rejected": 0
+      },
+      "not_supplyable": 0,
+      "resolve_ms": {
+        "level_a": {
+          "n": 19,
+          "mean_ms": 1.867,
+          "p50_ms": 1.053,
+          "p95_ms": 6.081,
+          "max_ms": 6.081
+        },
+        "level_b": {
+          "n": 134,
+          "mean_ms": 1.644,
+          "p50_ms": 1.278,
+          "p95_ms": 4.949,
+          "max_ms": 6.977
+        },
+        "level_c": {
+          "n": 5,
+          "mean_ms": 1.076,
+          "p50_ms": 0.869,
+          "p95_ms": 1.925,
+          "max_ms": 1.925
+        }
+      },
+      "pool_build_ms_synthetic": {
+        "level_a": {
+          "cold": {
+            "n": 11,
+            "mean_ms": 69.739,
+            "p50_ms": 67.587,
+            "p95_ms": 81.93,
+            "max_ms": 81.93
+          },
+          "warm": {
+            "n": 11,
+            "mean_ms": 0.039,
+            "p50_ms": 0.036,
+            "p95_ms": 0.07,
+            "max_ms": 0.07
+          }
+        },
+        "level_b": {
+          "cold": {
+            "n": 21,
+            "mean_ms": 56.569,
+            "p50_ms": 54.972,
+            "p95_ms": 75.505,
+            "max_ms": 78.742
+          },
+          "warm": {
+            "n": 21,
+            "mean_ms": 0.035,
+            "p50_ms": 0.036,
+            "p95_ms": 0.041,
+            "max_ms": 0.042
+          }
+        },
+        "level_c": {
+          "cold": {
+            "n": 0,
+            "mean_ms": null,
+            "p50_ms": null,
+            "p95_ms": null,
+            "max_ms": null
+          },
+          "warm": {
+            "n": 0,
+            "mean_ms": null,
+            "p50_ms": null,
+            "p95_ms": null,
+            "max_ms": null
+          }
+        }
+      },
+      "pool_reuse": {
+        "total_lines": 158,
+        "unique_exact_intents": 10,
+        "unique_family_pools": 21,
+        "unique_pools": 32,
+        "lines_reusing_pool": 88
+      }
+    }
+  ],
+  "totals": {
+    "lines": 462,
+    "by_level": {
+      "A": 69,
+      "B": 384,
+      "C": 9
+    },
+    "poolable": 398,
+    "poolable_percent": 86.1,
+    "level_b_not_poolable": 55,
+    "level_percent": {
+      "A": 14.9,
+      "B": 83.1,
+      "C": 1.9
+    },
+    "local_usable_a_plus_b": 453,
+    "local_usable_percent": 98.1,
+    "c_buckets": {
+      "ai_eligible": 9,
+      "rejected": 0
+    },
+    "not_supplyable": 0,
+    "resolve_ms": {
+      "level_a": {
+        "n": 69,
+        "mean_ms": 3.17,
+        "p50_ms": 1.282,
+        "p95_ms": 8.641,
+        "max_ms": 58.227
+      },
+      "level_b": {
+        "n": 384,
+        "mean_ms": 3.073,
+        "p50_ms": 1.733,
+        "p95_ms": 6.977,
+        "max_ms": 211.807
+      },
+      "level_c": {
+        "n": 9,
+        "mean_ms": 0.809,
+        "p50_ms": 0.445,
+        "p95_ms": 1.925,
+        "max_ms": 1.925
+      }
+    },
+    "pool_build_ms_synthetic": {
+      "level_a": {
+        "cold": {
+          "n": 45,
+          "mean_ms": 65.401,
+          "p50_ms": 70.827,
+          "p95_ms": 81.523,
+          "max_ms": 81.93
+        },
+        "warm": {
+          "n": 45,
+          "mean_ms": 0.046,
+          "p50_ms": 0.044,
+          "p95_ms": 0.068,
+          "max_ms": 0.164
+        }
+      },
+      "level_b": {
+        "cold": {
+          "n": 92,
+          "mean_ms": 54.359,
+          "p50_ms": 52.126,
+          "p95_ms": 75.2,
+          "max_ms": 80.66
+        },
+        "warm": {
+          "n": 92,
+          "mean_ms": 0.044,
+          "p50_ms": 0.041,
+          "p95_ms": 0.063,
+          "max_ms": 0.126
+        }
+      },
+      "level_c": {
+        "cold": {
+          "n": 0,
+          "mean_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "max_ms": null
+        },
+        "warm": {
+          "n": 0,
+          "mean_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "max_ms": null
+        }
+      }
+    },
+    "pool_reuse": {
+      "total_lines": 462,
+      "unique_exact_intents": 32,
+      "unique_family_pools": 70,
+      "unique_pool_keys": 127,
+      "lines_reusing_pool": 261,
+      "reuse_percent": 56.5
+    },
+    "pool_affecting_facet_hits": {
+      "material": 41,
+      "finish": 7,
+      "pump_type": 6,
+      "standard": 7,
+      "voltage": 18,
+      "application": 1,
+      "print_technology": 2
+    }
+  },
+  "ai_economics": {
+    "note": "provider MOCKED; learning store is an in-memory stand-in for construction.product_knowledge",
+    "ai_eligible_lines": 9,
+    "unique_ai_eligible_cores": 9,
+    "max_items_per_call": 12,
+    "calls_needed_for_full_coverage": 1,
+    "cold": {
+      "total_ms": 2.945,
+      "local_pre_ai_ms": 1,
+      "ai_ms": 0,
+      "ai_calls": 1,
+      "ai_accepted": 9,
+      "ai_rejected": 0
+    },
+    "warm": {
+      "total_ms": 1.103,
+      "ai_calls": 0,
+      "candidate_store_hits": 9,
+      "negative_cache_skips": 0
+    }
+  },
+  "resolver_level_field": {
+    "note": "raw `resolution.level` strings from cpo-v2, for cross-checking only",
+    "counts": {
+      "specific_intent": 69,
+      "local_resolved": 384,
+      "unresolved": 9
+    },
+    "by_source": {
+      "ontology_intent": 69,
+      "ontology_family": 326,
+      "semantic_recovery": 55,
+      "unresolved": 9,
+      "lexicon": 3
+    },
+    "non_poolable_by_source": {
+      "semantic_recovery": 55,
+      "unresolved": 9
+    },
+    "poolable": 398
+  }
+}

@@ -1,4 +1,4 @@
-import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
@@ -9,12 +9,28 @@ import siteConfiguration from './.figma/make/site.json'
 export default defineConfig(({ mode }) => {
   // .figma/make/deploy-preview passes `--mode development` for cached-preview builds.
   const emitSourcemaps = mode === 'development'
+  const env = loadEnv(mode, process.cwd(), '')
+  // Mirror Farq Frontend: browser hits /_api/* → Farq Express API (never Postgres).
+  const apiProxyTarget = (
+    env.VITE_API_PROXY_TARGET ||
+    process.env.VITE_API_PROXY_TARGET ||
+    'http://127.0.0.1:3000'
+  ).replace(/\/$/, '')
 
   return {
     base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
     build: {
       sourcemap: emitSourcemaps ? 'inline' : false,
       minify: !emitSourcemaps,
+    },
+    test: {
+      environment: 'node',
+      include: ['src/**/*.test.ts'],
+      // This repo lives on an exFAT volume, where macOS writes an AppleDouble
+      // sidecar (`._name.ts`) next to every file. They match the include glob,
+      // are binary, and fail the esbuild transform — six phantom failures that
+      // made a green suite look broken.
+      exclude: ['**/node_modules/**', '**/dist/**', '**/._*'],
     },
     plugins: [
       react(),
@@ -33,6 +49,13 @@ export default defineConfig(({ mode }) => {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
       port: parseInt(process.env.PORT || '8443'),
       strictPort: true,
+      proxy: {
+        '/_api': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/_api/, ''),
+        },
+      },
       watch: {
         ignored: [
           '**/.figma/**',
@@ -42,6 +65,13 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
       port: parseInt(process.env.PORT || '8443'),
+      proxy: {
+        '/_api': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/_api/, ''),
+        },
+      },
     },
   }
 })

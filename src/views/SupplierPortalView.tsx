@@ -1,494 +1,262 @@
-import { useState, useRef } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { NavProps } from '../types'
-import { UploadIcon, CheckIcon, XIcon } from '../icons'
+import {
+  getPublicSupplierInvite,
+  submitPublicSupplierQuote,
+  type PublicSupplierInvite,
+} from '../api/constructionClient'
 
-const SUPPLIER_ITEMS = [
-  { id: 1, name: 'بورسلان أرضيات', qty: '5,600', unit: 'م²', spec: '60×60 سم' },
-  { id: 2, name: 'سيراميك حوائط', qty: '976', unit: 'م²', spec: '30×60 سم' },
-  { id: 3, name: 'مغسلة أرضيات خزفية', qty: '120', unit: 'عدد', spec: 'معيار سعودي' },
-]
-
-interface LineEntry {
+type LineDraft = {
   unitPrice: string
-  tax: string
-  delivery: string
-  available: 'yes' | 'order'
+  available: boolean
   notes: string
 }
 
-type PortalPhase = 'entry' | 'manual' | 'upload-zone' | 'uploading' | 'submitted' | 'edit' | 'readonly' | 'closed'
-
-function ReadonlyRow({ item, entry }: { item: typeof SUPPLIER_ITEMS[0]; entry: LineEntry }) {
-  return (
-    <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-neutral-50 flex items-center justify-between">
-        <div>
-          <div className="text-sm font-black text-[#0D1F1D]">{item.name}</div>
-          <div className="text-xs text-neutral-500">{item.qty} {item.unit}{item.spec ? ` · ${item.spec}` : ''}</div>
-        </div>
-        {entry.unitPrice ? (
-          <div className="text-sm font-black text-[#123F3A]">{entry.unitPrice} ر.س</div>
-        ) : (
-          <span className="text-xs text-neutral-400">لم يُسعَّر</span>
-        )}
-      </div>
-      {entry.unitPrice && (
-        <div className="px-5 py-3 flex gap-4 text-xs text-neutral-500">
-          <span>التسليم: <span className="font-semibold text-[#0D1F1D]">{entry.delivery || '—'}</span></span>
-          <span>الضريبة: <span className="font-semibold text-[#0D1F1D]">{entry.tax || '15'}%</span></span>
-          <span>التوافر: <span className="font-semibold text-[#0D1F1D]">{entry.available === 'yes' ? 'متوفر' : 'حسب الطلب'}</span></span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function LineCard({ item, entry, onChange }: {
-  item: typeof SUPPLIER_ITEMS[0]
-  entry: LineEntry
-  onChange: (field: keyof LineEntry, value: string) => void
-}) {
-  return (
-    <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-neutral-50">
-        <div className="text-sm font-black text-[#0D1F1D]">{item.name}</div>
-        <div className="text-sm text-neutral-500 mt-0.5">
-          <span className="font-bold text-[#0D1F1D]">{item.qty}</span> {item.unit}
-          {item.spec && <span className="text-neutral-400"> · {item.spec}</span>}
-        </div>
-      </div>
-      <div className="px-5 py-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-semibold text-neutral-500 mb-1 block">سعر الوحدة (ر.س)</label>
-            <input
-              type="number"
-              value={entry.unitPrice}
-              onChange={e => onChange('unitPrice', e.target.value)}
-              placeholder="0.00"
-              className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] font-bold"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-neutral-500 mb-1 block">الضريبة %</label>
-            <input
-              type="number"
-              value={entry.tax}
-              onChange={e => onChange('tax', e.target.value)}
-              placeholder="15"
-              className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-neutral-500 mb-1 block">مدة التوريد</label>
-          <input
-            type="text"
-            value={entry.delivery}
-            onChange={e => onChange('delivery', e.target.value)}
-            placeholder="مثال: 14 يوم"
-            className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-neutral-500 mb-1 block">التوافر</label>
-          <div className="flex gap-2">
-            {(['yes', 'order'] as const).map(opt => (
-              <button
-                key={opt}
-                onClick={() => onChange('available', opt)}
-                className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition-all ${
-                  entry.available === opt
-                    ? 'border-[#123F3A] bg-[#f0faf7] text-[#123F3A]'
-                    : 'border-neutral-200 text-neutral-500'
-                }`}
-              >
-                {opt === 'yes' ? 'متوفر' : 'حسب الطلب'}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-neutral-500 mb-1 block">ملاحظات</label>
-          <input
-            type="text"
-            value={entry.notes}
-            onChange={e => onChange('notes', e.target.value)}
-            placeholder="أي ملاحظات على هذا البند…"
-            className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const defaultEntries = () => {
-  const init: Record<number, LineEntry> = {}
-  SUPPLIER_ITEMS.forEach(i => {
-    init[i.id] = { unitPrice: '', tax: '15', delivery: '', available: 'yes', notes: '' }
-  })
-  return init
-}
-
 export function SupplierPortalView({ navigate }: NavProps) {
-  const [phase, setPhase] = useState<PortalPhase>('entry')
-  const [entries, setEntries] = useState<Record<number, LineEntry>>(defaultEntries)
-  const [shipping, setShipping] = useState('')
-  const [validity, setValidity] = useState('30 يوم')
-  const [payment, setPayment] = useState('')
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadFileName, setUploadFileName] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
+  const token = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('token') || ''
+    } catch {
+      return ''
+    }
+  }, [])
+  const [invite, setInvite] = useState<PublicSupplierInvite | null>(null)
+  const [loading, setLoading] = useState(Boolean(token))
+  const [error, setError] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<Record<string, LineDraft>>({})
+  const [personName, setPersonName] = useState('')
+  const [personEmail, setPersonEmail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
 
-  const updateEntry = (itemId: number, field: keyof LineEntry, value: string) => {
-    setEntries(prev => ({ ...prev, [itemId]: { ...prev[itemId], [field]: value } }))
-  }
-
-  const startUpload = (name: string) => {
-    setUploadFileName(name)
-    setPhase('uploading')
-    setUploadProgress(0)
-    const iv = setInterval(() => {
-      setUploadProgress(p => {
-        if (p >= 100) { clearInterval(iv); return 100 }
-        return p + Math.floor(Math.random() * 8) + 4
+  useEffect(() => {
+    if (!token) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    getPublicSupplierInvite(token)
+      .then((data) => {
+        if (cancelled) return
+        setInvite(data)
+        const next: Record<string, LineDraft> = {}
+        for (const line of data.lines || []) {
+          // Opt-in: unchecked until the supplier says they can supply it.
+          next[line.id] = { unitPrice: '', available: false, notes: '' }
+        }
+        setDrafts(next)
+        setPersonName(data.supplier.contact_name || '')
+        setPersonEmail(data.supplier.email || '')
       })
-    }, 150)
-    setTimeout(() => {
-      clearInterval(iv)
-      setUploadProgress(100)
-      setTimeout(() => setPhase('submitted'), 600)
-    }, 3200)
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message || 'رابط الدعوة غير صالح أو منتهٍ')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  const submit = async () => {
+    if (!token || !invite) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await submitPublicSupplierQuote(token, {
+        declaration_accepted: true,
+        authorized_person: { name: personName.trim(), email: personEmail.trim() },
+        currency: 'SAR',
+        prices_include_tax: true,
+        tax_rate: 0.15,
+        lines: (invite.lines || []).map((line) => ({
+          line_id: line.id,
+          quantity: line.quantity,
+          available: drafts[line.id]?.available === true,
+          unit_price: drafts[line.id]?.unitPrice || '',
+          base_price: drafts[line.id]?.unitPrice || null,
+          notes: drafts[line.id]?.notes || '',
+        })),
+      })
+      setDone(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'فشل إرسال العرض')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const Header = () => (
-    <header className="bg-[#123F3A] px-4 lg:px-8 py-4 sticky top-0 z-40">
-      <div className="max-w-2xl mx-auto flex items-center justify-between">
+  return (
+    <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
+      <header className="bg-[#123F3A] px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#CFF5DC] flex items-center justify-center">
             <span className="text-[#123F3A] font-black text-sm">ف</span>
           </div>
-          <span className="text-white font-bold">فرق للبناء</span>
+          <div>
+            <div className="text-white font-bold">بوابة المورد</div>
+            <div className="text-white/40 text-xs">فرق بناء</div>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-white/50 text-xs">بوابة الموردين</span>
-          <button
-            onClick={() => navigate('login')}
-            className="text-white/40 text-xs hover:text-white/70 transition-colors"
-          >
-            دخول الشركة ←
-          </button>
-        </div>
-      </div>
-    </header>
-  )
+        <button onClick={() => navigate('home')} className="text-white/60 text-xs hover:text-white">
+          واجهة المشتري
+        </button>
+      </header>
 
-  const RFQBanner = ({ closed = false }: { closed?: boolean }) => (
-    <div className={`border rounded-2xl p-5 mb-6 ${closed ? 'bg-neutral-50 border-neutral-200' : 'bg-white border-neutral-100'}`}>
-      {closed && (
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-600 font-bold">مغلق</span>
-        </div>
-      )}
-      <div className="text-xs font-bold text-[#123F3A] uppercase mb-1">طلب تسعير</div>
-      <div className="text-xl font-black text-[#0D1F1D] mb-3">مشروع تجديد مبنى إداري — الرياض</div>
-      <div className="flex items-center gap-4 text-sm text-neutral-500 flex-wrap">
-        <span>الموعد النهائي: <span className={`font-bold ${closed ? 'text-neutral-500 line-through' : 'text-[#0D1F1D]'}`}>16 سبتمبر 2026</span></span>
-        <span>{SUPPLIER_ITEMS.length} بنود مخصصة لك</span>
-      </div>
-    </div>
-  )
-
-  /* ── Entry: choose mode ── */
-  if (phase === 'entry') {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
-        <Header />
-        <div className="max-w-lg mx-auto px-4 lg:px-8 py-12">
-          <RFQBanner />
-          <h2 className="text-xl font-black text-[#0D1F1D] mb-2">كيف تريد تقديم عرضك؟</h2>
-          <p className="text-neutral-500 text-sm mb-6">اختر الطريقة الأنسب لك</p>
-          <div className="space-y-3">
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        {!token && (
+          <div className="bg-white border border-neutral-100 rounded-2xl p-6 text-center">
+            <h1 className="text-2xl font-black text-[#0D1F1D] mb-2">بوابة الموردين</h1>
+            <p className="text-sm text-neutral-500 leading-relaxed mb-4">
+              تحتاج رابط دعوة صالح من Farq: افتح
+              <code className="mx-1 text-xs bg-neutral-100 px-1.5 py-0.5 rounded">/?view=supplier&token=…</code>
+              أو نفس المسار مع معلمة <code className="text-xs">token</code>.
+            </p>
+            <p className="text-xs text-neutral-400 mb-6">
+              الرمز يُنشأ عند إرسال دعوة RFQ ولا يُخزَّن كنص واضح في قاعدة البيانات (hash فقط).
+            </p>
             <button
-              onClick={() => setPhase('manual')}
-              className="w-full bg-white border-2 border-neutral-100 hover:border-[#123F3A] rounded-2xl px-5 py-5 text-right transition-all"
+              onClick={() => navigate('home')}
+              className="px-5 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-[#f0faf7] flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-[#123F3A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="font-black text-[#0D1F1D] text-sm mb-0.5">إدخال يدوي</div>
-                  <div className="text-xs text-neutral-500">أدخل أسعارك بنداً بنداً مباشرة في النموذج</div>
-                </div>
-              </div>
+              العودة
             </button>
-            <button
-              onClick={() => setPhase('upload-zone')}
-              className="w-full bg-white border-2 border-neutral-100 hover:border-[#123F3A] rounded-2xl px-5 py-5 text-right transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-[#f0faf7] flex items-center justify-center flex-shrink-0">
-                  <UploadIcon className="w-5 h-5 text-[#123F3A]" />
-                </div>
-                <div>
-                  <div className="font-black text-[#0D1F1D] text-sm mb-0.5">رفع ملف العرض</div>
-                  <div className="text-xs text-neutral-500">ارفع PDF أو Excel بعرض الأسعار الخاص بك</div>
-                </div>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── Upload zone ── */
-  if (phase === 'upload-zone') {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
-        <Header />
-        <div className="max-w-lg mx-auto px-4 lg:px-8 py-8">
-          <button onClick={() => setPhase('entry')} className="text-xs text-neutral-400 hover:text-neutral-600 mb-5 flex items-center gap-1 transition-colors">
-            ← رجوع
-          </button>
-          <RFQBanner />
-          <h2 className="text-xl font-black text-[#0D1F1D] mb-5">ارفع ملف العرض</h2>
-          <div
-            className="border-2 border-dashed border-neutral-200 rounded-2xl bg-white hover:border-[#123F3A]/40 transition-colors cursor-pointer"
-            onClick={() => fileRef.current?.click()}
-          >
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".pdf,.xlsx,.xls"
-              className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) startUpload(f.name) }}
-            />
-            <div className="flex flex-col items-center py-16 px-6">
-              <div className="w-14 h-14 rounded-2xl bg-[#CFF5DC] flex items-center justify-center mb-4">
-                <UploadIcon className="w-7 h-7 text-[#123F3A]" />
-              </div>
-              <div className="text-base font-bold text-[#0D1F1D] mb-1">اسحب أو اضغط لاختيار الملف</div>
-              <p className="text-neutral-400 text-xs mb-4 text-center">ملفات PDF أو Excel مقبولة · حجم أقصى 20 MB</p>
-              <div className="flex gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">PDF</span>
-                <span className="px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">Excel</span>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 text-center">
-            <button onClick={() => startUpload('عرض_الخزف_السعودي_2026.pdf')} className="text-xs text-[#123F3A] font-semibold hover:underline">
-              جرب رفع تجريبي
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── Uploading ── */
-  if (phase === 'uploading') {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
-        <Header />
-        <div className="max-w-lg mx-auto px-4 lg:px-8 py-12 flex flex-col items-center text-center">
-          <div className="bg-white border border-neutral-100 rounded-2xl p-8 w-full">
-            <div className="text-sm font-semibold text-[#0D1F1D] mb-4 truncate">{uploadFileName}</div>
-            <div className="h-2 bg-neutral-100 rounded-full overflow-hidden mb-3">
-              <div
-                className="h-full bg-[#123F3A] rounded-full transition-all duration-200"
-                style={{ width: `${Math.min(uploadProgress, 100)}%` }}
-              />
-            </div>
-            <div className="text-xs text-neutral-400">{uploadProgress < 100 ? `جاري الرفع… ${uploadProgress}%` : 'تمت المعالجة ✓'}</div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── Submitted ── */
-  if (phase === 'submitted') {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8] flex flex-col" dir="rtl">
-        <Header />
-        <div className="flex-1 flex items-center justify-center px-4 py-12">
-          <div className="max-w-md w-full text-center">
-            <div className="w-16 h-16 rounded-full bg-[#CFF5DC] flex items-center justify-center mx-auto mb-5">
-              <svg className="w-8 h-8 text-[#123F3A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-black text-[#0D1F1D] mb-2">تم استلام عرضك</h1>
-            <p className="text-neutral-500 text-sm mb-6">شكرًا. سيتم مراجعة العرض من قِبل فريق المشتريات.</p>
-            <div className="bg-white border border-neutral-100 rounded-2xl px-5 py-4 mb-3 text-right">
-              <div className="text-xs text-neutral-400 mb-0.5">رقم المرجع</div>
-              <div className="font-black text-[#0D1F1D]">FARQ-SUP-2024-0449</div>
-            </div>
-            <div className="bg-white border border-neutral-100 rounded-2xl px-5 py-4 mb-6 text-right">
-              <div className="text-xs text-neutral-400 mb-0.5">آخر موعد للتعديل</div>
-              <div className="font-bold text-[#0D1F1D]">16 سبتمبر 2026 · 11:59 مساءً</div>
-            </div>
-            <div className="space-y-2">
-              <button
-                onClick={() => setPhase('edit')}
-                className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
-              >
-                تعديل العرض
-              </button>
-              <button
-                onClick={() => setPhase('readonly')}
-                className="w-full py-3 border border-neutral-200 text-neutral-600 font-semibold rounded-xl hover:bg-neutral-50 transition-colors text-sm"
-              >
-                عرض العرض المُرسَل
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── Closed (deadline passed) ── */
-  if (phase === 'closed') {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8] flex flex-col" dir="rtl">
-        <Header />
-        <div className="max-w-lg mx-auto px-4 lg:px-8 py-8">
-          <RFQBanner closed />
-          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-5 mb-6 text-center">
-            <div className="text-sm font-bold text-neutral-600 mb-1">انتهى موعد تقديم العروض</div>
-            <div className="text-xs text-neutral-500">لم يعد بإمكانك تعديل أو إرسال العروض لهذا الطلب.</div>
-          </div>
-          <div className="space-y-4">
-            {SUPPLIER_ITEMS.map(item => (
-              <ReadonlyRow key={item.id} item={item} entry={entries[item.id]} />
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── Read-only view ── */
-  if (phase === 'readonly') {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
-        <Header />
-        <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8 pb-28">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setPhase('submitted')} className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors">← رجوع</button>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[#CFF5DC] text-[#1a7a45] font-bold">تم الإرسال</span>
-          </div>
-          <RFQBanner />
-          <h2 className="text-lg font-black text-[#0D1F1D] mb-4">عرضك المُرسَل</h2>
-          <div className="space-y-3 mb-6">
-            {SUPPLIER_ITEMS.map(item => (
-              <ReadonlyRow key={item.id} item={item} entry={entries[item.id]} />
-            ))}
-          </div>
-          <div className="bg-white border border-neutral-100 rounded-2xl p-5">
-            <div className="text-sm font-bold text-[#0D1F1D] mb-3">معلومات إضافية</div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-neutral-500">تكلفة التوصيل</span><span className="font-semibold">{shipping || '—'}</span></div>
-              <div className="flex justify-between"><span className="text-neutral-500">صلاحية العرض</span><span className="font-semibold">{validity}</span></div>
-              <div className="flex justify-between"><span className="text-neutral-500">شروط الدفع</span><span className="font-semibold">{payment || '—'}</span></div>
-            </div>
-          </div>
-        </div>
-        <div className="fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 px-4 py-4">
-          <div className="max-w-2xl mx-auto">
-            <button
-              onClick={() => setPhase('edit')}
-              className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
-            >
-              تعديل العرض
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── Manual entry / Edit ── */
-  return (
-    <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
-      <Header />
-      <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8 pb-32">
-        {phase === 'edit' && (
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setPhase('submitted')} className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors">← رجوع</button>
-            <span className="text-xs text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full">وضع التعديل</span>
           </div>
         )}
 
-        <RFQBanner />
+        {token && loading && (
+          <div className="text-center py-16 text-neutral-400 font-semibold">جاري تحميل الدعوة…</div>
+        )}
 
-        <div className="space-y-4 mb-6">
-          {SUPPLIER_ITEMS.map(item => (
-            <LineCard
-              key={item.id}
-              item={item}
-              entry={entries[item.id]}
-              onChange={(field, value) => updateEntry(item.id, field, value)}
-            />
-          ))}
-        </div>
-
-        <div className="bg-white border border-neutral-100 rounded-2xl p-5 mb-6">
-          <div className="text-sm font-bold text-[#0D1F1D] mb-4">معلومات إضافية</div>
-          <div className="space-y-3">
-            {([
-              ['تكلفة التوصيل (ر.س)', shipping, setShipping, '0 إذا مشمول'],
-              ['مدة صلاحية العرض', validity, setValidity, '30 يوم'],
-              ['شروط الدفع', payment, setPayment, '30 يوم من الاستلام'],
-            ] as [string, string, React.Dispatch<React.SetStateAction<string>>, string][]).map(([label, val, setter, ph]) => (
-              <div key={label}>
-                <label className="text-xs font-semibold text-neutral-500 mb-1 block">{label}</label>
-                <input
-                  type="text"
-                  value={val}
-                  onChange={e => setter(e.target.value)}
-                  placeholder={ph}
-                  className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setPhase('closed')}
-            className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
-          >
-            معاينة حالة الطلب المغلق
-          </button>
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 px-4 lg:px-8 py-4 z-40">
-        <div className="max-w-2xl mx-auto flex gap-3">
-          {phase === 'edit' && (
-            <button
-              onClick={() => setPhase('submitted')}
-              className="px-5 py-3.5 border border-neutral-200 text-neutral-600 font-semibold rounded-xl hover:bg-neutral-50 transition-colors text-sm"
-            >
-              إلغاء
+        {token && error && !invite && (
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
+            <div className="font-bold text-red-700 mb-2">تعذر فتح الدعوة</div>
+            <div className="text-sm text-red-600 mb-4">{error}</div>
+            <button onClick={() => navigate('home')} className="text-sm font-semibold text-[#123F3A]">
+              العودة
             </button>
-          )}
-          <button
-            onClick={() => setPhase('submitted')}
-            className="flex-1 py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
-          >
-            {phase === 'edit' ? 'حفظ التعديلات' : 'إرسال العرض'}
-          </button>
-        </div>
+          </div>
+        )}
+
+        {invite && done && (
+          <div className="bg-white border border-neutral-100 rounded-2xl p-8 text-center">
+            <div className="text-2xl font-black text-[#0D1F1D] mb-2">تم إرسال العرض</div>
+            <p className="text-sm text-neutral-500">سُجّل العرض في construction.supplier_quotes عبر Farq API.</p>
+          </div>
+        )}
+
+        {invite && !done && (
+          <>
+            <div className="mb-6">
+              <h1 className="text-2xl font-black text-[#0D1F1D] mb-1">
+                {invite.supplier.name_ar || invite.supplier.name_en}
+              </h1>
+              <p className="text-sm text-neutral-500">
+                طلب من {String(invite.buyer?.company_name || 'المشتري')} ·{' '}
+                {invite.lines.length} بند · الحالة {invite.response_status}
+              </p>
+              {invite.submission_closed_at && (
+                <div className="mt-3 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+                  أُغلق استلام العروض — العرض للقراءة فقط.
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 mb-6">
+              {invite.lines.map((line) => (
+                <div key={line.id} className="bg-white border border-neutral-100 rounded-2xl p-4">
+                  <div className="font-bold text-[#0D1F1D] text-sm mb-1">
+                    {/* The real item first: `name_ar` is a catalog label and is
+                        null for a line the catalog never matched. */}
+                    {line.original_name || line.name_ar || line.name_en || line.line_key}
+                  </div>
+                  <div className="text-xs text-neutral-500 mb-3">
+                    {line.quantity} {line.uom}
+                    {line.item_note ? ` · ${line.item_note}` : ''}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-end col-span-2 sm:col-span-1">
+                      <label className="flex items-center gap-2 text-sm text-neutral-600">
+                        <input
+                          type="checkbox"
+                          disabled={Boolean(invite.submission_closed_at)}
+                          checked={drafts[line.id]?.available === true}
+                          onChange={(e) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [line.id]: {
+                                ...(prev[line.id] || { unitPrice: '', notes: '' }),
+                                available: e.target.checked,
+                              },
+                            }))
+                          }
+                        />
+                        متوفر — سأورّده
+                      </label>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-neutral-500 mb-1 block">سعر الوحدة</label>
+                      <input
+                        disabled={
+                          Boolean(invite.submission_closed_at) ||
+                          drafts[line.id]?.available !== true
+                        }
+                        value={drafts[line.id]?.unitPrice || ''}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [line.id]: {
+                              ...(prev[line.id] || { available: false, notes: '' }),
+                              unitPrice: e.target.value,
+                            },
+                          }))
+                        }
+                        className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#123F3A] disabled:bg-neutral-50 disabled:text-neutral-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white border border-neutral-100 rounded-2xl p-4 mb-4 space-y-3">
+              <div className="text-sm font-bold text-[#0D1F1D]">المفوّض بالتسعير</div>
+              <input
+                value={personName}
+                onChange={(e) => setPersonName(e.target.value)}
+                placeholder="الاسم"
+                className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
+              />
+              <input
+                value={personEmail}
+                onChange={(e) => setPersonEmail(e.target.value)}
+                placeholder="البريد"
+                className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
+              />
+            </div>
+
+            {error && (
+              <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            {!invite.submission_closed_at && (
+              <button
+                disabled={submitting || !personName.trim() || !personEmail.trim()}
+                onClick={submit}
+                className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40"
+              >
+                {submitting ? 'جارٍ الإرسال…' : 'إرسال العرض'}
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
 }
+
+export default SupplierPortalView

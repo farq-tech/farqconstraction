@@ -1,0 +1,313 @@
+import type { SupplierEntry } from '../types'
+import { apiBase } from './apiBase'
+import { constructionHeaders, shouldRetryAfterRefresh } from './constructionAuth'
+import { farqSession } from './farqSession'
+
+/**
+ * Farq-aligned construction suppliers client.
+ *
+ * Calls GET /api/construction/catalog (Express: api/routes/construction.js),
+ * same path as Frontend/src/services/constructionService.ts — never Postgres
+ * from the browser or Vite.
+ *
+ * Identity comes from `constructionAuth` — the same single definition
+ * `constructionClient` uses. This file used to carry its own copy, and the two
+ * copies are how the app ended up able to send different credentials for the
+ * same API depending on which module made the call.
+ *
+ * There is no unauthenticated supplier list on api.farq.sa today. For a
+ * permanent no-auth directory, Farq needs a small public GET (see .env.example).
+ */
+
+export type FarqApiSupplier = {
+  id: string
+  /** Present on some payloads; createRfq rejects this — use `id` (external_key). */
+  database_id?: string
+  name_ar?: string
+  name_en?: string
+  city?: string
+  service_regions_ar?: string
+  activity?: string | null
+  qualification_status?: string
+  email?: string | null
+  phone?: string | null
+  whatsapp?: string | null
+  has_email?: boolean
+  has_whatsapp?: boolean
+  contact_channels?: { email?: boolean; whatsapp?: boolean; haraj?: boolean }
+  source_system?: string | null
+  source?: string | null
+  import_batch_id?: string | null
+  updated_at?: string | null
+}
+
+export type SupplierListResult = {
+  suppliers: SupplierEntry[]
+  total: number
+  limit: number
+  offset: number
+  source: 'farq-construction-api'
+}
+
+type CatalogCache = {
+  at: number
+  suppliers: FarqApiSupplier[]
+}
+
+let catalogCache: CatalogCache | null = null
+const CATALOG_TTL_MS = 60_000
+
+/**
+ * The directory is scoped to the signed-in buyer's account, so a cache that
+ * outlived a sign-in would show one account the other's suppliers.
+ */
+farqSession.subscribe((event) => {
+  if (event === 'IDENTITY_CHANGED') catalogCache = null
+})
+/** Full directory is ~10k+ rows / multi-MB — never wait forever in the browser. */
+const CATALOG_FETCH_TIMEOUT_MS = 45_000
+
+function formatRelative(value?: string | null): string {
+  if (!value) return '—'
+  const ts = Date.parse(value)
+  if (Number.isNaN(ts)) return '—'
+  const diffMs = Date.now() - ts
+  const days = Math.floor(diffMs / 86_400_000)
+  if (days <= 0) return 'اليوم'
+  if (days === 1) return 'منذ يوم'
+  if (days < 7) return `منذ ${days} أيام`
+  if (days < 30) return `منذ ${Math.floor(days / 7)} أسابيع`
+  return `منذ ${Math.floor(days / 30)} شهر`
+}
+
+function cleanCategory(raw?: string | null): string {
+  const text = String(raw || '')
+    .split(/[,|]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (!text.length) return 'مواد بناء'
+  const arabic = text.find((part) => /[\u0600-\u06FF]/.test(part))
+  if (arabic) return arabic
+  return text[0]!.replace(/-/g, ' ')
+}
+
+export function mapFarqSupplier(row: FarqApiSupplier): SupplierEntry {
+  const name = String(row.name_ar || row.name_en || row.id).trim()
+  const cityRaw = row.city as unknown
+  const cityFromObj =
+    cityRaw && typeof cityRaw === 'object'
+      ? String(
+          (cityRaw as { original?: string; key?: string }).original ||
+            (cityRaw as { key?: string }).key ||
+            '',
+        ).trim()
+      : String(cityRaw || '').trim()
+  const city =
+    cityFromObj ||
+    String(row.service_regions_ar || '').trim() ||
+    'المملكة العربية السعودية'
+  const email = String(row.email || '').trim()
+  const phone = String(row.phone || row.whatsapp || '').trim()
+  const id = String(row.id)
+  const source = String(row.source_system || row.source || '')
+  const isHaraj = /^haraj:seller:\d+$/i.test(id) || source === 'HARAJ'
+  return {
+    id,
+    name,
+    city,
+    category: cleanCategory(row.activity),
+    phone,
+    email,
+    interactions: 0,
+    lastSeen: formatRelative(row.updated_at),
+    qualificationStatus: row.qualification_status || undefined,
+    activity: row.activity || undefined,
+    hasEmail: Boolean(row.has_email ?? row.contact_channels?.email ?? email),
+    hasWhatsapp: Boolean(row.has_whatsapp ?? row.contact_channels?.whatsapp ?? phone),
+    hasHaraj: Boolean(row.contact_channels?.haraj || isHaraj),
+    sourceSystem: source || (isHaraj ? 'HARAJ' : undefined),
+    importBatchId: row.import_batch_id || null,
+  }
+}
+
+function matchesQuery(row: FarqApiSupplier, query?: string): boolean {
+  if (!query) return true
+  const q = String(query)
+    .replace(/[ً-ْـ]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .trim()
+    .toLowerCase()
+  if (!q) return true
+  const hay =
+    `${row.name_ar || ''} ${row.name_en || ''} ${row.city || ''} ${row.service_regions_ar || ''} ${row.activity || ''} ${row.id}`
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .toLowerCase()
+  // Match all tokens so «علي» hits names containing علي, not only exact phrase.
+  return q.split(/\s+/).filter(Boolean).every((token) => hay.includes(token))
+}
+
+function isVerified(row: FarqApiSupplier): boolean {
+  const status = String(row.qualification_status || '').toUpperCase()
+  return status === 'VERIFIED_DIRECTORY' || status === 'VERIFIED'
+}
+
+/**
+ * createRfq matches `selected_supplier_ids` to `construction.suppliers.external_key`
+ * and accepts email, WhatsApp, or Haraj sellers (`haraj:seller:*`).
+ */
+export function isRfqContactableSupplier(row: {
+  id?: string
+  hasEmail?: boolean
+  hasWhatsapp?: boolean
+  hasHaraj?: boolean
+  has_email?: boolean
+  has_whatsapp?: boolean
+  contact_channels?: { email?: boolean; whatsapp?: boolean; haraj?: boolean }
+  email?: string | null
+  phone?: string | null
+  whatsapp?: string | null
+  source_system?: string | null
+  source?: string | null
+}): boolean {
+  const id = String(row.id || '')
+  const source = String(row.source_system || row.source || '')
+  if (/^haraj:seller:\d+$/i.test(id) || source === 'HARAJ' || row.contact_channels?.haraj || row.hasHaraj) {
+    return true
+  }
+  return Boolean(
+    row.hasEmail ||
+      row.has_email ||
+      row.contact_channels?.email ||
+      String(row.email || '').trim() ||
+      row.hasWhatsapp ||
+      row.has_whatsapp ||
+      row.contact_channels?.whatsapp ||
+      String(row.whatsapp || '').trim() ||
+      String(row.phone || '').trim(),
+  )
+}
+
+async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> {
+  if (!force && catalogCache && Date.now() - catalogCache.at < CATALOG_TTL_MS) {
+    return catalogCache.suppliers
+  }
+
+  // Catalog `limit` paginates catalog *items* only; `data.suppliers` is the full
+  // active directory (~10k). Keep items page small — do not truncate suppliers.
+  const params = new URLSearchParams()
+  params.set('limit', '1')
+
+  const attempt = async () => {
+    const usedToken = farqSession.getAccessToken()
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), CATALOG_FETCH_TIMEOUT_MS)
+    try {
+      const response = await fetch(`${apiBase()}/api/construction/catalog?${params}`, {
+        headers: constructionHeaders(),
+        signal: controller.signal,
+      })
+      return { response, usedToken }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new Error('انتهت مهلة تحميل دليل الموردين — أعد المحاولة.')
+      }
+      throw err
+    } finally {
+      window.clearTimeout(timer)
+    }
+  }
+
+  let { response, usedToken } = await attempt()
+  // Same one-shot recovery the RFQ client uses: an access token that expired
+  // mid-session should not read to the user as "the directory is broken".
+  if (shouldRetryAfterRefresh(response.status, usedToken)) {
+    const outcome = await farqSession.refreshForRequest(usedToken)
+    if (outcome.status === 'refreshed') ({ response } = await attempt())
+  }
+  const payload = await response.json().catch(() => null)
+
+  if (!response.ok || payload?.ok === false) {
+    const code = payload?.errors?.[0]?.code || payload?.message || payload?.error
+    if (response.status === 401 || code === 'CONSTRUCTION_AUTH_REQUIRED') {
+      throw new Error(
+        farqSession.isAuthenticated()
+          ? 'انتهت جلستك — سجّل الدخول من جديد لتحميل دليل الموردين.'
+          : 'دليل الموردين يتطلب تسجيل دخول. سجّل الدخول بحسابك، أو محليًا شغّل CONSTRUCTION_DEMO_MODE=1 مع CONSTRUCTION_DB_URL على الـ API.',
+      )
+    }
+    if (
+      response.status === 503 ||
+      code === 'CONSTRUCTION_PERSISTENCE_UNAVAILABLE' ||
+      code === 'CONSTRUCTION_READ_DISABLED'
+    ) {
+      throw new Error(
+        'Construction API unavailable — set CONSTRUCTION_DB_URL (or SUPABASE_CONSTRUCTION_DB_URL) on the Farq API / Railway service, then restart the API.',
+      )
+    }
+    throw new Error(code || `Farq construction API error (${response.status})`)
+  }
+
+  const suppliers = (payload?.data?.suppliers || []) as FarqApiSupplier[]
+  catalogCache = { at: Date.now(), suppliers }
+  return suppliers
+}
+
+export async function listConstructionSuppliers(options: {
+  query?: string
+  limit?: number
+  offset?: number
+  verifiedOnly?: boolean
+  /** When true, only suppliers createRfq will accept (email/WhatsApp/Haraj). */
+  contactableOnly?: boolean
+  /** Only rows a given upload created — how a bad batch is reviewed. */
+  importBatchId?: string | null
+} = {}): Promise<SupplierListResult> {
+  // Default high so directory screens can show the full Farq catalog (~10k).
+  const limit = options.limit ?? 10_000
+  const offset = options.offset ?? 0
+  const rows = await fetchCatalogSuppliers()
+  const filtered = rows.filter((row) => {
+    if (options.importBatchId && row.import_batch_id !== options.importBatchId) return false
+    if (options.contactableOnly && !isRfqContactableSupplier(row)) return false
+    if (options.verifiedOnly && row.qualification_status && !isVerified(row)) return false
+    return matchesQuery(row, options.query)
+  })
+
+  const page = filtered.slice(offset, offset + limit)
+  return {
+    suppliers: page.map(mapFarqSupplier),
+    total: filtered.length,
+    limit,
+    offset,
+    source: 'farq-construction-api',
+  }
+}
+
+/**
+ * Keep contactable external_key ids that exist in the catalog (email / WhatsApp /
+ * Haraj). Drops unknown ids and database UUIDs that are not in the directory.
+ */
+export async function resolveRfqSupplierIds(ids: string[]): Promise<string[]> {
+  const wanted = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))]
+  if (!wanted.length) return []
+  const rows = await fetchCatalogSuppliers()
+  const byExternal = new Map(
+    rows.filter(isRfqContactableSupplier).map((row) => [String(row.id), String(row.id)]),
+  )
+  return wanted.map((id) => byExternal.get(id)).filter((id): id is string => Boolean(id))
+}
+
+export async function getConstructionSupplier(id: string): Promise<SupplierEntry> {
+  const rows = await fetchCatalogSuppliers()
+  const found = rows.find((row) => String(row.id) === id)
+  if (found) return mapFarqSupplier(found)
+
+  // One forced refresh in case cache was stale after import.
+  const fresh = await fetchCatalogSuppliers(true)
+  const again = fresh.find((row) => String(row.id) === id)
+  if (again) return mapFarqSupplier(again)
+
+  throw new Error('المورد غير موجود')
+}
