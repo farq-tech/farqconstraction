@@ -272,13 +272,126 @@ export type BoqCatalogMatchRow = {
 export class ConstructionApiError extends Error {
   status: number
   code: string
+  /** Seconds left on the server's limiter. Only set for 429 — lets the UI say
+   *  «أعد المحاولة بعد كذا» instead of inventing a disconnection. */
+  retryAfterSec?: number
 
-  constructor(message: string, status: number, code: string) {
+  constructor(message: string, status: number, code: string, retryAfterSec?: number) {
     super(message)
     this.name = 'ConstructionApiError'
     this.status = status
     this.code = code
+    this.retryAfterSec = retryAfterSec
   }
+}
+
+/** Code every 429 from the construction surface is normalised to. */
+export const CONSTRUCTION_RATE_LIMITED = 'CONSTRUCTION_RATE_LIMITED'
+
+/**
+ * Shared 429 gate.
+ *
+ * The API rate-limits the whole `/api/construction` surface as ONE per-IP
+ * bucket (`RATE_LIMIT_CONSTRUCTION_PER_MIN`, 60/min). So the moment one call is
+ * refused, every other call in the app is already refused too, and spending a
+ * real request to rediscover that is what turns a single refusal into a storm:
+ * the inbox screen costs 10 requests per load, and each failed «ربط Gmail»
+ * click added two more. We remember the server's `Retry-After` and refuse
+ * locally until it elapses — no retries, no polling, and the counter is left
+ * alone long enough to actually drain.
+ */
+let rateLimitedUntilMs = 0
+/** Only used when the server sends a 429 with no Retry-After to honour. */
+let rateLimitBackoffSec = 0
+const RATE_LIMIT_MAX_BACKOFF_SEC = 60
+
+/** Seconds the caller must wait, or 0 when the gate is open. */
+function rateLimitWaitSec(now = Date.now()): number {
+  if (rateLimitedUntilMs <= now) return 0
+  return Math.max(1, Math.ceil((rateLimitedUntilMs - now) / 1000))
+}
+
+function rateLimitErrorAr(sec: number): ConstructionApiError {
+  return new ConstructionApiError(
+    `تجاوزنا حد المحاولات على واجهة البناء — أعد المحاولة بعد ${sec} ثانية. هذا حدّ سرعة مؤقّت، لا انقطاع في الربط ولا خطأ في الإعدادات.`,
+    429,
+    CONSTRUCTION_RATE_LIMITED,
+    sec,
+  )
+}
+
+/**
+ * Throws when the limiter is still counting down. Call this before any fetch to
+ * `/api/construction` — including transports that don't go through `request()`,
+ * such as the suppliers catalogue. A screen that keeps spending requests inside
+ * the window is a screen that keeps pushing the owner's countdown back.
+ */
+export function assertConstructionRateLimitOpen(): void {
+  const waiting = rateLimitWaitSec()
+  if (waiting > 0) throw rateLimitErrorAr(waiting)
+}
+
+/**
+ * Feeds a raw response back into the gate. Returns the error to throw when the
+ * response was a 429, else null (and reopens the gate on success).
+ */
+export function recordConstructionResponse(
+  response: Response,
+  retryAfterSecFromBody?: number,
+): ConstructionApiError | null {
+  if (response.status === 429) {
+    return rateLimitErrorAr(noteRateLimited(response, retryAfterSecFromBody))
+  }
+  if (response.ok) clearRateLimitGate()
+  return null
+}
+
+/** Records a 429 so the rest of the app stops spending requests on it. */
+function noteRateLimited(response: Response, retryAfterSecFromBody?: number): number {
+  const fromHeader = Number(response.headers.get('retry-after'))
+  const fromBody = Number(retryAfterSecFromBody)
+  let sec = 0
+  if (Number.isFinite(fromHeader) && fromHeader > 0) sec = Math.ceil(fromHeader)
+  else if (Number.isFinite(fromBody) && fromBody > 0) sec = Math.ceil(fromBody)
+
+  if (sec > 0) {
+    // The server told us exactly how long; no need to guess or escalate.
+    rateLimitBackoffSec = 0
+  } else {
+    // No Retry-After: exponential client-side backoff, capped.
+    rateLimitBackoffSec = rateLimitBackoffSec
+      ? Math.min(rateLimitBackoffSec * 2, RATE_LIMIT_MAX_BACKOFF_SEC)
+      : 2
+    sec = rateLimitBackoffSec
+  }
+  rateLimitedUntilMs = Math.max(rateLimitedUntilMs, Date.now() + sec * 1000)
+  return rateLimitWaitSec()
+}
+
+function clearRateLimitGate() {
+  rateLimitedUntilMs = 0
+  rateLimitBackoffSec = 0
+}
+
+/** Test seam — the gate is module state shared by every construction call. */
+export function __resetConstructionRateLimitGate() {
+  clearRateLimitGate()
+}
+
+/** How long the construction API is still refusing us, in seconds (0 = fine). */
+export function constructionRateLimitWaitSec(): number {
+  return rateLimitWaitSec()
+}
+
+/**
+ * Seconds to wait when `err` is a rate limit, else null. Views use this to keep
+ * «تجاوزنا حد المحاولات» apart from «غير متصل» / «غير مهيأ».
+ */
+export function constructionRateLimitSec(err: unknown): number | null {
+  if (err instanceof ConstructionApiError && err.status === 429) {
+    return err.retryAfterSec && err.retryAfterSec > 0 ? err.retryAfterSec : 1
+  }
+  return null
 }
 
 /** Default browser timeout — catalog/match can be multi-MB; never hang forever. */
@@ -292,6 +405,8 @@ async function parsePayload(response: Response): Promise<{
   errors?: Array<{ code?: string; message?: string }>
   message?: string
   error?: string
+  /** Sent by the API's rate limiter alongside the `Retry-After` header. */
+  retryAfterSec?: number
 }> {
   return response.json().catch(() => ({
     ok: false,
@@ -324,6 +439,11 @@ async function send(
   timeoutMs: number,
   auth: AuthClass,
 ): Promise<{ response: Response; payload: Awaited<ReturnType<typeof parsePayload>> }> {
+  // Refuse before touching the network while the limiter is still counting us
+  // down. Every request sent inside that window is refused anyway and only
+  // feeds the storm.
+  assertConstructionRateLimitOpen()
+
   const attempt = async () => {
     // Captured before the call so a 401 can tell "my token expired" from
     // "another request already refreshed it" without spending the single-use
@@ -346,7 +466,10 @@ async function send(
       ;({ response } = await attempt())
     }
   }
-  return { response, payload: await parsePayload(response) }
+  const payload = await parsePayload(response)
+  // `unwrap` turns this into the thrown error; here we only need the gate shut.
+  recordConstructionResponse(response, payload?.retryAfterSec)
+  return { response, payload }
 }
 
 async function rawFetch(
@@ -402,6 +525,12 @@ function unwrap<T>(
     `HTTP_${response.status}`
 
   if (!response.ok || payload?.ok === false) {
+    // A rate limit is a speed problem, not a configuration or connection one.
+    // Reported as anything else it reads as «غير متصل» / «غير مهيأ» and sends
+    // the reader off to change env vars that were already correct.
+    if (response.status === 429 || code === 'rate_limited' || code === 'RATE_LIMIT') {
+      throw rateLimitErrorAr(rateLimitWaitSec() || Number(payload?.retryAfterSec) || 1)
+    }
     if (response.status === 401 || code === 'CONSTRUCTION_AUTH_REQUIRED') {
       // After a real session expires or a signing-secret rotation, the honest
       // instruction is "sign in again", not a list of server flags.
@@ -1120,6 +1249,8 @@ export type SupplierImportResult = {
 }
 
 export type SupplierImportInput = {
+  /** Line number in the uploaded file, echoed back on every outcome. */
+  row_number?: number
   name_ar: string
   name_en?: string
   city?: string

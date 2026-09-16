@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NavProps } from '../types'
 import {
   buildConstructionGmailReturnTo,
+  constructionRateLimitSec,
   formatArDate,
   getConstructionGmailStatus,
   getConstructionInboxStatus,
@@ -43,6 +44,9 @@ function clearGmailReturnQuery() {
 }
 
 type InboxTab = 'inbound' | 'needs_reply' | 'sent'
+
+/** How long «ربط Gmail» stays shut after a failed attempt. */
+const CONNECT_COOLDOWN_MS = 3000
 
 function flagLabel(on: boolean | undefined, unknown = false): { text: string; className: string } {
   if (unknown) return { text: 'غير معروف', className: 'bg-neutral-100 text-neutral-500' }
@@ -90,7 +94,24 @@ export function InboxView({ navigate }: NavProps) {
   const [status, setStatus] = useState<ConstructionInboxStatus | null>(null)
   const [gmail, setGmail] = useState<ConstructionGmailStatus | null>(null)
   const [gmailError, setGmailError] = useState<string | null>(null)
+  /** Seconds left on the server's limiter — never conflated with «غير متصل». */
+  const [rateLimitSec, setRateLimitSec] = useState<number | null>(null)
+  /**
+   * The limiter refused the last status read, so we simply do not know the
+   * state. Outlives the countdown: when it expires we still have no reading,
+   * and falling back to «غير متصل» would be the same lie one second later.
+   */
+  const [gmailStatusUnread, setGmailStatusUnread] = useState(false)
   const [gmailBusy, setGmailBusy] = useState(false)
+  /**
+   * Guards «ربط Gmail» against a second attempt. A ref, not `gmailBusy`: state
+   * updates are async, so rapid clicks all pass a state check and each one used
+   * to cost a connect POST plus a status GET.
+   */
+  const connectInFlight = useRef(false)
+  /** Brief hold after a failed attempt, so repeat-clicking can't re-spam it. */
+  const [connectCooldown, setConnectCooldown] = useState(false)
+  const cooldownTimer = useRef<number | null>(null)
   const [gmailConnectNote, setGmailConnectNote] = useState<string | null>(null)
   const [gmailReturnBanner, setGmailReturnBanner] = useState<{
     kind: 'connected' | 'error'
@@ -104,16 +125,63 @@ export function InboxView({ navigate }: NavProps) {
   /** Default وارد — not «الكل» which mixes DISPATCH invite spam from the API. */
   const [tab, setTab] = useState<InboxTab>('inbound')
 
+  const applyGmailStatus = (g: ConstructionGmailStatus) => {
+    setGmail(g)
+    setGmailError(null)
+    setRateLimitSec(null)
+    setGmailStatusUnread(false)
+  }
+
+  const applyGmailFailure = (err: Error) => {
+    const wait = constructionRateLimitSec(err)
+    if (wait != null) {
+      // Keep the last known status. A rate limit says nothing about the
+      // mailbox, and blanking it here is exactly what made this panel report
+      // the owner as disconnected while he was in fact connected.
+      setRateLimitSec(wait)
+      setGmailStatusUnread(true)
+      return
+    }
+    setGmail(null)
+    setGmailError(err.message)
+    setRateLimitSec(null)
+    setGmailStatusUnread(false)
+  }
+
   const reloadGmail = () =>
-    getConstructionGmailStatus()
-      .then((g) => {
-        setGmail(g)
-        setGmailError(null)
-      })
-      .catch((err: Error) => {
-        setGmail(null)
-        setGmailError(err.message)
-      })
+    getConstructionGmailStatus().then(applyGmailStatus).catch(applyGmailFailure)
+
+  /**
+   * Keeps «ربط Gmail» shut for a moment after a failed attempt. A second click
+   * in the same second cannot change why the first one failed, and each attempt
+   * costs a connect POST plus a status GET — that pair, repeated, is what filled
+   * the owner's console.
+   */
+  const beginConnectCooldown = () => {
+    setConnectCooldown(true)
+    if (cooldownTimer.current != null) window.clearTimeout(cooldownTimer.current)
+    cooldownTimer.current = window.setTimeout(() => {
+      connectInFlight.current = false
+      setConnectCooldown(false)
+      cooldownTimer.current = null
+    }, CONNECT_COOLDOWN_MS)
+  }
+
+  useEffect(
+    () => () => {
+      if (cooldownTimer.current != null) window.clearTimeout(cooldownTimer.current)
+    },
+    [],
+  )
+
+  // Counts the limiter down so «أعد المحاولة بعد كذا» stays true, and clears
+  // itself at zero. Deliberately not a refetch: nothing here re-requests on its
+  // own, so a refused call can never feed the next one.
+  useEffect(() => {
+    if (rateLimitSec == null || rateLimitSec <= 0) return
+    const id = window.setTimeout(() => setRateLimitSec((s) => (s == null || s <= 1 ? null : s - 1)), 1000)
+    return () => window.clearTimeout(id)
+  }, [rateLimitSec])
 
   useEffect(() => {
     const returned = readGmailReturnQuery()
@@ -137,14 +205,22 @@ export function InboxView({ navigate }: NavProps) {
     // (preview «دعوة طلب عرض مرسلة», kind_hint=DISPATCH). We always fetch `all`
     // (except needs_reply tab uses server filter) then separate وارد / مرسل client-side.
     const apiFilter = tab === 'needs_reply' ? 'needs_reply' : 'all'
+    // Deliberately not part of the Promise.all below: the Gmail panel must keep
+    // its own result even when the thread list fails, otherwise one unrelated
+    // error blanks the connection state and the panel starts guessing.
+    getConstructionGmailStatus()
+      .then((g) => {
+        if (!cancelled) applyGmailStatus(g)
+      })
+      .catch((err: Error) => {
+        if (!cancelled) applyGmailFailure(err)
+      })
+
     Promise.all([
       getConstructionInboxStatus(),
       listConstructionInboxThreads({ filter: apiFilter }),
-      getConstructionGmailStatus()
-        .then((g) => ({ ok: true as const, g }))
-        .catch((err: Error) => ({ ok: false as const, message: err.message })),
     ])
-      .then(([inboxStatus, threadResult, gmailResult]) => {
+      .then(([inboxStatus, threadResult]) => {
         if (cancelled) return
         setStatus(inboxStatus)
         setThreadMeta(threadResult)
@@ -152,17 +228,18 @@ export function InboxView({ navigate }: NavProps) {
         const visible = applyInboxTab(tab, raw)
         setThreads(visible)
         setTotal(displayTotal(tab, visible, threadResult))
-        if (gmailResult.ok) {
-          setGmail(gmailResult.g)
-          setGmailError(null)
-        } else {
-          setGmail(null)
-          setGmailError(gmailResult.message)
-        }
       })
       .catch((err: Error) => {
         if (cancelled) return
+        const wait = constructionRateLimitSec(err)
         setError(err.message)
+        // A rate limit must not blank the counters or invite a flag hunt; the
+        // banner below says «حدّ سرعة» and keeps whatever we already had.
+        if (wait != null) {
+          setRateLimitSec(wait)
+          return
+        }
+        setRateLimitSec(null)
         setStatus(null)
         setThreads([])
         setThreadMeta(null)
@@ -177,6 +254,8 @@ export function InboxView({ navigate }: NavProps) {
   }, [tab])
 
   const handleGmailConnect = async () => {
+    if (connectInFlight.current) return
+    connectInFlight.current = true
     setGmailBusy(true)
     setGmailConnectNote(null)
     setGmailReturnBanner(null)
@@ -199,12 +278,22 @@ export function InboxView({ navigate }: NavProps) {
       }
       window.location.assign(url.toString())
     } catch (err) {
+      const wait = constructionRateLimitSec(err)
       setGmailConnectNote(
         err instanceof Error
           ? err.message
           : 'تعذّر بدء الربط من هذا التطبيق',
       )
       setGmailBusy(false)
+      // Releases `connectInFlight` when it expires — not here.
+      beginConnectCooldown()
+      if (wait != null) {
+        // The refusal was a rate limit, so re-reading the status would be
+        // refused too. That pair — connect then status — is what filled the
+        // console: one click cost two requests and taught us nothing.
+        setRateLimitSec(wait)
+        return
+      }
       void reloadGmail()
     }
   }
@@ -219,6 +308,23 @@ export function InboxView({ navigate }: NavProps) {
   const gmailDiagnosis = (():
     | { title: string; action: string; tone: 'ok' | 'warn' | 'info' }
     | null => {
+    // First, before any state guess: a rate limit is a temporary speed cap. It
+    // is not «غير متصل» and not «غير مهيأ», and must never be dressed as either.
+    if (rateLimitSec != null) {
+      return {
+        tone: 'warn',
+        title: `تجاوزنا حد المحاولات على الـ API — أعد المحاولة بعد ${rateLimitSec} ثانية.`,
+        action:
+          'حدّ سرعة مؤقّت على كل مسارات /api/construction (60 طلبًا في الدقيقة لكل عنوان IP)، وليس انقطاعًا في ربط Gmail ولا نقصًا في الإعدادات. الحالة المعروضة أعلاه هي آخر قراءة ناجحة إن وُجدت.',
+      }
+    }
+    if (gmailStatusUnread && !gmail) {
+      return {
+        tone: 'warn',
+        title: 'انتهت مدة الانتظار لكن حالة Gmail لم تُقرأ بعد — غير معروفة، وليست «غير متصلة».',
+        action: 'اضغط «إعادة قراءة الحالة» لمحاولة واحدة. لا نعيد الطلب تلقائيًا حتى لا نستهلك حدّ السرعة من جديد.',
+      }
+    }
     if (gmailError) {
       if (gmailError.includes('CONSTRUCTION_API_UNREACHABLE') || gmailError.includes('لا يمكن الوصول')) {
         return {
@@ -340,9 +446,14 @@ export function InboxView({ navigate }: NavProps) {
 
       {!loading && error && (
         <div className="rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 mb-6">
-          <div className="font-bold text-amber-900 text-sm mb-1">تعذّر قراءة الصندوق</div>
+          <div className="font-bold text-amber-900 text-sm mb-1">
+            {rateLimitSec != null ? 'تجاوزنا حد المحاولات' : 'تعذّر قراءة الصندوق'}
+          </div>
           <p className="text-xs text-amber-800 leading-relaxed mb-2">{error}</p>
-          <p className="text-[11px] text-amber-700 leading-relaxed">
+          {/* The flag checklist below is for a real outage. Printing it for a
+              rate limit is what sends the reader chasing settings that are
+              already correct. */}
+          <p className={`text-[11px] text-amber-700 leading-relaxed ${rateLimitSec != null ? 'hidden' : ''}`}>
             إن ظهر أن الاستقبال معطّل على الـ API، فعّل على Railway (أسماء فقط): `CONSTRUCTION_INBOX_ENABLED`,
             `CONSTRUCTION_CORRESPONDENCE_ENABLED`, `CONSTRUCTION_INBOX_DOMAIN`, `CONSTRUCTION_INBOX_ROUTING_SECRET`,
             `CONSTRUCTION_INBOX_WEBHOOK_SECRET`, `CONSTRUCTION_INBOX_RESEND_API_KEY`. لا نختلق بيانات واردة هنا.
@@ -397,6 +508,13 @@ export function InboxView({ navigate }: NavProps) {
                 : gmail.state
                   ? ` · الحالة: ${gmail.state}`
                   : ''}
+              {rateLimitSec != null ? ' — آخر قراءة ناجحة (الحالة الآن محدودة بحدّ السرعة)' : ''}
+            </p>
+          ) : gmailStatusUnread ? (
+            // No successful read, so we say we don't know — we do NOT say
+            // «غير متصل».
+            <p className="text-xs text-amber-800 mb-2 leading-relaxed">
+              حالة Gmail غير معروفة الآن بسبب حدّ السرعة — لم نتمكّن من قراءتها، وهذا لا يعني أن الربط منقطع.
             </p>
           ) : !gmail && !gmailError ? (
             <p className="text-xs text-neutral-400 mb-2">لم تُجلب حالة Gmail.</p>
@@ -439,14 +557,40 @@ export function InboxView({ navigate }: NavProps) {
                 اضغط «ربط Gmail» هنا ووافق بحساب <bdi>info@farq.sa</bdi> على شاشة Google. مسار Resend على
                 replies.farq.sa يبقى يعمل بالتوازي.
               </p>
-              <button
-                type="button"
-                disabled={gmailBusy || gmail?.configured === false}
-                onClick={handleGmailConnect}
-                className="px-4 py-2 bg-[#123F3A] text-white text-xs font-bold rounded-lg disabled:opacity-50"
-              >
-                {gmailBusy ? 'جارٍ فتح Google…' : 'ربط Gmail'}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  // Blocked while a connect is in flight, while the limiter is
+                  // counting down, and while the status is unknown — starting
+                  // OAuth on a guess is how the storm began.
+                  disabled={
+                    gmailBusy ||
+                    connectCooldown ||
+                    rateLimitSec != null ||
+                    gmailStatusUnread ||
+                    gmail?.configured === false
+                  }
+                  onClick={handleGmailConnect}
+                  className="px-4 py-2 bg-[#123F3A] text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                >
+                  {rateLimitSec != null
+                    ? `حدّ السرعة — بعد ${rateLimitSec} ثانية`
+                    : gmailBusy
+                      ? 'جارٍ فتح Google…'
+                      : connectCooldown
+                        ? 'تعذّرت المحاولة — انتظر لحظة'
+                        : 'ربط Gmail'}
+                </button>
+                {rateLimitSec == null && (gmailStatusUnread || gmailError) && (
+                  <button
+                    type="button"
+                    onClick={() => void reloadGmail()}
+                    className="px-4 py-2 border border-neutral-200 text-[#123F3A] text-xs font-bold rounded-lg"
+                  >
+                    إعادة قراءة الحالة
+                  </button>
+                )}
+              </div>
               {gmailConnectNote && (
                 <p className="text-xs text-amber-800 mt-2 leading-relaxed">{gmailConnectNote}</p>
               )}
@@ -524,7 +668,7 @@ export function InboxView({ navigate }: NavProps) {
                   ? 'صندوق الوارد غير جاهز على الـ API — راجع أعلام CONSTRUCTION_INBOX_* أعلاه.'
                   : 'هنا تظهر ردود الموردين بعد ربطها بدعوة: عبر Reply-To على replies.farq.sa، أو عبر مزامنة Gmail لصندوق info@farq.sa (بما فيها ردود Zendesk/CC عندما يتطابق مرجع ELE-RFQ-… أو اسم المورد بشكل فريد). دعوات «تم الإرسال» ليست واردًا — راجع تبويب مرسَل أو العروض.'}
               </p>
-              {enabled && receiving && !gmail?.connected && (
+              {enabled && receiving && !gmail?.connected && !gmailStatusUnread && rateLimitSec == null && (
                 <p className="text-xs text-amber-800 max-w-md mx-auto leading-relaxed bg-amber-50 rounded-xl px-3 py-2">
                   لتظهر ردود مثل دهانات الجزيرة التي تصل إلى info@ دون Reply-To الموقّع: أكمل «ربط Gmail» أعلاه بحساب
                   المالك، ثم أعد فتح الوارد لتشغيل المزامنة. المطابقات غير الفريدة تُرفض ولن تُختلق.

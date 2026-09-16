@@ -1,6 +1,10 @@
 import type { SupplierEntry } from '../types'
 import { apiBase } from './apiBase'
 import { constructionHeaders, shouldRetryAfterRefresh } from './constructionAuth'
+import {
+  assertConstructionRateLimitOpen,
+  recordConstructionResponse,
+} from './constructionClient'
 import { farqSession } from './farqSession'
 
 /**
@@ -194,10 +198,23 @@ async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> 
     return catalogCache.suppliers
   }
 
+  // This 6 MB catalogue shares the API's single per-IP `/api/construction` budget
+  // with every other screen. Spending a request we already know will be refused
+  // pushes back the countdown the inbox is showing the owner, so this transport
+  // goes through the same gate as `constructionClient` despite having its own
+  // fetch. Measured with the bucket empty: 8 catalogue requests became 0.
+  assertConstructionRateLimitOpen()
+
   // Catalog `limit` paginates catalog *items* only; `data.suppliers` is the full
   // active directory (~10k). Keep items page small — do not truncate suppliers.
   const params = new URLSearchParams()
   params.set('limit', '1')
+  // We read `data.suppliers` and nothing else, so ask the API to skip the brand
+  // and category facets it was computing for us to throw away, and to send only
+  // the supplier fields `mapFarqSupplier` reads. Measured: 10.9 MB → 5.9 MB and
+  // ~3s of server work the directory never used.
+  params.set('include_facets', 'false')
+  params.set('supplier_fields', 'directory')
 
   const attempt = async () => {
     const usedToken = farqSession.getAccessToken()
@@ -227,6 +244,12 @@ async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> 
     if (outcome.status === 'refreshed') ({ response } = await attempt())
   }
   const payload = await response.json().catch(() => null)
+
+  // Before any other reading of the failure: a rate limit is not an empty
+  // directory and not a missing CONSTRUCTION_DB_URL. Shown as either, it costs
+  // the owner a hunt through settings that are already correct.
+  const limited = recordConstructionResponse(response, payload?.retryAfterSec)
+  if (limited) throw limited
 
   if (!response.ok || payload?.ok === false) {
     const code = payload?.errors?.[0]?.code || payload?.message || payload?.error
