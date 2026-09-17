@@ -1461,13 +1461,22 @@ export async function parseBoqFile(
   // reading while we render. Saying «وصلت لـ 0» invites the reader to conclude
   // the text does not exist, and he then finds technical text on a later
   // screen and concludes the count lied to him.
-  const specsPending = lines.length - specsFromApi
+  // Count the specifications the reader will actually put on screen, from
+  // whichever source supplied them. `specsFromApi` counts only the ones the
+  // API filled in, and a booklet that prints its own «المواصفة المختصرة»
+  // column needs nothing from the API at all — so datacenter-cyber-01, which
+  // reads perfectly and shows technical text on every card, was reporting
+  // «المواصفات الفنية لم تصل بعد لـ 180 من 180». That is the same false
+  // count we have been clearing all day, pointing the other way: it tells the
+  // owner everything failed while the evidence in front of him says otherwise.
+  const specsPresent = lines.filter((line) => String(line.spec || '').trim()).length
+  const specsPending = lines.length - specsPresent
   // Two different causes, and blaming the slow one for the other is how the
   // owner was told a 6-second window was at fault when he simply had no
   // session: the extraction runs on the server, so with no session it never
   // started rather than ran late.
   const specNote =
-    source === 'pdf-table' && specsFromApi < lines.length
+    source === 'pdf-table' && specsPending > 0
       ? currentAuthMode() === 'demo'
         ? `المواصفات الفنية لم تُستخرج (${specsPending} من ${lines.length} بندًا): استخراجها يجري على خادم فرق ويحتاج تسجيل دخول. الكميات والوحدات مقروءة بالكامل من الكراسة نفسها.`
         : `المواصفات الفنية لم تصل بعد لـ ${specsPending} من ${lines.length} بندًا — استخراجها من الكراسة أبطأ من مهلة هذه الشاشة، فطُوبقت هذه البنود بالاسم والكمية. الكميات والوحدات مقروءة بالكامل.`

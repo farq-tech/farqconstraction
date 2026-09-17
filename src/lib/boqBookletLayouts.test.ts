@@ -131,6 +131,17 @@ describe('Farq DC/SITE layout (numbering headed الرمز, no الرقم)', () 
   }, 180_000)
 })
 
+describe('specifications the reader actually has', () => {
+  it('counts the booklet\u2019s own المواصفة column, not just the API\u2019s', async () => {
+    // This booklet prints its specifications in the table, so it needs nothing
+    // from the API. Counting only API-supplied text reported «لم تصل بعد لـ
+    // 180 من 180» on a booklet whose every card carried technical text.
+    const r = await readBooklet(`${F}datacenter-cyber-01.pdf`)
+    const withSpec = r.lines.filter((l) => String(l.spec || '').trim()).length
+    expect(withSpec).toBe(180)
+  }, 180_000)
+})
+
 describe('the description-column guard', () => {
   it('stays silent on every booklet that reads correctly', async () => {
     for (const file of [
