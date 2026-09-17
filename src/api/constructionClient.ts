@@ -12,7 +12,7 @@
  * is the whole credential and they carry no buyer session. See `auth: 'supplier'`.
  */
 
-import { apiBase } from './apiBase'
+import { apiBase, apiUnreachableAdvice } from './apiBase'
 import {
   constructionHeaders,
   shouldRetryAfterRefresh,
@@ -511,7 +511,7 @@ async function rawFetch(
     }
     // A transport failure is not a feature flag problem; say so separately.
     throw new ConstructionApiError(
-      'لا يمكن الوصول إلى Farq API من هذا التطبيق — تأكد أن الـ API يعمل وأن VITE_API_PROXY_TARGET يشير إليه.',
+      `لا يمكن الوصول إلى Farq API من هذا التطبيق — ${apiUnreachableAdvice()}`,
       0,
       'CONSTRUCTION_API_UNREACHABLE',
     )
