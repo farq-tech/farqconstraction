@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { intentLabelAr } from './intentLabels'
 import { buildOntologyResolution } from './canonicalIntent'
 import { isKnownIntentId } from './procurementOntology'
+import { isStaleBundleError } from './parseBoq'
 
 describe('what the booklet match now sends, and how it is labelled', () => {
   it('labels an intent id from the ontology data, and falls back to the id', () => {
@@ -25,5 +26,18 @@ describe('what the booklet match now sends, and how it is labelled', () => {
 
   it('sends nothing for an empty line rather than inventing a verdict', () => {
     expect(buildOntologyResolution('')).toBeNull()
+  })
+})
+
+describe('a stale page is not a statement about the booklet', () => {
+  it('recognises the dynamic-import failure in every browser wording', () => {
+    expect(isStaleBundleError('pdfjs-dist: Failed to fetch dynamically imported module: https://x/assets/pdf-BPOO2IQW.js')).toBe(true)
+    expect(isStaleBundleError('error loading dynamically imported module')).toBe(true)
+    expect(isStaleBundleError('Importing a module script failed.')).toBe(true)
+  })
+  it('does not swallow a real extraction failure', () => {
+    expect(isStaleBundleError('Invalid PDF structure')).toBe(false)
+    expect(isStaleBundleError('')).toBe(false)
+    expect(isStaleBundleError(null)).toBe(false)
   })
 })

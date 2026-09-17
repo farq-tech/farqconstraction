@@ -590,6 +590,24 @@ async function extractPdfText(file: File, work: BoqWorkProgress = noWork): Promi
   throw new Error(`تعذّر استخراج نص PDF (${errors.join(' | ')})`)
 }
 
+/**
+ * The PDF reader is a lazily loaded chunk whose file name carries a build hash.
+ * A tab left open across a deployment still asks for the OLD name, which no
+ * longer exists, and every browser words that failure differently. It is not a
+ * fact about the booklet — nothing was read — so it must not be reported as
+ * «لم نعثر على بنود». Measured 2026-09-17: the owner's tab asked for
+ * pdf-BPOO2IQW.js after a redeploy that ships pdf-BCrfgDb5.js; both 404.
+ */
+export function isStaleBundleError(message: string | null | undefined): boolean {
+  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i.test(
+    String(message || ''),
+  )
+}
+
+export const STALE_BUNDLE_MESSAGE =
+  'نُشرت نسخة أحدث من التطبيق أثناء فتح هذه الصفحة، فلم يعد قارئ الملفات الذي تحمله صفحتك موجودًا. ' +
+  'أعد تحميل الصفحة ثم ارفع الكراسة من جديد. لم تُقرأ الكراسة، ولم نُعد استخدام كراسة سابقة.'
+
 async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Promise<PdfExtract> {
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
     return extractPdfText(file, work)
@@ -1541,7 +1559,10 @@ export async function parseBoqFile(
       source: 'empty',
       rawLineCount: 0,
       ...readFacts,
-      matchWarning: `لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة.${detail}${tableDetail}`,
+      // A stale page cannot say anything about the booklet: it never opened it.
+      matchWarning: isStaleBundleError(extractError)
+        ? STALE_BUNDLE_MESSAGE
+        : `لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة.${detail}${tableDetail}`,
     }
   }
 
