@@ -281,7 +281,34 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
   for (const block of blocks) {
     const labels = block.rows.flatMap((r) => r.glyphs.map((g) => ({ g, label: foldLabel(g.str) })))
     const has = (key: ColumnKey) => labels.some(({ label }) => HEADER_LABELS[key].includes(label))
-    if (!(has('number') && has('desc') && has('qty') && has('unit'))) continue
+    // `الرمز` heads two different columns in the wild, and telling them apart is
+    // what decides whether this table is read at all.
+    //
+    // In the Etimad booklet it is `الرمز الإنشائى`, a structural code (2001–2107)
+    // that must never be read as an item number — doing so is the original
+    // defect this reader exists to prevent. That booklet also prints `الرقم`.
+    //
+    // The Farq DC/SITE booklets head their item numbering `الرمز` and print no
+    // `الرقم` column at all. Requiring one rejected the whole header, so the
+    // table was never read and the flattened-text path ran instead — and that
+    // path groups by visual row, so it served the `الفئة` category cell that
+    // shares the number's y-band and never served the item name. Measured on
+    // datacenter-cyber-01: 180 of 180 rows, correct quantities and units, and
+    // 154 descriptions that were the category plus a spec fragment.
+    //
+    // So: promote `الرمز` to the number column only when the block has no
+    // dedicated number label and no `الانشائي` to mark it as a structural code.
+    const structuralCode = labels.some(({ label }) => HEADER_LABELS.code.includes(label) && label === 'الانشائي')
+    const codeIsNumber =
+      !structuralCode && !has('number') && labels.some(({ label }) => label === 'الرمز')
+    const roleOf = (label: string): ColumnKey | null => {
+      if (codeIsNumber && label === 'الرمز') return 'number'
+      for (const key of Object.keys(HEADER_LABELS) as ColumnKey[]) {
+        if (HEADER_LABELS[key].includes(label)) return key
+      }
+      return null
+    }
+    if (!((has('number') || codeIsNumber) && has('desc') && has('qty') && has('unit'))) continue
     // The summary table on page 27 carries الفئة/الاسم/وصف alongside; different shape.
     if (labels.some(({ label }) => SUMMARY_TABLE_LABELS.includes(label))) continue
 
@@ -296,9 +323,8 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
       code: null,
     }
     for (const { g, label } of labels) {
-      for (const key of Object.keys(HEADER_LABELS) as ColumnKey[]) {
-        if (HEADER_LABELS[key].includes(label)) columns[key] = mergeSpan(columns[key], spanOf(g))
-      }
+      const key = roleOf(label)
+      if (key) columns[key] = mergeSpan(columns[key], spanOf(g))
     }
     if (!columns.number || !columns.desc || !columns.qty || !columns.unit) continue
 
@@ -569,7 +595,19 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
           .map((g) => g.str)
           .join(''),
       )
-      const idMatch = /^\d{1,3}$/.test(numberText) ? Number(numberText) : null
+      // The number cell is not always alone in its column. In the DC/SITE
+      // booklets the category's `DC-` / `SITE-` prefix is printed hard against
+      // the numbering and overlaps it by a few points, so the cell reads
+      // «001DC-» and an exact-digits test threw the whole row away — 180 rows
+      // reported as «صف بلا رقم بند».
+      //
+      // The trailing `(?!\d)` is load-bearing and must stay: it takes a short
+      // number followed by something that is not a digit, and still refuses a
+      // longer digit run. That is what keeps the Etimad structural code
+      // (2001–2107) from being read as item 208 — reading that column as a
+      // number is the defect this reader was written to prevent.
+      const idText = numberText.match(/^(\d{1,3})(?!\d)/)?.[1] ?? null
+      const idMatch = idText === null ? null : Number(idText)
       const qty = readQuantity(
         cells.qty
           .slice()
