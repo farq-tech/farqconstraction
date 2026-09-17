@@ -615,11 +615,14 @@ describe('no field may imply a family the resolution does not have', () => {
     // The recovery must not land in the polycarbonate pool.
     const pools = new Map(batch.pools.map((p) => [p.pool_key, p]))
     // Only the polycarbonate line is in that pool; the recoveries are per-line.
-    expect(pools.get('translucent_roofing')!.line_ids).toHaveLength(1)
+    // The pool is keyed on the MATERIAL now that the family has one, which is
+    // the same answer one level finer.
+    expect(polycarbonate!.intent).toBe('polycarbonate_sheet')
+    expect(pools.get('polycarbonate_sheet')!.line_ids).toHaveLength(1)
     expect(bandsaw!.family).toBeNull()
     for (const pool of batch.pools) {
       if (pool.pool_key.startsWith('line:')) continue
-      expect(pool.pool_key).toBe('translucent_roofing')
+      expect(pool.pool_key).toBe('polycarbonate_sheet')
     }
   })
 
