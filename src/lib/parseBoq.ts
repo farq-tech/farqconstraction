@@ -1602,8 +1602,19 @@ export async function parseBoqFile(
   const usedTable = table && (source === 'pdf-table' || lines.length === 0)
   // When the text path won, the column reader's complaints still travel — as a
   // warning, so a table it could not read is never simply forgotten.
+  /*
+   * THE BROWSER'S OWN READER IS NOT THE READ THE BUYER IS LOOKING AT.
+   *
+   * This note exists for the case where the LOCAL text path won and the local
+   * column reader had complained. When the SERVER read the booklet — which it
+   * now does for every coded BOQ — the line «قارئ الأعمدة رأى جدولًا ولم
+   * يكمله (0 من 34)» describes a reader whose output is not on screen, and it
+   * reads as a verdict on the 1,514 lines that are. It is only shown when the
+   * lines actually came from this browser.
+   */
+  const servedByServer = apiLines.length > 0 && lines.length === apiLines.length
   const shelvedTableNote =
-    table && !usedTable && table.issues.length
+    table && !usedTable && !servedByServer && table.issues.length
       ? `قرأنا هذا الملف بالمسار النصي. قارئ الأعمدة رأى جدولًا ولم يكمله (${table.rows.length} من ${table.expectedCount ?? '؟'}).`
       : ''
   // The quantities table carries no technical column; that text comes from the
