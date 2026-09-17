@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { decideByTiers, normalizeProcurementText, termIndex } from './procurementOntology'
+import { normalizeProcurementText, termDecidesIn, termIndex } from './procurementOntology'
 
 /**
  * THE ATTRIBUTE-CLAUSE RULE HAS ONE OWNER AND TWO READERS.
@@ -27,7 +27,7 @@ const FIXTURE = path.join(__dirname, '../../fixtures/ontology/attribute-rule-con
  * `term` is the single strong term under test, so `decided` answers exactly
  * one question: may this term name the product in this text?
  */
-const CASES: Array<{ text: string; term: string; note: string }> = [
+const CASES: Array<{ text: string; term: string; note: string; register?: 'supplier_prose' }> = [
   // The three defects the rule was written for: 1,984 pipe fittings to
   // lubricants, 331 dampers to façade, 64 backflow preventers to cable lugs.
   { text: 'وصلة PPR Elbow مقاس 50 مم ربط Solvent Cement', term: 'solvent', note: 'solvent inside a ربط clause' },
@@ -96,18 +96,72 @@ const CASES: Array<{ text: string; term: string; note: string }> = [
     term: 'wood',
     note: 'a company name is not a description',
   },
+
+  /*
+   * RULE THREE: ARABIC MORPHOLOGY IN TERM COMPILATION.
+   *
+   * Pinned here because `term_index` records matching behaviour, not just
+   * clause behaviour. Without these cases a reader could implement the opener
+   * fix alone, agree on every clause case above, and then drift on every
+   * Arabic term carrying a nisba or an «ات» plural — a divergence that begins
+   * with agreement, which is worse than outright disagreement because the
+   * passing cases build confidence in the failing ones.
+   */
+  { text: 'باب خشب زان', term: 'باب خشبي', note: 'nisba: the term is the adjective, the text the noun' },
+  { text: 'باب خشبي زان', term: 'باب خشب', note: 'nisba: and the other way round' },
+  { text: 'كابلات نحاس معزولة', term: 'كابل', note: 'sound plural «ات» on the stem' },
+  { text: 'لوحات توزيع كهربائية', term: 'لوحة', note: 'plural of a taa-marbuta singular' },
+  { text: 'ألواح جبس معدنية', term: 'معدن', note: 'nisba on a material noun' },
+
+  /*
+   * And the direction the resolver REVERTED, pinned so it stays reverted:
+   * stripping the plural «يات» reduced «ارضيات» (floors) to «ارض» (ground),
+   * which took epoxy flooring off an industrial coatings supplier. Only the
+   * singular «ي» is ever stripped, and only above a three-letter stem floor.
+   */
+  { text: 'أرضيات إيبوكسي صناعية', term: 'ارض', note: 'floors are not ground — shortening stays reverted' },
+  { text: 'شبكة ري بالتنقيط', term: 'ري', note: 'a two-letter stem is never shortened' },
+
+  /*
+   * RULE FOUR: THE QUESTION TRANSFERS BETWEEN REGISTERS; THE RULE DOES NOT.
+   *
+   * v8 routed supplier claims through this same rule, on the reasoning that
+   * both sides ask one question. The question is shared — may this term name a
+   * product here — but the ANSWER depends on a premise only a BOQ line
+   * satisfies: a product head with attributes trailing it. Company prose has
+   * no product head, and measuring 10,104 real supplier records showed the BOQ
+   * vocabulary is not merely useless there but inverted: «لل» occurs 6,298
+   * times and introduces the company's own trade every time («للتبريد»,
+   * «للرخام»). It cost «مؤسسة الحماية من الحريق» its entire score.
+   *
+   * So supplier prose is its own register with its own — currently empty —
+   * vocabulary, and these rows are recorded under it. They are the same four
+   * strings v8 recorded as suppressed; they now decide, and that is the
+   * correction travelling in the right direction.
+   */
+  { text: 'شبكات ري مادة رشاش حريق', term: 'رشاش حريق', note: 'prose: no clause, so the mention stands', register: 'supplier_prose' },
+  { text: 'مصنع دهانات تصنيف رشاش حريق', term: 'رشاش حريق', note: 'prose: «تصنيف» has 0 occurrences in 10,104 real records', register: 'supplier_prose' },
+  { text: 'شركة مكافحة حريق ورشاشات', term: 'رشاش', note: 'a genuine fire contractor still claims it', register: 'supplier_prose' },
+  { text: 'مؤسسه الحمايه من الحريق رشاشات حريق ومضخات', term: 'رشاش حريق', note: 'THE REGRESSION: «من» must not zero a qualified supplier', register: 'supplier_prose' },
+  { text: 'شركه مكافحه الحرايق بالرياض', term: 'مكافحه الحرايق', note: 'THE REGRESSION: «بال» is locational in prose', register: 'supplier_prose' },
+  // The same two strings under the BOQ register, where the rule DOES hold.
+  { text: 'وصلة PPR مقاس 50 مم مادة رشاش حريق', term: 'رشاش حريق', note: 'boq: the clause rule still applies here' },
 ]
 
-function decides(text: string, term: string): boolean {
-  return decideByTiers(text, text, { strong_terms: [term] }).decided
-}
+/**
+ * The exported function, not a local copy of it. If the fixture were generated
+ * from its own reimplementation, it would publish a third answer rather than
+ * the resolver's.
+ */
+const decides = (text: string, term: string, register?: 'supplier_prose') =>
+  termDecidesIn(text, term, register ?? 'boq_line')
 
 describe('attribute-clause rule conformance', () => {
   const produced = CASES.map((entry) => ({
     ...entry,
     normalized: normalizeProcurementText(entry.text),
     term_index: termIndex(entry.text, entry.term),
-    decides: decides(entry.text, entry.term),
+    decides: decides(entry.text, entry.term, entry.register),
   }))
 
   it('publishes the rule as behaviour the supply side can be held to', () => {

@@ -10,6 +10,8 @@ build/
 .cache/
 .env*
 !.env.example
+# Vercel CLI link state + pulled env (holds a short-lived OIDC token).
+.vercel/
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
@@ -26,3 +28,4 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+.vercel

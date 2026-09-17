@@ -4,6 +4,7 @@ import {
   ONTOLOGY_VERSION,
   describeIntent,
   evaluateSupplier,
+  classifySupplierArchetypes,
   isKnownFamilyId,
   isKnownIntentId,
   isUniqueStrongTerm,
@@ -15,7 +16,10 @@ import {
   resolveOntology,
   resolveOntologyBatch,
   termIndex,
+  termDecidesIn,
   ARCHETYPES,
+  CLAUSE_RULE,
+  SUPPLIER_CLAUSE_RULE,
   FAMILIES,
   FACET_DEFS,
   SECTORS,
@@ -399,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v6')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v9')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -1892,5 +1896,550 @@ describe('«ألياف معدنية» is mineral fibre, not metal', () => {
   it('a perforated aluminium tile is still a metal ceiling', () => {
     // Acoustically rated, but the trade is a roll-former either way.
     expect(resolveOntology('توريد بلاطة سقف ألمنيوم مثقب مقاس 600×600 مم حافة Tegular').intent).toBe('metal_ceiling')
+  })
+})
+
+/* ======================================================================== *
+ * cpo-v7. Five defects, and four of them are one defect seen from different
+ * sides: a rule verified in one register, one language, one node or one code
+ * path, and never checked in the other.
+ * ======================================================================== */
+
+describe('the attribute clause is a construction, not a keyword list', () => {
+  // The archive introduces an attribute with a noun («مادة»); real booklets
+  // introduce it with a preposition («للخرسانة»). Inserting the archive's
+  // keyword into the booklet's sentence made it resolve correctly, which is
+  // what proved the two are one construction.
+  it('a preposition opens a clause, exactly as the keyword does', () => {
+    expect(resolveOntology('حديد تسليح للخرسانة المسلحة').family).toBe('rebar_mesh')
+    expect(resolveOntology('حديد تسليح مادة الخرسانة المسلحة').family).toBe('rebar_mesh')
+    expect(resolveOntology('حديد تسليح').family).toBe('rebar_mesh')
+  })
+
+  it('«لألواح» is the same لـ+الـ construction with a hamza-initial noun', () => {
+    // The head is the framing, not the boards it carries.
+    expect(resolveOntology('هيكل لألواح الجبس').intent).toBe('drywall_framing')
+  })
+
+  for (const [line, family] of [
+    // DERIVED REFUSALS. Bare «ب» was 0 of 14 prepositional in the real
+    // register, and bare «ل» failed on precisely «لياسة» and «لوحات» — the
+    // plaster term and the distribution-board term. Adopting either would have
+    // suppressed the vocabulary it was meant to protect.
+    ['لياسة اسمنتية', 'plaster_render'],
+    ['لوحات توزيع', 'switchgear_panels'],
+    ['دهان بلاستيك', 'paints_coatings'],
+    ['عازل بيتومين', 'waterproofing'],
+    ['بلاط انترلوك', 'paving'],
+    ['بوابة لمدخل الافراد', 'industrial_doors'],
+  ] as const) {
+    it(`a word merely starting with ل or ب is not a clause: ${line}`, () => {
+      expect(resolveOntology(line).family).toBe(family)
+    })
+  }
+
+  it('a clause still yields Level B recovery rather than a false unknown', () => {
+    const r = resolveOntology('ربط Solvent Cement للمواسير')
+    expect(r.level_code).not.toBe('C')
+    expect(r.intent).not.toBe('lubricants')
+  })
+})
+
+describe('an opener is not part of the value it introduces', () => {
+  // Found by the supply side implementing the same rule and testing it back
+  // against this resolver: a term whose FIRST word is a clause keyword could
+  // never decide anywhere except position 0.
+  for (const [line, expected] of [
+    ['Panel Voltage Transformer 11kV', 'current_transformer'],
+    ['Rescue Kit Height 30m', 'rescue_kit'],
+    ['Digital Thickness Gauge 0-25mm', 'precision_gauge'],
+    ['اسمنت مادة رابطة', 'concrete_repair'],
+    ['خرسانة مادة معالجة', 'concrete_repair'],
+  ] as const) {
+    it(`decides away from position 0: ${line}`, () => {
+      expect(resolveOntology(line).intent).toBe(expected)
+    })
+  }
+
+  it('the value after the keyword is still suppressed', () => {
+    // The fix must not reopen the class it was built to close.
+    expect(resolveOntology('كوع مواسير مادة Aluminium').intent).not.toBe('aluminium_window_door')
+    expect(resolveOntology('Wall-to-Wall Joint مادة Aluminium').family).not.toBe('aluminium_systems')
+  })
+})
+
+describe('tier parity: the lexicon is a shortcut into a family, not past it', () => {
+  // The third appearance of "one concept, two languages, unequal authority" —
+  // and the cause was never language. The legacy lexicon ran with no guards at
+  // all, so every guard was conditional on the word being ABSENT from a
+  // dictionary that is overwhelmingly English.
+  it('English irrigation is refused by the same guard as Arabic', () => {
+    expect(resolveOntology('Irrigation Sprinkler Head').family).toBe('irrigation_systems')
+    expect(resolveOntology('Pop-Up Lawn Sprinkler Gear Drive').family).toBe('irrigation_systems')
+    expect(resolveOntology('رشاش ري').family).toBe('irrigation_systems')
+  })
+
+  it('a real fire sprinkler is untouched in both languages', () => {
+    expect(resolveOntology('fire sprinkler pendent K5.6').intent).toBe('fire_sprinkler')
+    expect(resolveOntology('توريد رشاش Pendent K5.6').intent).toBe('fire_sprinkler')
+    expect(resolveOntology('رشاش حريق').intent).toBe('fire_sprinkler')
+  })
+
+  it('a guard on an intent also binds its own ancestors', () => {
+    // «لاصق رخام» reached a tiling supplier because the guard lived on the
+    // intent while the family carried the same word unguarded.
+    expect(resolveOntology('لاصق رخام 25 كجم').intent).toBe('tile_grout_adhesive')
+  })
+})
+
+describe('a material phrase does not name a trade', () => {
+  // Glass fibre is an admixture, a tank, a grating and a roof sheet; mineral
+  // fibre is a ceiling tile, an insulation batt and a concrete fibre. Whichever
+  // trade held the bare phrase strong won every line that named no product.
+  for (const [line, expected] of [
+    ['خزان ألياف زجاجية', 'water_tanks'],
+    ['خزان GRP 5000 لتر', 'water_tanks'],
+    ['ألياف زجاجية للخرسانة', 'concrete_fiber'],
+    ['ألياف معدنية للخرسانة', 'concrete_fiber'],
+    ['بلاطة سقف ألياف معدنية', 'acoustic_ceiling_tile'],
+    ['صوف صخري 50 مم', 'mineral_wool_insulation'],
+  ] as const) {
+    it(`the product head decides, not the material: ${line}`, () => {
+      const r = resolveOntology(line)
+      expect(r.intent ?? r.family).toBe(expected)
+    })
+  }
+
+  it('«معدني» is MINERAL in «صوف معدني» and METAL in «سقف معدني»', () => {
+    // Blocking the bare word sent mineral wool tiles to nobody: the guard
+    // meant to catch a roll-formed metal tile fired on the tile it protected.
+    expect(resolveOntology('بلاطة سقف صوف معدني').intent).toBe('acoustic_ceiling_tile')
+    expect(resolveOntology('سقف مستعار معدني ألمنيوم').intent).toBe('metal_ceiling')
+  })
+})
+
+describe('Arabic morphology: one letter is not a different product', () => {
+  it('the nisba adjective and its noun are one product', () => {
+    expect(resolveOntology('باب خشب').intent).toBe('wooden_door')
+    expect(resolveOntology('باب خشبي').intent).toBe('wooden_door')
+  })
+
+  it('the sound plural is the same word', () => {
+    expect(resolveOntology('كابلات الجهد المتوسط').intent).toBe('mv_power_cable')
+    expect(resolveOntology('كابل جهد متوسط').intent).toBe('mv_power_cable')
+  })
+
+  it('SHORTENING a stem is the direction that manufactures matches', () => {
+    // Stripping the plural «يات» as well as the nisba reduced «ارضيات» to
+    // «ارض», and floor tiling started claiming epoxy flooring.
+    expect(resolveOntology('توريد أرضية إيبوكسي self leveling صناعية').family).toBe(
+      'industrial_flooring_coating',
+    )
+  })
+})
+
+describe('the product head still outranks what it acts on', () => {
+  for (const [line, notFamily, expected] of [
+    ['توريد جهاز اختبار كابلات شبكة CAT6', 'structured_cabling', 'network_test_tools'],
+    ['خرسانة أرضيات', 'floor_tiling', 'ready_mix_concrete'],
+  ] as const) {
+    it(`${line}`, () => {
+      const r = resolveOntology(line)
+      expect(r.family).not.toBe(notFamily)
+      expect(r.family).toBe(expected)
+    })
+  }
+
+  it('a main switchboard is not a final distribution board', () => {
+    expect(resolveOntology('توريد لوحة توزيع كهربائية رئيسية 1600A').intent).toBeNull()
+    expect(resolveOntology('لوحات توزيع').family).toBe('switchgear_panels')
+  })
+
+  it('a door access-control system is not a turnstile', () => {
+    expect(resolveOntology('نظام التحكم بالأبواب').intent).toBe('access_controller')
+    expect(resolveOntology('بوابة دوران').intent).toBe('turnstile_gate')
+  })
+})
+
+describe('COMPUTED: a guard is classified, not adjudicated', () => {
+  /**
+   * WHAT REPLACED THE RATCHET, AND WHY.
+   *
+   * The previous version of this test carried a hand-written allowlist of
+   * "legitimate" offences, declared may-only-shrink. It grew. A may-only-shrink
+   * list that grew is not a ratchet, it is a comment: nothing enforced it but
+   * goodwill, and goodwill broke at the first well-argued case, which
+   * guarantees the next one. So the judgement is computed instead.
+   *
+   * A guard on a descendant, where the ancestor carries the same word freely,
+   * is one of two things:
+   *
+   *   DEPTH GUARD  — every word it blocks on is this family's own vocabulary.
+   *     It is separating siblings, so the ancestor answering is the honest
+   *     fallback. Benign, automatically, with nobody signing anything off.
+   *
+   *   TRADE GUARD  — it blocks on a word that DECIDES some other family and
+   *     that this family never uses. It is pushing the line out of the family
+   *     altogether, so an unguarded ancestor re-catches exactly what the intent
+   *     just declined. That is the sprinkler leak, and it must be mirrored.
+   *
+   * The predicate is what proves the «عزل» defect is fixed: bare «عزل» is
+   * insulation's word, so its presence in the breaker guard classified those
+   * guards as TRADE guards and failed this test — while also costing
+   * «قاطع 32 امبير عزل مزدوج» its intent. Swapping it for «مفتاح عزل» and
+   * «قاطع عزل», which switchgear owns, fixes the line and the classification
+   * at once.
+   */
+  const ALL_TIERS = ['strong_terms', 'weak_terms', 'context_terms'] as const
+  const DECIDING = ['strong_terms', 'weak_terms'] as const
+  const key = (t: string) => t.toLowerCase().trim()
+
+  /** term -> families where it can DECIDE. term -> every family that uses it at all. */
+  const decidesIn = new Map<string, Set<string>>()
+  const vocabOf = new Map<string, Set<string>>()
+  for (const family of FAMILIES as any[]) {
+    const bag = new Set<string>()
+    const walk = (node: any) => {
+      for (const tier of ALL_TIERS) for (const t of node[tier] ?? []) bag.add(key(t))
+      for (const tier of DECIDING) {
+        for (const t of node[tier] ?? []) {
+          if (!decidesIn.has(key(t))) decidesIn.set(key(t), new Set())
+          decidesIn.get(key(t))!.add(family.id)
+        }
+      }
+      for (const c of node.categories ?? []) walk(c)
+      for (const i of node.intents ?? []) walk(i)
+    }
+    walk(family)
+    vocabOf.set(family.id, bag)
+  }
+
+  const classify = () => {
+    const depth: string[] = []
+    const unmirroredTrade: string[] = []
+    for (const family of FAMILIES as any[]) {
+      const carried = new Map<string, { terms: Set<string>; guards: any[] }>()
+      const walk = (node: any, path: string) => {
+        const here = `${path}/${node.id}`
+        carried.set(here, {
+          terms: new Set<string>([...(node.strong_terms ?? []), ...(node.weak_terms ?? [])]),
+          guards: node.term_guards ?? [],
+        })
+        for (const c of node.categories ?? []) walk(c, here)
+        for (const i of node.intents ?? []) walk(i, here)
+      }
+      walk(family, '')
+
+      for (const [path, node] of carried) {
+        for (const guard of node.guards) {
+          const blocked = [...(guard.block_any ?? []), ...(guard.blocked_by_head ?? [])]
+          const foreign = blocked.filter((b: string) => {
+            const owners = decidesIn.get(key(b))
+            return owners && [...owners].some((o) => o !== family.id) && !vocabOf.get(family.id)!.has(key(b))
+          })
+          for (const term of guard.terms) {
+            if (!node.terms.has(term)) continue
+            for (const [ancestor, ancestorNode] of carried) {
+              // Strictly upward. A SIBLING may legitimately guard the same word
+              // differently, and unioning siblings would block both.
+              if (!path.startsWith(`${ancestor}/`)) continue
+              if (!ancestorNode.terms.has(term)) continue
+              if (ancestorNode.guards.some((g: any) => g.terms.includes(term))) continue
+              const label = `«${term}» at ${path}, free at ${ancestor}`
+              if (foreign.length) unmirroredTrade.push(`${label} — foreign: ${foreign.join(', ')}`)
+              else depth.push(label)
+            }
+          }
+        }
+      }
+    }
+    return { depth, unmirroredTrade }
+  }
+
+  it('never leaves a trade guard unmirrored on an ancestor that decides the word', () => {
+    expect(classify().unmirroredTrade).toEqual([])
+  })
+
+  it('still finds depth guards, so the predicate is discriminating and not just empty', () => {
+    // If this ever hits zero the predicate has stopped distinguishing anything
+    // and the test above is passing vacuously.
+    expect(classify().depth.length).toBeGreaterThan(0)
+  })
+
+  it('classifies the breaker guards as depth guards, which is what the «عزل» fix bought', () => {
+    const { depth } = classify()
+    for (const node of ['mcb', 'mccb']) {
+      expect(depth.some((d) => d.includes(`/switchgear_panels/${node}`))).toBe(true)
+    }
+  })
+
+  it('keeps «قاطع 32 امبير عزل مزدوج» at its intent', () => {
+    // The line the borrowed word cost. Double insulation is a property of the
+    // breaker, not a different trade.
+    expect(resolveOntology('قاطع 32 امبير عزل مزدوج').intent).toBe('mcb')
+    expect(resolveOntology('قاطع 32 امبير عزل مزدوج').family).toBe('switchgear_panels')
+  })
+
+  it('would catch the sprinkler leak if it came back', () => {
+    // Constructed, not recorded: a trade guard on an intent whose family
+    // decides the same word must be reported by the predicate.
+    const owners = decidesIn.get('ري')
+    expect(owners && [...owners]).toContain('irrigation_systems')
+    expect(vocabOf.get('fire_fighting')!.has('ري')).toBe(false)
+  })
+})
+
+/**
+ * The same defect shape has now been measured three times: «باب خشب / باب
+ * خشبي» (morphology), «رشاش / sprinkler» (concept), and here in UNITS. A buyer
+ * writing English names the device and reaches an intent; a buyer writing
+ * Arabic names the rating and stopped at family. Both are the same purchase.
+ */
+describe('cpo-v8: the rating is the device name, in Arabic', () => {
+  const cases: Array<[string, string | null]> = [
+    // The two measured booklet lines.
+    ['قاطع 32 امبير', 'mcb'],
+    ['قاطع 100 امبير', 'mccb'],
+    // Parity with what the English writer already got.
+    ['MCB 32A', 'mcb'],
+    ['MCCB 100A', 'mccb'],
+    ['breaker 63a', 'mcb'],
+    ['breaker 250 a', 'mccb'],
+    ['قواطع 16 امبير', 'mcb'],
+  ]
+  for (const [line, intent] of cases) {
+    it(`«${line}» reaches ${intent}`, () => {
+      expect(resolveOntology(line).intent).toBe(intent)
+    })
+  }
+
+  /**
+   * 64–99A is in NEITHER series because an 80A breaker is genuinely either
+   * device. Stopping at family is the honest answer; picking one at 0.90
+   * confidence is the failure mode the owner ranks as worse than a Level C.
+   */
+  it('refuses the ambiguous band rather than guessing between the two', () => {
+    const r = resolveOntology('قاطع 80 امبير')
+    expect(r.intent).toBeNull()
+    expect(r.family).toBe('switchgear_panels')
+    expect(r.poolable).toBe(true)
+  })
+
+  /** An in-range rating must never override a device that names itself. */
+  it.each([
+    ['قاطع تسرب ارضي 63 امبير', 'residual_current_device'],
+    ['قاطع هوايي 800 امبير', 'acb'],
+    ['rcbo 32a', 'residual_current_device'],
+  ])('«%s» is still %s despite an in-range rating', (line, intent) => {
+    expect(resolveOntology(line).intent).toBe(intent)
+  })
+
+  it('does not let a rating alone promote a switch that merely breaks current', () => {
+    // «قاطع عزل» is an isolator. v8 left it at family because the breaker
+    // guards blocked on a bare «عزل» borrowed from insulation; v9 gives the
+    // phrase to the family that actually sells it, so it reaches its own
+    // intent instead of the rating's.
+    expect(resolveOntology('قاطع عزل 100 امبير').intent).toBe('isolator_switch')
+    expect(resolveOntology('مفتاح عزل 100 امبير').intent).toBe('isolator_switch')
+  })
+})
+
+/**
+ * «بلوك مفرغ» was ALREADY a strong term. «بلوك اسمني مفرغ» failed for exactly
+ * one reason — a misspelling sitting between the two words broke adjacency —
+ * so the fix is compositional and the typo stays out of the vocabulary.
+ */
+describe('cpo-v8: hollow/solid decides the block, whatever adjective sits in the middle', () => {
+  it.each([
+    ['بلوك اسمني مفرغ', 'concrete_block'],
+    ['بلوك اسمنتي مفرغ', 'concrete_block'],
+    ['بلوك خرساني مصمت', 'concrete_block'],
+    ['بلوك مفرغ', 'concrete_block'],
+    // A strong term still outranks the weak one, so the lightweight trade keeps
+    // its own hollow blocks.
+    ['بلوك خفيف مفرغ', 'lightweight_block'],
+    ['aac block hollow', 'lightweight_block'],
+  ])('«%s» -> %s', (line, intent) => {
+    expect(resolveOntology(line).intent).toBe(intent)
+  })
+
+  it('carries no misspelling in the vocabulary', () => {
+    const terms: string[] = []
+    const walk = (node: any) => {
+      for (const k of ['strong_terms', 'weak_terms', 'context_terms', 'supplier_terms', 'negative_terms']) {
+        for (const t of node[k] ?? []) terms.push(t)
+      }
+      for (const g of node.term_guards ?? []) {
+        for (const k of ['terms', 'require_any', 'block_any', 'blocked_by_head']) {
+          for (const t of g[k] ?? []) terms.push(t)
+        }
+      }
+      for (const c of node.categories ?? []) walk(c)
+      for (const i of node.intents ?? []) walk(i)
+    }
+    for (const f of FAMILIES) walk(f)
+    expect(terms.filter((t) => t.includes('اسمني'))).toEqual([])
+  })
+
+  /**
+   * What happens to the line if the typo appears WITHOUT the hollow/solid word:
+   * it keys the masonry pool at family level. That is the honest floor, and it
+   * is why declining the typo costs the owner nothing.
+   */
+  it('still keys a pool when the typo stands alone', () => {
+    const r = resolveOntology('توريد بلوك اسمني للمباني')
+    expect(r.family).toBe('masonry_blocks')
+    expect(r.poolable).toBe(true)
+  })
+})
+
+/**
+ * An opener adopted on one observation must not read like a measured one. The
+ * evidence lives in the payload so a future reader cannot mistake the two, and
+ * this test is what stops the flag from being dropped quietly.
+ */
+describe('cpo-v8: the clause vocabulary declares its own evidence', () => {
+  const THRESHOLD = 5
+
+  it('flags every thinly-attested opener as provisional', () => {
+    const thin = CLAUSE_RULE.proclitic_clause_openers.openers.filter((o) => o.observations < THRESHOLD)
+    expect(thin.map((o) => o.prefix).sort()).toEqual(['بال', 'لال'])
+    for (const o of thin) expect(o.provisional).toBe(true)
+  })
+
+  it('names the review threshold in the data, not in a report', () => {
+    const review = CLAUSE_RULE.provisional_review
+    expect(review).toBeDefined()
+    expect(review!.after_booklet_lines).toBe(1000)
+    expect(review!.booklet_lines_seen).toBeLessThan(1000)
+  })
+
+  it('keeps every provisional opener error-safe by requiring a stem floor', () => {
+    // The reason a one-observation rule is tolerable: it errs toward
+    // suppression, which falls back instead of hijacking. The stem floor is
+    // what bounds how often it can fire at all.
+    for (const o of CLAUSE_RULE.proclitic_clause_openers.openers) {
+      if (o.provisional) expect(o.min_stem).toBeGreaterThanOrEqual(3)
+      expect(o.evidence.length).toBeGreaterThan(20)
+    }
+  })
+
+  it('never re-adopts a rejected opener', () => {
+    const active = new Set<string>([
+      ...CLAUSE_RULE.proclitic_clause_openers.openers.map((o) => o.prefix),
+      ...CLAUSE_RULE.preposition_clause_keys.keys.map((k) => k.key),
+    ])
+    for (const r of CLAUSE_RULE.rejected_openers.openers) {
+      expect(active.has(r.prefix ?? r.key ?? '')).toBe(false)
+    }
+  })
+
+  /** The resolver must READ this vocabulary, not carry a second copy of it. */
+  it('is the vocabulary the resolver actually applies', () => {
+    // «لال» is payload-only; if the resolver held its own copy, removing the
+    // payload entry would not change behaviour. This asserts the live wiring.
+    expect(CLAUSE_RULE.proclitic_clause_openers.openers.map((o) => o.prefix)).toContain('لال')
+    expect(resolveOntology('هيكل معدني لألواح الجبس').intent).toBe('drywall_framing')
+    expect(CLAUSE_RULE.attribute_clause_keys.keys).toContain('ماده')
+    expect(resolveOntology('وصلة PPR مقاس 50 مم ربط Solvent Cement').family).toBe('pipes_fittings')
+  })
+})
+
+/**
+ * The bypass hunt found the demand side clean — all four resolution paths
+ * funnel through `bestHit` — and the supply side with no chokepoint at all.
+ * These are the two cases demonstrated live against production.
+ */
+describe('cpo-v9: supplier prose is its own register', () => {
+  const sprinkler = resolveOntology('توريد وتركيب رشاش حريق Pendent K5.6')
+
+  it('resolves the line it is matching against', () => {
+    expect(sprinkler.family).toBe('fire_fighting')
+    expect(sprinkler.intent).toBe('fire_sprinkler')
+  })
+
+  /**
+   * THE MEASURED REGRESSION v8 SHIPPED.
+   *
+   * Routing supplier claims through the BOQ clause rule applied booklet
+   * vocabulary to company prose. A qualified fire-protection supplier scored
+   * zero because its name contains «من», and the identical business written
+   * «ضد» scored 23. Arabic company names are full of these words; 10,104 real
+   * records say «لل» alone occurs 6,298 times and introduces the company's own
+   * trade every single time.
+   */
+  it('scores a supplier the same however its name joins the words', () => {
+    const withPreposition = evaluateSupplier('مأسسة الحماية من الحريق — رشاشات حريق ومضخات', sprinkler)
+    const without = evaluateSupplier('مؤسسة الحماية ضد الحريق — رشاشات حريق ومضخات', sprinkler)
+    expect(withPreposition.score).toBe(without.score)
+    expect(withPreposition.verdict).toBe('PREFERRED')
+    expect(withPreposition.auto_tick).toBe(true)
+  })
+
+  it('does not let a city zero a contractor', () => {
+    for (const s of ['شركة مكافحة الحرائق في الرياض', 'شركة مكافحة الحرائق بالرياض']) {
+      const e = evaluateSupplier(s, sprinkler)
+      expect(e.archetypes).toContain('fire_fighting_supplier')
+      expect(e.verdict).toBe('PREFERRED')
+    }
+  })
+
+  /**
+   * «حرائق» is the BROKEN plural of «حريق». Suffix rules cannot derive it, so
+   * it is listed. This was reported as a casualty of the chokepoint and was
+   * not: it scored zero before the chokepoint existed.
+   */
+  it('matches the broken plural, which no suffix rule can reach', () => {
+    expect(classifySupplierArchetypes('مكافحة الحرائق')).toContain('fire_fighting_supplier')
+    expect(classifySupplierArchetypes('مكافحة حريق')).toContain('fire_fighting_supplier')
+  })
+
+  it('declares an empty prose vocabulary rather than silently reusing the BOQ one', () => {
+    expect(SUPPLIER_CLAUSE_RULE.register).toBe('supplier_prose')
+    expect(SUPPLIER_CLAUSE_RULE.attribute_clause_keys.keys).toEqual([])
+    expect(SUPPLIER_CLAUSE_RULE.preposition_clause_keys.keys).toEqual([])
+    expect(SUPPLIER_CLAUSE_RULE.proclitic_clause_openers.openers).toEqual([])
+    // Empty is a RESULT, so it carries its evidence like any other result.
+    expect(SUPPLIER_CLAUSE_RULE.rejected_openers.openers.length).toBeGreaterThan(8)
+    const ll = SUPPLIER_CLAUSE_RULE.rejected_openers.openers.find((o) => o.prefix === 'لل')
+    expect(ll?.observations).toBe(6298)
+  })
+
+  it('declares the index-0 policy per register instead of assuming one', () => {
+    expect(CLAUSE_RULE.opens_at_index_0).toBe(false)
+    expect(SUPPLIER_CLAUSE_RULE.opens_at_index_0).toBe(true)
+  })
+
+  /** The BOQ register is untouched by any of this. */
+  it('keeps the BOQ rule exactly where it was', () => {
+    expect(termDecidesIn('وصلة PPR Elbow مقاس 50 مم ربط Solvent Cement', 'solvent')).toBe(false)
+    expect(termDecidesIn('حديد تسليح للخرسانة المسلحة', 'خرسانه')).toBe(false)
+    expect(termDecidesIn('شبكات ري مادة رشاش حريق', 'رشاش حريق')).toBe(false)
+    // Same string, other register.
+    expect(termDecidesIn('شبكات ري مادة رشاش حريق', 'رشاش حريق', 'supplier_prose')).toBe(true)
+  })
+
+  /**
+   * The chokepoint itself STAYS: every positive claim still goes through
+   * `bestHit`, which is what makes the register swap a one-line change rather
+   * than a second implementation. Only the vocabulary it applies is register-
+   * specific. Negative terms remain raw — an exclusion is not a claim.
+   */
+  it('lets a negative term veto from anywhere, including inside a clause', () => {
+    const profile = {
+      ...sprinkler,
+      preferred_archetypes: [],
+      allowed_archetypes: [],
+      negative_terms: ['دهانات'],
+    }
+    expect(evaluateSupplier('مؤسسة عامة مادة دهانات', profile).verdict).toBe('HARD_VETO')
+    expect(evaluateSupplier('مؤسسة عامة تصنيف دهانات', profile).verdict).toBe('HARD_VETO')
+    expect(evaluateSupplier('مؤسسة عامة من دهانات', profile).verdict).toBe('HARD_VETO')
+  })
+
+  it('still prefers a supplier that genuinely says it does the work', () => {
+    for (const s of ['شركة مكافحة حريق ورشاشات', 'مؤسسة انظمة مكافحة الحريق', 'fire fighting sprinkler contractor']) {
+      expect(evaluateSupplier(s, sprinkler).verdict).toBe('PREFERRED')
+    }
   })
 })

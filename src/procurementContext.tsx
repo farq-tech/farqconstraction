@@ -43,6 +43,12 @@ function initialViewFromUrl(): AppView {
   try {
     const view = new URLSearchParams(window.location.search).get('view')
     if (view === 'inbox') return 'inbox'
+    // Deployed builds have no demo mode (the API refuses
+    // `x-construction-demo-user` unless NODE_ENV !== production), so every
+    // read 401s until someone signs in. Nothing else reaches 'login': the one
+    // navigate to it runs *after* signOut, which needs a session first.
+    // Without this the sign-in screen has no door on a real domain.
+    if (view === 'login') return 'login'
   } catch {
     /* ignore */
   }

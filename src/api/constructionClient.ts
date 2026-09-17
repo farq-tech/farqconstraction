@@ -18,6 +18,7 @@ import {
   shouldRetryAfterRefresh,
   supplierPortalHeaders,
 } from './constructionAuth'
+import { CONSTRUCTION_READ_ONLY, isBlockedWrite, READ_ONLY_MESSAGE } from './readOnlyMode'
 import { farqSession } from './farqSession'
 
 export { constructionHeaders }
@@ -443,6 +444,12 @@ async function send(
   // down. Every request sent inside that window is refused anyway and only
   // feeds the storm.
   assertConstructionRateLimitOpen()
+
+  // The testing deployment reads real data but must not dispatch to a real
+  // supplier. Refused here, not on the buttons, so there is no path around it.
+  if (isBlockedWrite(path, fetchInit.method)) {
+    throw new ConstructionApiError(READ_ONLY_MESSAGE, 403, CONSTRUCTION_READ_ONLY)
+  }
 
   const attempt = async () => {
     // Captured before the call so a 401 can tell "my token expired" from

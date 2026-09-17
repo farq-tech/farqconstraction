@@ -225,9 +225,43 @@ type RawFamily = TermTiers &
 
 type RawSector = TermTiers & ArchetypeRules & { domain: string }
 
+/**
+ * An opener adopted on one or two observations is not a measured rule, and the
+ * distinction has to survive in the artifact rather than in a handoff note —
+ * hence `provisional` and `observations` on the payload side of this type.
+ */
+/** Which register a piece of text belongs to. The question is shared; the rule is not. */
+export type ClauseRegister = 'boq_line' | 'supplier_prose'
+
+export type ClauseRule = {
+  register: ClauseRegister
+  opens_at_index_0: boolean
+  provisional_review?: { after_booklet_lines: number; booklet_lines_seen: number }
+  attribute_clause_keys: { register: string; keys: string[] }
+  preposition_clause_keys: {
+    register: string
+    keys: Array<{ key: string; observations: number; provisional: boolean }>
+  }
+  proclitic_clause_openers: {
+    register: string
+    openers: Array<{
+      prefix: string
+      min_stem: number
+      observations: number
+      provisional: boolean
+      evidence: string
+    }>
+  }
+  rejected_openers: {
+    openers: Array<{ prefix?: string; key?: string; observations: number; reason: string }>
+  }
+}
+
 const DATA = ontologyData as unknown as {
   version: string
   learning: { promote_after_occurrences: number }
+  clause_rule: ClauseRule
+  supplier_clause_rule: ClauseRule
   archetypes: Record<string, { label_ar: string; patterns: string[] }>
   facets: Record<string, RawFacet>
   sectors: Record<string, RawSector>
@@ -239,6 +273,13 @@ export const ARCHETYPES = DATA.archetypes
 export const FAMILIES = DATA.families
 export const SECTORS = DATA.sectors
 export const FACET_DEFS = DATA.facets
+/** Exported so a consumer can derive the clause vocabulary instead of mirroring it. */
+export const CLAUSE_RULE = DATA.clause_rule
+export const SUPPLIER_CLAUSE_RULE = DATA.supplier_clause_rule
+const CLAUSE_RULES: Record<ClauseRegister, ClauseRule> = {
+  boq_line: DATA.clause_rule,
+  supplier_prose: DATA.supplier_clause_rule,
+}
 
 /* --------------------------- normalization ------------------------------ */
 
@@ -370,18 +411,31 @@ const termCache = new Map<string, CompiledTerm>()
  * per phrase is what makes it generalise: the proclitics above are prefixes,
  * this is the matching enclitic.
  */
-const AR_NISBA = '(?:يات|يين|يه|ي)?'
+/**
+ * What may be APPENDED to a stem: the nisba in its forms, and the sound plural
+ * «ات» that turns «كابل» into «كابلات» and «لوحه» into «لوحات». Appending is
+ * the safe direction of this rule — it can only ever make a term match a
+ * LONGER word, so no term becomes shorter and no stem becomes a near-wildcard.
+ * Shortening is what broke «ارضيات», and only «ي» is ever stripped.
+ */
+const AR_NISBA = '(?:يات|يين|يه|ي|ات)?'
 
-/** The stem a nisba adjective is built on, or the word unchanged. */
+/**
+ * The stem a nisba adjective is built on, or the word unchanged.
+ *
+ * Only the singular «ي» is stripped. Stripping the plural «يات» as well looked
+ * symmetric and was wrong: it reduced «ارضيات» (floors) to «ارض» (ground), so
+ * the floor-tiling family's strong term started matching «أرضية إيبوكسي» and
+ * took epoxy flooring off an industrial coatings supplier. A plural suffix is
+ * not a nisba, and shortening a stem is the only direction of this rule that
+ * can manufacture a match.
+ */
 function nisbaStem(word: string): string {
-  for (const suffix of ['يات', 'يين', 'يه', 'ي']) {
-    if (!word.endsWith(suffix)) continue
-    const stem = word.slice(0, -suffix.length)
-    // A floor of three letters keeps real words whose ending merely looks like
-    // a nisba — «صحيه», «ري» — from being shortened into a near-wildcard.
-    if (stem.length >= 3) return stem
-  }
-  return word
+  if (!word.endsWith('ي')) return word
+  const stem = word.slice(0, -1)
+  // A floor of three letters keeps words whose ending merely looks like a
+  // nisba — «ري», «مايي» — from being shortened into a near-wildcard.
+  return stem.length >= 3 ? stem : word
 }
 
 function compileTerm(term: string): CompiledTerm {
@@ -476,15 +530,8 @@ type TermHit = { term: string; index: number; score: number; inHead: boolean }
  * keeps «مقياس ضغط» working — the term starts at «مقياس», before the «ضغط»
  * clause opens — while refusing a bare «ضغط» that appears only as a value.
  */
-const ATTRIBUTE_CLAUSE_KEYS = [
-  // Arabic BOQ attribute introducers.
-  'ربط', 'ماده', 'تشطيب', 'توصيل', 'تصنيف', 'لون', 'درجه', 'فيه', 'حركه',
-  'موديل', 'طراز', 'تشغيل', 'سماكه', 'مقاس', 'قطر', 'عرض', 'عمق', 'ارتفاع',
-  'وزن', 'سعه', 'كثافه', 'جهد', 'تيار', 'قدره', 'مطابق', 'حسب', 'نمط',
-  // English equivalents, for spec-sheet phrasing.
-  'material', 'finish', 'colour', 'color', 'class', 'rating', 'size',
-  'thickness', 'width', 'depth', 'height', 'weight', 'voltage', 'pattern',
-]
+const ATTRIBUTE_CLAUSE_KEYS = (register: ClauseRegister) =>
+  CLAUSE_RULES[register].attribute_clause_keys.keys
 
 /**
  * THE SAME CONSTRUCTION, SPOKEN THE OTHER WAY.
@@ -497,34 +544,23 @@ const ATTRIBUTE_CLAUSE_KEYS = [
  * made it resolve correctly. The rule was right; its vocabulary came from one
  * register and was verified only there.
  *
- * This list is DERIVED from the 136 real booklet lines rather than guessed, and
- * the derivation is the reason two obvious-looking candidates are absent:
- *
- *   • bare «ب» prefix — 14 occurrences, **0** of them prepositional. It matched
- *     «بلاستيك», «بورسلان», «بورد», «بيتومين», «بلوك». Rejected outright.
- *   • bare «ل» prefix — 12 occurrences, 10 prepositional, and the 2 failures
- *     were «لياسة» and «لوحات», which are the plaster family's own term and the
- *     distribution-board term. Adopting it would have suppressed both.
- *
- * What survived: the «لل» and «بال» proclitics (لـ/بـ + the definite article,
- * which cannot be confused with a noun's first letters) and the closed-class
- * standalone prepositions, which can never be a product head.
+ * Both lists, the refusals that shaped them, and each opener's observation
+ * count now live in the PAYLOAD under `clause_rule` — not here. Two openers
+ * rest on very little («بال» on 2 observations, «لال» on exactly 1) and are
+ * flagged `provisional` there, where a future reader cannot mistake them for
+ * measured rules. Keeping the vocabulary in versioned data also means a
+ * consumer reads it rather than hand-copying it, which is how the supply side
+ * came to be running v6's clause words against v7's payload.
  */
-const PROCLITIC_CLAUSE_OPENERS: Array<{ prefix: string; minStem: number }> = [
-  // «للخرسانة», «للرطوبة», «للأعمدة», «للدرج» — 7 of 7 attested cases genuine.
-  { prefix: 'لل', minStem: 3 },
-  // «بالبوليستر», «بالأبواب». The stem floor is what keeps «بالته» — a pallet,
-  // not بـ+الـ+noun — from opening a clause over its own name.
-  { prefix: 'بال', minStem: 4 },
-]
+const PROCLITIC_CLAUSE_OPENERS = (register: ClauseRegister): Array<{ prefix: string; minStem: number }> =>
+  CLAUSE_RULES[register].proclitic_clause_openers.openers.map((o) => ({
+    prefix: o.prefix,
+    minStem: o.min_stem,
+  }))
 
-/**
- * Standalone prepositions. «من» is the attested one; the rest are the same
- * closed class and were checked to collide with no deciding term in the
- * vocabulary. «على» is deliberately excluded: unattested here, and it does
- * collide («العمل على الارتفاعات», «التعرف على الوجه»).
- */
-const PREPOSITION_CLAUSE_KEYS = ['من', 'مع', 'في', 'عن', 'الى']
+/** Standalone prepositions, which can never be a product head. See `clause_rule`. */
+const PREPOSITION_CLAUSE_KEYS = (register: ClauseRegister) =>
+  CLAUSE_RULES[register].preposition_clause_keys.keys.map((k) => k.key)
 
 /** Every occurrence of `term` in already-normalized `text`. */
 function allTermIndices(text: string, term: string): number[] {
@@ -554,9 +590,18 @@ function allTermIndices(text: string, term: string): number[] {
  * separate-token opener contributes its END as the value start, while a
  * PROCLITIC is glued to its value and contributes its own start.
  */
-function attributeRegions(rawText: string): Array<[number, number]> {
+function attributeRegions(rawText: string, register: ClauseRegister): Array<[number, number]> {
   const text = ensureNormalized(rawText)
   if (!text) return []
+  const rule = CLAUSE_RULES[register]
+  // An empty vocabulary is a derived answer for supplier prose, not a gap.
+  if (
+    !rule.attribute_clause_keys.keys.length &&
+    !rule.preposition_clause_keys.keys.length &&
+    !rule.proclitic_clause_openers.openers.length
+  ) {
+    return []
+  }
   // [where the clause is anchored, where its value begins]
   const opened: Array<[number, number]> = []
 
@@ -564,22 +609,23 @@ function attributeRegions(rawText: string): Array<[number, number]> {
     const normalized = normalizeTerm(key)
     if (!normalized) return
     for (const at of allTermIndices(text, normalized)) {
-      if (at <= 0) continue
+      if (at < 0) continue
+      if (at === 0 && !rule.opens_at_index_0) continue
       opened.push([at, at + normalized.length])
     }
   }
-  for (const key of ATTRIBUTE_CLAUSE_KEYS) pushToken(key)
-  for (const key of PREPOSITION_CLAUSE_KEYS) pushToken(key)
+  for (const key of ATTRIBUTE_CLAUSE_KEYS(register)) pushToken(key)
+  for (const key of PREPOSITION_CLAUSE_KEYS(register)) pushToken(key)
 
   // Proclitics are recognised on word starts, and only when what follows is
   // long enough to be a noun rather than the rest of an ordinary word.
-  for (const { prefix, minStem } of PROCLITIC_CLAUSE_OPENERS) {
+  for (const { prefix, minStem } of PROCLITIC_CLAUSE_OPENERS(register)) {
     let from = 0
     for (;;) {
       const at = text.indexOf(prefix, from)
       if (at < 0) break
       from = at + prefix.length
-      if (at <= 0) continue
+      if (at === 0 && !rule.opens_at_index_0) continue
       const before = text[at - 1]!
       if (/[\p{L}\p{N}]/u.test(before)) continue
       let end = at + prefix.length
@@ -610,12 +656,13 @@ function attributeRegions(rawText: string): Array<[number, number]> {
 }
 
 const regionMemo = new Map<string, Array<[number, number]>>()
-function attributeRegionsMemo(text: string): Array<[number, number]> {
-  const hit = regionMemo.get(text)
+function attributeRegionsMemo(text: string, register: ClauseRegister): Array<[number, number]> {
+  const memoKey = `${register}\u0000${text}`
+  const hit = regionMemo.get(memoKey)
   if (hit !== undefined) return hit
-  const value = attributeRegions(text)
+  const value = attributeRegions(text, register)
   if (regionMemo.size > 64) regionMemo.clear()
-  regionMemo.set(text, value)
+  regionMemo.set(memoKey, value)
   return value
 }
 
@@ -675,10 +722,12 @@ function bestHit(
    * to name the product.
    */
   allowAttributeText = false,
+  /** Supplier prose is asked the same question under a different rule. */
+  register: ClauseRegister = 'boq_line',
 ): TermHit | null {
   if (!terms?.length) return null
-  const headRegions = allowAttributeText ? [] : attributeRegionsMemo(head)
-  const fullRegions = allowAttributeText ? [] : attributeRegionsMemo(full)
+  const headRegions = allowAttributeText ? [] : attributeRegionsMemo(head, register)
+  const fullRegions = allowAttributeText ? [] : attributeRegionsMemo(full, register)
   let best: TermHit | null = null
   for (const term of terms) {
     const normalized = normalizeTerm(term)
@@ -696,6 +745,30 @@ function bestHit(
     if (!best || score > best.score) best = { term, index, score, inHead }
   }
   return best
+}
+
+/**
+ * THE ENTIRE SHARED SURFACE, IN ONE FUNCTION.
+ *
+ * Both sides are asking one question — may this term name a product in this
+ * text? — and five rules answer it: normalization, Arabic term compilation
+ * (nisba and sound plurals), the attribute-clause regions, the opener-is-not-
+ * part-of-the-value correction, and the position-0 exemption. A consumer that
+ * reimplements the question reimplements all five, and the supply side is the
+ * proof: it currently runs v6's clause words against a v7 payload, having
+ * drifted on vocabulary alone while agreeing on the algorithm.
+ *
+ * This is what `fixtures/ontology/attribute-rule-conformance.json` publishes,
+ * and it is the same code path the resolver itself uses — not a summary of it.
+ * Depending on this function is one import; mirroring it is five rules and a
+ * vocabulary that changes every version.
+ */
+export function termDecidesIn(
+  text: string,
+  term: string,
+  register: ClauseRegister = 'boq_line',
+): boolean {
+  return bestHit(text, text, [term], undefined, false, register) !== null
 }
 
 export type TierDecision = { decided: boolean; tier: DecisionTier; hit: TermHit | null; score: number }
@@ -856,7 +929,12 @@ export function extractFacets(normalized: string, refs: FacetRef[]): ResolvedFac
     if (def.kind === 'enum' && def.values) {
       let winner: { value: string; score: number } | null = null
       for (const [value, terms] of Object.entries(def.values)) {
-        const hit = bestHit(normalized, normalized, terms)
+        // An attribute clause is exactly where a facet value LIVES, so facets
+        // read it. Without this, «باب صناعي مادة ألمنيوم» — which states its
+        // material outright — yielded no material facet while «باب صناعي
+        // ألمنيوم» did, so the explicit line split a pool-affecting facet LESS
+        // than the implicit one. Facets describe; they never decide.
+        const hit = bestHit(normalized, normalized, terms, undefined, true)
         if (hit && (!winner || hit.score > winner.score)) winner = { value, score: hit.score }
       }
       if (winner) out.push({ name: ref.name, value: winner.value, supplier_pool_affecting: poolAffecting })
@@ -1381,7 +1459,23 @@ export function resolveOntology(lineName: string): OntologyResolution {
   // 1 — lexicon / direct intent (lexicon terms are strong by definition)
   let lexBest: { entry: LexiconEntry; hit: TermHit } | null = null
   for (const entry of LEXICON) {
-    const hit = bestHit(head, body, entry.terms)
+    // THE LEXICON IS A SHORTCUT INTO A FAMILY, NOT A LICENCE TO IGNORE IT.
+    // This path ran with no guards at all, which made every guard in the
+    // ontology conditional on the word being absent from the legacy
+    // dictionary. That is the real reason «Irrigation Sprinkler Head» kept
+    // reaching fire_fighting at 0.90 after the guard was written, tested and
+    // verified: Arabic «رشاش» is not a lexicon term so it went through the
+    // ontology and was refused, while English `sprinkler` is, and skipped the
+    // three-tier layer entirely. The asymmetry looked like a language gap
+    // three times over because the lexicon is overwhelmingly English.
+    const declared = entry.intent ? INTENT_INDEX.get(entry.intent) : null
+    const family = FAMILY_BY_ID.get(entry.family)
+    const guards = declared
+      ? intentTiers(declared).term_guards
+      : family
+        ? familyTiers(family).term_guards
+        : undefined
+    const hit = bestHit(head, body, entry.terms, guards)
     if (hit && (!lexBest || hit.score > lexBest.hit.score)) lexBest = { entry, hit }
   }
 
@@ -1662,6 +1756,28 @@ export type SupplierProfile = Pick<
 >
 
 /**
+ * THE SUPPLY SIDE'S CHOKEPOINT.
+ *
+ * Every positive claim a supplier makes about itself is filtered here, for the
+ * same reason BOQ lines are: an attribute clause is description, not product.
+ * Without this, the four supply-side paths decided on raw `termIndex` and so
+ * ran none of the clause rule — a paint factory writing «مصنع دهانات **تصنيف**
+ * رشاش حريق» went from HARD_VETO to PREFERRED with `auto_tick`, and an
+ * irrigation contractor writing «شبكات ري **مادة** رشاش حريق» did the same, on
+ * a fire-sprinkler line. Both were demonstrated live against production.
+ *
+ * Negative terms deliberately do NOT come through here. A positive claim must
+ * be clause-clean to count; a negative signal counts wherever it appears. That
+ * asymmetry is the same fail-closed direction the term guards already use, and
+ * it is chosen so that a supplier can never earn its way past an exclusion by
+ * burying the disqualifying word inside a clause.
+ */
+function supplierClaims(hay: string, terms: string[] | undefined): string[] {
+  if (!terms?.length) return []
+  return terms.filter((term) => bestHit(hay, hay, [term], undefined, false, 'supplier_prose') !== null)
+}
+
+/**
  * Classify a supplier from its own words (name / activity / category) into the
  * standalone archetype vocabulary. No company-name blacklist anywhere.
  */
@@ -1670,7 +1786,7 @@ export function classifySupplierArchetypes(haystack: string): string[] {
   if (!hay) return []
   const out: string[] = []
   for (const [id, def] of Object.entries(ARCHETYPES)) {
-    if (def.patterns.some((p) => termIndex(hay, p) >= 0)) out.push(id)
+    if (supplierClaims(hay, def.patterns).length) out.push(id)
   }
   return out
 }
@@ -1704,6 +1820,7 @@ export function evaluateSupplier(haystack: string, profile: SupplierProfile): Su
   }
 
   if (!preferred.length && !allowed.length && profile.negative_terms.length) {
+    // Raw on purpose — see `supplierClaims`. An exclusion is not a claim.
     const negative = profile.negative_terms.find((t) => termIndex(hay, t) >= 0)
     if (negative) {
       return {
@@ -1718,17 +1835,13 @@ export function evaluateSupplier(haystack: string, profile: SupplierProfile): Su
   }
 
   let score = 0
-  for (const term of profile.search_terms) {
-    if (termIndex(hay, term) >= 0) {
-      score += 3
-      matched.push(term)
-    }
+  for (const term of supplierClaims(hay, profile.search_terms)) {
+    score += 3
+    matched.push(term)
   }
-  for (const term of profile.supplier_terms) {
-    if (termIndex(hay, term) >= 0) {
-      score += 2
-      matched.push(term)
-    }
+  for (const term of supplierClaims(hay, profile.supplier_terms)) {
+    score += 2
+    matched.push(term)
   }
   score += preferred.length * 6 + allowed.length * 3
 

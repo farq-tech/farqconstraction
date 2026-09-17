@@ -1,4 +1,5 @@
 import { ProcurementProvider, useProcurement } from './procurementContext'
+import { isReadOnlyBuild } from './api/readOnlyMode'
 import { Shell } from './components/Shell'
 import { LoginView } from './views/LoginView'
 import { HomeView } from './views/HomeView'
@@ -71,9 +72,23 @@ function AppRoutes() {
   )
 }
 
+/** Says out loud what the choke point in `constructionClient` already enforces. */
+function ReadOnlyBanner() {
+  if (!isReadOnlyBuild()) return null
+  return (
+    <div
+      dir="rtl"
+      className="sticky top-0 z-50 bg-amber-100 border-b border-amber-300 px-4 py-2 text-center text-xs font-bold text-amber-900"
+    >
+      نسخة تجريبية للقراءة فقط — الإرسال للموردين معطّل ولن يصل بريد إلى أي مورد.
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <ProcurementProvider>
+      <ReadOnlyBanner />
       <AppRoutes />
     </ProcurementProvider>
   )

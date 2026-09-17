@@ -1,0 +1,8 @@
+# Held-out evaluation corpora: ~200 MB of .jsonl the build never reads. They
+# belong in the repo as evidence, but shipping them to the builder only costs
+# upload time and disk.
+fixtures/boq/heldout-*.jsonl
+fixtures/boq/heldout-*.json
+
+# Handoff notes and one-off analysis scripts — not part of the app.
+.handoff/

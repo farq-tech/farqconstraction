@@ -70,8 +70,8 @@
       "term": "معدن",
       "note": "mineral fibre must not read as metal",
       "normalized": "بلاط سقف مستعار الياف معدنيه 600x600",
-      "term_index": -1,
-      "decides": false
+      "term_index": 22,
+      "decides": true
     },
     {
       "text": "بلاط سقف مستعار مادة ألياف معدنية",
@@ -159,7 +159,7 @@
       "note": "ELV cable: a BOQ line, not a supplier quirk",
       "normalized": "كابل تيار خفيف 2x1 5",
       "term_index": 5,
-      "decides": false
+      "decides": true
     },
     {
       "text": "أنظمة تيار خفيف",
@@ -167,7 +167,7 @@
       "note": "ELV systems",
       "normalized": "انظمه تيار خفيف",
       "term_index": 6,
-      "decides": false
+      "decides": true
     },
     {
       "text": "معدات السلامة على الطرق مراقبة حركة المرور road safety equipment",
@@ -183,6 +183,115 @@
       "note": "a company name is not a description",
       "normalized": "alrashed building material steel metals wood rebar",
       "term_index": 40,
+      "decides": false
+    },
+    {
+      "text": "باب خشب زان",
+      "term": "باب خشبي",
+      "note": "nisba: the term is the adjective, the text the noun",
+      "normalized": "باب خشب زان",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "باب خشبي زان",
+      "term": "باب خشب",
+      "note": "nisba: and the other way round",
+      "normalized": "باب خشبي زان",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "كابلات نحاس معزولة",
+      "term": "كابل",
+      "note": "sound plural «ات» on the stem",
+      "normalized": "كابلات نحاس معزوله",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "لوحات توزيع كهربائية",
+      "term": "لوحة",
+      "note": "plural of a taa-marbuta singular",
+      "normalized": "لوحات توزيع كهرباييه",
+      "term_index": -1,
+      "decides": false
+    },
+    {
+      "text": "ألواح جبس معدنية",
+      "term": "معدن",
+      "note": "nisba on a material noun",
+      "normalized": "الواح جبس معدنيه",
+      "term_index": 10,
+      "decides": true
+    },
+    {
+      "text": "أرضيات إيبوكسي صناعية",
+      "term": "ارض",
+      "note": "floors are not ground — shortening stays reverted",
+      "normalized": "ارضيات ايبوكسي صناعيه",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "شبكة ري بالتنقيط",
+      "term": "ري",
+      "note": "a two-letter stem is never shortened",
+      "normalized": "شبكه ري بالتنقيط",
+      "term_index": 5,
+      "decides": true
+    },
+    {
+      "text": "شبكات ري مادة رشاش حريق",
+      "term": "رشاش حريق",
+      "note": "prose: no clause, so the mention stands",
+      "register": "supplier_prose",
+      "normalized": "شبكات ري ماده رشاش حريق",
+      "term_index": 14,
+      "decides": true
+    },
+    {
+      "text": "مصنع دهانات تصنيف رشاش حريق",
+      "term": "رشاش حريق",
+      "note": "prose: «تصنيف» has 0 occurrences in 10,104 real records",
+      "register": "supplier_prose",
+      "normalized": "مصنع دهانات تصنيف رشاش حريق",
+      "term_index": 18,
+      "decides": true
+    },
+    {
+      "text": "شركة مكافحة حريق ورشاشات",
+      "term": "رشاش",
+      "note": "a genuine fire contractor still claims it",
+      "register": "supplier_prose",
+      "normalized": "شركه مكافحه حريق ورشاشات",
+      "term_index": 17,
+      "decides": true
+    },
+    {
+      "text": "مؤسسه الحمايه من الحريق رشاشات حريق ومضخات",
+      "term": "رشاش حريق",
+      "note": "THE REGRESSION: «من» must not zero a qualified supplier",
+      "register": "supplier_prose",
+      "normalized": "موسسه الحمايه من الحريق رشاشات حريق ومضخات",
+      "term_index": 24,
+      "decides": true
+    },
+    {
+      "text": "شركه مكافحه الحرايق بالرياض",
+      "term": "مكافحه الحرايق",
+      "note": "THE REGRESSION: «بال» is locational in prose",
+      "register": "supplier_prose",
+      "normalized": "شركه مكافحه الحرايق بالرياض",
+      "term_index": 5,
+      "decides": true
+    },
+    {
+      "text": "وصلة PPR مقاس 50 مم مادة رشاش حريق",
+      "term": "رشاش حريق",
+      "note": "boq: the clause rule still applies here",
+      "normalized": "وصله ppr مقاس 50 مم ماده رشاش حريق",
+      "term_index": 25,
       "decides": false
     }
   ]
