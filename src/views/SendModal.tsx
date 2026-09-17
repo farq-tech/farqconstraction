@@ -164,6 +164,12 @@ export function SendModal({
     return d.toISOString().slice(0, 10)
   })
   const [site, setSite] = useState(() => loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
+  // Suppliers asked when quotes close and whether installation is included.
+  const [quoteDeadline, setQuoteDeadline] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10)
+  })
+  const [quoteDeadlineTime, setQuoteDeadlineTime] = useState('17:00')
+  const [requestType, setRequestType] = useState<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>('SUPPLY_ONLY')
   /** Fast path: EMAIL+WA first; defer Haraj (20s pacing) unless user opts in. */
   const [fastEmailFirst, setFastEmailFirst] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -213,6 +219,8 @@ export function SendModal({
     )
   if (badNameItems.length) sendBlockers.push(`اسم غير مقروء في ${badNameItems.length} بندًا (رقم ${badNameItems.slice(0, 5).map((i) => i.id).join('، ')}).`)
   if (!department) sendBlockers.push('اختر القسم الهندسي لهذا الطلب: لم نستطع تحديده من البنود.')
+  if (!quoteDeadline) sendBlockers.push('حدّد آخر موعد لاستلام العروض.')
+  else if (deadline && quoteDeadline >= deadline) sendBlockers.push('آخر موعد لاستلام العروض يجب أن يسبق موعد التوريد.')
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
 
@@ -793,6 +801,9 @@ export function SendModal({
           delivery_required: true,
         },
         commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER' },
+        quote_deadline: quoteDeadline,
+        quote_deadline_time: quoteDeadlineTime,
+        request_type: requestType,
         // The person sending is the person signed in. This block used to carry
         // «عميل تجريبي» on every real request.
         buyer: {
@@ -800,6 +811,11 @@ export function SendModal({
           contact_name: buyerUser?.displayName?.trim() || buyerUser?.email?.trim() || company.name,
           email: buyerUser?.email?.trim() || company.email,
           phone: company.phone,
+          city: company.city,
+          ...(company.legalName ? { legal_name: company.legalName } : {}),
+          ...(company.crNumber ? { cr_number: company.crNumber } : {}),
+          ...(company.vatNumber ? { vat_number: company.vatNumber } : {}),
+          ...(company.nationalAddress ? { national_address: company.nationalAddress } : {}),
         },
         lines: scopedLines,
         packages,
@@ -981,6 +997,23 @@ export function SendModal({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="text-xs text-neutral-500 mb-1 block">آخر موعد لاستلام العروض</label>
+                  <input type="date" value={quoteDeadline} onChange={(e) => setQuoteDeadline(e.target.value)} className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]" />
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-500 mb-1 block">الساعة</label>
+                  <input type="time" value={quoteDeadlineTime} onChange={(e) => setQuoteDeadlineTime(e.target.value)} className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]" />
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="text-xs text-neutral-500 mb-1 block">نوع الطلب</label>
+                <select value={requestType} onChange={(e) => setRequestType(e.target.value as 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL')} className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] bg-white">
+                  <option value="SUPPLY_ONLY">توريد مواد فقط — دون تركيب</option>
+                  <option value="SUPPLY_AND_INSTALL">توريد وتركيب</option>
+                </select>
+              </div>
               <div className="mb-4">
                 <label className="text-xs text-neutral-500 mb-1 block">القسم الهندسي (يظهر في رقم الطلب عند المورد)</label>
                 <select

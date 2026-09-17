@@ -220,6 +220,11 @@ export function SettingsView({ navigate }: NavProps) {
         <Field label="المدينة" value={company.city} onChange={v => setCompany(p => ({ ...p, city: v }))} />
         <Field label="رقم التواصل" value={company.phone} onChange={v => setCompany(p => ({ ...p, phone: v }))} dir="ltr" />
         <Field label="البريد الإلكتروني" value={company.email} onChange={v => setCompany(p => ({ ...p, email: v }))} dir="ltr" />
+        <Field label="الاسم النظامي (كما في السجل التجاري)" value={company.legalName} onChange={v => setCompany(p => ({ ...p, legalName: v }))} />
+        <Field label="رقم السجل التجاري" value={company.crNumber} onChange={v => setCompany(p => ({ ...p, crNumber: v }))} dir="ltr" />
+        <Field label="الرقم الضريبي" value={company.vatNumber} onChange={v => setCompany(p => ({ ...p, vatNumber: v }))} dir="ltr" />
+        <Field label="العنوان الوطني" value={company.nationalAddress} onChange={v => setCompany(p => ({ ...p, nationalAddress: v }))} />
+        <p className="text-[11px] text-neutral-500">تظهر هذه البيانات للمورد في طلب التسعير حتى يصدر عرضًا رسميًا باسم شركتكم. الحقل الفارغ لا يظهر.</p>
       </Section>
 
       {/* User: read from the session, not editable here. */}
