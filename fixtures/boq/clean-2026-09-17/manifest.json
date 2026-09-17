@@ -1,0 +1,47 @@
+{
+ "frozen_at": "2026-09-17T14:35+03:00",
+ "rule": "Roles were assigned from file names, page counts and code schemes only, before any description was read for learning. The baseline below was measured BEFORE any learning. A booklet or slice marked HELD_OUT is measured after every change and never inspected to decide a change.",
+ "pdfs_are_not_committed": "priced tender documents; identified by sha256",
+ "booklets": [
+  {
+   "file": "موقع مكة المكرمة.pdf",
+   "sha256": "cc17921dbd83b508fb3e56a7de6b70abf38a7f4366ef8e10126fa61f14c0a796",
+   "pages": 144,
+   "chars": 693716,
+   "role": "LEARN",
+   "committed": false
+  },
+  {
+   "file": "موقع الرياض.pdf",
+   "sha256": "46dc62add9d849726af079fb2a1c3962b2d1d7ccbabc7791c833a5aac5281f78",
+   "pages": 216,
+   "chars": 994341,
+   "role": "LEARN",
+   "committed": false
+  },
+  {
+   "file": "موقع عسير.pdf",
+   "sha256": "aaabd2332d245b9419dcc4712a83c9ae1bed91e9d9953724a2b46dc99ebe5961",
+   "pages": 266,
+   "chars": 1101156,
+   "role": "HELD_OUT — never read for vocabulary, ontology or parser tuning; measured only",
+   "committed": false
+  },
+  {
+   "file": "جدول الكميات والأسعار للمنافسة بالكامل.pdf",
+   "sha256": "6b56921d16f023fd553af1e98b4bf3cb80718449aa12d77947a740c6de19d8fc",
+   "pages": 187,
+   "chars": 1733928,
+   "role": "LEARN (rows 1-50% by code order) / HELD_OUT (rows 51-100%)",
+   "committed": false
+  },
+  {
+   "file": "ITBA-CBLOC-ALL BUILDINGS -BOQ.pdf",
+   "sha256": "0d2ec2daf97873c97bca524e86831dd2b909f429df23b16d11234b68fef5b72a",
+   "pages": 374,
+   "chars": 1260423,
+   "role": "LEARN (sections B.01-B.02) / HELD_OUT (B.03 onward)",
+   "committed": false
+  }
+ ]
+}
