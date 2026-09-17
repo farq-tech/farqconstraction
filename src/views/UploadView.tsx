@@ -702,10 +702,6 @@ export function UploadView({ navigate }: NavProps) {
               <div className="mt-4 text-xs text-neutral-500 leading-relaxed">
                 {partialRead ? 'توقفت القراءة' : badRead ? 'انتهت القراءة' : 'اكتملت القراءة'} في{' '}
                 {arSeconds(elapsed)}.
-                {eta?.overranEarlier
-                  ? ' تجاوزنا تقديرًا في الطريق — حفظنا الزمن الفعلي حتى يكون تقدير المرة القادمة أقرب.'
-                  : ' حفظنا زمن هذه القراءة لتقدير المرة القادمة.'}
-                {readReport?.source ? ` المصدر: ${SOURCE_LABEL[readReport.source] ?? readReport.source}.` : ''}
               </div>
             )}
           </div>
