@@ -84,4 +84,16 @@ describe('a server-verified read is judged as what it is', () => {
     const r = resolveParsedLines({ apiLines, text: '', fileName: 'dc.pdf' })
     expect(r.descriptionColumnSuspect).toBe(true)
   })
+
+  it('never gives two lines the same id, whatever the codes look like', async () => {
+    const { rowsToLines } = await import('./parseBoq')
+    const rows: unknown[] = [HEADER]
+    // 400 verified rows whose codes would parse to small numbers that collide with positions
+    for (let i = 0; i < 400; i++) rows.push([`مادة ${i}`, i + 1, 'عدد', `وصف ${i}`, '', verified(`0${3300000 + i}`, 1 + (i % 9))])
+    // and a few legacy rows whose «بند الكراسة» IS a row number, including clashes
+    for (const n of [5, 330, 330, 401]) rows.push([`بند قديم ${n}`, 1, 'عدد', 'x', '', `بند الكراسة: ${n} — صفحة الكميات: 2`])
+    const lines = rowsToLines(rows)
+    expect(lines.length).toBe(404)
+    expect(new Set(lines.map((l) => l.id)).size).toBe(404)
+  })
 })

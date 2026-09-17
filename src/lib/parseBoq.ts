@@ -1488,8 +1488,20 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     const cleanedName = name.replace(/\s+/g, ' ').trim()
     if (!cleanedName || isHeaderLabel(cleanedName)) continue
 
-    let id = idHint && !usedIds.has(idHint) ? idHint : out.length + 1
-    if (usedIds.has(id)) id = out.length + 1
+    // A server-verified row is identified by its printed CODE, which is not a
+    // row number: «بند الكراسة: 03300002» parsed as one gave id 330, and the
+    // 330th row then took 330 as its positional fallback — the old guard below
+    // re-assigned `out.length + 1` without checking that it was free. Duplicate
+    // ids are duplicate line keys, and the API refuses the whole request for
+    // one («أرسل من 1 إلى 200 بند», its message for ANY invalid body). Seen on
+    // a 1,319-row site BOQ: every chunk refused, no supplier shown.
+    const facts = serverReadFacts(notesText)
+    if (facts.codeVerified) idHint = null
+    let id = idHint && !usedIds.has(idHint) ? idHint : 0
+    if (!id) {
+      id = out.length + 1
+      while (usedIds.has(id)) id += 1
+    }
     usedIds.add(id)
 
     out.push({
@@ -1498,7 +1510,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       qty: formatQty(qtyRaw),
       unit: normalizeUnit(String(unitRaw || 'عدد')),
       spec,
-      ...serverReadFacts(notesText),
+      ...facts,
     })
   }
   return sanitizeBoqLines(out)
