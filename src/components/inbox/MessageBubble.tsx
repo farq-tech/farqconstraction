@@ -5,6 +5,7 @@ import {
 } from '../../api/constructionClient'
 import { attachmentKind, chatTimeLabel } from '../../lib/inboxChat'
 import { splitQuotedReply } from '../../lib/quotedEmail'
+import { InlineImage, isShowableImage } from './InlineImage'
 
 /**
  * Provider truth, not optimism. A rejected or unconfirmed send never gets a
@@ -124,6 +125,13 @@ export function MessageBubble({
     ? splitQuotedReply(message.body_text)
     : { visible: message.body_text || '', quoted: null as string | null }
   const files = message.files || []
+  // Mail clients leave «[image: name.png]» where a pasted picture was. Once the
+  // picture itself is shown below, the marker is noise; without it, it stays,
+  // because it is the only sign a picture existed.
+  const showsImage = inbound && files.some(isShowableImage)
+  const visibleText = showsImage
+    ? split.visible.replace(/^[ \t]*\[image:[^\]\n]*\][ \t]*$/gim, '').replace(/\n{3,}/g, '\n\n').trim()
+    : split.visible
   const time = chatTimeLabel(message.created_at)
 
   return (
@@ -160,7 +168,7 @@ export function MessageBubble({
       )}
 
       <p dir="auto" className="text-[13px] text-[#0D1F1D] whitespace-pre-line leading-relaxed break-words text-start">
-        {split.visible || '—'}
+        {visibleText || '—'}
       </p>
 
       {split.quoted && (
@@ -186,9 +194,13 @@ export function MessageBubble({
 
       {files.length > 0 && (
         <div className="mt-2 flex flex-col gap-1.5">
-          {files.map((file) => (
-            <AttachmentCard key={file.id} file={file} inbound={inbound} onDownload={onDownload} />
-          ))}
+          {files.map((file) =>
+            inbound && isShowableImage(file) ? (
+              <InlineImage key={file.id} file={file} onDownload={onDownload} />
+            ) : (
+              <AttachmentCard key={file.id} file={file} inbound={inbound} onDownload={onDownload} />
+            ),
+          )}
         </div>
       )}
 

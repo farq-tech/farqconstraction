@@ -51,20 +51,20 @@ const PHASE_LABEL: Record<BoqEtaPhase, string> = {
 }
 
 const LEG_LABEL: Record<BoqEtaLeg, string> = {
-  hash: 'بصمة الملف',
-  extract: 'استخراج نص الصفحات على جهازك',
-  table: 'قراءة أعمدة جدول الكميات',
-  'api-parse': 'انتظار خدمة قراءة PDF على الخادم',
-  resolve: 'استخراج البنود من النص',
-  'match-remote': 'طلب مطابقة البنود على الخادم',
-  'match-catalog': 'تنزيل دليل الموردين',
-  'match-pools': 'ترشيح الموردين لكل نية شراء',
-  'match-rank': 'ترتيب الموردين لكل بند',
+  hash: 'فتح الملف',
+  extract: 'قراءة الصفحات',
+  table: 'قراءة جدول الكميات',
+  'api-parse': 'قراءة جدول الكميات',
+  resolve: 'استخراج البنود',
+  'match-remote': 'البحث عن الموردين',
+  'match-catalog': 'البحث عن الموردين',
+  'match-pools': 'البحث عن الموردين',
+  'match-rank': 'ترتيب الموردين',
 }
 
 const UNIT_LABEL: Record<BoqEtaUnit, { one: string; many: string }> = {
   page: { one: 'صفحة', many: 'صفحة' },
-  pool: { one: 'نية', many: 'نية' },
+  pool: { one: 'مادة', many: 'مادة' },
   line: { one: 'بند', many: 'بندًا' },
 }
 
@@ -120,87 +120,48 @@ const LEG_BAR_SPAN: Partial<Record<BoqEtaLeg, [number, number]>> = {
  * It never freezes and never restarts to look better. The elapsed counter above
  * it keeps running in every one of those states.
  */
-function EtaPanel({ eta, hasHistory }: { eta: BoqEtaView; hasHistory: boolean }) {
-  const legCap = secondsOf(eta.legCapMs)
-  const phaseLabel = eta.phase ? PHASE_LABEL[eta.phase] : 'المعالجة'
+function EtaPanel({ eta }: { eta: BoqEtaView; hasHistory: boolean }) {
+  // One line the buyer can take in at a glance. The panel used to explain its
+  // own arithmetic (samples, ceilings, the stages to come); the owner read it
+  // as noise. The rules underneath are unchanged: a number is shown only when
+  // it was measured, and an overrun is admitted rather than reset.
   const legLabel = eta.leg ? LEG_LABEL[eta.leg] : ''
   const unit = eta.unit
   const measured =
     unit && eta.done !== null && eta.total !== null
       ? `${eta.done} من ${eta.total} ${eta.total === 1 ? UNIT_LABEL[unit].one : UNIT_LABEL[unit].many}`
       : null
-  const nextPhases = eta.remainingPhases.map((p) => PHASE_LABEL[p]).join(' ثم ')
-
-  const tone = eta.overdue
-    ? 'border-amber-200 bg-amber-50'
+  const title = eta.overdue
+    ? 'تأخذ أطول من المتوقع — العمل مستمر'
     : eta.remainingMs !== null
-      ? 'border-[#123F3A]/15 bg-[#f0faf7]'
-      : 'border-neutral-200 bg-neutral-50'
+      ? 'الوقت المتبقي تقريبًا'
+      : 'نقرأ كراستك…'
+  const detail = [legLabel, measured].filter(Boolean).join(' · ') ||
+    (eta.remainingMs === null && !eta.overdue ? 'الكراسات الكبيرة تأخذ بضع دقائق' : '')
 
   return (
-    <div className={`mt-4 rounded-xl border px-4 py-3 animate-fade-up ${tone}`}>
-      {eta.overdue ? (
-        <>
-          <div className="text-sm font-bold text-amber-800">تجاوزنا الوقت المتوقع</div>
-          <div className="mt-1 text-xs text-amber-800 leading-relaxed">
-            {eta.brokenEstimateMs !== null
-              ? `قدّرنا ${arSeconds(secondsOf(eta.brokenEstimateMs)!)} لمرحلة «${phaseLabel}» وتجاوزناها بـ ${arSeconds(secondsOf(eta.overdueByMs) ?? 0)}.`
-              : `تجاوزنا تقديرنا لمرحلة «${phaseLabel}».`}{' '}
-            العمل ما زال جاريًا ومضى {arSeconds(secondsOf(eta.elapsedMs)!)} على القراءة. لن نعيد ضبط
-            العد التنازلي ولن نعرض رقمًا جديدًا لا نستطيع إثباته.
-          </div>
-        </>
-      ) : eta.remainingMs !== null ? (
-        <>
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-xs text-neutral-500">متوقّع لإنهاء «{phaseLabel}»</span>
-            <span className="text-xl font-black text-[#123F3A] tabular-nums">
-              {countdownLabel(eta.remainingMs)}
-            </span>
-          </div>
-          <div className="mt-1 text-xs text-neutral-600 leading-relaxed">
-            {eta.basis === 'in-run' && eta.ratePerSec && unit
-              ? `مقيس داخل هذه القراءة: ${formatRate(eta.ratePerSec, unit)}.`
-              : eta.basis === 'history-fit'
-                ? `مبني على قياس ${eta.historySamples} قراءات سابقة على هذا الجهاز${eta.lines ? ` مقيسة على ${eta.lines} بندًا` : ''}.`
-                : eta.basis === 'history-ratio'
-                  ? 'مبني على قياس قراءة واحدة سابقة فقط — تقدير خشن قد يبتعد كثيرًا.'
-                  : ''}
-            {eta.revisedUp && eta.firstPromisedMs !== null
-              ? ` حدّثنا التقدير للأعلى: كان ${arSeconds(secondsOf(eta.firstPromisedMs)!)} ثم قِسنا سرعة أبطأ.`
-              : ''}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="text-sm font-bold text-[#0D1F1D]">لا تقدير بعد</div>
-          <div className="mt-1 text-xs text-neutral-600 leading-relaxed">
-            {eta.leg === null
-              ? 'ننتقل بين مرحلتين الآن.'
-              : eta.legKind === 'opaque'
-                ? `«${legLabel}» طلب واحد لا يُبلّغ عن تقدّمه من الداخل، فلا يوجد ما نقيسه لنقدّر مدته.${
-                    legCap ? ` يتوقف عند ${arSeconds(legCap)} كحد أقصى ثم نكمل بما لدينا.` : ''
-                  }`
-                : eta.phase === 'match' && eta.lines === null
-                  ? 'لا نستطيع تقدير مطابقة الموردين قبل معرفة عدد البنود — سنقدّر بعد استخراجها.'
-                  : `نقيس السرعة الفعلية لهذا الملف الآن${measured ? ` (${measured})` : ''}؛ نعرض رقمًا حين يكفي القياس.`}
-            {!hasHistory
-              ? ' هذه أول كراسة تُقرأ على هذا الجهاز، فلا قياس سابق نبني عليه. نقيس هذه القراءة لتقدير ما بعدها.'
-              : ''}
-          </div>
-        </>
-      )}
-
-      <div className="mt-2 pt-2 border-t border-black/5 text-[11px] text-neutral-500 leading-relaxed">
-        المرحلة الحالية: {legLabel || 'بين مرحلتين'}
-        {measured && !eta.overdue ? ` — ${measured}` : ''}
-        {eta.overdue && measured ? ` — أنجزنا ${measured} حتى الآن` : ''}
-        {legCap ? `. سقفها ${arSeconds(legCap)}` : ''}
-        {nextPhases ? `. يتبعها: ${nextPhases}` : '. لا مرحلة بعدها'}
-        {eta.phase !== 'match' && eta.remainingPhases.includes('match')
-          ? '. مدة المطابقة تعتمد على عدد البنود، ولا تُقدَّر قبل استخراجها'
-          : ''}
+    <div
+      className={`mt-5 rounded-2xl px-4 py-3.5 flex items-center justify-between gap-4 animate-fade-up ${
+        eta.overdue ? 'bg-amber-50' : 'bg-[#f0faf7]'
+      }`}
+    >
+      <div className="min-w-0">
+        <div className={`text-sm font-bold ${eta.overdue ? 'text-amber-800' : 'text-[#0D1F1D]'}`}>{title}</div>
+        {detail && <div className="text-xs text-neutral-500 mt-0.5 truncate">{detail}</div>}
       </div>
+      {!eta.overdue && eta.remainingMs !== null ? (
+        <div className="text-2xl font-black text-[#123F3A] tabular-nums flex-shrink-0">{countdownLabel(eta.remainingMs)}</div>
+      ) : (
+        <div className="flex gap-1 flex-shrink-0" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className={`w-2 h-2 rounded-full animate-pulse-dot ${eta.overdue ? 'bg-amber-500' : 'bg-[#123F3A]'}`}
+              style={{ animationDelay: `${i * 200}ms` }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -730,8 +691,7 @@ export function UploadView({ navigate }: NavProps) {
                   قراءة ناقصة: قرأنا {readReport.read} من {readReport.expected ?? readReport.read + readReport.unreadable} بندًا
                 </div>
                 <div className="text-[11px] text-red-700 mt-1 leading-relaxed">
-                  المطابقة الجارية الآن تخص المقروء فقط، و{readReport.unreadable} بندًا لن تظهر في النتيجة.
-                  العدّ التنازلي أدناه يقدّر وقت إكمال المطابقة، لا وقت قراءة ما تعذّر.
+                  {readReport.unreadable} بندًا لن تظهر في النتيجة.
                 </div>
               </div>
             )}
@@ -743,15 +703,9 @@ export function UploadView({ navigate }: NavProps) {
             )}
 
             {phase === 'processing' && elapsed >= SLOW_HINT_AFTER_S && (
-              <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 animate-fade-up">
-                <div className="text-xs text-amber-700 leading-relaxed">
-                  ما زال العمل جاريًا. العملية كلها تتوقف عند {arSeconds(UPLOAD_WATCHDOG_MS / 1000)} بخطأ
-                  واضح، ولن نستخدم كراسة سابقة.
-                </div>
-                <button
-                  onClick={reset}
-                  className="mt-2 text-xs font-bold text-amber-800 underline"
-                >
+              <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 animate-fade-up">
+                <span>ما زال العمل جاريًا.</span>
+                <button onClick={reset} className="font-bold text-[#123F3A] hover:underline">
                   إلغاء
                 </button>
               </div>
