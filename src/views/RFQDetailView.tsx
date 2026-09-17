@@ -63,6 +63,7 @@ export function RFQDetailView({ navigate }: NavProps) {
   const [dispatching, setDispatching] = useState(false)
   const [dispatchProgress, setDispatchProgress] = useState<string | null>(null)
   const [dispatchNote, setDispatchNote] = useState<string | null>(null)
+  const [waLinks, setWaLinks] = useState<Array<{ name: string; url: string }>>([])
 
   const reload = async (id: string) => {
     const data = await getConstructionRfq(id)
@@ -109,9 +110,19 @@ export function RFQDetailView({ navigate }: NavProps) {
     }
     setDispatching(true)
     setDispatchNote(null)
+    setWaLinks([])
     let sent = 0
     let failed = 0
     let waPrepared = 0
+    const reasons = new Map<string, number>()
+    const links: Array<{ name: string; url: string }> = []
+    const noteFailure = (err: unknown) => {
+      failed += 1
+      const code =
+        (err as { code?: string } | null)?.code ||
+        (err instanceof Error ? err.message.slice(0, 60) : 'سبب غير معروف')
+      reasons.set(code, (reasons.get(code) || 0) + 1)
+    }
     try {
       for (let i = 0; i < pending.length; i += 1) {
         const invite = pending[i]!
@@ -124,11 +135,13 @@ export function RFQDetailView({ navigate }: NavProps) {
           try {
             const link = await prepareConstructionWhatsAppLink(rfq.id, invite.id)
             if (link.url) {
+              // Links are listed, not opened in a loop: a pop-up blocker kept the
+              // first tab and dropped the rest while all were counted as prepared.
               waPrepared += 1
-              window.open(link.url, '_blank', 'noopener,noreferrer')
+              links.push({ name: String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد'), url: link.url })
             }
-          } catch {
-            failed += 1
+          } catch (err) {
+            noteFailure(err)
           }
           continue
         }
@@ -138,17 +151,26 @@ export function RFQDetailView({ navigate }: NavProps) {
             harajLimit: isHarajSellerExternalKey(supplierId) ? 1 : undefined,
           })
           sent += 1
-        } catch {
-          failed += 1
+        } catch (err) {
+          noteFailure(err)
         }
       }
-      await reload(rfq.id)
+      // The outcome is stated BEFORE the screen re-reads the request. When that
+      // re-read failed (likely right after a batch) nothing was shown at all,
+      // and the natural reaction to silence is to press send again.
+      const why = [...reasons].map(([code, count]) => `${code} ×${count}`).join('، ')
+      setWaLinks(links)
       setDispatchNote(
         failed
-          ? `أُرسل ${sent}${waPrepared ? ` · واتساب يدوي ${waPrepared}` : ''} وفشل ${failed}. راقب «المراسلات».`
-          : `تم إرسال ${sent} دعوة${waPrepared ? ` · واتساب يدوي ${waPrepared}` : ''}.`,
+          ? `قبل الخادم ${sent}${waPrepared ? ` · روابط واتساب ${waPrepared}` : ''} وفشل ${failed} (${why}). الحالة المؤكدة لكل مورد في «المراسلات».`
+          : `قبل الخادم ${sent} دعوة${waPrepared ? ` · روابط واتساب ${waPrepared}` : ''}.`,
       )
       setTab('correspondence')
+      try {
+        await reload(rfq.id)
+      } catch {
+        setDispatchNote((note) => `${note || ''} تعذّر تحديث الصفحة بعد الإرسال: لا تُعد الإرسال، حدّث الصفحة.`)
+      }
     } finally {
       setDispatching(false)
       setDispatchProgress(null)
@@ -250,6 +272,17 @@ export function RFQDetailView({ navigate }: NavProps) {
       {dispatchNote && (
         <div className="mb-5 rounded-2xl border border-[#d7efe6] bg-[#f0faf7] px-4 py-3 text-sm text-[#123F3A]">
           {dispatchNote}
+          {waLinks.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {waLinks.map((link) => (
+                <li key={link.url}>
+                  <a href={link.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+                    افتح واتساب: {link.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

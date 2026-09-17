@@ -14,6 +14,12 @@ export type SessionOffer = {
   shipping: string
 }
 
+export type ReadIssue = {
+  /** `invalid` blocks sending; `partial` needs the buyer's explicit acknowledgement. */
+  kind: 'invalid' | 'partial'
+  detail: string
+}
+
 type SessionState = {
   /**
    * Which signed-in account this working state belongs to; null in demo mode.
@@ -29,6 +35,12 @@ type SessionState = {
   fileName: string
   projectName: string
   boqItems: BOQItem[]
+  /**
+   * The upload screen's verdict on this read, carried to the send step. It was
+   * computed, printed as «لا تُرسل طلب تسعير من هذه القراءة», and then dropped:
+   * the send button stayed fully enabled on a read the app itself called invalid.
+   */
+  readIssue: ReadIssue | null
   rfqs: RFQSummary[]
   offers: SessionOffer[]
   activeRfqId: string | null
@@ -43,6 +55,7 @@ function emptyState(ownerUserId: string | null): SessionState {
     fileName: '',
     projectName: '',
     boqItems: [],
+    readIssue: null,
     rfqs: [],
     offers: [],
     activeRfqId: null,
@@ -90,6 +103,7 @@ export function beginBoqUpload(meta?: { fileName?: string; documentId?: string |
   state.fileName = meta?.fileName || ''
   state.projectName = ''
   state.boqItems = []
+  state.readIssue = null
   state.offers = []
   state.activeRfqId = null
   emit()
@@ -100,7 +114,11 @@ export function setParsedBoq(payload: {
   projectName?: string
   items: BOQItem[]
   documentId: string
+  /** Omit to keep the verdict of the same document; pass null to clear it. */
+  readIssue?: ReadIssue | null
 }) {
+  if (payload.readIssue !== undefined) state.readIssue = payload.readIssue
+  else if (state.documentId !== payload.documentId) state.readIssue = null
   state.documentId = payload.documentId
   state.fileName = payload.fileName
   state.projectName = payload.projectName || payload.fileName.replace(/\.[^.]+$/, '')
@@ -115,6 +133,7 @@ export function clearParsedBoq() {
   state.fileName = ''
   state.projectName = ''
   state.boqItems = []
+  state.readIssue = null
   state.offers = []
   state.activeRfqId = null
   emit()

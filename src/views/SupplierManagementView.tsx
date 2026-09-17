@@ -3,6 +3,7 @@ import type { NavProps, SupplierEntry } from '../types'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
 import {
+  commitSupplierImport,
   constructionRateLimitSec,
   listSupplierImportBatches,
   revertSupplierImportBatch,
@@ -148,12 +149,54 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
     [loadBatches, loadPage],
   )
 
-  const handleAdd = () => {
-    if (!form.name.trim()) return
-    setShowModal(false)
-    setForm({ name: '', city: '', phone: '', email: '', category: '', notes: '' })
-    setToast('إضافة مورد حقيقي غير مفعّلة في وضع بدون تسجيل دخول (يتطلب واجهة كتابة على Railway لاحقاً).')
-    setTimeout(() => setToast(null), 4500)
+  /**
+   * Saves one supplier through the same endpoint «رفع قائمة» uses, as a list of
+   * one. The form used to collect six fields, save nothing, and blame «وضع بدون
+   * تسجيل دخول» even for a signed-in buyer.
+   */
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+  const handleAdd = async () => {
+    const name = form.name.trim()
+    if (!name || adding) return
+    if (!form.email.trim() && !form.phone.trim()) {
+      setAddError('أدخل بريدًا أو رقم واتساب: مورد بلا وسيلة تواصل لا يمكن مراسلته.')
+      return
+    }
+    setAdding(true)
+    setAddError(null)
+    try {
+      const result = await commitSupplierImport(
+        [{
+          row_number: 1,
+          name_ar: name,
+          city: form.city.trim() || undefined,
+          email: form.email.trim() || undefined,
+          whatsapp: form.phone.trim() || undefined,
+          supplied_items: [form.category.trim(), form.notes.trim()].filter(Boolean).join(' — ') || undefined,
+        }],
+        { label: `إضافة يدوية: ${name}` },
+      )
+      const row = result.rows?.[0]
+      if (row?.outcome === 'REJECT') {
+        setAddError(row.reasons?.map((r) => r.message_ar).join(' ') || 'رفض الخادم هذا المورد.')
+        return
+      }
+      setShowModal(false)
+      setForm({ name: '', city: '', phone: '', email: '', category: '', notes: '' })
+      setToast(
+        row?.outcome === 'MATCH'
+          ? `هذا المورد موجود في الدليل باسم «${row.matched_supplier_name || name}» ولم يُكرَّر.`
+          : `أُضيف «${name}» إلى دليل الموردين.`,
+      )
+      setTimeout(() => setToast(null), 4500)
+      await loadPage(0, false)
+      void loadBatches()
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'تعذّرت إضافة المورد.')
+    } finally {
+      setAdding(false)
+    }
   }
 
   const openSupplier = (id: string) => {
@@ -406,8 +449,7 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
             </div>
             <div className="px-6 py-5 space-y-4">
               <p className="text-xs text-neutral-500 leading-relaxed">
-                الحفظ المباشر في الإنتاج يتم عبر Railway API{' '}
-                <span dir="ltr">POST /api/construction/suppliers/import</span> بعد مصادقة المشتري.
+                يُحفظ المورد في دليل الموردين مباشرة. إن كان موجودًا بالبريد أو الرقم نفسه فلن يُكرَّر.
               </p>
               {(
                 [
@@ -439,13 +481,16 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
                 />
               </div>
             </div>
+            {addError && (
+              <div className="mx-6 mb-3 rounded-xl bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-700">{addError}</div>
+            )}
             <div className="px-6 pb-6 flex gap-3">
               <button
-                onClick={handleAdd}
-                disabled={!form.name.trim()}
+                onClick={() => void handleAdd()}
+                disabled={!form.name.trim() || adding}
                 className="flex-1 py-3 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                متابعة لاحقًا
+                {adding ? 'جارٍ الحفظ…' : 'حفظ المورد'}
               </button>
               <button
                 onClick={() => setShowModal(false)}

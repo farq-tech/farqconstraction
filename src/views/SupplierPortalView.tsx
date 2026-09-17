@@ -26,6 +26,10 @@ export function SupplierPortalView({ navigate }: NavProps) {
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({})
   const [personName, setPersonName] = useState('')
   const [personEmail, setPersonEmail] = useState('')
+  // Both were sent as `true` on the supplier's behalf with nothing on screen:
+  // a quote went in as tax-inclusive under a declaration nobody had seen.
+  const [pricesIncludeTax, setPricesIncludeTax] = useState<boolean | null>(null)
+  const [declarationAccepted, setDeclarationAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -66,10 +70,10 @@ export function SupplierPortalView({ navigate }: NavProps) {
     setError(null)
     try {
       await submitPublicSupplierQuote(token, {
-        declaration_accepted: true,
+        declaration_accepted: declarationAccepted,
         authorized_person: { name: personName.trim(), email: personEmail.trim() },
         currency: 'SAR',
-        prices_include_tax: true,
+        prices_include_tax: pricesIncludeTax === true,
         tax_rate: 0.15,
         lines: (invite.lines || []).map((line) => ({
           line_id: line.id,
@@ -244,8 +248,30 @@ export function SupplierPortalView({ navigate }: NavProps) {
             )}
 
             {!invite.submission_closed_at && (
+              <div className="mb-4 space-y-3 rounded-xl border border-neutral-200 bg-white px-4 py-3">
+                <div>
+                  <div className="text-xs font-bold text-[#0D1F1D] mb-1.5">الأسعار التي أدخلتها</div>
+                  <div className="flex gap-4 text-sm">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="tax-basis" className="accent-[#123F3A]" checked={pricesIncludeTax === true} onChange={() => setPricesIncludeTax(true)} />
+                      شاملة ضريبة القيمة المضافة 15%
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="tax-basis" className="accent-[#123F3A]" checked={pricesIncludeTax === false} onChange={() => setPricesIncludeTax(false)} />
+                      غير شاملة الضريبة
+                    </label>
+                  </div>
+                </div>
+                <label className="flex items-start gap-2 text-xs text-neutral-700 leading-relaxed cursor-pointer">
+                  <input type="checkbox" className="mt-0.5 accent-[#123F3A]" checked={declarationAccepted} onChange={(e) => setDeclarationAccepted(e.target.checked)} />
+                  أقرّ بأنني مخوّل بتقديم هذا العرض عن المنشأة، وأن الأسعار والتوفّر المذكورة صحيحة وملزمة خلال مدة صلاحية العرض.
+                </label>
+              </div>
+            )}
+
+            {!invite.submission_closed_at && (
               <button
-                disabled={submitting || !personName.trim() || !personEmail.trim()}
+                disabled={submitting || !personName.trim() || !personEmail.trim() || pricesIncludeTax === null || !declarationAccepted}
                 onClick={submit}
                 className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40"
               >

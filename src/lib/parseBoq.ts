@@ -82,59 +82,6 @@ const BOQ_UNIT_ALT =
 const BOQ_HEADER_CATEGORY_RE =
   /غير\s*رسمية|كراسة|اختبارية|صفحة|بيانات\s*اختبار|فرق\s*للبناء|توريد\s*فقط|نموذج\s*كراسة/
 
-/**
- * Curated جدول الكميات for ONE known Etimad PDF (صالة الانتظار) whose text
- * extract is badly bidi-scrambled. Must NEVER be applied to other كراسات.
- * Exported only for isolation regression tests.
- */
-export const ETIMAD_WAITING_HALL_BOQ: ParsedLine[] = [
-  { id: 1, name: 'أعمال الهدم والازالة', qty: '1,200', unit: 'م²' },
-  { id: 2, name: 'توريد وتركيب أرضيات بورسلين', qty: '800', unit: 'م²', spec: 'رمز إنشائي 2041' },
-  { id: 3, name: 'توريد وتركيب أرضيات رخام', qty: '30', unit: 'م²' },
-  { id: 4, name: 'توريد وتركيب نعلات', qty: '90', unit: 'م ط', spec: 'رمز إنشائي 2041' },
-  { id: 5, name: 'أعمال الدهان', qty: '500', unit: 'م²', spec: 'رمز إنشائي 2048' },
-  { id: 6, name: 'أعمال الأسقف الجبسية', qty: '250', unit: 'م²', spec: 'رمز إنشائي 2045' },
-  { id: 7, name: 'أعمال الأسقف المستعارة', qty: '240', unit: 'م²' },
-  { id: 8, name: 'قواطع جيبسوم بورد', qty: '70', unit: 'م²', spec: 'رمز إنشائي 2045' },
-  { id: 9, name: 'قواطع زجاجية', qty: '265', unit: 'م²' },
-  { id: 10, name: 'تجليد أعمدة م 3.5', qty: '13', unit: 'عدد' },
-  { id: 11, name: 'تجليد أعمدة م 2.4', qty: '12', unit: 'عدد' },
-  { id: 12, name: 'تجليد أعمدة م 7 مقاس 65×65', qty: '4', unit: 'عدد' },
-  { id: 13, name: 'تجليد أعمدة م 7 مقاس 65×150', qty: '4', unit: 'عدد' },
-  { id: 14, name: 'توريد وتركيب كاونتر خشب', qty: '1', unit: 'عدد' },
-  { id: 15, name: 'توريد وتركيب شرائح خشبية', qty: '9', unit: 'م ط' },
-  { id: 16, name: 'توريد وتركيب طاولات', qty: '10', unit: 'عدد' },
-  { id: 17, name: 'أعمال الدرابزين', qty: '100', unit: 'م ط' },
-  { id: 18, name: 'ألعاب أطفال', qty: '1', unit: 'مجموعة' },
-  { id: 19, name: 'أرضيات مطاطية', qty: '10', unit: 'م²' },
-  { id: 20, name: 'دواليب طفايات حريق', qty: '1', unit: 'عدد' },
-  { id: 21, name: 'قشرة لباب غرفة الكهرباء', qty: '1', unit: 'عدد' },
-  { id: 22, name: 'جلي رخام', qty: '700', unit: 'م²' },
-  { id: 23, name: 'سويتشات مخارج المعلومات', qty: '1', unit: 'عدد' },
-  { id: 24, name: 'توريد وتركيب أحواض زراعة م 1.5', qty: '13', unit: 'عدد' },
-  { id: 25, name: 'توريد وتركيب أحواض زراعة م 5', qty: '2', unit: 'عدد' },
-  { id: 26, name: 'توريد وتركيب شجيرات ظل', qty: '15', unit: 'عدد' },
-  { id: 27, name: 'كيابل نحاس 2.5 ملم', qty: '200', unit: 'م ط', spec: 'رمز إنشائي 2094' },
-  { id: 28, name: 'كيابل نحاس 4 ملم', qty: '50', unit: 'م ط', spec: 'رمز إنشائي 2094' },
-  { id: 29, name: 'كيابل نحاس 35 ملم', qty: '20', unit: 'م ط', spec: 'رمز إنشائي 2094' },
-  { id: 30, name: 'توريد وتركيب وحدة إضاءة متعددة المناسيب', qty: '1', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 31, name: 'توريد وتركيب إضاءة 60×60', qty: '158', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 32, name: 'توريد وتركيب إضاءة 10×30', qty: '90', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 33, name: 'توريد وتركيب سبوت لايت', qty: '24', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 34, name: 'توريد وتركيب شريط ليد', qty: '640', unit: 'م ط', spec: 'رمز إنشائي 2087' },
-  { id: 35, name: 'توريد وتركيب لوحة كهرباء', qty: '1', unit: 'عدد', spec: 'رمز إنشائي 2096' },
-  { id: 36, name: 'توريد وتركيب مخارج كهرباء', qty: '65', unit: 'عدد' },
-  { id: 37, name: 'توريد وتركيب مخارج كهرباء مع USB', qty: '80', unit: 'عدد' },
-  { id: 38, name: 'توريد وتركيب مخارج معلومات', qty: '48', unit: 'عدد' },
-  { id: 39, name: 'توريد وتركيب مخرج مكيف', qty: '25', unit: 'م ط' },
-  { id: 40, name: 'توريد وتركيب كواشف دخان', qty: '4', unit: 'عدد' },
-  { id: 41, name: 'توريد وتركيب سماعة سقف', qty: '5', unit: 'عدد' },
-  { id: 42, name: 'توريد وتركيب نظام الاستدعاء الرقمي', qty: '1', unit: 'عدد' },
-  { id: 43, name: 'توريد وتركيب مجرى سحب هواء', qty: '60', unit: 'م²', spec: 'رمز إنشائي 2079' },
-  { id: 44, name: 'توريد وتركيب مجرى تغذية الهواء', qty: '60', unit: 'م²', spec: 'رمز إنشائي 2079' },
-  { id: 45, name: 'توريد وتركيب مجاري هواء مرنة', qty: '100', unit: 'م ط', spec: 'رمز إنشائي 2079' },
-]
-
 function normalizeUnit(raw: string): string {
   const t = raw.replace(/\s+/g, ' ').trim()
   return UNIT_NORMALIZE[t] || t
@@ -146,79 +93,11 @@ function formatQty(n: number | string): string {
   return num.toLocaleString('en-US')
 }
 
-/** Fix common bidi-reversed Arabic fragments from PDF text extract. */
-function fixArabicName(raw: string): string {
-  let s = raw.replace(/\s+/g, ' ').trim()
-  // Drop trailing yes/no / code leftovers from Etimad tables
-  s = s.replace(/\s*(نعم|لا)\s*\d{0,6}\s*$/g, '').trim()
-  s = s.replace(/\s+\d{3,5}$/g, '').trim()
-
-  const known: [RegExp, string][] = [
-    [/هدم|ازال/, 'أعمال الهدم والازالة'],
-    [/بورسل|ارضيات.*بورس|بورس.*ارض/, 'توريد وتركيب أرضيات بورسلين'],
-    [/رخام.*ارض|ارض.*رخام/, 'توريد وتركيب أرضيات رخام'],
-    [/نعل/, 'توريد وتركيب نعلات'],
-    [/دهان/, 'أعمال الدهان'],
-    [/جبس.*اسقف|اسقف.*جبس/, 'أعمال الأسقف الجبسية'],
-    [/مستعار/, 'أعمال الأسقف المستعارة'],
-    [/جيبسوم|جبسوم.*قواط/, 'قواطع جيبسوم بورد'],
-    [/زجاج.*قواط|قواط.*زجاج/, 'قواطع زجاجية'],
-    [/درابز/, 'أعمال الدرابزين'],
-    [/اطفال|العاب/, 'ألعاب أطفال'],
-    [/مطاط/, 'أرضيات مطاطية'],
-    [/طفاي|حريق/, 'دواليب طفايات حريق'],
-    [/كهرباء.*غرفة|قشرة/, 'قشرة لباب غرفة الكهرباء'],
-    [/جلي/, 'جلي رخام'],
-    [/سويت|معلومات.*مخارج/, 'سويتشات مخارج المعلومات'],
-    [/زراعة|احواض/, 'توريد وتركيب أحواض زراعة'],
-    [/شجير|ظل/, 'توريد وتركيب شجيرات ظل'],
-    [/كيابل|كابل|نحاس/, 'كيابل نحاس'],
-    [/اضاء|إنارة|انارة|سبوت|لايت|ليد/, 'توريد وتركيب إضاءة'],
-    [/لوحة.*كهرب|كهرباء.*لوح/, 'توريد وتركيب لوحة كهرباء'],
-    [/مخرج.*كهرب|كهرباء.*مخرج/, 'توريد وتركيب مخارج كهرباء'],
-    [/مكيف/, 'توريد وتركيب مخرج مكيف'],
-    [/دخان|كواشف/, 'توريد وتركيب كواشف دخان'],
-    [/سماع/, 'توريد وتركيب سماعة سقف'],
-    [/استدعاء/, 'توريد وتركيب نظام الاستدعاء الرقمي'],
-    [/سحب.*هواء|هواء.*سحب/, 'توريد وتركيب مجرى سحب هواء'],
-    [/تغذية.*هواء|هواء.*تغذية/, 'توريد وتركيب مجرى تغذية الهواء'],
-    [/مرن.*هواء|هواء.*مرن|مجاري/, 'توريد وتركيب مجاري هواء مرنة'],
-    [/كاونتر|خشب/, 'توريد وتركيب كاونتر خشب'],
-    [/شرائح/, 'توريد وتركيب شرائح خشبية'],
-    [/طاول/, 'توريد وتركيب طاولات'],
-    [/تجليد|اعمدة/, 'تجليد أعمدة'],
-  ]
-
-  for (const [re, name] of known) {
-    if (re.test(s)) return name
-  }
-  return s
-}
-
 /** Generic Etimad/كراسة shape — shared by many unrelated tenders. */
 export function looksLikeEtimadBoq(text: string): boolean {
   return (
     /جدول\s*الكميات|الكميات\s*جدول|كراسة\s*الشروط|منافسة\s*مشروع/i.test(text) ||
     (text.includes('البند') && text.includes('الكمية') && text.includes('الوحدة'))
-  )
-}
-
-/**
- * Strong fingerprint for the waiting-hall booklet only.
- * Generic Etimad markers alone are NOT enough (cybersecurity / other كراسات
- * also contain جدول الكميات and كراسة الشروط).
- */
-export function looksLikeWaitingHallBoq(text: string): boolean {
-  const t = String(text || '')
-  if (!t.trim()) return false
-  const hall =
-    /صالات?\s*الانتظار|تجديد\s*وتحديث\s*صالات|منافسة\s*مشروع\s*تجديد\s*وتحديث\s*صالات/i.test(t) ||
-    /2020\s*\/\s*382441/.test(t)
-  if (!hall) return false
-  // Require at least one distinctive waiting-hall line signal so a title-only
-  // hit cannot pull the curated 45-line fixture into another document.
-  return /بورسلين|ارضيات\s*رخام|الاسقف\s*الجبسيه|الاسقف\s*الجبسية|مجاري\s*هواء|سبوت\s*لايت|شريط\s*ليد/i.test(
-    normalizeAr(t),
   )
 }
 
@@ -344,15 +223,15 @@ export function parseFarqTestBoqText(text: string): ParsedLine[] {
   return coded.length >= supply.length ? coded : supply
 }
 
-function parseLinesFromText(text: string, remapWaitingHallNames = false): ParsedLine[] {
+function parseLinesFromText(text: string): ParsedLine[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   const found = new Map<number, ParsedLine>()
   const cleanName = (raw: string) => {
     const trimmed = String(raw || '').replace(/\s+/g, ' ').trim()
     if (!trimmed) return ''
-    // Remap only for the known waiting-hall PDF (bidi scramble). Other كراسات
-    // must keep their own extracted names — never inherit صالة الانتظار labels.
-    return remapWaitingHallNames ? fixArabicName(trimmed) : trimmed
+    // A line keeps the name the document printed. Rewriting it to a canned
+    // label sends a supplier a material the booklet never asked for.
+    return trimmed
   }
 
   // Pattern: leading id, description, quantity, unit (tabs or multi-space)
@@ -391,7 +270,7 @@ function parseLinesFromText(text: string, remapWaitingHallNames = false): Parsed
   }
 
   // Farq test كراسات (مستودع / DC / SITE) flatten to one stream — dedicated parsers.
-  if (!remapWaitingHallNames) {
+  {
     const farqTest = parseFarqTestBoqText(text)
     if (farqTest.length > found.size) return farqTest
   }
@@ -651,18 +530,18 @@ function mapApiSuppliers(
 ): Supplier[] {
   return rows
     .slice(0, MATCH_SUPPLIERS_PER_LINE)
-    .map((s, i) => {
+    .map((s) => {
       const evidence: Supplier['evidence'] =
         s.evidence === 'دليل مباشر' ||
         s.evidence === 'نشاط متطابق' ||
         s.evidence === 'دليل منتج' ||
+        s.evidence === 'من الكتالوج' ||
         s.evidence === 'اختيارك' ||
         s.evidence === 'تسمية آلية' ||
         s.evidence === 'خريطة فرق'
           ? s.evidence
-          : i < 3
-            ? 'نشاط متطابق'
-            : 'دليل منتج'
+          : // Never grade a supplier by its position in the list.
+            'من الكتالوج'
       const channel: Supplier['channel'] =
         s.channel === 'واتساب' ? 'واتساب' : s.channel === 'حراج' ? 'حراج' : 'بريد'
       return {
@@ -707,8 +586,12 @@ async function matchViaFarqBoqApi(
     // read as «مادة غير محدّدة» for a reason that had nothing to do with them.
     // Every line is sent now, in chunks, two at a time so a large booklet does
     // not take every connection the API keeps for construction.
-    // Work with nothing to buy is not sent: there is no supplier to find for it.
-    const supplyLines = lines.filter((line) => !line.workOnly)
+    // «عمل بلا توريد» is the page reader's opinion and nothing on the page can
+    // verify it. Measured on موقع الرياض: it said so of plain concrete, a
+    // fire-rated block wall, waterproofing and cement plaster — all bought
+    // materials — and skipping them here hid their suppliers. Every line is
+    // matched; the label survives only where matching found nothing.
+    const supplyLines = lines
     const chunks: ParsedLine[][] = []
     for (let i = 0; i < supplyLines.length; i += MATCH_API_LINE_CAP) chunks.push(supplyLines.slice(i, i + MATCH_API_LINE_CAP))
     const matchedRows: Awaited<ReturnType<typeof matchConstructionBoqCatalog>>['rows'] = []
@@ -755,7 +638,9 @@ async function matchViaFarqBoqApi(
               intent: row.map_suggestion.intent,
               family: row.map_suggestion.family,
               answeredBy: row.map_suggestion.answered_by,
-              supplierCount: row.map_suggestion.supplier_count,
+              // The number shown is the number listed: the card said «12 موردًا»
+              // over a list of eight.
+              supplierCount: row.map_suggestion.suppliers.length,
               zeroReason: row.map_suggestion.zero_reason,
               suppliers: mapApiSuppliers(row.map_suggestion.suppliers || []),
             }
@@ -765,7 +650,7 @@ async function matchViaFarqBoqApi(
           ? {
               intent: row.ai_suggestion.intent,
               family: row.ai_suggestion.family,
-              supplierCount: row.ai_suggestion.supplier_count,
+              supplierCount: row.ai_suggestion.suppliers.length,
               zeroReason: row.ai_suggestion.zero_reason,
               suppliers: mapApiSuppliers(row.ai_suggestion.suppliers || []),
             }
@@ -835,7 +720,10 @@ export async function matchSuppliersForItems(
       lineKey: lineKeyFor(line),
       aiSuggestion: api?.aiSuggestion,
       mapSuggestion: api?.mapSuggestion,
-      workOnly: line.workOnly,
+      workOnly:
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion
+          ? true
+          : undefined,
       itemCode: line.itemCode,
     })
 
@@ -854,7 +742,7 @@ export type ParseBoqResult = {
   projectName: string
   /** Content-hash / upload identity — lines are bound to this document only. */
   documentId: string
-  source: 'pdf-table' | 'pdf-text' | 'waiting-hall-curated' | 'empty'
+  source: 'pdf-table' | 'pdf-text' | 'empty'
   rawLineCount: number
   /** True when Farq API was unreachable / returned no directory during match. */
   matchDegraded?: boolean
@@ -1044,11 +932,10 @@ export function resolveParsedLines(input: {
   let source: ParseBoqResult['source'] = lines.length > 0 ? 'pdf-text' : 'empty'
   let projectName = input.fileName.replace(/\.[^.]+$/, '')
   const text = String(input.text || '')
-  const waitingHall = text.trim() ? looksLikeWaitingHallBoq(text) : false
 
   if (text.trim()) {
-    const fromText = parseLinesFromText(text, waitingHall)
-    const farqTest = waitingHall ? [] : parseFarqTestBoqText(text)
+    const fromText = parseLinesFromText(text)
+    const farqTest = parseFarqTestBoqText(text)
     const clientBest =
       farqTest.length >= fromText.length ? farqTest : fromText
 
@@ -1097,22 +984,9 @@ export function resolveParsedLines(input: {
       text.match(/كراسة\s+اختبار\s+كبيرة\s+-\s+([^\n]{8,80})/)
     if (titleMatch?.[1]) {
       projectName = titleMatch[1].replace(/\s+/g, ' ').trim()
-    } else if (/FARQ-TEST-B|مستودع|مركز\s*تشغيل/.test(text)) {
-      projectName = 'توريد مواد ومعدات لمركز تشغيل ومستودعات'
-    } else if (/FARQ-TEST-DC|أمن\s*سيبراني|مركز\s*بيانات/.test(text)) {
-      projectName = 'توريد تجهيزات مركز بيانات وأمن سيبراني'
-    } else if (/FARQ-TEST-SITE|معدات\s*مواقع/.test(text)) {
-      projectName = 'توريد معدات مواقع وورش وسلامة صناعية'
-    } else if (waitingHall) {
-      projectName = 'منافسة مشروع تجديد وتحديث صالات الانتظار (المرحلة الثانية)'
     }
-
-    // ONLY the known waiting-hall Etimad PDF may use the curated 45-line table.
-    if (waitingHall && looksLikeEtimadBoq(text) && lines.length < 20) {
-      lines = ETIMAD_WAITING_HALL_BOQ.map((row) => ({ ...row }))
-      source = 'waiting-hall-curated'
-      projectName = 'منافسة مشروع تجديد وتحديث صالات الانتظار (المرحلة الثانية)'
-    }
+    // No canned project names and no stored table: a weak read stays a weak
+    // read and is reported as one. Quantities are never supplied by the app.
   } else if (lines.length > 0) {
     source = 'pdf-text'
   }
@@ -1484,7 +1358,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     if (isHeaderLabel(name)) continue
     if (isHeaderLabel(qtyRaw) && isHeaderLabel(unitRaw)) continue
 
-    // Keep API/Excel cell text as-is. fixArabicName is only for scrambled PDF text extract.
+    // Keep API/Excel cell text as-is.
     const cleanedName = name.replace(/\s+/g, ' ').trim()
     if (!cleanedName || isHeaderLabel(cleanedName)) continue
 

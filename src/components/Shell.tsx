@@ -74,10 +74,10 @@ export function Shell({ view, navigate, children }: ShellProps) {
   const email = session.user?.email?.trim() || ''
   const accountLine = session.isAuthenticated
     ? displayName || email || 'حسابك'
-    : 'وضع تجريبي'
+    : 'لم تسجّل الدخول'
   const accountSubLine = session.isAuthenticated
     ? (displayName && email ? email : 'مسجّل الدخول')
-    : 'بدون تسجيل دخول'
+    : 'سجّل الدخول للمتابعة'
   const inCreate = isCreateFlow(view)
   const step = getStep(view)
   const NAV = buildNav(offerCount != null && offerCount > 0 ? String(offerCount) : null)

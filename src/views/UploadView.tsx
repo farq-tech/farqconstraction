@@ -14,6 +14,7 @@ import {
   type BoqEtaView,
 } from '../lib/boqEta'
 import { beginBoqUpload, clearParsedBoq, setParsedBoq, upsertDraftRfq } from '../store/session'
+import { takePendingUpload } from '../lib/pendingUpload'
 import { useProcurement } from '../procurementContext'
 import { currentAuthMode } from '../api/constructionAuth'
 
@@ -234,7 +235,6 @@ type ReadReport = {
 const SOURCE_LABEL: Record<string, string> = {
   'pdf-table': 'قراءة أعمدة الجدول بالإحداثيات',
   'pdf-text': 'قراءة نصية للأسطر',
-  'waiting-hall-curated': 'جدول محفوظ لكراسة صالات الانتظار',
   empty: 'لا مصدر',
 }
 
@@ -473,11 +473,20 @@ export function UploadView({ navigate }: NavProps) {
       if (result.matchWarning) {
         setErrorMsg(result.matchWarning)
       }
+      const unreadLines = result.unreadableLineCount ?? 0
       setParsedBoq({
         fileName: file.name,
         projectName: result.projectName,
         items: result.items,
         documentId: result.documentId,
+        // The verdict travels with the lines, so the send step can enforce it.
+        readIssue: result.codedItemsSuspect
+          ? { kind: 'invalid', detail: result.codedItemsDetail || 'الكراسة ترقّم بنودًا أكثر بكثير مما قرأناه.' }
+          : result.descriptionColumnSuspect
+            ? { kind: 'invalid', detail: result.descriptionColumnDetail || 'عمود الوصف قُرئ بدل اسم البند.' }
+            : unreadLines > 0
+              ? { kind: 'partial', detail: `${unreadLines} بندًا في الكراسة لم تُقرأ ولن تكون في طلب التسعير.` }
+              : null,
       })
       setDraftBoq({
         documentId: result.documentId,
@@ -532,6 +541,13 @@ export function UploadView({ navigate }: NavProps) {
     const file = lastFileRef.current
     if (file) void runProcessing(file)
   }
+
+  // A file chosen on the home screen starts reading here, once.
+  useEffect(() => {
+    const file = takePendingUpload()
+    if (file) void runProcessing(file)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const reset = () => {
     clearParsedBoq()

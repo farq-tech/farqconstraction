@@ -21,6 +21,10 @@ import {
   dominantEngineeringDepartment,
 } from '../lib/rfqPackages'
 import { useProcurement } from '../procurementContext'
+import { farqSession } from '../api/farqSession'
+import { loadCompanyProfile } from '../lib/companyProfile'
+import { getSession } from '../store/session'
+import { cleanLineName, parseQty, readQty } from '../lib/sendGuards'
 
 interface SendModalProps {
   items: BOQItem[]
@@ -67,10 +71,12 @@ const STALL_WA_MS = 15_000
 const STALL_HARAJ_MS = 25_000
 const STALL_SETUP_MS = 20_000
 
-function parseQty(raw: string): number {
-  const n = Number(String(raw).replace(/,/g, ''))
-  return Number.isFinite(n) && n > 0 ? n : 1
-}
+const DEPARTMENT_CHOICES: Array<{ key: string; label: string }> = [
+  { key: 'CIVIL', label: 'المدني والإنشائي' },
+  { key: 'ARCHITECTURAL', label: 'المعماري' },
+  { key: 'ELECTRICAL', label: 'الكهربائي' },
+  { key: 'MECHANICAL', label: 'الميكانيكي' },
+]
 
 function statusLabel(status: InviteRowStatus): string {
   if (status === 'pending') return 'بانتظار'
@@ -151,12 +157,13 @@ export function SendModal({
   onFailed,
 }: SendModalProps) {
   const { setSelectedRfqId } = useProcurement()
+  // Defaults come from what the buyer saved in الإعدادات, not from constants.
   const [deadline, setDeadline] = useState(() => {
     const d = new Date()
-    d.setDate(d.getDate() + 14)
+    d.setDate(d.getDate() + loadCompanyProfile().defaultDeadlineDays)
     return d.toISOString().slice(0, 10)
   })
-  const [site, setSite] = useState(DEFAULT_DELIVERY_CITY)
+  const [site, setSite] = useState(() => loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
   /** Fast path: EMAIL+WA first; defer Haraj (20s pacing) unless user opts in. */
   const [fastEmailFirst, setFastEmailFirst] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -171,8 +178,42 @@ export function SendModal({
   const [cancelRequested, setCancelRequested] = useState(false)
   const [deferredHaraj, setDeferredHaraj] = useState<ConstructionInvitation[]>([])
 
-  const selectedSupplierIds = [...new Set(Object.values(selectedByItem).flat())]
-  const readyItems = items.filter((i) => (selectedByItem[i.id] || []).length > 0)
+  // Work with nothing to buy is never put in front of a supplier.
+  const readyItems = items.filter((i) => !i.workOnly && (selectedByItem[i.id] || []).length > 0)
+  const selectedSupplierIds = [...new Set(readyItems.flatMap((i) => selectedByItem[i.id] || []))]
+
+  // Everything that must stop a send is decided BEFORE the button, where the
+  // buyer can still fix it — not discovered by a supplier afterwards.
+  const badQtyItems = readyItems.filter((i) => readQty(String(i.qty)) === null)
+  const badNameItems = readyItems.filter((i) => cleanLineName(i.name).replace(/[^\p{L}]/gu, '').length < 2)
+  const readIssue = getSession().readIssue
+  const [partialAcknowledged, setPartialAcknowledged] = useState(false)
+  const guessedDepartment = dominantEngineeringDepartment(readyItems)
+  const [department, setDepartment] = useState<string>(guessedDepartment || '')
+
+  // Who gets what, by name, before the first real email leaves.
+  const recipients = (() => {
+    const byId = new Map<string, { name: string; channel: string; lines: number }>()
+    for (const item of readyItems) {
+      for (const id of selectedByItem[item.id] || []) {
+        const known = item.suppliers.find((s) => s.id === id)
+        const entry = byId.get(id) || { name: known?.name || id, channel: known?.channel || '', lines: 0 }
+        entry.lines += 1
+        byId.set(id, entry)
+      }
+    }
+    return [...byId.values()].sort((a, b) => b.lines - a.lines)
+  })()
+
+  const sendBlockers: string[] = []
+  if (readIssue?.kind === 'invalid') sendBlockers.push(`قراءة هذه الكراسة غير صالحة للإرسال: ${readIssue.detail}`)
+  if (badQtyItems.length)
+    sendBlockers.push(
+      `كمية غير مقروءة في ${badQtyItems.length} بندًا: ${badQtyItems.slice(0, 3).map((i) => `«${cleanLineName(i.name).slice(0, 40) || i.id}»`).join('، ')}${badQtyItems.length > 3 ? '…' : ''}. ألغِ اختيار مورديها أو صحّح الكراسة.`,
+    )
+  if (badNameItems.length) sendBlockers.push(`اسم غير مقروء في ${badNameItems.length} بندًا (رقم ${badNameItems.slice(0, 5).map((i) => i.id).join('، ')}).`)
+  if (!department) sendBlockers.push('اختر القسم الهندسي لهذا الطلب: لم نستطع تحديده من البنود.')
+  if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
 
   useEffect(() => {
@@ -635,6 +676,7 @@ export function SendModal({
     })
 
     try {
+      if (sendBlockers.length) throw new Error(sendBlockers[0])
       touchActivity({ step: 'مطابقة البنود مع كتالوج Farq…', channel: 'SETUP', index: 0, total: 0 })
       // Only the lines that still have no spec id are worth asking about.
       // `buildRfqLinesFromItems` reads `item.farqSpecId` first and falls back to
@@ -649,7 +691,7 @@ export function SendModal({
           line_key: item.lineKey || `line-${item.id}`,
           name_ar: item.name,
           quantity: parseQty(item.qty),
-          uom: item.unit || 'عدد',
+          uom: item.unit || undefined,
           // The tender's technical column, which the upload sends and this call
           // used to drop even though the item carries it. Without it the fallback
           // answers a poorer question than the upload did and can name a
@@ -668,11 +710,16 @@ export function SendModal({
       const byKey = new Map(matchRows.map((row) => [row.line_key, row]))
 
       // A line is sent under ITS OWN name whether or not the catalog matched it.
-      const lines = buildRfqLinesFromItems(readyItems, {
-        specIdForLine: (key) => byKey.get(key)?.farq_spec_id,
-        uomForLine: (key) => byKey.get(key)?.uom,
-        parseQty,
-      })
+      const lines = buildRfqLinesFromItems(
+        // The name a supplier reads is the booklet's own, minus glyphs the PDF
+        // could not map (U+0000 and friends).
+        readyItems.map((item) => ({ ...item, name: cleanLineName(item.name) })),
+        {
+          specIdForLine: (key) => byKey.get(key)?.farq_spec_id,
+          uomForLine: (key) => byKey.get(key)?.uom,
+          parseQty,
+        },
+      )
 
       if (!lines.length) {
         throw new Error('لا توجد بنود جاهزة للإرسال. اختر بنداً واحداً على الأقل.')
@@ -704,6 +751,7 @@ export function SendModal({
       const { packages: draftPackages } = buildRfqPackagesFromSelection({
         items: packageItems,
         selectedByItem: selectedForPackages,
+        fallbackDepartment: department,
       })
       const packages = draftPackages.filter((entry) => entry.selected_supplier_ids.length > 0)
       if (!packages.length) {
@@ -730,24 +778,28 @@ export function SendModal({
         total: packageSupplierIds.length,
       })
 
+      const company = loadCompanyProfile()
+      const buyerUser = farqSession.getUser()
       const createBody: Record<string, unknown> = {
         manual_send: true,
         send_consent: false,
-        engineering_department: dominantEngineeringDepartment(packageItems),
+        engineering_department: department,
         selected_supplier_ids: packageSupplierIds,
         delivery: {
           city: site,
-          site_address: `${projectName || 'مشروع'} — ${site}`,
+          site_address: projectName.trim() ? `${projectName.trim()} — ${site}` : site,
           required_date: deadline,
           unloading_requirement: 'SUPPLIER_UNLOAD',
           delivery_required: true,
         },
         commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER' },
+        // The person sending is the person signed in. This block used to carry
+        // «عميل تجريبي» on every real request.
         buyer: {
-          company_name: 'فرق للبناء',
-          contact_name: 'عميل تجريبي',
-          email: 'info@farq.sa',
-          phone: '0563333463',
+          company_name: company.name,
+          contact_name: buyerUser?.displayName?.trim() || buyerUser?.email?.trim() || company.name,
+          email: buyerUser?.email?.trim() || company.email,
+          phone: company.phone,
         },
         lines: scopedLines,
         packages,
@@ -929,6 +981,56 @@ export function SendModal({
                 </div>
               </div>
 
+              <div className="mb-4">
+                <label className="text-xs text-neutral-500 mb-1 block">القسم الهندسي (يظهر في رقم الطلب عند المورد)</label>
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] bg-white"
+                >
+                  {!guessedDepartment && <option value="">اختر القسم…</option>}
+                  {DEPARTMENT_CHOICES.map((d) => (
+                    <option key={d.key} value={d.key}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4 rounded-xl border border-neutral-200">
+                <div className="px-3 py-2 text-xs font-bold text-[#0D1F1D] border-b border-neutral-100">
+                  سيصل الطلب إلى هؤلاء ({recipients.length}) — كل مورد يرى بنوده فقط
+                </div>
+                <ul className="max-h-40 overflow-y-auto divide-y divide-neutral-100">
+                  {recipients.map((r, i) => (
+                    <li key={`${r.name}-${i}`} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
+                      <span className="truncate text-[#0D1F1D]">{r.name}</span>
+                      <span className="flex-shrink-0 text-neutral-500">{r.lines} بندًا{r.channel ? ` · ${r.channel}` : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {readIssue?.kind === 'partial' && (
+                <label className="flex items-start gap-3 mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-1 accent-[#123F3A]"
+                    checked={partialAcknowledged}
+                    onChange={(e) => setPartialAcknowledged(e.target.checked)}
+                  />
+                  <span className="text-xs text-amber-900 leading-relaxed">
+                    قراءة ناقصة: {readIssue.detail} أعلم ذلك وأرسل المقروء فقط.
+                  </span>
+                </label>
+              )}
+
+              {sendBlockers.filter((b) => b !== 'أكّد أنك تعلم أن القراءة ناقصة.').length > 0 && (
+                <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-700 leading-relaxed space-y-1">
+                  {sendBlockers.filter((b) => b !== 'أكّد أنك تعلم أن القراءة ناقصة.').map((b) => (
+                    <div key={b}>{b}</div>
+                  ))}
+                </div>
+              )}
+
               <label className="flex items-start gap-3 mb-4 rounded-xl border border-neutral-100 bg-white px-3 py-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1064,7 +1166,7 @@ export function SendModal({
             {phase === 'form' && (
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || sendBlockers.length > 0}
                 onClick={handleSend}
                 className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-50"
               >

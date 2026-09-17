@@ -53,7 +53,10 @@ export function constructionHeaders(extra: HeadersInit = {}): HeadersInit {
     // Demo mode is the last resort, and never alongside a bearer token: two
     // identities on one request is how an actor gets attributed to the wrong
     // one when the API's precedence changes.
-    else base['x-construction-demo-user'] = DEMO_ACTOR_LABEL
+    // A production bundle never offers the shared demo identity. The live API's
+    // CORS refuses the header anyway, which turned every signed-out read into
+    // an opaque network failure instead of a plain "sign in".
+    else if (!import.meta.env.PROD) base['x-construction-demo-user'] = DEMO_ACTOR_LABEL
   }
   return { ...base, ...(extra as Record<string, string>) }
 }

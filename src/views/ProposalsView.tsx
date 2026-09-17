@@ -19,6 +19,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
   'دليل مباشر': 'bg-[#CFF5DC] text-[#1a7a45]',
   'نشاط متطابق': 'bg-[#e0efec] text-[#123F3A]',
   'دليل منتج': 'bg-blue-50 text-blue-700',
+  'من الكتالوج': 'bg-neutral-100 text-neutral-600',
   'اختيارك': 'bg-amber-50 text-amber-700',
   'تسمية آلية': 'bg-purple-50 text-purple-700',
   'خريطة فرق': 'bg-teal-50 text-teal-700',
@@ -95,7 +96,7 @@ function SuggestionBox({
                 disabled={alreadyIds.has(s.id)}
                 className="text-xs font-semibold text-[#123F3A] hover:underline disabled:text-neutral-300"
               >
-                {alreadyIds.has(s.id) ? 'أُضيف' : 'أضف'}
+                {alreadyIds.has(s.id) ? 'أُضيف للإرسال' : 'أضف للإرسال'}
               </button>
             </div>
           ))}
@@ -437,7 +438,10 @@ function BOQCard({
             )}
           </div>
 
-          {isSearching && (
+          {/* Only where nothing at all was found. Under a card that lists map
+              suppliers this note said «لم نبحث له عن موردين», and under a
+              work-only card it told the buyer to go and find a supplier. */}
+          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && (
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'
@@ -508,6 +512,8 @@ export function ProposalsView({ navigate }: NavProps) {
           suppliers,
           supplierCount: suppliers.length,
           status: 'ready' as const,
+          // The buyer naming a supplier outranks the reader's «عمل بلا توريد».
+          workOnly: undefined,
         }
       }),
     )

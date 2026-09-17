@@ -104,6 +104,7 @@ export function LoginView({ navigate }: NavProps) {
             ) : 'دخول'}
           </button>
 
+{!import.meta.env.PROD && (
           <button
             type="button"
             onClick={() => navigate('home')}
@@ -111,11 +112,11 @@ export function LoginView({ navigate }: NavProps) {
           >
             المتابعة بدون تسجيل دخول
           </button>
+          )}
 
           <div className="mt-4 text-center">
             <p className="text-[11px] text-neutral-400 leading-relaxed">
               الحسابات على قاعدة بيانات فرق نفسها — لا تعتمد على مزوّد خارجي.
-              «المتابعة بدون تسجيل دخول» تعمل بالوضع التجريبي محليًا فقط.
             </p>
           </div>
         </div>

@@ -127,24 +127,12 @@ export function SupplierDetailView({ navigate, selectedSupplierId }: NavProps) {
             </div>
           </div>
 
-          <div className="bg-white border border-neutral-100 rounded-2xl p-5 mb-6">
-            <h2 className="text-sm font-bold text-[#0D1F1D] mb-2">سجل التعاملات</h2>
-            <p className="text-sm text-neutral-500">
-              سجل RFQ/العروض لهذا المورد ما زال يعتمد على واجهات
-              {' '}
-              <span dir="ltr">/api/construction/rfqs</span>
-              {' '}
-              بعد ربط المصادقة — غير متاح في هذا النموذج بعد.
-            </p>
-            <div className="text-xs text-neutral-400 mt-2">آخر تحديث ظاهر: {supplier.lastSeen}</div>
-          </div>
-
           <div className="grid grid-cols-2 gap-3 mb-3">
             <button
               onClick={() => navigate('create-upload')}
               className="py-3 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
             >
-              استخدم في طلب جديد
+              رفع كراسة جديدة
             </button>
             <button
               onClick={() => navigate('supplier-management')}

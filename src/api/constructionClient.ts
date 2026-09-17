@@ -635,7 +635,7 @@ function unwrap<T>(
       code === 'CONSTRUCTION_WRITE_DISABLED'
     ) {
       throw new ConstructionApiError(
-        `واجهة البناء غير مفعّلة (${code}). تأكد من CONSTRUCTION_DB_URL و READ/RFQ/WRITE على Farq API.`,
+        `خدمة فرق للبناء متوقفة مؤقتًا من جهة الخادم (${code}). لم يُحفظ شيء؛ أعد المحاولة بعد قليل أو تواصل مع دعم فرق.`,
         response.status,
         String(code),
       )
@@ -1130,7 +1130,7 @@ export function inboxReplyErrorMessageAr(code: string): string {
     case 'INBOX_NO_REPLY_ADDRESS':
       return 'لا يوجد عنوان رد محفوظ لهذا المورد — أضف بريد جهة الاتصال في بطاقة المورد.'
     case 'INBOX_SENDING_DISABLED':
-      return 'الإرسال غير مهيّأ على الـ API (RESEND_API_KEY أو CONSTRUCTION_RFQ_SENDER_EMAIL).'
+      return 'البريد الصادر غير مهيّأ على خادم فرق، فلم تُرسل الرسالة. تواصل مع دعم فرق (رمز: إعداد البريد الصادر).'
     case 'SUPPLIER_SCOPE_REQUIRED':
       return 'لا يمكن إرفاق بنود هذا الطلب: لم يُقسّم على الموردين، وإرسال الكتيّب كاملًا ممنوع. قسّم البنود على الموردين أولًا.'
     case 'SUPPLIER_NO_SCOPED_LINES':
@@ -1152,7 +1152,7 @@ export function inboxReplyErrorMessageAr(code: string): string {
     case 'INBOX_RECONCILIATION_REQUIRED':
       return 'تعذّر تأكيد الإرسال السابق — راجع بريد info@ قبل إعادة الإرسال لتجنّب التكرار.'
     case 'INBOX_CORRESPONDENCE_DISABLED':
-      return 'المراسلات غير مفعّلة على الـ API (CONSTRUCTION_CORRESPONDENCE_ENABLED).'
+      return 'المراسلات موقوفة على خادم فرق، فلم تُرسل الرسالة. تواصل مع دعم فرق.'
     default:
       return `تعذّر تنفيذ الطلب (${code}).`
   }
@@ -1182,9 +1182,9 @@ export type ConstructionGmailStatus = {
 export function gmailErrorMessageAr(code: string): string {
   switch (code) {
     case 'GMAIL_NOT_CONFIGURED':
-      return 'تفويض Gmail غير مهيّأ على الـ API: ناقص CONSTRUCTION_GMAIL_ENABLED=1 أو CONSTRUCTION_GMAIL_CLIENT_ID أو CLIENT_SECRET أو TOKEN_KEY أو OWNER_ACTOR_ID. (قواعد البيانات وأعلام القراءة/الكتابة ليست السبب.)'
+      return 'ربط Gmail غير مهيّأ على خادم فرق بعد، فلا يمكن إتمامه من هنا. تواصل مع دعم فرق.'
     case 'GMAIL_FORBIDDEN':
-      return 'جلستك ليست مالك الصندوق: actorId يجب أن يساوي CONSTRUCTION_GMAIL_OWNER_ACTOR_ID بدور ADMIN. في الوضع التجريبي اجعل CONSTRUCTION_DEMO_BUYER_USER_ID نفس ذلك الـ UUID.'
+      return 'هذا الحساب ليس مالك صندوق بريد الشركة. ادخل بحساب مدير الشركة لربط البريد أو الرد منه.'
     case 'GMAIL_INVALID_STATE':
       return 'انتهت صلاحية جلسة الربط أو لم تُحفظ كعكة المتصفح على أصل الـ callback — ابدأ الربط من جديد من هذا الزر (يتطلب نشر Farq API الحديث).'
     case 'GMAIL_CONSENT_DECLINED':
@@ -1424,9 +1424,22 @@ export async function matchConstructionSuppliers(payload: {
  * product match, so `rfq_eligible` is false and the badge names the source.
  */
 function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string) {
+  // One business listed twice (two directory rows, same name) is one choice,
+  // not two. The server returns at most 12; all of them are listed so the
+  // count on the card is the count the buyer can actually see.
+  const seenIds = new Set<string>()
+  const seenNames = new Set<string>()
   return (list || [])
-    .filter((s) => String(s.id || '').trim())
-    .slice(0, 8)
+    .filter((s) => {
+      const id = String(s.id || '').trim()
+      if (!id || seenIds.has(id)) return false
+      const name = String(s.name_ar || s.name_en || '').replace(/\s+/g, ' ').trim().toLowerCase()
+      if (name && seenNames.has(name)) return false
+      seenIds.add(id)
+      if (name) seenNames.add(name)
+      return true
+    })
+    .slice(0, 12)
     .map((s) => {
       const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
       const id = String(s.id || '')
@@ -1585,7 +1598,13 @@ export async function matchConstructionBoqCatalog(payload: {
           name_ar: s.name_ar as string | undefined,
           name_en: s.name_en as string | undefined,
           city: (s.city as string | undefined) || undefined,
-          evidence: 'نشاط متطابق',
+          // «دليل منتج» only when the server returned product evidence for this
+          // supplier; otherwise the honest statement is that the catalog listed it.
+          evidence:
+            Array.isArray((s.product_match as { evidence?: unknown[] } | undefined)?.evidence) &&
+            ((s.product_match as { evidence?: unknown[] }).evidence as unknown[]).length > 0
+              ? 'دليل منتج'
+              : 'من الكتالوج',
           channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }

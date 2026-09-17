@@ -5,8 +5,6 @@ import { LoginView } from './views/LoginView'
 import { HomeView } from './views/HomeView'
 import { UploadView } from './views/UploadView'
 import { ProposalsView } from './views/ProposalsView'
-import { SuccessView } from './views/SuccessView'
-import { SendFailureView } from './views/SendFailureView'
 import { RFQListView } from './views/RFQListView'
 import { RFQDetailView } from './views/RFQDetailView'
 import { RFQClosedView } from './views/RFQClosedView'
@@ -22,6 +20,7 @@ import { AccessDeniedView } from './views/AccessDeniedView'
 import { SupplierPortalView } from './views/SupplierPortalView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
+import { useFarqSession } from './api/useFarqSession'
 
 function AppRoutes() {
   const {
@@ -30,18 +29,22 @@ function AppRoutes() {
     selectedSupplierId,
     setSelectedSupplierId,
   } = useProcurement()
+  const session = useFarqSession()
 
-  // Login kept reachable for demos that want to show the gate; default entry is home (no-login).
-  if (view === 'login') return <LoginView navigate={navigate} />
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
+  // A production build has no demo identity, so without a session every screen
+  // behind this line can only fail to load. The visitor meets the sign-in form
+  // instead of an app-shaped page of errors. Suppliers are exempt above: they
+  // carry a one-use token, never a buyer session.
+  if (view === 'login' || (import.meta.env.PROD && !session.isAuthenticated)) {
+    return <LoginView navigate={navigate} />
+  }
 
   return (
     <Shell view={view} navigate={navigate}>
       {view === 'home' && <HomeView navigate={navigate} />}
       {view === 'create-upload' && <UploadView navigate={navigate} />}
       {view === 'create-proposals' && <ProposalsView navigate={navigate} />}
-      {view === 'sent' && <SuccessView navigate={navigate} />}
-      {view === 'sent-failure' && <SendFailureView navigate={navigate} />}
       {view === 'rfq-list' && <RFQListView navigate={navigate} />}
       {view === 'rfq-detail' && <RFQDetailView navigate={navigate} />}
       {view === 'rfq-closed' && <RFQClosedView navigate={navigate} />}

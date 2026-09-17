@@ -21,7 +21,11 @@ export type AppView =
   | 'inbox'
   | 'inbox-thread'
 
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
+/**
+ * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
+ * catalog returned the supplier and nothing says how strong the link is.
+ */
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
 export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
 
 export interface Supplier {

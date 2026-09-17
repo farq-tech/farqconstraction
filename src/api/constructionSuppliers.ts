@@ -89,7 +89,8 @@ function cleanCategory(raw?: string | null): string {
     .split(/[,|]/)
     .map((part) => part.trim())
     .filter(Boolean)
-  if (!text.length) return 'مواد بناء'
+  // Unknown activity is shown as unknown, never as an invented category.
+  if (!text.length) return '—'
   const arabic = text.find((part) => /[\u0600-\u06FF]/.test(part))
   if (arabic) return arabic
   return text[0]!.replace(/-/g, ' ')
@@ -109,7 +110,7 @@ export function mapFarqSupplier(row: FarqApiSupplier): SupplierEntry {
   const city =
     cityFromObj ||
     String(row.service_regions_ar || '').trim() ||
-    'المملكة العربية السعودية'
+    '—'
   const email = String(row.email || '').trim()
   const phone = String(row.phone || row.whatsapp || '').trim()
   const id = String(row.id)
