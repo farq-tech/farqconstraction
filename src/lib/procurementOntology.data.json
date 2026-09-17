@@ -4653,7 +4653,7 @@
       "label_ar": "الأثاث والتجهيزات الداخلية",
       "note": "Blue Pages has four furniture activities (أثاث مكتبي، أثاث خشبي، أثاث ومفروشات، أثاث - صناع) and our catalogue had no family for any of them, so every furniture line fell through to joinery or to nothing. Loose furniture is a different trade from fixed joinery: a desk supplier is not a door-leaf factory.",
       "strong_terms": ["اثاث مكتبي", "office furniture", "كرسي مكتب", "كرسي دوار", "office chair", "task chair", "كرسي زائر", "visitor chair", "طاوله اجتماعات", "meeting table", "conference table", "مكتب اداري", "executive desk", "خزانه ملفات", "filing cabinet", "دولاب ملفات", "لوكر", "locker", "خزانه ملابس", "wardrobe", "درج مدرسي", "مقعد طالب", "student desk", "school furniture", "اثاث مدرسي", "كنب", "sofa", "مجلس", "صوفا", "بنش انتظار", "waiting bench", "كرسي انتظار", "ستائر", "curtains", "بردة", "roller blind", "vertical blind", "بلايز شيد", "اثاث ومفروشات", "مفروشات"],
-      "weak_terms": ["اثاث", "furniture", "كرسي", "chair", "طاوله", "table", "مكتب", "desk", "خزانه", "cabinet", "دولاب", "رف"],
+      "weak_terms": ["اثاث", "furniture", "كرسي", "chair", "طاوله", "table", "مكتب", "desk", "خزانه", "cabinet", "دولاب"],
       "term_guards": [
         {
           "terms": ["اثاث", "furniture"],
@@ -4711,7 +4711,7 @@
       "label_ar": "السقالات وأنظمة الوصول",
       "note": "«سقالات» was an unmapped Blue Pages activity. Scaffolding, shoring props and ladders are bought as materials on almost every site and had no family, so the lines resolved to structural steel and reached the wrong suppliers.",
       "strong_terms": ["سقاله", "سقالات", "scaffolding", "scaffold", "سقاله معدنيه", "frame scaffold", "ماسوره سقاله", "scaffold tube", "كوبلر", "coupler", "كلامب سقاله", "scaffold clamp", "لوح سقاله", "scaffold plank", "دعامه", "دعامات", "شمعات", "prop", "acrow prop", "shoring", "جك بيس", "jack base", "قاعده سقاله", "سلم المنيوم", "سلم درج", "ladder", "step ladder", "platform ladder", "سلم متنقل", "برج سقاله", "mobile tower", "منصه عمل", "work platform"],
-      "weak_terms": ["سقاله", "سلم", "دعامه", "scaffold", "ladder", "prop", "tower", "platform"],
+      "weak_terms": ["سقاله", "سلم", "دعامه", "scaffold", "ladder", "prop", "tower"],
       "term_guards": [
         {
           "terms": ["سلم", "ladder"],
@@ -4722,6 +4722,11 @@
           "terms": ["سلم", "ladder"],
           "block_any": ["متحرك", "كهربايي", "escalator", "moving walkway", "مصعد"],
           "note": "«سلم متحرك» is an escalator and belongs to vertical transport."
+        },
+        {
+          "terms": ["coupler"],
+          "block_any": ["pipe", "ماسوره", "مواسير", "upvc", "ppr", "hdpe", "تسليح", "rebar coupler", "وصله حديد"],
+          "note": "A pipe coupling and a rebar coupler share the word with the scaffold coupler."
         }
       ],
       "context_terms": ["متر", "م2", "m2", "طن", "مجلفن", "galvanized", "حديد", "steel", "المنيوم", "aluminium", "kg", "موقع", "مؤقت"],
@@ -4812,6 +4817,11 @@
           "terms": ["hardware"],
           "block_any": ["network", "server", "it hardware", "computer", "حاسب"],
           "note": "«Hardware» alone also names IT equipment."
+        },
+        {
+          "terms": ["cylinder"],
+          "block_any": ["gas", "غاز", "اكسجين", "oxygen", "acetylene", "اسطوانه غاز", "co2", "argon"],
+          "note": "A gas cylinder is welding and cutting equipment, not door hardware."
         }
       ],
       "context_terms": ["باب", "door", "ابواب", "ستانلس", "stainless", "sus 304", "نحاس", "brass", "مطفي", "satin", "كروم", "chrome", "عدد", "no", "حريق", "fire rated"],

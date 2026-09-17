@@ -1997,8 +1997,10 @@ describe('a material phrase does not name a trade', () => {
   // fibre is a ceiling tile, an insulation batt and a concrete fibre. Whichever
   // trade held the bare phrase strong won every line that named no product.
   for (const [line, expected] of [
-    ['خزان ألياف زجاجية', 'water_tanks'],
-    ['خزان GRP 5000 لتر', 'water_tanks'],
+    // Both now reach the INTENT inside that family, which is the same answer
+    // one level finer: the family owns the line either way.
+    ['خزان ألياف زجاجية', 'grp_water_tank'],
+    ['خزان GRP 5000 لتر', 'grp_water_tank'],
     ['ألياف زجاجية للخرسانة', 'concrete_fiber'],
     ['ألياف معدنية للخرسانة', 'concrete_fiber'],
     ['بلاطة سقف ألياف معدنية', 'acoustic_ceiling_tile'],
