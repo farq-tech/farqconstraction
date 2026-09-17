@@ -20,7 +20,9 @@ import { AccessDeniedView } from './views/AccessDeniedView'
 import { SupplierPortalView } from './views/SupplierPortalView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
+import { useEffect, useRef } from 'react'
 import { useFarqSession } from './api/useFarqSession'
+import { restoreSession } from './store/session'
 import { LearningReviewView } from './views/LearningReviewView'
 
 function AppRoutes() {
@@ -31,6 +33,19 @@ function AppRoutes() {
     setSelectedSupplierId,
   } = useProcurement()
   const session = useFarqSession()
+  const restored = useRef(false)
+
+  /*
+   * Bring the booklet back after a refresh.
+   *
+   * Restoring once per signed-in identity, and only into an empty session, so a
+   * restore can never land on top of an upload the buyer has just started.
+   */
+  useEffect(() => {
+    if (restored.current || !session.isAuthenticated) return
+    restored.current = true
+    void restoreSession()
+  }, [session.isAuthenticated])
 
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
   // A production build has no demo identity, so without a session every screen

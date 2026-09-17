@@ -13,7 +13,15 @@ import {
   type BoqEtaUnit,
   type BoqEtaView,
 } from '../lib/boqEta'
-import { beginBoqUpload, clearParsedBoq, setParsedBoq, upsertDraftRfq } from '../store/session'
+import {
+  beginBoqUpload,
+  clearParsedBoq,
+  getSession,
+  resetWorkingSession,
+  setParsedBoq,
+  subscribeSession,
+  upsertDraftRfq,
+} from '../store/session'
 import { takePendingUpload } from '../lib/pendingUpload'
 import { useProcurement } from '../procurementContext'
 import { currentAuthMode } from '../api/constructionAuth'
@@ -497,6 +505,18 @@ export function UploadView({ navigate }: NavProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // What a restore brought back, if anything.
+  const [restoredItems, setRestoredItems] = useState(() => getSession().boqItems.length)
+  const [restoredName, setRestoredName] = useState(() => getSession().fileName)
+  useEffect(
+    () =>
+      subscribeSession(() => {
+        setRestoredItems(getSession().boqItems.length)
+        setRestoredName(getSession().fileName)
+      }),
+    [],
+  )
+
   const reset = () => {
     clearParsedBoq()
     setDraftBoq(null)
@@ -543,6 +563,40 @@ export function UploadView({ navigate }: NavProps) {
         <h1 className="text-3xl font-black text-[#0D1F1D] mb-2">ارفع الكراسة</h1>
         <p className="text-neutral-500">ارفع ملف الكراسة وسيقرأ فرق البنود تلقائيًا</p>
       </div>
+
+      {/*
+        A booklet already read is not lost by leaving the screen, so say so and
+        offer the way back. Only «ابدأ من جديد» throws it away.
+      */}
+      {phase === 'idle' && restoredItems > 0 && (
+        <div className="mb-6 rounded-2xl border border-[#CFF5DC] bg-[#F3FBF6] px-5 py-4">
+          <div className="text-sm font-bold text-[#123F3A] mb-1">كراستك السابقة ما زالت محفوظة</div>
+          <div className="text-xs text-neutral-600 mb-3">
+            {restoredName ? `${restoredName} · ` : ''}
+            {restoredItems} بندًا واختياراتك للموردين. لن تُحذف إلا إذا بدأت من جديد.
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('create-proposals')}
+              className="text-xs font-bold bg-[#123F3A] text-white rounded-lg px-3 py-2"
+            >
+              تابع من حيث توقفت
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!window.confirm('سيُحذف ما قرأناه من الكراسة واختياراتك للموردين. هل تريد البدء من جديد؟')) return
+                resetWorkingSession()
+                reset()
+              }}
+              className="text-xs font-bold text-neutral-500 border border-neutral-200 rounded-lg px-3 py-2 hover:text-red-700 hover:border-red-200"
+            >
+              ابدأ من جديد
+            </button>
+          </div>
+        </div>
+      )}
 
       {phase === 'idle' && (
         <div

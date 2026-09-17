@@ -1,6 +1,7 @@
 import type { BOQItem, RFQSummary } from '../types'
 import { farqSession } from '../api/farqSession'
 import { sanitizeBoqLines } from '../lib/parseBoq'
+import { clearPersistedSession, loadPersistedSession, persistSession } from './sessionPersistence'
 
 export type SessionOffer = {
   id: string
@@ -67,6 +68,38 @@ const state: SessionState = emptyState(farqSession.getUser()?.id ?? null)
 const listeners = new Set<Listener>()
 
 function emit() {
+  // Every change is written through, so the only thing that can lose a
+  // booklet is the buyer deciding to start again.
+  persistSession(state.ownerUserId, state)
+  listeners.forEach((fn) => fn())
+}
+
+/**
+ * Bring back the booklet this account was working on.
+ *
+ * Called once at boot. It never overwrites work already on screen — a restore
+ * that raced an upload would replace the new booklet with the old one.
+ */
+export async function restoreSession(): Promise<boolean> {
+  const stored = (await loadPersistedSession(state.ownerUserId)) as Partial<SessionState> | null
+  if (!stored || state.documentId || state.boqItems.length) return false
+  Object.assign(state, {
+    ...emptyState(state.ownerUserId),
+    ...stored,
+    ownerUserId: state.ownerUserId,
+    boqItems: sanitizeBoqLines(Array.isArray(stored.boqItems) ? stored.boqItems : []),
+  })
+  listeners.forEach((fn) => fn())
+  return Boolean(state.documentId || state.boqItems.length)
+}
+
+/**
+ * «ابدأ من جديد»: the one act that throws the work away, on the screen and in
+ * the browser both. Nothing else clears the stored copy.
+ */
+export function resetWorkingSession(): void {
+  Object.assign(state, emptyState(state.ownerUserId))
+  clearPersistedSession()
   listeners.forEach((fn) => fn())
 }
 
@@ -76,7 +109,8 @@ function emit() {
  */
 export function resetSessionForIdentity(ownerUserId: string | null) {
   Object.assign(state, emptyState(ownerUserId))
-  emit()
+  clearPersistedSession()
+  listeners.forEach((fn) => fn())
 }
 
 farqSession.subscribe((event, next) => {

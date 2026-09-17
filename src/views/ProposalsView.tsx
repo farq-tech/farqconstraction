@@ -4,6 +4,7 @@ import {
   getBoqItems,
   getSession,
   setParsedBoq,
+  resetWorkingSession,
   subscribeSession,
 } from '../store/session'
 import { resolveBoqCardFields } from '../lib/parseBoq'
@@ -831,12 +832,31 @@ export function ProposalsView({ navigate }: NavProps) {
   return (
     <>
       <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8 pb-36">
-        <div className="mb-6">
-          <h1 className="text-3xl font-black text-[#0D1F1D] mb-1">الموردون المقترحون</h1>
-          <p className="text-neutral-500 text-sm">
-            {projectName ? `${projectName} · ` : ''}
-            قرأ فرق {items.length} بندًا واقترح موردين من كتالوج Farq الحي.
-          </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-[#0D1F1D] mb-1">الموردون المقترحون</h1>
+            <p className="text-neutral-500 text-sm">
+              {projectName ? `${projectName} · ` : ''}
+              قرأ فرق {items.length} بندًا واقترح موردين من كتالوج Farq الحي.
+            </p>
+          </div>
+          {/*
+            The only thing that throws the work away. Everything else — a
+            refresh, a locked phone, a stray back gesture — brings the booklet
+            back exactly as it was.
+          */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!window.confirm('سيُحذف ما قرأناه من الكراسة واختياراتك للموردين. هل تريد البدء من جديد؟')) return
+              resetWorkingSession()
+              navigate('home')
+            }}
+            className="flex-shrink-0 text-xs font-bold text-neutral-500 border border-neutral-200 rounded-lg px-3 py-2 hover:text-red-700 hover:border-red-200"
+            title="يمسح الكراسة واختياراتك ويبدأ من الصفر"
+          >
+            ابدأ من جديد
+          </button>
         </div>
 
         <div className="flex flex-wrap gap-3 mb-6">
