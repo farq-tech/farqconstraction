@@ -358,11 +358,17 @@ export function ProposalsView({ navigate }: NavProps) {
 
   const [selected, setSelected] = useState<Record<number, string[]>>({})
 
+  // Nothing is selected because it was returned. Appearing in the results is a
+  // suggestion from ranking, not a decision, and pre-selecting turned a ranking
+  // mistake into a sent RFQ: eight tile and building-material suppliers came up
+  // pre-ticked for a porcelain squat-toilet line, one click from a real email.
+  // Automatic selection can come back when an eligibility gate exists to earn
+  // it. Until then the choice is the buyer's and has to be made explicitly.
   useEffect(() => {
     setSelected((prev) => {
       const next: Record<number, string[]> = { ...prev }
       for (const item of items) {
-        if (!next[item.id]) next[item.id] = item.suppliers.map((s) => s.id)
+        if (!next[item.id]) next[item.id] = []
       }
       return next
     })
@@ -533,12 +539,22 @@ export function ProposalsView({ navigate }: NavProps) {
 
       <div className="fixed bottom-0 left-0 right-0 lg:right-64 bg-white border-t border-neutral-100 px-4 py-4 z-20">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+          {/* «جاهزة» used to mean «has suggestions», which read as «ready to
+              send» while suppliers were pre-ticked. With nothing selected by
+              default the two must be told apart. */}
           <div className="text-sm text-neutral-500">
-            <span className="font-bold text-[#0D1F1D]">{readyItems.length}</span> بندًا جاهزة ·{' '}
-            <span className="font-bold text-[#0D1F1D]">{totalSelected}</span> موردًا محددًا
+            <span className="font-bold text-[#0D1F1D]">{readyItems.length}</span> بندًا لها موردون
+            مقترحون ·{' '}
+            {totalSelected === 0 ? (
+              <span className="font-bold text-[#0D1F1D]">لم تختر أي مورد بعد</span>
+            ) : (
+              <>
+                <span className="font-bold text-[#0D1F1D]">{totalSelected}</span> موردًا اخترته
+              </>
+            )}
           </div>
           <button
-            disabled={readyItems.length === 0}
+            disabled={totalSelected === 0}
             onClick={() => setShowModal(true)}
             className="px-6 py-3 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40"
           >

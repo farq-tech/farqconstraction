@@ -417,8 +417,11 @@ export function UploadView({ navigate }: NavProps) {
         documentId: result.documentId,
         fileName: file.name,
         items: result.items,
+        // Persisted as empty for the same reason the proposals screen no longer
+        // pre-ticks: being returned by ranking is a suggestion, not the buyer's
+        // decision, and a stored selection would put the decision back.
         selectedSupplierIds: Object.fromEntries(
-          result.items.map((item) => [String(item.id), item.suppliers.map((s) => s.id)]),
+          result.items.map((item) => [String(item.id), [] as string[]]),
         ),
       })
 
