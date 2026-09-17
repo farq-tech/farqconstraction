@@ -1535,7 +1535,14 @@ export async function parseBoqFile(
   // Scanned PDFs: give Farq tender extract (OCR when enabled) more time before giving up.
   if (isPdf) {
     let apiTimer: ReturnType<typeof setTimeout> | undefined
-    const apiWaitMs = clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
+    // A coded BOQ (MasterFormat, hierarchical) is one this browser cannot read:
+    // measured, it yields a dozen total lines out of hundreds of items. The
+    // server reads those page by page with the AI reader, which takes 1-3
+    // minutes — so here, as for a scan, the server is not an enrichment but the
+    // only chance of a real read. Waiting 12s and then serving the local read
+    // is what showed «قراءة غير صالحة» while the server was on page 3 of 36.
+    const codedBoq = countDistinctItemCodes(text) >= CODED_ITEMS_MIN
+    const apiWaitMs = codedBoq ? 480_000 : clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
     // A scan gets the longer wait because OCR is its only chance of any lines at
     // all — the owner must be told which of the two ceilings he is sitting under.
     work({ kind: 'start', leg: 'api-parse', opaque: true, capMs: apiWaitMs })
