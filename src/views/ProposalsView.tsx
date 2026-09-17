@@ -19,6 +19,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
   'نشاط متطابق': 'bg-[#e0efec] text-[#123F3A]',
   'دليل منتج': 'bg-blue-50 text-blue-700',
   'اختيارك': 'bg-amber-50 text-amber-700',
+  'تسمية آلية': 'bg-purple-50 text-purple-700',
 }
 
 const CHANNEL_ICON: Record<string, string> = {
@@ -154,7 +155,11 @@ function BOQCard({
             <span className="text-xs font-bold text-neutral-400">{item.id}</span>
             {isSearching && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-semibold">
-                {unresolved ? 'مادة غير محدّدة' : 'بلا مورد مؤكد'}
+                {unresolved
+                  ? item.aiSuggestion
+                    ? 'سمّاها الذكاء الاصطناعي — للمراجعة'
+                    : 'مادة غير محدّدة'
+                  : 'بلا مورد مؤكد'}
               </span>
             )}
           </div>
@@ -168,7 +173,11 @@ function BOQCard({
           <div className="text-xs text-neutral-500 mb-1">
             {isSearching
               ? unresolved
-                ? 'لم نتعرّف على هذه المادة'
+                ? item.aiSuggestion
+                  ? item.aiSuggestion.supplierCount > 0
+                    ? `${item.aiSuggestion.supplierCount} موردًا مقترحًا عبر التسمية الآلية`
+                    : 'سُمّيت آليًا ولا مورد لها في خريطة فرق'
+                  : 'لم نتعرّف على هذه المادة'
                 : 'لا يوجد مورد مؤكد — 0 مورد'
               : `وجد فرق ${item.supplierCount} موردًا`}
           </div>
@@ -199,6 +208,45 @@ function BOQCard({
                 {selectedIds.filter((id) => allIds.includes(id)).length} من{' '}
                 {item.suppliers.length} محدد
               </span>
+            </div>
+          )}
+
+          {unresolved && item.aiSuggestion && (
+            <div className="mb-3 rounded-xl border border-purple-100 bg-purple-50/60 px-4 py-3">
+              <div className="text-xs font-bold text-purple-800">
+                اقتراح آلي للمراجعة: قد تكون هذه المادة «{item.aiSuggestion.intent}»
+              </div>
+              <div className="text-[11px] text-purple-700/80 mt-1">
+                سمّى الذكاء الاصطناعي المادة مرة واحدة وحُفظت التسمية. لم يختر أي مورد: الموردون أدناه من
+                خريطة فرق لهذه التسمية، وهي ليست مطابقة مؤكدة. أضف من تراه مناسبًا بنفسك.
+              </div>
+              {item.aiSuggestion.suppliers.length > 0 ? (
+                <div className="mt-2 space-y-1.5">
+                  {item.aiSuggestion.suppliers.map((s) => (
+                    <div
+                      key={`ai-${s.id}`}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white border border-purple-100"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-[#0D1F1D] truncate">{s.name}</div>
+                        <div className="text-xs text-neutral-400">{s.city}</div>
+                      </div>
+                      <span className="text-xs">{CHANNEL_ICON[s.channel]}</span>
+                      <button
+                        onClick={() => onAddSupplier({ ...s, evidence: 'تسمية آلية' })}
+                        disabled={alreadyIds.has(s.id)}
+                        className="text-xs font-semibold text-[#123F3A] hover:underline disabled:text-neutral-300"
+                      >
+                        {alreadyIds.has(s.id) ? 'أُضيف' : 'أضف'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-neutral-500 mt-2">
+                  لا يحمل دليل فرق موردًا لهذه التسمية بعد.
+                </div>
+              )}
             </div>
           )}
 

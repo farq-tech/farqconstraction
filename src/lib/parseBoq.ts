@@ -632,7 +632,8 @@ function mapApiSuppliers(
         s.evidence === 'دليل مباشر' ||
         s.evidence === 'نشاط متطابق' ||
         s.evidence === 'دليل منتج' ||
-        s.evidence === 'اختيارك'
+        s.evidence === 'اختيارك' ||
+        s.evidence === 'تسمية آلية'
           ? s.evidence
           : i < 3
             ? 'نشاط متطابق'
@@ -651,7 +652,7 @@ function mapApiSuppliers(
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[] }>
+  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion'] }>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -660,7 +661,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[] }>()
+  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion'] }>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -689,6 +690,16 @@ async function matchViaFarqBoqApi(
       out.set(row.line_key, {
         farqSpecId: row.farq_spec_id,
         suppliers: mapApiSuppliers(row.suppliers || []),
+        // A model-named material rides alongside, never in place of, the match.
+        aiSuggestion: row.ai_suggestion
+          ? {
+              intent: row.ai_suggestion.intent,
+              family: row.ai_suggestion.family,
+              supplierCount: row.ai_suggestion.supplier_count,
+              zeroReason: row.ai_suggestion.zero_reason,
+              suppliers: mapApiSuppliers(row.ai_suggestion.suppliers || []),
+            }
+          : undefined,
       })
     }
   } catch (err) {
@@ -752,6 +763,7 @@ export async function matchSuppliersForItems(
       suppliers,
       farqSpecId: api?.farqSpecId || undefined,
       lineKey: lineKeyFor(line),
+      aiSuggestion: api?.aiSuggestion,
     })
 
     if (items.length % lineChunk === 0 || items.length === cleanLines.length) {

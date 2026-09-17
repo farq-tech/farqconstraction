@@ -21,7 +21,7 @@ export type AppView =
   | 'inbox'
   | 'inbox-thread'
 
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'اختيارك'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'اختيارك' | 'تسمية آلية'
 export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
 
 export interface Supplier {
@@ -44,6 +44,18 @@ export interface BOQItem {
   /** Matched Farq catalog spec when available */
   farqSpecId?: string
   lineKey?: string
+  /**
+   * The model's NAME for a material the catalogue could not confirm. A review
+   * suggestion, never a match: `farqSpecId` stays unset. Its suppliers come
+   * from Farq's intent→supplier map for that name, not from the model.
+   */
+  aiSuggestion?: {
+    intent: string
+    family?: string | null
+    supplierCount: number
+    suppliers: Supplier[]
+    zeroReason?: string | null
+  }
 }
 
 export interface RFQSummary {

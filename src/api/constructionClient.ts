@@ -272,6 +272,22 @@ export type BoqCatalogMatchRow = {
     channel?: string
     rfq_eligible?: boolean
   }>
+  /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
+  ai_suggestion?: {
+    intent: string
+    family: string | null
+    supplier_count: number
+    zero_reason: string | null
+    suppliers: Array<{
+      id: string
+      name_ar?: string
+      name_en?: string
+      city?: string
+      evidence?: string
+      channel?: string
+      rfq_eligible?: boolean
+    }>
+  }
 }
 
 export class ConstructionApiError extends Error {
@@ -1439,6 +1455,13 @@ export async function matchConstructionBoqCatalog(payload: {
         rfq_eligible_supplier_count?: number
         suppliers?: Array<Record<string, unknown>>
       }>
+      ai_suggestion?: {
+        intent?: string
+        family?: string | null
+        supplier_count?: number
+        zero_reason?: string | null
+        suppliers?: Array<Record<string, unknown>>
+      } | null
     }>
   }>('/api/construction/boq/match', {
     method: 'POST',
@@ -1506,6 +1529,42 @@ export async function matchConstructionBoqCatalog(payload: {
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
       }),
+      ...(row.ai_suggestion && row.ai_suggestion.intent
+        ? {
+            ai_suggestion: {
+              intent: String(row.ai_suggestion.intent),
+              family: row.ai_suggestion.family ?? null,
+              supplier_count: Number(row.ai_suggestion.supplier_count) || 0,
+              zero_reason: row.ai_suggestion.zero_reason ?? null,
+              suppliers: (row.ai_suggestion.suppliers || [])
+                .filter((s) => String(s.id || '').trim())
+                .slice(0, 8)
+                .map((s) => {
+                  const channels = (s.contact_channels || {}) as {
+                    email?: boolean
+                    whatsapp?: boolean
+                    haraj?: boolean
+                  }
+                  const id = String(s.id || '')
+                  const isHaraj =
+                    isHarajSellerExternalKey(id) ||
+                    String(s.source_system || s.source || '') === 'HARAJ' ||
+                    Boolean(channels.haraj)
+                  return {
+                    id,
+                    name_ar: s.name_ar as string | undefined,
+                    name_en: s.name_en as string | undefined,
+                    city: (s.city as string | undefined) || undefined,
+                    // The model named the material; the map supplied the seller.
+                    // Neither is a confirmed product match, and the badge says so.
+                    evidence: 'تسمية آلية',
+                    channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
+                    rfq_eligible: false,
+                  }
+                }),
+            },
+          }
+        : {}),
     }
   })
 
