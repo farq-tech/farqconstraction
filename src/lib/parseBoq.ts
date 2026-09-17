@@ -40,6 +40,12 @@ export type ParsedLine = {
   qty: string
   unit: string
   spec?: string
+  /** The item code the booklet prints for this row, when the read carried one. */
+  itemCode?: string
+  /** The server checked this row's code and quantity against the printed page. */
+  codeVerified?: boolean
+  /** Pure work (excavation, backfill…): nothing to buy, so nothing to match. */
+  workOnly?: boolean
 }
 
 const UNIT_NORMALIZE: Record<string, string> = {
@@ -701,25 +707,43 @@ async function matchViaFarqBoqApi(
     // read as «مادة غير محدّدة» for a reason that had nothing to do with them.
     // Every line is sent now, in chunks, two at a time so a large booklet does
     // not take every connection the API keeps for construction.
+    // Work with nothing to buy is not sent: there is no supplier to find for it.
+    const supplyLines = lines.filter((line) => !line.workOnly)
     const chunks: ParsedLine[][] = []
-    for (let i = 0; i < lines.length; i += MATCH_API_LINE_CAP) chunks.push(lines.slice(i, i + MATCH_API_LINE_CAP))
+    for (let i = 0; i < supplyLines.length; i += MATCH_API_LINE_CAP) chunks.push(supplyLines.slice(i, i + MATCH_API_LINE_CAP))
     const matchedRows: Awaited<ReturnType<typeof matchConstructionBoqCatalog>>['rows'] = []
-    for (let i = 0; i < chunks.length; i += 2) {
-      const pair = await Promise.all(
-        chunks.slice(i, i + 2).map((chunk) =>
-          matchConstructionBoqCatalog({
-            lines: chunk.map((line) => ({
-              line_key: lineKeyFor(line),
-              name_ar: line.name,
-              quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
-              uom: line.unit || 'عدد',
-              spec: line.spec,
-            })),
-          }),
-        ),
-      )
-      for (const part of pair) matchedRows.push(...(part.rows || []))
+    // One chunk failing must not erase the others. Measured 2026-09-17: two
+    // chunks in parallel, one 500, and Promise.all threw away 94 confirmed
+    // matches and 37 map suggestions the other chunks had returned — 1,039
+    // cards read «مادة غير محدّدة». Chunks now run one at a time (the heavy
+    // query did not survive being doubled), each retried once, and a chunk that
+    // still fails leaves only ITS lines unmatched and is reported by count.
+    let failedLines = 0
+    for (const chunk of chunks) {
+      const body = {
+        lines: chunk.map((line) => ({
+          line_key: lineKeyFor(line),
+          name_ar: line.name,
+          quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
+          uom: line.unit || 'عدد',
+          spec: line.spec,
+        })),
+      }
+      let part: Awaited<ReturnType<typeof matchConstructionBoqCatalog>> | null = null
+      for (let attempt = 0; attempt < 2 && !part; attempt++) {
+        try {
+          part = await matchConstructionBoqCatalog(body)
+        } catch (chunkError) {
+          if (attempt === 1) {
+            failedLines += chunk.length
+            console.warn('Farq BOQ match chunk failed twice', chunkError)
+          }
+        }
+      }
+      if (part) matchedRows.push(...(part.rows || []))
     }
+    if (failedLines > 0 && failedLines === supplyLines.length) throw new Error('تعذّرت مطابقة الموردين على الخادم لكل الدفعات.')
+    if (failedLines > 0) error = `تعذّرت مطابقة ${failedLines} بندًا من ${supplyLines.length} على الخادم بعد محاولتين؛ بقية البنود طوبقت.`
     const matched = { rows: matchedRows }
     for (const row of matched.rows || []) {
       out.set(row.line_key, {
@@ -811,6 +835,8 @@ export async function matchSuppliersForItems(
       lineKey: lineKeyFor(line),
       aiSuggestion: api?.aiSuggestion,
       mapSuggestion: api?.mapSuggestion,
+      workOnly: line.workOnly,
+      itemCode: line.itemCode,
     })
 
     if (items.length % lineChunk === 0 || items.length === cleanLines.length) {
@@ -1114,8 +1140,17 @@ export function resolveParsedLines(input: {
   // Measured last, on whatever won, because the question is about the text we
   // are about to serve rather than about the path that produced it.
   const dup = measureNameDuplication(lines)
+  // This guard exists for reads made by column geometry, which can serve the
+  // category column as the item name. A server-verified read names a row by its
+  // MATERIAL, tied to a code and a quantity both checked on the printed page —
+  // and materials repeat by nature: measured on a site BOQ, «خرسانة مسلحة 30
+  // ميجاباسكال» is 44 correct rows (columns, beams, slabs, per building), and
+  // the guard called 1,039 verified rows an invalid read.
+  const verifiedShare = lines.length ? lines.filter((l) => l.codeVerified).length / lines.length : 0
   const descriptionColumnSuspect =
-    lines.length >= NAME_DUPLICATION_MIN_ROWS && dup.share >= NAME_DUPLICATION_SUSPECT_SHARE
+    verifiedShare < 0.8 &&
+    lines.length >= NAME_DUPLICATION_MIN_ROWS &&
+    dup.share >= NAME_DUPLICATION_SUSPECT_SHARE
   const descriptionColumnDetail = descriptionColumnSuspect
     ? `${dup.repeatedRows} من ${lines.length} بندًا تحمل وصفًا مكررًا، وأكثر وصف تكرارًا «${dup.worstName}» ظهر ${dup.worstCount} مرة. أسماء البنود لا تتكرر بهذا الشكل، فالأرجح أننا قرأنا عمود الفئة أو المواصفة بدل عمود البند.`
     : ''
@@ -1368,6 +1403,18 @@ export function resolveBoqCardFields(
  * Also accepts object rows keyed by those titles.
  * Positional fallbacks: [name, qty, uom] or [id, name, qty, uom].
  */
+/**
+ * What the server's verified page reader says about a row, carried in the notes
+ * cell it writes: the printed item code, that code and quantity were checked
+ * against the page, and whether the row is work with nothing to buy.
+ */
+function serverReadFacts(notes: string): Pick<ParsedLine, 'itemCode' | 'codeVerified' | 'workOnly'> {
+  const text = String(notes || '')
+  if (!/قراءة آلية مُتحقَّق/.test(text)) return {}
+  const code = text.match(/بند الكراسة:\s*(\S+)/)?.[1]
+  return { itemCode: code || undefined, codeVerified: true, workOnly: /عمل بلا توريد/.test(text) || undefined }
+}
+
 export function rowsToLines(rows: unknown[]): ParsedLine[] {
   if (!Array.isArray(rows) || rows.length === 0) return []
 
@@ -1405,6 +1452,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     let unitRaw = 'عدد'
     let spec: string | undefined
     let idHint: number | null = null
+    let notesText = ''
 
     if (nameCol >= 0) {
       name = cellAt(row, nameCol)
@@ -1413,6 +1461,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       const specVal = cellAt(row, specCol)
       if (specVal && !isHeaderLabel(specVal)) spec = specVal
       const notes = cellAt(row, notesCol)
+      notesText = notes
       idHint = extractBoqItemNumber(notes)
       if (idCol >= 0) {
         const rawId = Number(cellAt(row, idCol))
@@ -1449,6 +1498,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       qty: formatQty(qtyRaw),
       unit: normalizeUnit(String(unitRaw || 'عدد')),
       spec,
+      ...serverReadFacts(notesText),
     })
   }
   return sanitizeBoqLines(out)

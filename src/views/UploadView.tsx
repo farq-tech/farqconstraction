@@ -15,6 +15,7 @@ import {
 } from '../lib/boqEta'
 import { beginBoqUpload, clearParsedBoq, setParsedBoq, upsertDraftRfq } from '../store/session'
 import { useProcurement } from '../procurementContext'
+import { currentAuthMode } from '../api/constructionAuth'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -315,6 +316,7 @@ export function UploadView({ navigate }: NavProps) {
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   /** How much of the booklet we actually read, and why the rest is missing. */
   const [readReport, setReadReport] = useState<ReadReport | null>(null)
   const [elapsed, setElapsed] = useState(0)
@@ -342,6 +344,16 @@ export function UploadView({ navigate }: NavProps) {
   }, [phase])
 
   const runProcessing = async (file: File) => {
+    // No session on a deployed build means no call reaches the API at all: the
+    // server-side readers never run, no supplier is matched, and the screen then
+    // apologises for a read it should not have started. Seen twice on
+    // 2026-09-17 — a coded BOQ read locally in two seconds, the invalid-read
+    // guard, and the actual cause («لم تسجّل الدخول») buried under it. Ask first.
+    if (import.meta.env.PROD && currentAuthMode() === 'demo') {
+      setNeedsSignIn(true)
+      return
+    }
+    setNeedsSignIn(false)
     // Isolate this upload immediately — never keep previous booklet lines around.
     beginBoqUpload({ fileName: file.name })
     setDraftBoq(null)
@@ -586,6 +598,25 @@ export function UploadView({ navigate }: NavProps) {
           }}
           onClick={() => inputRef.current?.click()}
         >
+          {needsSignIn && (
+            <div
+              className="mx-6 mt-6 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-right"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-sm font-bold text-amber-900">سجّل الدخول أولًا، ثم ارفع الكراسة</div>
+              <div className="text-xs text-amber-800 mt-1 leading-relaxed">
+                قراءة الكراسة ومطابقة الموردين تجريان على خادم فرق، وهو لا يستقبل ملفًا بلا جلسة. لم نقرأ
+                ملفك ولم نرفعه.
+              </div>
+              <button
+                onClick={() => navigate('login')}
+                className="mt-2 text-xs font-bold text-white bg-[#123F3A] rounded-lg px-3 py-1.5"
+              >
+                تسجيل الدخول
+              </button>
+            </div>
+          )}
           <input
             ref={inputRef}
             type="file"

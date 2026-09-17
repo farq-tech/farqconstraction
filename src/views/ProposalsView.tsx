@@ -216,7 +216,9 @@ function BOQCard({
             <span className="text-xs font-bold text-neutral-400">{item.id}</span>
             {isSearching && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-semibold">
-                {unresolved
+                {item.workOnly
+                  ? 'عمل بلا توريد'
+                  : unresolved
                   ? item.mapSuggestion
                     ? 'مادة معروفة — من خريطة فرق'
                     : item.aiSuggestion
@@ -235,7 +237,9 @@ function BOQCard({
         <div className="text-left flex-shrink-0">
           <div className="text-xs text-neutral-500 mb-1">
             {isSearching
-              ? unresolved
+              ? item.workOnly
+                ? 'عمل موقع لا مادة تُشترى — لا يُطلب من مورد'
+                : unresolved
                 ? item.mapSuggestion
                   ? item.mapSuggestion.supplierCount > 0
                     ? `${item.mapSuggestion.supplierCount} موردًا في خريطة فرق — للمراجعة`

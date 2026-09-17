@@ -48,3 +48,40 @@ describe('the document, not the reader, supplies the denominator', () => {
     expect(r.codedItemsSuspect).toBe(false)
   })
 })
+
+describe('a server-verified read is judged as what it is', () => {
+  const HEADER = ['اسم المادة', 'الكمية', 'الوحدة', 'المواصفة الفنية', 'موقع التوريد', 'ملاحظات']
+  const verified = (code: string, page: number, extra = '') =>
+    `بند الكراسة: ${code} — صفحة الكميات: ${page} — قراءة آلية مُتحقَّق من كودها وكميتها على الصفحة${extra}`
+
+  it('carries the printed code, the verification and work-only from the notes cell', async () => {
+    const { rowsToLines } = await import('./parseBoq')
+    const lines = rowsToLines([
+      HEADER,
+      ['خرسانة مسلحة 35 ميجاباسكال', 70.41, 'م3', 'خرسانة مسلحة للقواعد', '', verified('03300004', 1)],
+      ['حفر وخنادق للأساسات', 655.8, 'م3', 'حفر', '', verified('02025002', 1, ' — عمل بلا توريد')],
+      ['درابزين حديدي', 385, 'م ط', 'درابزين', '', 'بند الكراسة: 1 — صفحة الكميات: 28'],
+    ])
+    expect(lines.map((l) => [l.itemCode, l.codeVerified, l.workOnly])).toEqual([
+      ['03300004', true, undefined],
+      ['02025002', true, true],
+      [undefined, undefined, undefined],
+    ])
+  })
+
+  it('does not call a verified read invalid because materials repeat', async () => {
+    const { rowsToLines } = await import('./parseBoq')
+    const rows: unknown[] = [HEADER]
+    for (let i = 0; i < 60; i++) rows.push(['خرسانة مسلحة 30 ميجاباسكال', 10 + i, 'م3', `بند ${i}`, '', verified(`0330${String(1000 + i)}`, 2)])
+    const apiLines = rowsToLines(rows)
+    const r = resolveParsedLines({ apiLines, text: '', fileName: 'site.pdf' })
+    expect(r.lines.length).toBe(60)
+    expect(r.descriptionColumnSuspect).toBe(false)
+  })
+
+  it('still calls a geometry read invalid when its names repeat like a category column', () => {
+    const apiLines = Array.from({ length: 60 }, (_, i) => ({ id: i + 1, name: 'الخوادم والحوسبة المؤسسية', qty: String(i + 1), unit: 'جهاز' }))
+    const r = resolveParsedLines({ apiLines, text: '', fileName: 'dc.pdf' })
+    expect(r.descriptionColumnSuspect).toBe(true)
+  })
+})

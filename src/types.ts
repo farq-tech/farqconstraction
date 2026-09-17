@@ -56,6 +56,10 @@ export interface BOQItem {
     suppliers: Supplier[]
     zeroReason?: string | null
   }
+  /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */
+  workOnly?: boolean
+  /** The item code the booklet prints for this row. */
+  itemCode?: string
   /**
    * The ontology NAMED this material and Farq's intent→supplier map was read
    * for that name. Not a catalogue match: `farqSpecId` stays unset and nothing
