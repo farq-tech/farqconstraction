@@ -1,5 +1,4 @@
 import type { BOQItem, Supplier } from '../types'
-import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import type { BoqWorkProgress } from './boqEta'
 import {
   extractBoqTable,
@@ -429,13 +428,6 @@ function chunkSize(total: number): number {
 }
 
 /**
- * Mirrors `CATALOG_FETCH_TIMEOUT_MS` in `api/constructionSuppliers` (45s), which
- * is module-private there. Only used to tell the owner the ceiling on a wait we
- * cannot measure from the inside — never to drive control flow.
- */
-const CATALOG_FETCH_CAP_MS = 45_000
-
-/**
  * Reject a leg that neither resolves nor rejects. `Promise.race` leaves the
  * loser pending, which is fine — it holds no UI state.
  */
@@ -616,20 +608,8 @@ async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Pro
 
 /** Cap UI proposals so a 10k+ directory response cannot freeze the tab. */
 const MATCH_SUPPLIERS_PER_LINE = 8
-/** Client-side fallback only scores against this many directory rows. */
-const MATCH_CATALOG_SCORE_CAP = 2_500
 /** Prefer Farq BOQ match for at most this many lines (API max is 200). */
 const MATCH_API_LINE_CAP = 80
-
-function scoreSupplier(hay: string, needles: string[]): number {
-  let score = 0
-  const normHay = normalizeAr(hay)
-  for (const n of needles) {
-    const nn = normalizeAr(n)
-    if (nn && normHay.includes(nn)) score += 2
-  }
-  return score
-}
 
 function lineKeyFor(line: ParsedLine): string {
   return `line-${line.id}`
@@ -728,7 +708,6 @@ export async function matchSuppliersForItems(
   opts: { onWork?: BoqWorkProgress } = {},
 ): Promise<{
   items: BOQItem[]
-  catalogLoaded: boolean
   /** Remote match request failure, if any — surfaced, never swallowed. */
   matchApiError?: string
 }> {
@@ -737,142 +716,30 @@ export async function matchSuppliersForItems(
   const remote = await matchViaFarqBoqApi(cleanLines, work)
   const apiHits = remote.hits
 
-  let catalog: Awaited<ReturnType<typeof listConstructionSuppliers>>['suppliers'] = []
-  let catalogLoaded = false
-  // ~6MB directory behind a 60s in-memory TTL: the second read of a session is
-  // free and the first is a single download with no progress events.
-  work({ kind: 'start', leg: 'match-catalog', opaque: true, capMs: CATALOG_FETCH_CAP_MS })
-  try {
-    const result = await listConstructionSuppliers({
-      limit: MATCH_CATALOG_SCORE_CAP,
-      offset: 0,
-      contactableOnly: true,
-    })
-    catalog = result.suppliers
-      .slice(0, MATCH_CATALOG_SCORE_CAP)
-    catalogLoaded = catalog.length > 0
-  } catch (err) {
-    catalog = []
-    catalogLoaded = false
-    // `catalogLoaded: false` already reaches the screen; the reason should too.
-    console.warn('Supplier directory unavailable — local keyword match will be weak', err)
-  } finally {
-    work({ kind: 'end', leg: 'match-catalog' })
-  }
-
-  // Intent → shared pool (one catalog scan per unique intent), then per-line rank.
-  // The leg opens before the dynamic import so the chunk load and the intent
-  // resolution are attributed to it, instead of leaving the screen in a gap with
-  // no named stage at all.
-  work({ kind: 'start', leg: 'match-pools', unit: 'pool', lines: cleanLines.length })
-  const {
-    resolveProcurementIntentBatch,
-    scoreSupplierAgainstProfile,
-  } = await import('./procurementIntentEngine')
-  const batch = resolveProcurementIntentBatch(
-    cleanLines.map((line) => ({ id: line.id, name: line.name })),
-  )
-  // Pool count is a product of intent resolution, so it arrives as a zero tick.
-  work({ kind: 'tick', leg: 'match-pools', done: 0, total: batch.pools.length })
-  const poolSuppliers = new Map<string, typeof catalog>()
-  const poolChunk = chunkSize(batch.pools.length)
-  let poolsDone = 0
-  for (const pool of batch.pools) {
-    const scored = catalog
-      .map((s) => {
-        const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-        const { score, vetoed } = scoreSupplierAgainstProfile(hay, {
-          intent: pool.intent,
-          domain: pool.domain,
-          type: 'product',
-          search_terms: pool.search_terms,
-          supplier_archetypes: pool.supplier_archetypes,
-          exclude: pool.exclude,
-          confidence: 1,
-          source: 'dictionary',
-          raw: pool.intent,
-        })
-        return { s, score, vetoed }
-      })
-      .filter((x) => !x.vetoed && x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((x) => x.s)
-    poolSuppliers.set(pool.pool_key, scored)
-    poolsDone += 1
-    if (poolsDone % poolChunk === 0 || poolsDone === batch.pools.length) {
-      work({ kind: 'tick', leg: 'match-pools', done: poolsDone, total: batch.pools.length })
-      await yieldToUi()
-    }
-  }
-  work({ kind: 'end', leg: 'match-pools' })
-
-  const profileByLineId = new Map(
-    batch.lines.map((row) => [row.line_id, row.profile]),
-  )
-
+  // There is no local supplier search any more, and that is deliberate.
+  //
+  // What used to happen: the directory was downloaded and every line was padded
+  // out to MATCH_SUPPLIERS_PER_LINE from it, scoring each supplier by substring
+  // over `name + category + activity + city`. That cannot establish that a
+  // business sells the material — those fields describe a registration, not a
+  // product list — and it was measured doing exactly what that predicts. On
+  // «مرحاض عربي بورسلان» it returned four paint companies and a steel firm,
+  // each scoring on the single token «عربي» found inside «المملكة العربية
+  // السعودية»: their country. Not one hit on مرحاض or بورسلان.
+  //
+  // The padding also hid the truth it was papering over. Because it always
+  // filled the line to eight, «بلا مورد مؤكد — 0 مورد» could never render, so
+  // a material with no supplier in Farq's register was indistinguishable on
+  // screen from one with eight. Farq's own answer for those lines is zero.
+  //
+  // The eligible suppliers the API returns are now the only ones shown. If that
+  // is none, the item says none.
   work({ kind: 'start', leg: 'match-rank', unit: 'line', total: cleanLines.length, lines: cleanLines.length })
   const lineChunk = chunkSize(cleanLines.length)
   const items: BOQItem[] = []
   for (const line of cleanLines) {
     const api = apiHits.get(lineKeyFor(line))
-    const apiSuppliers = api?.suppliers || []
-    const profile = profileByLineId.get(String(line.id))
-    const poolKey =
-      profile && profile.intent !== 'unknown'
-        ? profile.intent
-        : `line:${line.id}`
-    const pooled = poolSuppliers.get(poolKey) || []
-
-    // Per-line re-rank within the shared intent pool (apply line profile again).
-    const ranked = (profile
-      ? pooled
-          .map((s) => {
-            const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-            const { score, vetoed } = scoreSupplierAgainstProfile(hay, profile)
-            return { s, score, vetoed }
-          })
-          .filter((x) => !x.vetoed && x.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .map((x) => x.s)
-      : pooled)
-
-    // Fallback: if pool empty and profile unknown, soft token score (still not raw-only dump).
-    const fallbackNeedles =
-      profile?.search_terms?.length
-        ? profile.search_terms
-        : normalizeAr(line.name)
-            .split(/\s+/)
-            .filter((w) => w.length >= 3)
-            .slice(0, 4)
-    const fallback =
-      ranked.length > 0
-        ? []
-        : catalog
-            .map((s) => {
-              const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-              if (profile && scoreSupplierAgainstProfile(hay, profile).vetoed) {
-                return { s, score: 0 }
-              }
-              return { s, score: scoreSupplier(hay, fallbackNeedles) }
-            })
-            .filter((x) => x.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .map((x) => x.s)
-
-    const catalogSource = ranked.length > 0 ? ranked : fallback
-    const seen = new Set(apiSuppliers.map((s) => s.id))
-    const catalogExtras: Supplier[] = catalogSource
-      .filter((s) => !seen.has(s.id))
-      .slice(0, Math.max(0, MATCH_SUPPLIERS_PER_LINE - apiSuppliers.length))
-      .map((s, i) => ({
-        id: s.id,
-        name: s.name,
-        city: s.city,
-        evidence: (i < 3 ? 'نشاط متطابق' : 'دليل منتج') as Supplier['evidence'],
-        channel: (s.hasEmail ? 'بريد' : 'واتساب') as Supplier['channel'],
-      }))
-
-    const suppliers = [...apiSuppliers, ...catalogExtras].slice(0, MATCH_SUPPLIERS_PER_LINE)
+    const suppliers = (api?.suppliers || []).slice(0, MATCH_SUPPLIERS_PER_LINE)
 
     items.push({
       id: line.id,
@@ -894,7 +761,7 @@ export async function matchSuppliersForItems(
   }
   work({ kind: 'end', leg: 'match-rank' })
 
-  return { items, catalogLoaded, matchApiError: remote.error }
+  return { items, matchApiError: remote.error }
 }
 
 export type ParseBoqResult = {
@@ -1566,22 +1433,21 @@ export async function parseBoqFile(
       source,
       rawLineCount: lines.length,
       ...readFacts,
-      matchDegraded: !matched.catalogLoaded || Boolean(matched.matchApiError),
+      matchDegraded: Boolean(matched.matchApiError),
       matchApiFailed: Boolean(matched.matchApiError),
       matchApiError: matched.matchApiError,
       matchWarning:
         [
-          // Same class as the two strings already corrected: on a deployed
-          // build «:3000» and «CONSTRUCTION_READ_ENABLED» are a local dev
-          // setting and a server variable, neither of which the reader can
-          // act on from a browser. Say what he can actually do.
-          !matched.catalogLoaded
-            ? `تعذر الاتصال بـ Farq API. ${apiUnreachableAdvice()}`
-            : matched.matchApiError
-              ? `فشلت مطابقة الموردين على الـ API (${matched.matchApiError}). الاقتراحات أدناه من مطابقة محلية بالكلمات فقط.`
-              : ready === 0
-                ? `قُرئت البنود بالكامل لكن لم يُعثر على أي مورد مطابق.${isProductionBuild() ? '' : ' تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'}`
-                : '',
+          // The server is the only source of suppliers now, so when it does not
+          // answer there are no suggestions to describe — the old wording
+          // promised «اقتراحات أدناه من مطابقة محلية», and there are none.
+          matched.matchApiError
+            ? currentAuthMode() === 'demo'
+              ? 'لم تسجّل الدخول، فلم تصل مطابقة الموردين إلى خادم فرق ولم نعرض أي مورد. سجّل الدخول ثم أعد رفع الكراسة.'
+              : `تعذّرت مطابقة الموردين على الخادم (${matched.matchApiError}) ولم نعرض أي مورد — لا نخمّن الموردين محليًا.`
+            : ready === 0
+              ? `قُرئت البنود بالكامل، ولا يوجد لأي بند مورد مؤكد في سجل فرق.${isProductionBuild() ? '' : ' تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'}`
+              : '',
           shelvedTableNote,
           specNote,
         ]
