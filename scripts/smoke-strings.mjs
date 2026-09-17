@@ -56,22 +56,39 @@ await page.getByRole('button', { name: /عرض الموردين/ }).first().clic
 await page.waitForTimeout(10000)
 // Cards only reveal the per-item note once expanded.
 const toggles = page.locator('button.w-full.flex.items-start')
-for (let i = 0; i < Math.min(await toggles.count(), 12); i++) {
+for (let i = 0; i < await toggles.count(); i++) {
   await toggles.nth(i).click().catch(() => {})
 }
 await page.waitForTimeout(1500)
 const cards = page.locator('div.bg-white.rounded-2xl')
 const n = await cards.count()
 const zeros = []
+const unresolved = []
 const matched = []
+// Does the line carry technical text by this screen, or only the structural
+// code the quantities table already printed? That is what decides whether the
+// upload screen's «specifications have not arrived» count is a stale snapshot.
+let withTechText = 0
+const sanitary = []
 for (let i = 0; i < n; i++) {
   const t = (await cards.nth(i).innerText().catch(() => '')).trim()
-  if (/بلا مورد مؤكد|مادة غير محدّدة/.test(t)) zeros.push(t)
-  else if (/وجد فرق/.test(t)) matched.push(t)
+  const isCard = /بلا مورد مؤكد|مادة غير محدّدة|وجد فرق/.test(t)
+  if (!isCard) continue
+  if (/بلا مورد مؤكد/.test(t)) zeros.push(t)
+  else if (/مادة غير محدّدة/.test(t)) unresolved.push(t)
+  else matched.push(t)
+  // The spec line is «<qty> <unit> · <spec>». Technical text is anything in
+  // that slot beyond the bare «رمز إنشائي NNNN».
+  const specSlot = (t.split('\n').find((l) => l.includes('·')) || '').split('·').slice(1).join('·').trim()
+  if (specSlot && !/^رمز إنشائي\s*\d*$/.test(specSlot)) withTechText++
+  if (/مرحاض|كرسي إفرنجي|قاعدة حمام/.test(t)) sanitary.push(t)
 }
-out('1. ZERO ITEMS (verbatim, first 3)', zeros.slice(0, 3).join('\n---\n') || '(none on screen)')
-out('1b. MATCHED ITEMS (control, first 1)', matched.slice(0, 1).join('\n') || '(none on screen)')
-out('counts', `zero-state cards: ${zeros.length} · matched cards: ${matched.length}`)
+out('SPEC TEXT BY PROPOSALS SCREEN', `${withTechText} of ${zeros.length + unresolved.length + matched.length} cards carry technical text beyond «رمز إنشائي»`)
+out('GATE A PROBE — wc_sanitaryware (مرحاض)', sanitary.join('\n---\n') || '(no sanitaryware line found on screen)')
+out('1a. «بلا مورد مؤكد» ITEMS (verbatim, first 2)', zeros.slice(0, 2).join('\n---\n') || '(none on screen)')
+out('1b. «مادة غير محدّدة» ITEMS (verbatim, first 1)', unresolved.slice(0, 1).join('\n') || '(none on screen)')
+out('1c. MATCHED ITEMS (control, first 1)', matched.slice(0, 1).join('\n') || '(none on screen)')
+out('counts', `«بلا مورد مؤكد»: ${zeros.length} · «مادة غير محدّدة»: ${unresolved.length} · matched: ${matched.length}`)
 
-await page.screenshot({ path: '/tmp/strings-proposals.png', fullPage: false })
+await page.screenshot({ path: (process.env.SHOT_DIR||'/tmp')+'/strings-proposals.png', fullPage: false })
 await browser.close()
