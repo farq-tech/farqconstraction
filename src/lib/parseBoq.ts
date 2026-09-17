@@ -820,25 +820,53 @@ const NAME_DUPLICATION_MIN_ROWS = 8
  * was never served at all. Every count-based indicator was green. The only
  * thing that distinguished it from a clean read was that the names repeated.
  */
-export function measureNameDuplication(lines: Array<Pick<ParsedLine, 'name'>>): {
+export function measureNameDuplication(
+  lines: Array<Pick<ParsedLine, 'name' | 'itemCode'>>,
+): {
   share: number
   repeatedRows: number
   worstName: string
   worstCount: number
 } {
-  const counts = new Map<string, number>()
+  /*
+   * A NAME REPEATING IS NOT A FAILURE. THE SAME NAME UNDER MANY ITEMS IS.
+   *
+   * A BOQ item is priced once per building, per floor, per section: «توريد
+   * وتركيب شبكة المياه الباردة والساخنة» is nineteen correct rows under one
+   * item code. The failure this guard exists for looks different — one
+   * category or one boilerplate sentence spread over DIFFERENT items — so the
+   * count is per name across distinct item codes, and rows that carry no code
+   * are still counted the old way, because nothing there says they belong
+   * together.
+   */
+  const codesByName = new Map<string, Set<string>>()
+  const rowsByName = new Map<string, number>()
+  const uncodedByName = new Map<string, number>()
   for (const line of lines) {
     const key = String(line.name || '').replace(/\s+/g, ' ').trim()
     if (!key) continue
-    counts.set(key, (counts.get(key) ?? 0) + 1)
+    rowsByName.set(key, (rowsByName.get(key) ?? 0) + 1)
+    const code = String(line.itemCode || '').trim()
+    if (!code) {
+      uncodedByName.set(key, (uncodedByName.get(key) ?? 0) + 1)
+      continue
+    }
+    if (!codesByName.has(key)) codesByName.set(key, new Set())
+    codesByName.get(key)!.add(code)
   }
+
   let repeatedRows = 0
   let worstName = ''
   let worstCount = 0
-  for (const [name, count] of counts) {
-    if (count > 1) repeatedRows += count
-    if (count > worstCount) {
-      worstCount = count
+  for (const [name, rows] of rowsByName) {
+    const spread = codesByName.get(name)?.size ?? 0
+    const uncoded = uncodedByName.get(name) ?? 0
+    // Suspicious rows: those sharing a name across more than one item, plus
+    // uncoded rows that merely share a name with something.
+    const suspicious = (spread > 1 ? rows - uncoded : 0) + (uncoded > 1 ? uncoded : 0)
+    if (suspicious > 1) repeatedRows += suspicious
+    if (suspicious > worstCount) {
+      worstCount = suspicious
       worstName = name
     }
   }
@@ -1295,7 +1323,12 @@ export function resolveBoqCardFields(
  */
 function serverReadFacts(notes: string): Pick<ParsedLine, 'itemCode' | 'codeVerified' | 'workOnly'> {
   const text = String(notes || '')
-  if (!/قراءة آلية مُتحقَّق/.test(text)) return {}
+  // Two server reads qualify: the verified extractor, and the column reader,
+  // which ties every row to a code and a quantity taken from the printed page
+  // by their coordinates. The second used to be treated as unverified, so a
+  // booklet read entirely by geometry scored zero and tripped the duplicate
+  // guard on its own correct rows.
+  if (!/قراءة آلية مُتحقَّق|قراءة جدولية من إحداثيات الصفحة/.test(text)) return {}
   const code = text.match(/بند الكراسة:\s*(\S+)/)?.[1]
   return { itemCode: code || undefined, codeVerified: true, workOnly: /عمل بلا توريد/.test(text) || undefined }
 }
