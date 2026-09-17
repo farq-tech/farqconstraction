@@ -67,6 +67,13 @@ function BOQCard({
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.includes(id))
   const { name, qty, unit, spec } = resolveBoqCardFields(item)
   const isSearching = item.status === 'searching'
+  // A line with no suppliers is one of two different facts and they must not
+  // read alike: either the line resolved to a material and nothing in the
+  // catalogue is a confirmed supplier for it, or the line never resolved to a
+  // material at all — in which case we never looked for a supplier and saying
+  // «no supplier» would be a claim we did not earn. `farqSpecId` is set only
+  // when the API resolved the line, so it is what separates the two.
+  const unresolved = isSearching && !item.farqSpecId
   const alreadyIds = useMemo(() => new Set(item.suppliers.map((s) => s.id)), [item.suppliers])
 
   useEffect(() => {
@@ -146,8 +153,8 @@ function BOQCard({
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold text-neutral-400">{item.id}</span>
             {isSearching && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">
-                فرق يبحث عنها
+              <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-semibold">
+                {unresolved ? 'مادة غير محدّدة' : 'بلا مورد مؤكد'}
               </span>
             )}
           </div>
@@ -160,12 +167,14 @@ function BOQCard({
         <div className="text-left flex-shrink-0">
           <div className="text-xs text-neutral-500 mb-1">
             {isSearching
-              ? `وجدنا موردًا واحدًا حتى الآن`
+              ? unresolved
+                ? 'لم نتعرّف على هذه المادة'
+                : 'لا يوجد مورد مؤكد — 0 مورد'
               : `وجد فرق ${item.supplierCount} موردًا`}
           </div>
           <div className="flex items-center gap-1 justify-end">
             <span
-              className={`w-2 h-2 rounded-full ${isSearching ? 'bg-amber-400 animate-pulse-dot' : 'bg-[#123F3A]'}`}
+              className={`w-2 h-2 rounded-full ${isSearching ? 'bg-neutral-300' : 'bg-[#123F3A]'}`}
             />
             {expanded ? (
               <ChevronUpIcon className="w-4 h-4 text-neutral-400" />
@@ -318,8 +327,10 @@ function BOQCard({
           </div>
 
           {isSearching && (
-            <div className="mt-3 text-xs text-neutral-400 bg-neutral-50 rounded-xl px-3 py-2.5">
-              فرق يواصل البحث عن موردين لهذا البند عبر الكتالوج الحي.
+            <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
+              {unresolved
+                ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'
+                : 'لا يوجد مورد مؤكد لهذه المادة في الكتالوج. لا بحث جارٍ الآن — أضف موردًا من دليل الموردين إن كنت تعرف واحدًا.'}
             </div>
           )}
         </div>
@@ -465,7 +476,7 @@ export function ProposalsView({ navigate }: NavProps) {
             <span className="text-sm text-[#123F3A]">جاهزة للإرسال</span>
           </div>
           <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-4 py-2.5">
-            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse-dot" />
+            <div className="w-2 h-2 rounded-full bg-amber-400" />
             <span className="text-lg font-black text-amber-700">{searchingItems.length}</span>
             <span className="text-sm text-amber-700">يحتاج موردين</span>
           </div>

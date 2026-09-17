@@ -1495,11 +1495,19 @@ export async function parseBoqFile(
       ? `قرأنا هذا الملف بالمسار النصي. قارئ الأعمدة رأى جدولًا ولم يكمله (${table.rows.length} من ${table.expectedCount ?? '؟'}).`
       : ''
   // The quantities table carries no technical column; that text comes from the
-  // API. Without it every line matches on its name alone, which is how a
-  // «ماسورة» finds the wrong material — so its absence is stated, not assumed.
+  // API. Without it a line matches on its name alone, which is how a «ماسورة»
+  // finds the wrong material — so the shortfall is stated, not assumed.
+  //
+  // It is stated as pending rather than as absent on purpose. The API has not
+  // failed here, it has not answered inside the window this screen waits (see
+  // the extraction timeout below): on a 6.9 MB booklet the server is still
+  // reading while we render. Saying «وصلت لـ 0» invites the reader to conclude
+  // the text does not exist, and he then finds technical text on a later
+  // screen and concludes the count lied to him.
+  const specsPending = lines.length - specsFromApi
   const specNote =
     source === 'pdf-table' && specsFromApi < lines.length
-      ? `المواصفات الفنية وصلت لـ ${specsFromApi} من ${lines.length} بندًا؛ الباقي سيُطابق بالاسم والكمية فقط.`
+      ? `المواصفات الفنية لم تصل بعد لـ ${specsPending} من ${lines.length} بندًا — استخراجها من الكراسة أبطأ من مهلة هذه الشاشة، فطُوبقت هذه البنود بالاسم والكمية. الكميات والوحدات مقروءة بالكامل.`
       : ''
   const expectedLineCount = usedTable ? table!.expectedCount : null
   const unreadableLineCount = usedTable ? unreadableCount(table!) : 0

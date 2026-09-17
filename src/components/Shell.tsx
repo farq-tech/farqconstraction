@@ -4,6 +4,7 @@ import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon } from
 import { NotificationsDrawer } from './NotificationsDrawer'
 import { listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
+import { useFarqSession } from '../api/useFarqSession'
 
 interface ShellProps {
   view: AppView
@@ -66,6 +67,17 @@ export function Shell({ view, navigate, children }: ShellProps) {
   const [offerCount, setOfferCount] = useState<number | null>(null)
   const [inboxUnread, setInboxUnread] = useState<number | null>(null)
   const [latestRfqId, setLatestRfqId] = useState<string | null>(null)
+  const session = useFarqSession()
+  // The sidebar used to state «وضع تجريبي / بدون تسجيل دخول» unconditionally,
+  // so a genuinely signed-in owner was told he was not signed in.
+  const displayName = session.user?.displayName?.trim() || ''
+  const email = session.user?.email?.trim() || ''
+  const accountLine = session.isAuthenticated
+    ? displayName || email || 'حسابك'
+    : 'وضع تجريبي'
+  const accountSubLine = session.isAuthenticated
+    ? (displayName && email ? email : 'مسجّل الدخول')
+    : 'بدون تسجيل دخول'
   const inCreate = isCreateFlow(view)
   const step = getStep(view)
   const NAV = buildNav(offerCount != null && offerCount > 0 ? String(offerCount) : null)
@@ -185,8 +197,10 @@ export function Shell({ view, navigate, children }: ShellProps) {
               <span className="text-[#123F3A] font-bold text-sm">ف</span>
             </div>
             <div className="min-w-0 text-right">
-              <div className="text-white text-sm font-semibold leading-none">وضع تجريبي</div>
-              <div className="text-white/40 text-xs mt-0.5">بدون تسجيل دخول</div>
+              <div className="text-white text-sm font-semibold leading-none truncate">
+                {accountLine}
+              </div>
+              <div className="text-white/40 text-xs mt-0.5 truncate">{accountSubLine}</div>
             </div>
           </button>
         </div>
