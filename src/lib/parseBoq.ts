@@ -10,6 +10,7 @@ import {
   type PdfGlyph,
 } from './boqPdfTable'
 import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
+import { currentAuthMode } from '../api/constructionAuth'
 
 function normalizeAr(text: string): string {
   // NFKC first: printed Etimad booklets arrive as Arabic Presentation Forms-B
@@ -1506,9 +1507,15 @@ export async function parseBoqFile(
   // the text does not exist, and he then finds technical text on a later
   // screen and concludes the count lied to him.
   const specsPending = lines.length - specsFromApi
+  // Two different causes, and blaming the slow one for the other is how the
+  // owner was told a 6-second window was at fault when he simply had no
+  // session: the extraction runs on the server, so with no session it never
+  // started rather than ran late.
   const specNote =
     source === 'pdf-table' && specsFromApi < lines.length
-      ? `المواصفات الفنية لم تصل بعد لـ ${specsPending} من ${lines.length} بندًا — استخراجها من الكراسة أبطأ من مهلة هذه الشاشة، فطُوبقت هذه البنود بالاسم والكمية. الكميات والوحدات مقروءة بالكامل.`
+      ? currentAuthMode() === 'demo'
+        ? `المواصفات الفنية لم تُستخرج (${specsPending} من ${lines.length} بندًا): استخراجها يجري على خادم فرق ويحتاج تسجيل دخول. الكميات والوحدات مقروءة بالكامل من الكراسة نفسها.`
+        : `المواصفات الفنية لم تصل بعد لـ ${specsPending} من ${lines.length} بندًا — استخراجها من الكراسة أبطأ من مهلة هذه الشاشة، فطُوبقت هذه البنود بالاسم والكمية. الكميات والوحدات مقروءة بالكامل.`
       : ''
   const expectedLineCount = usedTable ? table!.expectedCount : null
   const unreadableLineCount = usedTable ? unreadableCount(table!) : 0

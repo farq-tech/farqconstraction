@@ -15,6 +15,7 @@
 import { apiBase, apiUnreachableAdvice } from './apiBase'
 import {
   constructionHeaders,
+  currentAuthMode,
   shouldRetryAfterRefresh,
   supplierPortalHeaders,
 } from './constructionAuth'
@@ -510,8 +511,19 @@ async function rawFetch(
       )
     }
     // A transport failure is not a feature flag problem; say so separately.
+    //
+    // And with no session it is not a server problem either, so it must not be
+    // reported as one. Without a session this client sends
+    // `x-construction-demo-user`, which is absent from the API's
+    // `access-control-allow-headers` (Authorization is present), so the browser
+    // blocks the request before it is sent and `fetch` rejects. The server is
+    // healthy and never hears about it. Telling the reader the API is
+    // unreachable sends him to check a server that is fine; the true and
+    // actionable statement is that he is not signed in.
     throw new ConstructionApiError(
-      `لا يمكن الوصول إلى Farq API من هذا التطبيق — ${apiUnreachableAdvice()}`,
+      currentAuthMode() === 'demo'
+        ? 'لم تسجّل الدخول. هذا الرابط لا يستطيع مخاطبة خادم فرق بدون جلسة، فلم يصل الطلب إليه أصلًا. سجّل الدخول ثم أعد المحاولة.'
+        : `لا يمكن الوصول إلى Farq API من هذا التطبيق — ${apiUnreachableAdvice()}`,
       0,
       'CONSTRUCTION_API_UNREACHABLE',
     )
