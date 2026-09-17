@@ -63,6 +63,8 @@ export interface BOQItem {
     suppliers: Supplier[]
     zeroReason?: string | null
   }
+  /** Suppliers the buyer dismissed for this material on this page (also stored server side). */
+  rejectedSupplierIds?: string[]
   /** Trade known, material not in the list: suppliers of that trade, unconfirmed. */
   familySuggestion?: { family: string; suppliers: Supplier[] }
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */

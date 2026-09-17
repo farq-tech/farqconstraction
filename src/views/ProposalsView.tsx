@@ -174,7 +174,11 @@ function BOQCard({
   const unresolved = isSearching && !item.farqSpecId
   const alreadyIds = useMemo(() => new Set(item.suppliers.map((s) => s.id)), [item.suppliers])
   // Suppliers dismissed on this card. They also leave the lists for good, server side.
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
+  const [locallyHidden, setHiddenIds] = useState<Set<string>>(new Set())
+  const hiddenIds = useMemo(
+    () => new Set([...locallyHidden, ...(item.rejectedSupplierIds || [])]),
+    [locallyHidden, item.rejectedSupplierIds],
+  )
   const boxedIds = useMemo(
     () =>
       new Set(
@@ -657,23 +661,62 @@ export function ProposalsView({ navigate }: NavProps) {
     if (deletedTimer.current) clearTimeout(deletedTimer.current)
   }
 
+  // «اختياراتي تسمع بالمنتجات التي تشابهها»: a verdict on one line is a verdict
+  // on the material, so it is applied at once to every other line of this
+  // booklet that is the SAME material — the same named intent, or the same
+  // catalogue item. Never a looser likeness than that. The bar at the bottom
+  // says how many lines it reached, so nothing is ticked behind his back.
+  const materialKeyOf = (item: BOQItem | undefined): string | null => {
+    if (!item) return null
+    const intent = item.mapSuggestion?.intent || item.aiSuggestion?.intent
+    if (intent) return `intent:${intent}`
+    if (item.farqSpecId) return `spec:${item.farqSpecId}`
+    return null
+  }
+  const [echo, setEcho] = useState<string | null>(null)
+  const echoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const announce = (text: string) => {
+    setEcho(text)
+    if (echoTimer.current) clearTimeout(echoTimer.current)
+    echoTimer.current = setTimeout(() => setEcho(null), 7000)
+  }
+  /** Ids of this line and of every other line that is the same material. */
+  const sameMaterialIds = (itemId: number): number[] => {
+    const key = materialKeyOf(items.find((i) => i.id === itemId))
+    if (!key) return [itemId]
+    return items.filter((i) => i.id === itemId || (!i.workOnly && materialKeyOf(i) === key)).map((i) => i.id)
+  }
+
   const rejectSupplier = (itemId: number, supplier: Supplier) => {
     const item = items.find((i) => i.id === itemId)
     learn(item, [supplier.id], 'REJECTED')
+    const ids = new Set(sameMaterialIds(itemId))
     persistItems(
       items.map((it) => {
-        if (it.id !== itemId) return it
+        if (!ids.has(it.id)) return it
         const suppliers = it.suppliers.filter((x) => x.id !== supplier.id)
-        return { ...it, suppliers, supplierCount: suppliers.length, status: suppliers.length ? it.status : ('searching' as const) }
+        return {
+          ...it,
+          suppliers,
+          supplierCount: suppliers.length,
+          status: suppliers.length ? it.status : ('searching' as const),
+          rejectedSupplierIds: [...new Set([...(it.rejectedSupplierIds || []), supplier.id])],
+        }
       }),
     )
-    setSelected((prev) => ({ ...prev, [itemId]: (prev[itemId] || []).filter((id) => id !== supplier.id) }))
+    setSelected((prev) => {
+      const next = { ...prev }
+      for (const id of ids) next[id] = (next[id] || []).filter((x) => x !== supplier.id)
+      return next
+    })
+    if (ids.size > 1) announce(`أُزيل «${supplier.name.slice(0, 30)}» من ${ids.size} بنود للمادة نفسها.`)
   }
 
   const addSupplierToItem = (itemId: number, supplier: Supplier) => {
+    const ids = new Set(sameMaterialIds(itemId))
     persistItems(
       items.map((item) => {
-        if (item.id !== itemId) return item
+        if (!ids.has(item.id)) return item
         if (item.suppliers.some((s) => s.id === supplier.id)) return item
         const suppliers = [...item.suppliers, supplier]
         return {
@@ -687,36 +730,58 @@ export function ProposalsView({ navigate }: NavProps) {
       }),
     )
     setSelected((prev) => {
-      const cur = prev[itemId] || []
-      if (cur.includes(supplier.id)) return prev
-      return { ...prev, [itemId]: [...cur, supplier.id] }
+      const next = { ...prev }
+      for (const id of ids) if (!(next[id] || []).includes(supplier.id)) next[id] = [...(next[id] || []), supplier.id]
+      return next
     })
     learn(items.find((i) => i.id === itemId), [supplier.id], 'CHOSEN')
+    if (ids.size > 1) announce(`اخترت «${supplier.name.slice(0, 30)}» لـ ${ids.size} بنود للمادة نفسها.`)
   }
 
   const toggle = (itemId: number, supplierId: string) => {
-    learn(items.find((i) => i.id === itemId), [supplierId], (selected[itemId] || []).includes(supplierId) ? 'CLEARED' : 'CHOSEN')
+    const turningOff = (selected[itemId] || []).includes(supplierId)
+    learn(items.find((i) => i.id === itemId), [supplierId], turningOff ? 'CLEARED' : 'CHOSEN')
+    // Only lines that already list this supplier follow; a line is never given a
+    // supplier here that its own card does not show.
+    const ids = sameMaterialIds(itemId).filter((id) => id === itemId || items.find((i) => i.id === id)?.suppliers.some((s) => s.id === supplierId))
     setSelected((prev) => {
-      const cur = prev[itemId] || []
-      return {
-        ...prev,
-        [itemId]: cur.includes(supplierId)
-          ? cur.filter((id) => id !== supplierId)
-          : [...cur, supplierId],
+      const next = { ...prev }
+      for (const id of ids) {
+        const cur = next[id] || []
+        next[id] = turningOff ? cur.filter((x) => x !== supplierId) : cur.includes(supplierId) ? cur : [...cur, supplierId]
       }
+      return next
     })
+    if (ids.length > 1) announce(turningOff ? `أُلغي الاختيار في ${ids.length} بنود للمادة نفسها.` : `طُبّق الاختيار على ${ids.length} بنود للمادة نفسها.`)
   }
 
   const selectAll = (itemId: number) => {
     const item = items.find((i) => i.id === itemId)
     if (!item) return
     learn(item, item.suppliers.map((s) => s.id), 'CHOSEN')
-    setSelected((prev) => ({ ...prev, [itemId]: item.suppliers.map((s) => s.id) }))
+    const chosen = item.suppliers.map((s) => s.id)
+    const ids = sameMaterialIds(itemId)
+    setSelected((prev) => {
+      const next = { ...prev }
+      for (const id of ids) {
+        const listed = new Set((items.find((i) => i.id === id)?.suppliers || []).map((s) => s.id))
+        next[id] = id === itemId ? chosen : [...new Set([...(next[id] || []), ...chosen.filter((x) => listed.has(x))])]
+      }
+      return next
+    })
+    if (ids.length > 1) announce(`طُبّق الاختيار على ${ids.length} بنود للمادة نفسها.`)
   }
 
   const clearAll = (itemId: number) => {
     learn(items.find((i) => i.id === itemId), selected[itemId] || [], 'CLEARED')
-    setSelected((prev) => ({ ...prev, [itemId]: [] }))
+    const cleared = new Set(selected[itemId] || [])
+    const ids = sameMaterialIds(itemId)
+    setSelected((prev) => {
+      const next = { ...prev }
+      for (const id of ids) next[id] = id === itemId ? [] : (next[id] || []).filter((x) => !cleared.has(x))
+      return next
+    })
+    if (ids.length > 1) announce(`أُلغي الاختيار في ${ids.length} بنود للمادة نفسها.`)
   }
 
   const readyItems = items.filter((i) => i.status === 'ready')
@@ -828,6 +893,12 @@ export function ProposalsView({ navigate }: NavProps) {
           ))}
         </div>
       </div>
+
+      {echo && !deleted && (
+        <div className="fixed bottom-24 left-0 right-0 lg:right-64 z-30 flex justify-center px-4 pointer-events-none">
+          <div className="rounded-2xl bg-[#123F3A] text-white text-sm px-4 py-3 shadow-lg max-w-full truncate">{echo}</div>
+        </div>
+      )}
 
       {deleted && (
         <div className="fixed bottom-24 left-0 right-0 lg:right-64 z-30 flex justify-center px-4 pointer-events-none">
