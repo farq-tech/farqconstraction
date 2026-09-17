@@ -83,6 +83,32 @@ of 180 names whole. The ten that lose or mangle one word (`عمق`, `بوصة`,
 `سعة`, and the bidi split of `تحليلات` on row 59) are listed by number in the
 test; the material word survives in all of them.
 
+## The guard, seen rendering
+
+Verified in a browser at `cf8cead` — the commit where the guard exists and the
+layout fix does not, which is the genuine defect state with the genuine
+booklet, not a manufactured one. Verbatim:
+
+> قراءة غير صالحة: قرأنا 180 صفًا، لكن لم نقرأ أسماء البنود
+> 140 من 180 بندًا تحمل وصفًا مكررًا، وأكثر وصف تكرارًا «DC- الإدارة المركزية
+> وتسجيل» ظهر 10 مرة. أسماء البنود لا تتكرر بهذا الشكل، فالأرجح أننا قرأنا عمود
+> الفئة أو المواصفة بدل عمود البند.
+> عدد الصفوف أعلاه ليس دليل نجاح: الكميات والوحدات قد تكون صحيحة، لكن المادة
+> نفسها مجهولة، ولذلك لن تُطابَق بموردين. لا ترسل طلب عرض سعر على هذه الكراسة.
+
+The header reads `انتهت المعالجة بقراءة غير صالحة` and `قرأنا الصفوف دون أسماء
+البنود` instead of `اكتملت`. That run was local and unauthenticated, so the
+supplier match failed with a 404 — irrelevant to the guard, which is computed
+client-side from the lines themselves.
+
+## Branch state
+
+The ten commits that were on a detached HEAD are now
+`release/standalone-construction-parser`, pushed to `origin`. It merges the
+canonical-intent lane rather than replacing it, so it contains both sides.
+`release/standalone-construction` was left where its owner has it: that lane
+is committing live and moved twice during this work.
+
 ## What this does not fix
 
 Signed in on the deployed link, the same booklet now resolves **5 of 180**
@@ -90,8 +116,12 @@ lines to a material. That is an engine result, not a parser one — the
 ontology is construction materials and this booklet is servers, GPUs and
 network test gear. **No vocabulary work should be triggered by it.**
 
-Newly visible and not addressed: the specification note reads `المواصفات
-الفنية لم تصل بعد لـ 180 من 180 بندًا` while the cards plainly carry
-specification text. `specsFromApi` counts only API-sourced specifications, so
-a booklet whose own table has a `المواصفة المختصرة` column is reported as
-having none. Same false-confidence class, different direction.
+## The specification counter, fixed
+
+The note read `المواصفات الفنية لم تصل بعد لـ 180 من 180 بندًا` while every
+card plainly carried specification text, because `specsFromApi` counted only
+API-supplied specifications and this booklet prints its own `المواصفة
+المختصرة` column. It now counts the lines that actually carry specification
+text, from whichever source, and only appears when some genuinely do not.
+Verified on the deployed link signed in: the note is gone, and the test
+asserts all 180 lines carry a specification.
