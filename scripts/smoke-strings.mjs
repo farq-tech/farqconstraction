@@ -21,6 +21,23 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true })
 const page = await browser.newPage({ viewport: { width: 1280, height: 2400 } })
 const out = (label, value) => console.log(`\n### ${label}\n${value}`)
 
+// Every construction call with its status and how long the server took, so
+// «matching ran on the server» is a set of status codes rather than a claim.
+const calls = []
+const started = new Map()
+page.on('request', (r) => started.set(r, Date.now()))
+page.on('response', (r) => {
+  const u = r.url()
+  if (!u.includes('/api/construction/')) return
+  const ms = Date.now() - (started.get(r.request()) ?? Date.now())
+  calls.push(`${r.status()} ${r.request().method()} ${u.replace(/^https?:\/\/[^/]+/, '').split('?')[0]} — ${ms}ms`)
+})
+page.on('requestfailed', (r) => {
+  if (r.url().includes('/api/construction/')) {
+    calls.push(`BLOCKED ${r.method()} ${r.url().replace(/^https?:\/\/[^/]+/, '').split('?')[0]} — ${r.failure()?.errorText}`)
+  }
+})
+
 await page.goto(URL, { waitUntil: 'networkidle' })
 
 if (EMAIL && PASSWORD) {
@@ -89,6 +106,7 @@ out('1a. «بلا مورد مؤكد» ITEMS (verbatim, first 2)', zeros.slice(0,
 out('1b. «مادة غير محدّدة» ITEMS (verbatim, first 1)', unresolved.slice(0, 1).join('\n') || '(none on screen)')
 out('1c. MATCHED ITEMS (control, first 1)', matched.slice(0, 1).join('\n') || '(none on screen)')
 out('counts', `«بلا مورد مؤكد»: ${zeros.length} · «مادة غير محدّدة»: ${unresolved.length} · matched: ${matched.length}`)
+out('CONSTRUCTION API CALLS', calls.join('\n') || '(none)')
 
 await page.screenshot({ path: (process.env.SHOT_DIR||'/tmp')+'/strings-proposals.png', fullPage: false })
 await browser.close()
