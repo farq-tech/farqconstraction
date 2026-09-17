@@ -1471,6 +1471,7 @@ export async function parseBoqFile(
   // Scanned PDFs: give Farq tender extract (OCR when enabled) more time before giving up.
   if (isPdf) {
     let apiTimer: ReturnType<typeof setTimeout> | undefined
+    let serverReadError = ''
     // A coded BOQ (MasterFormat, hierarchical) is one this browser cannot read:
     // measured, it yields a dozen total lines out of hundreds of items. The
     // server reads those page by page with the AI reader, which takes 1-3
@@ -1478,7 +1479,7 @@ export async function parseBoqFile(
     // only chance of a real read. Waiting 12s and then serving the local read
     // is what showed «قراءة غير صالحة» while the server was on page 3 of 36.
     const codedBoq = countDistinctItemCodes(text) >= CODED_ITEMS_MIN
-    const apiWaitMs = codedBoq ? 480_000 : clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
+    const apiWaitMs = codedBoq ? 840_000 : clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
     // A scan gets the longer wait because OCR is its only chance of any lines at
     // all — the owner must be told which of the two ceilings he is sitting under.
     work({ kind: 'start', leg: 'api-parse', opaque: true, capMs: apiWaitMs })
@@ -1498,9 +1499,19 @@ export async function parseBoqFile(
       if (!extractError && isPdfScanNoTextError(err)) {
         extractError = PDF_SCAN_NO_TEXT
       }
+      serverReadError = err instanceof Error ? err.message : 'تعذّر الوصول إلى الخادم'
     } finally {
       if (apiTimer) clearTimeout(apiTimer)
       work({ kind: 'end', leg: 'api-parse' })
+    }
+    // A booklet that numbers its own items can only be read by the server. If
+    // that read did not arrive, the local one is known in advance to be wrong
+    // (20 rows of «ما بند» for 387 printed codes), so it is not shown at all:
+    // the buyer gets one sentence and «إعادة المحاولة».
+    if (codedBoq && apiLines.length === 0) {
+      throw new Error(
+        `انقطعت قراءة الكراسة على الخادم قبل أن تكتمل${serverReadError ? ` (${serverReadError})` : ''}. لم يُفقد شيء: اضغط «إعادة المحاولة».`,
+      )
     }
   }
 

@@ -38,7 +38,7 @@ const STAGES: Array<{ id: BoqParseStage; label: string; progress: number }> = [
 // 180s was sized for the reference booklet. A coded BOQ read page by page on
 // the server takes 1-3 minutes before matching starts, and the server's own
 // extraction ceiling is 480s, so the screen must not give up before it does.
-const UPLOAD_WATCHDOG_MS = 540_000
+const UPLOAD_WATCHDOG_MS = 900_000
 const SLOW_HINT_AFTER_S = 15
 
 type Phase = 'idle' | 'processing' | 'done' | 'error'
@@ -120,48 +120,35 @@ const LEG_BAR_SPAN: Partial<Record<BoqEtaLeg, [number, number]>> = {
  * It never freezes and never restarts to look better. The elapsed counter above
  * it keeps running in every one of those states.
  */
-function EtaPanel({ eta }: { eta: BoqEtaView; hasHistory: boolean }) {
-  // One line the buyer can take in at a glance. The panel used to explain its
-  // own arithmetic (samples, ceilings, the stages to come); the owner read it
-  // as noise. The rules underneath are unchanged: a number is shown only when
-  // it was measured, and an overrun is admitted rather than reset.
-  const legLabel = eta.leg ? LEG_LABEL[eta.leg] : ''
+function EtaPanel({ eta, elapsed }: { eta: BoqEtaView; hasHistory: boolean; elapsed: number }) {
+  // The owner's ruling, 2026-09-17: no promise, only a counter. Every estimate
+  // this panel ever printed was eventually wrong in front of him («قدّرنا 50
+  // ثانية وتجاوزناها بـ 4 دقائق»). It now states what is happening and how
+  // long it has been happening, both of which are always true.
+  const legLabel = eta.leg ? LEG_LABEL[eta.leg] : 'قراءة الكراسة'
   const unit = eta.unit
   const measured =
     unit && eta.done !== null && eta.total !== null
       ? `${eta.done} من ${eta.total} ${eta.total === 1 ? UNIT_LABEL[unit].one : UNIT_LABEL[unit].many}`
       : null
-  const title = eta.overdue
-    ? 'تأخذ أطول من المتوقع — العمل مستمر'
-    : eta.remainingMs !== null
-      ? 'الوقت المتبقي تقريبًا'
-      : 'نقرأ كراستك…'
-  const detail = [legLabel, measured].filter(Boolean).join(' · ') ||
-    (eta.remainingMs === null && !eta.overdue ? 'الكراسات الكبيرة تأخذ بضع دقائق' : '')
-
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
+  const ss = String(elapsed % 60).padStart(2, '0')
   return (
-    <div
-      className={`mt-5 rounded-2xl px-4 py-3.5 flex items-center justify-between gap-4 animate-fade-up ${
-        eta.overdue ? 'bg-amber-50' : 'bg-[#f0faf7]'
-      }`}
-    >
-      <div className="min-w-0">
-        <div className={`text-sm font-bold ${eta.overdue ? 'text-amber-800' : 'text-[#0D1F1D]'}`}>{title}</div>
-        {detail && <div className="text-xs text-neutral-500 mt-0.5 truncate">{detail}</div>}
-      </div>
-      {!eta.overdue && eta.remainingMs !== null ? (
-        <div className="text-2xl font-black text-[#123F3A] tabular-nums flex-shrink-0">{countdownLabel(eta.remainingMs)}</div>
-      ) : (
-        <div className="flex gap-1 flex-shrink-0" aria-hidden="true">
+    <div className="mt-5 rounded-2xl px-4 py-3.5 flex items-center justify-between gap-4 bg-[#f0faf7] animate-fade-up">
+      <div className="min-w-0 flex items-center gap-3">
+        <span className="flex gap-1 flex-shrink-0" aria-hidden="true">
           {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className={`w-2 h-2 rounded-full animate-pulse-dot ${eta.overdue ? 'bg-amber-500' : 'bg-[#123F3A]'}`}
-              style={{ animationDelay: `${i * 200}ms` }}
-            />
+            <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#123F3A] animate-pulse-dot" style={{ animationDelay: `${i * 200}ms` }} />
           ))}
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-[#0D1F1D] truncate">{legLabel}</div>
+          {measured && <div className="text-xs text-neutral-500 mt-0.5">{measured}</div>}
         </div>
-      )}
+      </div>
+      <div className="text-2xl font-black text-[#123F3A] tabular-nums flex-shrink-0" dir="ltr" aria-label="الوقت المنقضي">
+        {mm}:{ss}
+      </div>
     </div>
   )
 }
@@ -628,7 +615,7 @@ export function UploadView({ navigate }: NavProps) {
               <div className="font-semibold text-[#0D1F1D] text-sm truncate">{fileName}</div>
               <div className="text-xs text-neutral-400 mt-0.5">
                 {phase === 'processing'
-                  ? `جاري المعالجة… مضى ${arSeconds(elapsed)}`
+                  ? 'جاري المعالجة…'
                   : partialRead
                     ? 'انتهت المعالجة بقراءة ناقصة'
                     : readReport?.descriptionColumnSuspect || readReport?.codedItemsSuspect
@@ -683,7 +670,7 @@ export function UploadView({ navigate }: NavProps) {
               })}
             </div>
 
-            {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} />}
+            {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} elapsed={elapsed} />}
 
             {phase === 'processing' && partialRead && readReport && (
               <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 animate-fade-up text-right" dir="rtl">

@@ -1653,54 +1653,59 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
   item_count: number
   job_id?: string
 }> {
-  const submit = await request<{
-    job_id: string
-    status: 'QUEUED' | 'COMPLETE'
-    rows?: (string | number)[][]
-    item_count?: number
-  }>('/api/construction/boq/parse-pdf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/pdf' },
-    body: file,
-  })
+  type Submit = { job_id: string; status: 'QUEUED' | 'COMPLETE'; rows?: (string | number)[][]; item_count?: number }
+  const submitFile = () =>
+    request<Submit>('/api/construction/boq/parse-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: file,
+    })
 
-  if (submit.status === 'COMPLETE' && submit.rows) {
-    return {
-      rows: submit.rows,
-      item_count: submit.item_count ?? submit.rows.length,
-      job_id: submit.job_id,
-    }
-  }
-
-  const deadline = Date.now() + 600_000
+  let submit = await submitFile()
+  const deadline = Date.now() + 840_000
+  // The reading job lives in the server's memory. A server restart (every
+  // deploy is one) loses it: the poll answers 404, or nothing answers at all
+  // for a minute. Measured 2026-09-17: the owner's 387-code booklet died five
+  // minutes in and the screen served the local 20-row read under «قراءة غير
+  // صالحة». A lost job is resubmitted, and a server that is coming back up is
+  // waited for, instead of giving up on the first bad poll.
+  let resubmits = 0
+  let unreachableSince: number | null = null
   for (;;) {
-    await new Promise((r) => setTimeout(r, 1000))
-    const job = await request<{
-      status: string
-      rows?: (string | number)[][]
-      item_count?: number
-      error?: string | null
-    }>(`/api/construction/boq/extraction/${encodeURIComponent(submit.job_id)}`)
-    if (job.status === 'COMPLETE') {
-      return {
-        rows: job.rows ?? [],
-        item_count: job.item_count ?? job.rows?.length ?? 0,
-        job_id: submit.job_id,
-      }
+    if (submit.status === 'COMPLETE' && submit.rows) {
+      return { rows: submit.rows, item_count: submit.item_count ?? submit.rows.length, job_id: submit.job_id }
     }
-    if (job.status === 'FAILED') {
-      throw new ConstructionApiError(
-        job.error || 'تعذرت قراءة جدول الكميات من PDF',
-        500,
-        'BOQ_EXTRACTION_FAILED',
-      )
-    }
+    await new Promise((r) => setTimeout(r, unreachableSince ? 4000 : 1000))
     if (Date.now() >= deadline) {
       throw new ConstructionApiError(
-        'انتهت مهلة تحليل PDF — ارفع صفحات جدول الكميات وحدها أو استخدم Excel.',
+        'انتهت مهلة قراءة الكراسة على الخادم. أعد المحاولة.',
         504,
         'BOQ_EXTRACTION_TIMEOUT',
       )
+    }
+    let job: { status: string; rows?: (string | number)[][]; item_count?: number; error?: string | null }
+    try {
+      job = await request(`/api/construction/boq/extraction/${encodeURIComponent(submit.job_id)}`)
+      unreachableSince = null
+    } catch (err) {
+      const status = err instanceof ConstructionApiError ? err.status : 0
+      if (status === 401 || status === 403 || status === 429) throw err
+      if (status === 404) {
+        if (resubmits >= 2) throw err
+        resubmits += 1
+        submit = await submitFile()
+        continue
+      }
+      // 5xx or no answer: the server is restarting. Give it two minutes.
+      unreachableSince = unreachableSince ?? Date.now()
+      if (Date.now() - unreachableSince > 120_000) throw err
+      continue
+    }
+    if (job.status === 'COMPLETE') {
+      return { rows: job.rows ?? [], item_count: job.item_count ?? job.rows?.length ?? 0, job_id: submit.job_id }
+    }
+    if (job.status === 'FAILED') {
+      throw new ConstructionApiError(job.error || 'تعذرت قراءة جدول الكميات من PDF', 500, 'BOQ_EXTRACTION_FAILED')
     }
   }
 }
