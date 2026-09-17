@@ -1301,6 +1301,23 @@
       "supplier_terms": ["مستودعات", "مناوله", "dock equipment", "warehouse"],
       "preferred_archetypes": ["warehouse_equipment_supplier", "material_handling_supplier"],
       "allowed_archetypes": ["lifting_equipment_supplier", "metal_trading", "industrial_tools_supplier"],
+      "intents": [
+        {
+          "id": "dock_leveller",
+          "label_ar": "رافعات أرصفة التحميل",
+          "strong_terms": ["dock leveller", "dock leveler", "رصيف تحميل هيدروليكي", "منصه تحميل هيدروليكيه", "loading ramp", "رامب تحميل"]
+        },
+        {
+          "id": "dock_bumper_restraint",
+          "label_ar": "المصدات ومثبتات الشاحنات",
+          "strong_terms": ["dock bumper", "مصد رصيف", "وساده اسفنجيه للرصيف", "مثبت للشاحنه", "vehicle restraint", "wheel guide", "موجه عجلات"]
+        },
+        {
+          "id": "dock_shelter_seal",
+          "label_ar": "أغطية وسدادات الأرصفة",
+          "strong_terms": ["dock shelter", "dock seal", "غطاء رصيف تحميل", "ساتر رصيف", "سداده رصيف"]
+        }
+      ],
       "facets": [
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "capacity", "supplier_pool_affecting": false }
@@ -4901,6 +4918,206 @@
           "id": "servo_dc_motor",
           "label_ar": "محركات السيرفو والتيار المستمر",
           "strong_terms": ["سيرفو", "servo motor", "dc motor", "stepper motor", "موتور تيار مستمر"]
+        }
+      ]
+    },
+    {
+      "id": "medical_gas_systems",
+      "sector": "MEP_WATER",
+      "label_ar": "أنظمة الغازات الطبية",
+      "strong_terms": ["غازات طبيه", "مخارج غازات طبيه", "medical gas", "medical gas outlet", "صندوق صمامات مناطق", "zone valve box", "لوحه انذار غازات طبيه", "medical gas alarm", "منظومه اكسجين", "oxygen manifold", "مانيفولد اكسجين", "vacuum plant", "شفط طبي", "شبكه شفط طبي", "نحاس طبي", "medical copper pipe", "نظام هواء مضغوط طبي", "medical air", "nitrous oxide", "اكسيد النيتروز", "agss", "تصريف غاز التخدير"],
+      "weak_terms": ["غازات", "اكسجين", "oxygen", "vacuum", "manifold", "طبي"],
+      "term_guards": [
+        {
+          "terms": ["غازات", "اكسجين", "oxygen"],
+          "block_any": ["لحام", "welding", "قطع", "cutting", "acetylene", "اسطوانه لحام", "طبخ", "lpg", "غاز الطبخ"],
+          "note": "Oxygen for welding is gas-cutting equipment; the same word, a different trade entirely."
+        }
+      ],
+      "context_terms": ["مستشفى", "hospital", "غرفه عمليات", "icu", "عناية", "سرير", "bed", "عدد", "no", "bar", "نقطه"],
+      "supplier_terms": ["غازات طبيه", "medical gas", "تجهيزات طبيه", "مستلزمات طبيه", "انظمه غازات"],
+      "preferred_archetypes": ["pipe_fittings_supplier", "valve_supplier"],
+      "allowed_archetypes": ["plumbing_only_supplier", "hvac_supplier", "instrumentation_supplier", "general_trading", "electrical_distributor"],
+      "hard_conflicts": ["ready_mix_supplier", "rebar_supplier", "paint_only_supplier", "cybersecurity_integrator"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "medical_gas_outlet",
+          "label_ar": "مخارج الغازات الطبية",
+          "strong_terms": ["مخارج غازات طبيه", "medical gas outlet", "وحده مخارج غازات", "نقطه غاز طبي", "gas terminal unit", "رأس اكسجين", "outlet اكسجين"]
+        },
+        {
+          "id": "medical_gas_valve_box",
+          "label_ar": "صناديق صمامات المناطق",
+          "strong_terms": ["صندوق صمامات مناطق", "zone valve box", "صمامات غازات طبيه", "area valve service unit", "avsu"]
+        },
+        {
+          "id": "medical_gas_alarm",
+          "label_ar": "لوحات إنذار الغازات الطبية",
+          "strong_terms": ["لوحه انذار غازات طبيه", "medical gas alarm", "انذار غازات طبيه", "gas alarm panel"]
+        },
+        {
+          "id": "medical_gas_plant",
+          "label_ar": "محطات ومنظومات الغازات",
+          "strong_terms": ["منظومه اكسجين", "oxygen manifold", "مانيفولد", "vacuum plant", "محطه شفط طبي", "مولد اكسجين", "oxygen generator", "ضاغط هواء طبي", "medical air compressor"]
+        },
+        {
+          "id": "medical_gas_pipework",
+          "label_ar": "مواسير الغازات الطبية",
+          "strong_terms": ["نحاس طبي", "medical copper pipe", "مواسير غازات طبيه", "medical gas pipe", "نحاس معالج طبيا"]
+        }
+      ]
+    },
+    {
+      "id": "healthcare_fitout",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "تجهيزات المنشآت الصحية",
+      "note": "Radiation shielding, hermetic doors, scrub sinks and antibacterial wall systems are a hospital trade of their own. They were reaching nobody: the list had no word for any of them.",
+      "strong_terms": ["مبطن بالرصاص", "lead lined", "lead-lined", "حمايه من الاشعه", "radiation shielding", "درع رصاص", "lead shielding", "زجاج رصاصي", "lead glass", "باب مستشفى منزلق محكم", "hermetic door", "باب محكم", "مغسله جراحيه", "scrub sink", "scrub station", "ستاره خصوصيه طبيه", "privacy curtain", "cubicle track", "الواح مضاده للبكتيريا", "antibacterial panel", "hygienic wall panel", "الواح جدران صحيه", "مسار ستاره سقفي", "wall protection rail", "واقي جدران مستشفى", "corner guard مستشفى"],
+      "weak_terms": ["رصاص", "lead", "hermetic", "scrub", "مستشفى", "hospital", "عياده", "clinic"],
+      "term_guards": [
+        {
+          "terms": ["رصاص", "lead"],
+          "block_any": ["بطاريه", "battery", "lead acid", "سن رصاص", "قلم رصاص", "pencil"],
+          "note": "A lead-acid battery is not radiation shielding."
+        }
+      ],
+      "context_terms": ["مستشفى", "hospital", "غرفه عمليات", "اشعه", "x-ray", "مم", "mm", "عدد", "no", "معزول"],
+      "supplier_terms": ["تجهيزات مستشفيات", "hospital fitout", "تجهيزات طبيه", "medical fitout", "حمايه من الاشعه"],
+      "preferred_archetypes": ["fitout_contractor", "interior_finishing"],
+      "allowed_archetypes": ["joinery_supplier", "sanitary_ware_supplier", "metal_trading", "glass_glazing_supplier", "general_trading", "furniture_supplier"],
+      "hard_conflicts": ["ready_mix_supplier", "rebar_supplier", "cybersecurity_integrator"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "radiation_shielding",
+          "label_ar": "الحماية من الإشعاع",
+          "strong_terms": ["مبطن بالرصاص", "lead lined", "lead-lined", "حمايه من الاشعه", "radiation shielding", "درع رصاص", "زجاج رصاصي", "lead glass", "الواح رصاص"]
+        },
+        {
+          "id": "hermetic_door",
+          "label_ar": "الأبواب المحكمة",
+          "strong_terms": ["باب مستشفى منزلق محكم", "hermetic door", "باب محكم", "hermetic sliding", "باب غرف عمليات"]
+        },
+        {
+          "id": "scrub_station",
+          "label_ar": "مغاسل الجراحة",
+          "strong_terms": ["مغسله جراحيه", "scrub sink", "scrub station", "مغسله بدون لمس", "hands free sink"]
+        },
+        {
+          "id": "hygienic_wall_system",
+          "label_ar": "أنظمة الجدران الصحية",
+          "strong_terms": ["الواح مضاده للبكتيريا", "antibacterial panel", "hygienic wall panel", "الواح جدران صحيه", "واقي جدران مستشفى", "wall protection"]
+        },
+        {
+          "id": "medical_curtain_track",
+          "label_ar": "ستائر ومسارات الخصوصية",
+          "strong_terms": ["ستاره خصوصيه طبيه", "privacy curtain", "cubicle track", "مسار ستاره سقفي", "cubicle curtain"]
+        }
+      ]
+    },
+    {
+      "id": "laboratory_fitout",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "أثاث وتجهيزات المختبرات",
+      "strong_terms": ["طاوله مختبر", "lab bench", "laboratory bench", "اثاث مختبر", "lab furniture", "خزانه احماض", "acid cabinet", "fume hood", "خزانه ابخره", "خزانه سلامه حيويه", "biosafety cabinet", "bsc class", "دش طوارئ", "emergency shower", "مغسله عيون", "eyewash", "لوح سطح مختبر", "epoxy worktop", "phenolic worktop", "سطح ايبوكسي", "لوحه غازات مختبريه", "lab gas panel", "مواسير صرف مقاومه للكيماويات", "chemical waste pipe", "pp drainage", "خزانه تخزين مذيبات", "solvent cabinet"],
+      "weak_terms": ["مختبر", "laboratory", "lab", "fume", "خزانه", "بنش", "worktop"],
+      "term_guards": [
+        {
+          "terms": ["خزانه", "cabinet"],
+          "block_any": ["كهرباء", "توزيع", "distribution", "switchgear", "لوحه توزيع", "مطبخ", "kitchen", "ملفات", "filing"],
+          "note": "A distribution board and a kitchen unit are also «خزانة»."
+        }
+      ],
+      "context_terms": ["مختبر", "laboratory", "جامعه", "بحثي", "متر طولي", "م.ط", "عدد", "no", "ايبوكسي", "فينولي"],
+      "supplier_terms": ["اثاث مختبرات", "تجهيزات مختبرات", "lab furniture", "laboratory equipment", "مختبرات"],
+      "preferred_archetypes": ["furniture_supplier", "joinery_supplier"],
+      "allowed_archetypes": ["fitout_contractor", "interior_finishing", "plumbing_only_supplier", "general_trading", "industrial_tools_supplier"],
+      "hard_conflicts": ["ready_mix_supplier", "rebar_supplier", "cybersecurity_integrator"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "lab_bench",
+          "label_ar": "طاولات وأسطح المختبر",
+          "strong_terms": ["طاوله مختبر", "lab bench", "laboratory bench", "اثاث مختبر", "lab furniture", "لوح سطح مختبر", "epoxy worktop", "phenolic worktop", "سطح ايبوكسي"]
+        },
+        {
+          "id": "fume_containment",
+          "label_ar": "خزائن الأبخرة والسلامة الحيوية",
+          "strong_terms": ["خزانه احماض", "acid cabinet", "fume hood", "خزانه ابخره", "خزانه سلامه حيويه", "biosafety cabinet", "bsc class", "خزانه تخزين مذيبات", "solvent cabinet"]
+        },
+        {
+          "id": "emergency_shower_eyewash",
+          "label_ar": "دش الطوارئ ومغسلة العيون",
+          "strong_terms": ["دش طوارئ", "emergency shower", "مغسله عيون", "eyewash", "دش طوارئ مع مغسله عيون"]
+        },
+        {
+          "id": "lab_services",
+          "label_ar": "خدمات المختبر",
+          "strong_terms": ["لوحه غازات مختبريه", "lab gas panel", "مواسير صرف مقاومه للكيماويات", "chemical waste pipe", "pp drainage", "صرف مختبر"]
+        }
+      ]
+    },
+    {
+      "id": "airport_ground_systems",
+      "sector": "INFRASTRUCTURE",
+      "label_ar": "أنظمة المطارات والمناولة الأرضية",
+      "strong_terms": ["ناقل امتعه", "baggage conveyor", "سير امتعه", "نظام مناوله امتعه", "baggage handling", "قارئ باركود امتعه", "baggage barcode reader", "atr reader", "ميزان تسجيل امتعه", "check in scale", "كاونتر تسجيل", "check in counter", "استلام امتعه", "baggage claim", "carousel", "جسر صعود ركاب", "passenger boarding bridge", "pbb", "وحده تكييف ارضيه للطائرات", "pre conditioned air", "pca unit", "وحده كهرباء ارضيه", "400hz", "ground power unit", "gpu", "انارة حافه ممر", "taxiway edge light", "runway light", "انارة مدرج", "لوحه ارشاد ممرات الطايرات", "taxiway guidance sign"],
+      "weak_terms": ["امتعه", "baggage", "مطار", "airport", "مدرج", "runway", "taxiway", "conveyor", "سير"],
+      "term_guards": [
+        {
+          "terms": ["سير", "conveyor"],
+          "block_any": ["خرسانه", "concrete", "تعدين", "mining", "حزام نقل ركام", "aggregate belt"],
+          "note": "A quarry belt conveyor is a different trade from baggage handling."
+        }
+      ],
+      "context_terms": ["مطار", "airport", "صاله", "terminal", "ركاب", "طايره", "aircraft", "متر", "عدد", "no", "kva"],
+      "supplier_terms": ["انظمه مطارات", "airport systems", "مناوله امتعه", "baggage handling", "معدات مطارات"],
+      "preferred_archetypes": ["material_handling_supplier", "warehouse_equipment_supplier"],
+      "allowed_archetypes": ["lighting_supplier", "electrical_distributor", "network_integrator", "lifting_equipment_supplier", "general_trading", "generator_supplier"],
+      "hard_conflicts": ["ready_mix_supplier", "paint_only_supplier", "sanitary_ware_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "baggage_conveyor",
+          "label_ar": "سيور ونواقل الأمتعة",
+          "strong_terms": ["ناقل امتعه", "baggage conveyor", "سير امتعه", "نظام مناوله امتعه", "baggage handling", "استلام امتعه", "baggage claim", "carousel", "ناقل منحني للامتعه"]
+        },
+        {
+          "id": "baggage_screening_scale",
+          "label_ar": "موازين وقراءة الأمتعة",
+          "strong_terms": ["قارئ باركود امتعه", "baggage barcode reader", "atr reader", "ميزان تسجيل امتعه", "check in scale", "كاونتر تسجيل", "check in counter"]
+        },
+        {
+          "id": "boarding_bridge",
+          "label_ar": "جسور صعود الركاب",
+          "strong_terms": ["جسر صعود ركاب", "passenger boarding bridge", "pbb", "جسر طايره"]
+        },
+        {
+          "id": "aircraft_ground_power",
+          "label_ar": "التغذية الأرضية للطائرات",
+          "strong_terms": ["وحده تكييف ارضيه للطايرات", "pre conditioned air", "pca unit", "وحده كهرباء ارضيه", "400hz", "ground power unit", "gpu"]
+        },
+        {
+          "id": "airfield_lighting",
+          "label_ar": "إنارة ولوحات الحركة الجوية",
+          "strong_terms": ["انارة حافه ممر", "taxiway edge light", "runway light", "انارة مدرج", "لوحه ارشاد ممرات الطايرات", "taxiway guidance sign", "airfield lighting"]
         }
       ]
     }
