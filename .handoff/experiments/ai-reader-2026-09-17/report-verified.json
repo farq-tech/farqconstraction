@@ -1,0 +1,53 @@
+{
+ "jadwal": {
+  "pages": 10,
+  "failed": 0,
+  "printed_codes": 230,
+  "codes_returned": 230,
+  "items": 233,
+  "with_code": 230,
+  "code_on_page": 230,
+  "qty_given": 230,
+  "qty_near_code": 230,
+  "qty_elsewhere": 0,
+  "qty_absent": 0,
+  "no_material_supply": 2,
+  "supply": 218,
+  "work": 15,
+  "totals": 0
+ },
+ "itba": {
+  "pages": 10,
+  "failed": 0,
+  "printed_codes": 159,
+  "codes_returned": 99,
+  "items": 100,
+  "with_code": 100,
+  "code_on_page": 100,
+  "qty_given": 100,
+  "qty_near_code": 92,
+  "qty_elsewhere": 8,
+  "qty_absent": 0,
+  "no_material_supply": 0,
+  "supply": 90,
+  "work": 10,
+  "totals": 0
+ },
+ "makkah": {
+  "pages": 8,
+  "failed": 1,
+  "printed_codes": 104,
+  "codes_returned": 104,
+  "items": 290,
+  "with_code": 289,
+  "code_on_page": 288,
+  "qty_given": 235,
+  "qty_near_code": 235,
+  "qty_elsewhere": 0,
+  "qty_absent": 0,
+  "no_material_supply": 60,
+  "supply": 277,
+  "work": 13,
+  "totals": 17
+ }
+}

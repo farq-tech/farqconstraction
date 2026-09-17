@@ -1,0 +1,59 @@
+{
+ "jadwal": {
+  "pages": 10,
+  "pages_failed": 0,
+  "gt_rows": 179,
+  "found": 179,
+  "qty_ok": 117,
+  "unit_ok": 34,
+  "model_items": 233,
+  "hallucinated_codes": 0,
+  "qty_not_on_page": 0,
+  "kinds": {
+   "WORK_ONLY": 15,
+   "SUPPLY_ITEM": 218
+  },
+  "tokens_in": 40367,
+  "tokens_out": 30020,
+  "secs": 124.6
+ },
+ "itba": {
+  "pages": 10,
+  "pages_failed": 0,
+  "gt_rows": 99,
+  "found": 97,
+  "qty_ok": 89,
+  "unit_ok": 88,
+  "model_items": 100,
+  "hallucinated_codes": 0,
+  "qty_not_on_page": 0,
+  "kinds": {
+   "WORK_ONLY": 10,
+   "SUPPLY_ITEM": 90,
+   "HEADING": 6
+  },
+  "tokens_in": 12256,
+  "tokens_out": 12344,
+  "secs": 56.1
+ },
+ "makkah": {
+  "pages": 8,
+  "pages_failed": 1,
+  "gt_rows": 0,
+  "found": 0,
+  "qty_ok": 0,
+  "unit_ok": 0,
+  "model_items": 290,
+  "hallucinated_codes": 1,
+  "qty_not_on_page": 0,
+  "kinds": {
+   "SUPPLY_ITEM": 277,
+   "WORK_ONLY": 13,
+   "HEADING": 32,
+   "TOTAL_LINE": 17
+  },
+  "tokens_in": 22388,
+  "tokens_out": 29988,
+  "secs": 120.99999999999999
+ }
+}
