@@ -696,15 +696,31 @@ async function matchViaFarqBoqApi(
       capMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
       lines: lines.length,
     })
-    const matched = await matchConstructionBoqCatalog({
-      lines: lines.slice(0, MATCH_API_LINE_CAP).map((line) => ({
-        line_key: lineKeyFor(line),
-        name_ar: line.name,
-        quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
-        uom: line.unit || 'عدد',
-        spec: line.spec,
-      })),
-    })
+    // The API takes at most 200 rows a request and this used to send the first
+    // 80 and stop: a 325-item booklet had 245 lines that were never matched and
+    // read as «مادة غير محدّدة» for a reason that had nothing to do with them.
+    // Every line is sent now, in chunks, two at a time so a large booklet does
+    // not take every connection the API keeps for construction.
+    const chunks: ParsedLine[][] = []
+    for (let i = 0; i < lines.length; i += MATCH_API_LINE_CAP) chunks.push(lines.slice(i, i + MATCH_API_LINE_CAP))
+    const matchedRows: Awaited<ReturnType<typeof matchConstructionBoqCatalog>>['rows'] = []
+    for (let i = 0; i < chunks.length; i += 2) {
+      const pair = await Promise.all(
+        chunks.slice(i, i + 2).map((chunk) =>
+          matchConstructionBoqCatalog({
+            lines: chunk.map((line) => ({
+              line_key: lineKeyFor(line),
+              name_ar: line.name,
+              quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
+              uom: line.unit || 'عدد',
+              spec: line.spec,
+            })),
+          }),
+        ),
+      )
+      for (const part of pair) matchedRows.push(...(part.rows || []))
+    }
+    const matched = { rows: matchedRows }
     for (const row of matched.rows || []) {
       out.set(row.line_key, {
         farqSpecId: row.farq_spec_id,

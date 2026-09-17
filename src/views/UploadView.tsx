@@ -33,7 +33,10 @@ const STAGES: Array<{ id: BoqParseStage; label: string; progress: number }> = [
  * Hard stop for the whole upload. `parseBoqFile` caps each leg, but this is the
  * backstop that guarantees the user is never left with an endless spinner.
  */
-const UPLOAD_WATCHDOG_MS = 180_000
+// 180s was sized for the reference booklet. A coded BOQ read page by page on
+// the server takes 1-3 minutes before matching starts, and the server's own
+// extraction ceiling is 480s, so the screen must not give up before it does.
+const UPLOAD_WATCHDOG_MS = 540_000
 const SLOW_HINT_AFTER_S = 15
 
 type Phase = 'idle' | 'processing' | 'done' | 'error'
