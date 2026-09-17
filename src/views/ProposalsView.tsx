@@ -111,7 +111,14 @@ function SuggestionBox({
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => onPick({ ...s, evidence: s.learned ? 'اختيارك' : evidence })}
+                    onChange={() =>
+                      onPick({
+                        ...s,
+                        // An activity-level row keeps its own weaker grade: the box
+                        // it happens to sit in must not promote it.
+                        evidence: s.learned ? 'اختيارك' : s.evidence === 'على مستوى النشاط' ? s.evidence : evidence,
+                      })
+                    }
                     className="accent-[#123F3A] w-4 h-4 flex-shrink-0"
                   />
                   <span className="min-w-0">
@@ -119,6 +126,11 @@ function SuggestionBox({
                     <span className="block text-xs text-neutral-400">
                       {s.city}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
+                      {s.evidence === 'على مستوى النشاط' && (
+                        <span className="text-neutral-500 font-semibold" title="نشاطه المسجّل أوسع من هذه المادة: يُعرض كاحتمال، لا كترشيح">
+                          {' '}· مورد محتمل
+                        </span>
+                      )}
                     </span>
                   </span>
                 </label>

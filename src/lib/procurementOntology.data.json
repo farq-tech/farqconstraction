@@ -101,6 +101,26 @@
     }
   },
   "archetypes": {
+    "furniture_supplier": {
+      "label_ar": "موردو الأثاث والتجهيزات",
+      "patterns": ["اثاث", "مفروشات", "furniture", "اثاث مكتبي", "office furniture", "تجهيزات مكتبيه", "اثاث وديكور"]
+    },
+    "scaffolding_supplier": {
+      "label_ar": "موردو السقالات والدعامات",
+      "patterns": ["سقالات", "scaffolding", "scaffold", "سقالات ودعامات", "shoring", "سقالات وسلالم"]
+    },
+    "elevator_supplier": {
+      "label_ar": "موردو المصاعد والسلالم المتحركة",
+      "patterns": ["مصاعد", "elevator", "elevators", "lifts", "سلالم متحركه", "escalator", "مصاعد كهربائيه"]
+    },
+    "architectural_hardware_supplier": {
+      "label_ar": "موردو الأقفال والحديديات",
+      "patterns": ["كوالين", "اقفال", "حديديات", "ironmongery", "door hardware", "كوالين واقفال", "locks"]
+    },
+    "electric_motor_supplier": {
+      "label_ar": "موردو المحركات الكهربائية",
+      "patterns": ["مواتير", "محركات كهرباييه", "محركات كهربائيه", "electric motors", "موتورات", "مواتير كهربائيه"]
+    },
     "structural_steel_supplier": {
       "label_ar": "موردو الحديد الإنشائي",
       "patterns": ["حديد انشائي", "قطاعات حديد", "فولاذ", "structural steel", "steel sections", "مصنع حديد", "steel stockist", "stockist"]
@@ -816,6 +836,23 @@
           "block_any": ["enclosure", "لوحه فارغه", "خزانه", "cabinet", "ip54", "ip55", "ip65", "ip66", "rack", "صندوق توزيع", "consumer unit", "busbar"],
           "note": "An electrical enclosure is MADE OF sheet steel but is not sheet steel; it is bought from a panel builder, not a steel stockist."
         }
+      ],
+      "intents": [
+        {
+          "id": "gi_sheet_coil",
+          "label_ar": "الصاج المجلفن واللفائف",
+          "strong_terms": ["صاج مجلفن", "gi sheet", "gi coil", "لفايف صاج", "steel coil", "لفه صاج", "galvanized sheet", "صاج ملون", "prepainted coil", "ppgi"]
+        },
+        {
+          "id": "chequered_plate",
+          "label_ar": "الصاج المضلع",
+          "strong_terms": ["صاج مضلع", "chequered plate", "checker plate", "صاج نقش", "tread plate"]
+        },
+        {
+          "id": "steel_plate",
+          "label_ar": "ألواح الحديد",
+          "strong_terms": ["لوح حديد", "steel plate", "mild steel plate", "الواح حديد", "hot rolled plate", "صاج اسود"]
+        }
       ]
     },
     {
@@ -925,6 +962,28 @@
         { "name": "thickness_mm", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true },
         { "name": "application", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "bituminous_membrane",
+          "label_ar": "الممبرين البيتوميني",
+          "strong_terms": ["ممبرين", "بيتومين", "bitumen membrane", "bituminous membrane", "torch on membrane", "رول عزل", "sbs membrane", "app membrane"]
+        },
+        {
+          "id": "liquid_waterproofing",
+          "label_ar": "العزل السائل",
+          "strong_terms": ["عزل سايل", "عزل سائل", "liquid applied membrane", "liquid waterproofing", "polyurethane waterproofing", "دهان عازل", "acrylic waterproofing", "cementitious waterproofing", "عزل اسمنتي"]
+        },
+        {
+          "id": "single_ply_membrane",
+          "label_ar": "الأغشية أحادية الطبقة",
+          "strong_terms": ["tpo", "pvc membrane", "single ply", "epdm membrane", "غشا tpo"]
+        },
+        {
+          "id": "damp_proofing",
+          "label_ar": "عزل الرطوبة",
+          "strong_terms": ["عازل رطوبه", "damp proof", "dpc", "damp proof course", "بيتومين بارد", "bituminous paint", "primer عزل"]
+        }
       ]
     },
     {
@@ -1261,6 +1320,23 @@
         { "name": "capacity", "supplier_pool_affecting": false },
         { "name": "power_kw", "supplier_pool_affecting": false },
         { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "forklift_truck",
+          "label_ar": "الرافعات الشوكية",
+          "strong_terms": ["رافعه شوكيه", "forklift", "reach truck", "order picker", "رافعه كهربائيه شوكيه", "diesel forklift"]
+        },
+        {
+          "id": "pallet_truck",
+          "label_ar": "عربات ورافعات البالت",
+          "strong_terms": ["pallet truck", "hand pallet", "pallet jack", "جك هيدروليكي", "stacker", "platform trolley", "عربه نقل", "عربه بالت"]
+        },
+        {
+          "id": "chain_hoist",
+          "label_ar": "الروافع السلسلية",
+          "strong_terms": ["chain block", "رافعه سلسله", "electric chain hoist", "ونش سلسله", "lever hoist", "رافعه يدويه", "material lift"]
+        }
       ]
     },
     {
@@ -1284,6 +1360,33 @@
         { "name": "capacity", "supplier_pool_affecting": false },
         { "name": "length_m", "supplier_pool_affecting": false },
         { "name": "standard", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "lifting_sling",
+          "label_ar": "أحزمة وسلاسل الرفع",
+          "strong_terms": ["web sling", "حزام رفع", "chain sling", "سلسله رفع", "wire rope sling", "round sling", "سلنجه"]
+        },
+        {
+          "id": "rigging_hardware",
+          "label_ar": "ملحقات التجهيز والرفع",
+          "strong_terms": ["shackle", "شاكل", "eye bolt", "lifting hook", "خطاف رفع", "swivel hoist ring", "beam clamp", "مشبك عارضه", "plate clamp", "ملزمه رفع", "lifting beam", "turnbuckle"]
+        },
+        {
+          "id": "load_securing",
+          "label_ar": "تثبيت الأحمال",
+          "strong_terms": ["ratchet strap", "حزام تثبيت", "load binder", "cargo strap", "شداد حزام"]
+        },
+        {
+          "id": "load_measuring",
+          "label_ar": "قياس أحمال الرفع",
+          "strong_terms": ["load cell", "crane load cell", "ميزان حموله", "dynamometer", "مقياس حموله"]
+        },
+        {
+          "id": "lifting_magnet",
+          "label_ar": "مغانط الرفع",
+          "strong_terms": ["lifting magnet", "مغناطيس رفع", "permanent lifting magnet"]
+        }
       ]
     },
     {
@@ -1458,6 +1561,23 @@
       "facets": [
         { "name": "capacity", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "grp_water_tank",
+          "label_ar": "خزانات الفايبر والـGRP",
+          "strong_terms": ["خزان grp", "grp tank", "frp tank", "خزان الياف زجاجيه", "خزان فايبر جلاس", "sectional tank", "خزان مجمع"]
+        },
+        {
+          "id": "polyethylene_tank",
+          "label_ar": "خزانات البولي إيثيلين",
+          "strong_terms": ["خزان بوليثيلين", "خزان بلاستيك", "polyethylene tank", "خزان علوي", "خزان ارضي", "خزان مياه"]
+        },
+        {
+          "id": "stainless_water_tank",
+          "label_ar": "خزانات الستانلس",
+          "strong_terms": ["خزان ستانلس", "stainless steel tank", "خزان معدني", "ss tank"]
+        }
       ]
     },
     {
@@ -1474,6 +1594,28 @@
         { "name": "flow_rate", "supplier_pool_affecting": false },
         { "name": "capacity", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "water_filtration_unit",
+          "label_ar": "وحدات الترشيح",
+          "strong_terms": ["فلتر مياه", "فلتر رملي", "sand filter", "فلتر كربوني", "carbon filter", "cartridge filter", "filter housing", "multimedia filter"]
+        },
+        {
+          "id": "water_softener",
+          "label_ar": "مزيلات العسر",
+          "strong_terms": ["water softener", "softener", "مزيل عسر", "softener duplex", "resin softener"]
+        },
+        {
+          "id": "ro_desalination",
+          "label_ar": "التناضح العكسي والتحلية",
+          "strong_terms": ["ro skid", "reverse osmosis", "تحليه", "تناضح عكسي", "ro membrane", "غشا تناضح", "ro plant"]
+        },
+        {
+          "id": "water_disinfection",
+          "label_ar": "التعقيم والجرعات",
+          "strong_terms": ["uv sterilizer", "معقم اشعه", "dosing tank", "chlorine dosing", "جرعات كلور", "ozone generator"]
+        }
       ]
     },
     {
@@ -1886,6 +2028,23 @@
         { "name": "power_kw", "supplier_pool_affecting": false },
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "protection_ip", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "variable_speed_drive",
+          "label_ar": "مغيرات السرعة",
+          "strong_terms": ["vfd", "variable frequency drive", "مغير سرعه", "inverter drive", "درايف", "vsd"]
+        },
+        {
+          "id": "soft_starter",
+          "label_ar": "بادئات التشغيل اللينة",
+          "strong_terms": ["soft starter", "بادئ تشغيل", "ستارتر ناعم", "soft start"]
+        },
+        {
+          "id": "motor_starter_panel",
+          "label_ar": "لوحات تشغيل المحركات",
+          "strong_terms": ["لوحه تشغيل موتور", "dol starter", "star delta", "نجمه مثلث", "motor starter", "motor control center", "mcc"]
+        }
       ]
     },
     {
@@ -2071,6 +2230,18 @@
         { "name": "capacity", "supplier_pool_affecting": false },
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "power_kw", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "diesel_genset",
+          "label_ar": "مولدات الديزل",
+          "strong_terms": ["مولد ديزل", "diesel generator", "genset", "standby generator", "مولد كهربايي", "مولدات", "prime generator", "مولد احتياطي"]
+        },
+        {
+          "id": "genset_accessories",
+          "label_ar": "ملحقات المولدات",
+          "strong_terms": ["خزان وقود يومي", "day tank", "sound attenuated canopy", "كاتم صوت مولد", "غرفه مولد", "synchronizing panel", "لوحه مزامنه"]
+        }
       ]
     },
     {
@@ -2087,6 +2258,23 @@
         { "name": "capacity", "supplier_pool_affecting": false },
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "rack_units", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "ups_system",
+          "label_ar": "أنظمة UPS",
+          "strong_terms": ["ups", "ups online", "uninterruptible power", "طاقه غير منقطعه", "online ups", "modular ups"]
+        },
+        {
+          "id": "battery_bank",
+          "label_ar": "بنوك البطاريات",
+          "strong_terms": ["battery bank", "battery rack", "vrla", "بطاريات vrla", "بطاريات ups", "lithium battery bank"]
+        },
+        {
+          "id": "dc_power_rectifier",
+          "label_ar": "المقومات وشواحن التيار المستمر",
+          "strong_terms": ["dc charger", "rectifier", "شاحن تيار مستمر", "static transfer switch", "مقوم تيار"]
+        }
       ]
     },
     {
@@ -2678,6 +2866,33 @@
       "facets": [
         { "name": "dimensions", "supplier_pool_affecting": false },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "traffic_control_barrier",
+          "label_ar": "حواجز وتنظيم المرور",
+          "strong_terms": ["مخروط مروري", "كون مروري", "traffic cone", "delineator", "شريط تحذير", "warning tape", "جرسي بلاستيكي", "حاجز امان", "traffic barrier"]
+        },
+        {
+          "id": "safety_signage",
+          "label_ar": "لوحات السلامة",
+          "strong_terms": ["لافته سلامه", "safety sign", "علامه تحذير", "لوحه ارشاديه سلامه", "warning sign"]
+        },
+        {
+          "id": "parking_wheel_control",
+          "label_ar": "مصدات ومحددات المواقف",
+          "strong_terms": ["wheel chock", "مصد عجلات", "wheel stop", "محدد موقف", "speed hump", "مطب", "عمود حماية", "حاجز مواقف"]
+        },
+        {
+          "id": "lockout_tagout",
+          "label_ar": "أقفال العزل والتأمين",
+          "strong_terms": ["lockout tagout", "loto", "قفل عزل", "lockout station", "tagout"]
+        },
+        {
+          "id": "spill_control",
+          "label_ar": "احتواء التسربات",
+          "strong_terms": ["spill containment", "احتواء تسرب", "صينيه احتواء", "absorbent pad", "وساده امتصاص", "spill kit", "طقم تسرب"]
+        }
       ]
     },
     {
@@ -2701,6 +2916,28 @@
           "block_any": ["upvc", "ppr", "hdpe", "pvc", "ماسوره", "مواسير", "pipe", "coupler", "فلنجه", "flange", "dn", "صرف"],
           "note": "«socket» is a wrench insert only in a tool context; in plumbing the same word is a pipe socket, and «file»/«key»/«saw» are ordinary English words before they are tools."
         }
+      ],
+      "intents": [
+        {
+          "id": "wrenches_spanners",
+          "label_ar": "المفاتيح والعزم",
+          "strong_terms": ["مفتاح شق", "مفتاح ربط", "spanner", "wrench", "torque wrench", "مفتاح عزم", "مفتاح انابيب", "pipe wrench", "socket set", "طقم لقم", "طقم لقمه", "hex key", "الن", "allen key set", "socket wrench set"]
+        },
+        {
+          "id": "screwdrivers_pliers",
+          "label_ar": "المفكات والزراديات",
+          "strong_terms": ["مفك", "مفكات", "screwdriver", "كماشه", "بنسه", "plier", "pliers set", "زراديه", "طقم زراديات"]
+        },
+        {
+          "id": "striking_cutting_tools",
+          "label_ar": "أدوات الطرق والقطع اليدوية",
+          "strong_terms": ["مطرقه", "hammer", "ازميل", "chisel", "عتله", "crowbar", "منشار يدوي", "hand saw", "tin snip", "مبرد يدوي", "طقم مبارد", "مبارد هندسيه", "tap die", "tap and die", "طقم قلاوظ", "قلاوظ", "thread tap"]
+        },
+        {
+          "id": "tool_sets_storage",
+          "label_ar": "أطقم وصناديق العدد",
+          "strong_terms": ["طقم عدد", "tool set", "شنطه عدد", "tool box", "صندوق عدد", "عربه عدد يدويه"]
+        }
       ]
     },
     {
@@ -2716,6 +2953,28 @@
       "facets": [
         { "name": "power_kw", "supplier_pool_affecting": false },
         { "name": "voltage", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "drills_drivers",
+          "label_ar": "المثاقب والمفكات الكهربائية",
+          "strong_terms": ["مثقاب", "دريل", "hammer drill", "مفك كهربايي", "impact driver", "impact wrench", "core drill", "مثقاب عمودي", "drill press", "cordless drill"]
+        },
+        {
+          "id": "grinders_saws",
+          "label_ar": "الجلاخات والمناشير",
+          "strong_terms": ["صاروخ قص", "جلاخه", "angle grinder", "منشار كهربايي", "circular saw", "jigsaw", "cut off saw", "منشار ترددي", "reciprocating saw", "sabre saw", "bench grinder"]
+        },
+        {
+          "id": "demolition_breakers",
+          "label_ar": "مطارق الهدم",
+          "strong_terms": ["شاكوش هدم", "demolition breaker", "breaker hammer", "chipping hammer", "هلتي هدم", "rotary breaker"]
+        },
+        {
+          "id": "bench_machines",
+          "label_ar": "مكائن الورشة والملحقات",
+          "strong_terms": ["مخرطه", "فريزه", "milling machine", "precision milling", "مسدس مسامير", "nail gun", "شاحن بطاريات", "battery charger", "lathe"]
+        }
       ]
     },
     {
@@ -2732,6 +2991,28 @@
         { "name": "power_kw", "supplier_pool_affecting": false },
         { "name": "voltage", "supplier_pool_affecting": true },
         { "name": "material", "supplier_pool_affecting": true }
+      ],
+      "intents": [
+        {
+          "id": "welding_machine",
+          "label_ar": "مكائن اللحام",
+          "strong_terms": ["ماكينه لحام", "welding machine", "inverter welder", "welding rectifier", "mig welder", "tig welder", "جهاز لحام", "ماكينه لحام انفرتر"]
+        },
+        {
+          "id": "welding_consumables",
+          "label_ar": "مستهلكات اللحام",
+          "strong_terms": ["الكترود", "electrode", "سلك لحام", "welding wire", "filler rod", "flux", "سلك mig"]
+        },
+        {
+          "id": "plasma_cutting",
+          "label_ar": "القطع بالبلازما",
+          "strong_terms": ["plasma cutter", "قاطع بلازما", "قطع بلازما", "جهاز قطع بالبلازما", "plasma torch"]
+        },
+        {
+          "id": "welding_accessories",
+          "label_ar": "ملحقات وحماية اللحام",
+          "strong_terms": ["قناع لحام", "welding helmet", "auto darkening", "بطانيه لحام", "welding blanket", "ستاره لحام", "welding table", "طاوله لحام", "منضده لحام", "welding positioner", "welding curtain"]
+        }
       ]
     },
     {
@@ -2763,6 +3044,23 @@
         { "name": "power_kw", "supplier_pool_affecting": false },
         { "name": "flow_rate", "supplier_pool_affecting": false },
         { "name": "head_pressure", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "air_compressor",
+          "label_ar": "ضواغط الهواء",
+          "strong_terms": ["كمبروسر", "ضاغط هواء", "air compressor", "screw compressor", "piston compressor", "كمبروسر سكرو"]
+        },
+        {
+          "id": "compressed_air_treatment",
+          "label_ar": "معالجة الهواء المضغوط",
+          "strong_terms": ["air dryer", "مجفف هواء", "air receiver", "خزان هواء", "فلتر هوا مضغوط", "compressed air filter"]
+        },
+        {
+          "id": "pneumatic_tools",
+          "label_ar": "العدد الهوائية",
+          "strong_terms": ["عده هواييه", "air tool", "مسدس هواء", "air gun", "خرطوم هواء", "pneumatic wrench", "مفتاح هوايي"]
+        }
       ]
     },
     {
@@ -4346,6 +4644,253 @@
           "id": "pergola",
           "label_ar": "برجولات",
           "strong_terms": ["برجوله", "برجولات", "pergola", "aluminium pergola", "برجوله المنيوم"]
+        }
+      ]
+    },
+    {
+      "id": "interior_furniture",
+      "sector": "ARCHITECTURAL_FINISHES",
+      "label_ar": "الأثاث والتجهيزات الداخلية",
+      "note": "Blue Pages has four furniture activities (أثاث مكتبي، أثاث خشبي، أثاث ومفروشات، أثاث - صناع) and our catalogue had no family for any of them, so every furniture line fell through to joinery or to nothing. Loose furniture is a different trade from fixed joinery: a desk supplier is not a door-leaf factory.",
+      "strong_terms": ["اثاث مكتبي", "office furniture", "كرسي مكتب", "كرسي دوار", "office chair", "task chair", "كرسي زائر", "visitor chair", "طاوله اجتماعات", "meeting table", "conference table", "مكتب اداري", "executive desk", "خزانه ملفات", "filing cabinet", "دولاب ملفات", "لوكر", "locker", "خزانه ملابس", "wardrobe", "درج مدرسي", "مقعد طالب", "student desk", "school furniture", "اثاث مدرسي", "كنب", "sofa", "مجلس", "صوفا", "بنش انتظار", "waiting bench", "كرسي انتظار", "ستائر", "curtains", "بردة", "roller blind", "vertical blind", "بلايز شيد", "اثاث ومفروشات", "مفروشات"],
+      "weak_terms": ["اثاث", "furniture", "كرسي", "chair", "طاوله", "table", "مكتب", "desk", "خزانه", "cabinet", "دولاب", "رف"],
+      "term_guards": [
+        {
+          "terms": ["اثاث", "furniture"],
+          "block_any": ["طرق", "شوارع", "road furniture", "street furniture", "مظلة انتظار باص", "عمود انارة"],
+          "note": "«أثاث الطرق» is signage and street furniture, a different family."
+        },
+        {
+          "terms": ["طاوله", "table", "خزانه", "cabinet", "bench"],
+          "block_any": ["ورشه", "workshop", "workbench", "بنش ورشه", "عدد", "tool cabinet", "خزانه عدد", "ملزمه"],
+          "note": "A workbench or tool cabinet belongs to workshop fit-out, not to office furniture."
+        }
+      ],
+      "context_terms": ["قطعه", "عدد", "no", "مكتب", "اداره", "مدرسه", "استقبال", "غرفه", "قماش", "fabric", "خشب", "mdf", "جلد", "leather", "ستانلس"],
+      "supplier_terms": ["اثاث", "مفروشات", "furniture", "اثاث مكتبي", "office furniture", "تجهيزات مكتبيه"],
+      "preferred_archetypes": ["furniture_supplier"],
+      "allowed_archetypes": ["joinery_supplier", "joinery_panel_supplier", "fitout_contractor", "interior_finishing", "general_trading"],
+      "hard_conflicts": ["rebar_supplier", "ready_mix_supplier", "cable_supplier", "ppe_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "finish", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "office_desks",
+          "label_ar": "مكاتب وطاولات",
+          "strong_terms": ["اثاث مكتبي", "office furniture", "مكتب اداري", "executive desk", "طاوله اجتماعات", "meeting table", "conference table", "مكتب موظف", "workstation desk", "كاونتر استقبال", "reception counter"]
+        },
+        {
+          "id": "seating",
+          "label_ar": "الكراسي والجلسات",
+          "strong_terms": ["كرسي مكتب", "كرسي دوار", "office chair", "task chair", "كرسي زائر", "visitor chair", "كرسي انتظار", "بنش انتظار", "waiting bench", "كنب", "sofa", "صوفا", "مجلس"]
+        },
+        {
+          "id": "storage_units",
+          "label_ar": "الخزائن والدواليب",
+          "strong_terms": ["خزانه ملفات", "filing cabinet", "دولاب ملفات", "لوكر", "locker", "خزانه ملابس", "wardrobe", "خزانه اداريه", "storage cabinet"]
+        },
+        {
+          "id": "school_furniture",
+          "label_ar": "الأثاث المدرسي",
+          "strong_terms": ["درج مدرسي", "مقعد طالب", "student desk", "school furniture", "اثاث مدرسي", "طاوله طالب", "كرسي طالب"]
+        },
+        {
+          "id": "window_treatments",
+          "label_ar": "الستائر والمعالجات",
+          "strong_terms": ["ستائر", "curtains", "بردة", "roller blind", "vertical blind", "بلايز شيد", "ستاره معدنيه", "blackout curtain"]
+        }
+      ]
+    },
+    {
+      "id": "scaffolding_access",
+      "sector": "STRUCTURAL_METALS",
+      "label_ar": "السقالات وأنظمة الوصول",
+      "note": "«سقالات» was an unmapped Blue Pages activity. Scaffolding, shoring props and ladders are bought as materials on almost every site and had no family, so the lines resolved to structural steel and reached the wrong suppliers.",
+      "strong_terms": ["سقاله", "سقالات", "scaffolding", "scaffold", "سقاله معدنيه", "frame scaffold", "ماسوره سقاله", "scaffold tube", "كوبلر", "coupler", "كلامب سقاله", "scaffold clamp", "لوح سقاله", "scaffold plank", "دعامه", "دعامات", "شمعات", "prop", "acrow prop", "shoring", "جك بيس", "jack base", "قاعده سقاله", "سلم المنيوم", "سلم درج", "ladder", "step ladder", "platform ladder", "سلم متنقل", "برج سقاله", "mobile tower", "منصه عمل", "work platform"],
+      "weak_terms": ["سقاله", "سلم", "دعامه", "scaffold", "ladder", "prop", "tower", "platform"],
+      "term_guards": [
+        {
+          "terms": ["سلم", "ladder"],
+          "block_any": ["كابلات", "كيبل", "cable tray", "cable ladder", "تراي", "حامل كابلات"],
+          "note": "«سلم كابلات» is a cable ladder tray, an electrical accessory, not an access ladder."
+        },
+        {
+          "terms": ["سلم", "ladder"],
+          "block_any": ["متحرك", "كهربايي", "escalator", "moving walkway", "مصعد"],
+          "note": "«سلم متحرك» is an escalator and belongs to vertical transport."
+        }
+      ],
+      "context_terms": ["متر", "م2", "m2", "طن", "مجلفن", "galvanized", "حديد", "steel", "المنيوم", "aluminium", "kg", "موقع", "مؤقت"],
+      "supplier_terms": ["سقالات", "scaffolding", "سقالات ودعامات", "shoring", "سقالات وسلالم"],
+      "preferred_archetypes": ["scaffolding_supplier"],
+      "allowed_archetypes": ["structural_steel_supplier", "metal_trading", "lifting_equipment_supplier", "safety_equipment_supplier", "general_building_materials"],
+      "hard_conflicts": ["cybersecurity_integrator", "it_hardware_supplier", "sanitary_ware_supplier", "paint_only_supplier"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "dimensions", "supplier_pool_affecting": false },
+        { "name": "material", "supplier_pool_affecting": true },
+        { "name": "capacity", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "scaffold_systems",
+          "label_ar": "السقالات ومكوناتها",
+          "strong_terms": ["سقاله", "سقالات", "scaffolding", "scaffold", "frame scaffold", "ماسوره سقاله", "scaffold tube", "كوبلر", "coupler", "كلامب سقاله", "scaffold clamp", "لوح سقاله", "scaffold plank"]
+        },
+        {
+          "id": "shoring_props",
+          "label_ar": "الدعامات والشمعات",
+          "strong_terms": ["دعامه", "دعامات", "شمعات", "prop", "acrow prop", "shoring", "جك بيس", "jack base", "قاعده سقاله", "u head"]
+        },
+        {
+          "id": "ladders_platforms",
+          "label_ar": "السلالم ومنصات العمل",
+          "strong_terms": ["سلم المنيوم", "سلم درج", "step ladder", "platform ladder", "aluminium ladder", "سلم متنقل", "منصه عمل", "work platform", "برج سقاله", "mobile tower"]
+        }
+      ]
+    },
+    {
+      "id": "vertical_transport",
+      "sector": "ELECTRICAL",
+      "label_ar": "المصاعد والسلالم المتحركة",
+      "note": "«مصاعد وسلالم كهربائية» was unmapped. A lift is a named package in most building tenders and the supplier pool (lift agents) shares nothing with electrical distribution, so it needs its own family rather than falling into motors or switchgear.",
+      "strong_terms": ["مصعد", "مصاعد", "elevator", "lift", "مصعد ركاب", "passenger elevator", "مصعد بضائع", "مصعد خدمه", "freight elevator", "goods lift", "service lift", "dumbwaiter", "مصعد طعام", "مصعد هيدروليكي", "hydraulic lift", "machine room less", "mrl", "سلم متحرك", "سلالم متحركه", "escalator", "ممشى متحرك", "moving walkway", "travelator", "مصعد سيارات", "car lift", "مصعد ذوي الاحتياجات", "platform lift", "بئر المصعد", "elevator shaft"],
+      "weak_terms": ["مصعد", "lift", "elevator", "escalator", "رفع", "cabin"],
+      "term_guards": [
+        {
+          "terms": ["lift", "رفع"],
+          "block_any": ["forklift", "رافعه شوكيه", "pallet", "scissor lift", "رافعه مقص", "ونش", "hoist", "crane"],
+          "note": "A forklift or a hoist is material handling, not a building lift."
+        }
+      ],
+      "context_terms": ["شخص", "person", "كجم", "kg", "توقف", "stop", "طابق", "floor", "سرعه", "m/s", "بئر", "shaft", "cabin", "كابينه"],
+      "supplier_terms": ["مصاعد", "elevator", "lifts", "مصاعد وسلالم متحركه", "escalator"],
+      "preferred_archetypes": ["elevator_supplier"],
+      "allowed_archetypes": ["lifting_equipment_supplier", "electrical_distributor", "general_trading"],
+      "hard_conflicts": ["paint_only_supplier", "sanitary_ware_supplier", "ready_mix_supplier", "ppe_supplier", "cybersecurity_integrator"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "dimensions", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "passenger_elevator",
+          "label_ar": "مصاعد الركاب",
+          "strong_terms": ["مصعد ركاب", "passenger elevator", "passenger lift", "مصعد", "مصاعد", "مصعد هيدروليكي", "hydraulic lift", "machine room less", "mrl", "مصعد ذوي الاحتياجات", "platform lift"]
+        },
+        {
+          "id": "freight_elevator",
+          "label_ar": "مصاعد البضائع والخدمة",
+          "strong_terms": ["مصعد بضائع", "مصعد خدمه", "freight elevator", "goods lift", "service lift", "dumbwaiter", "مصعد طعام", "مصعد سيارات", "car lift"]
+        },
+        {
+          "id": "escalator_walkway",
+          "label_ar": "السلالم المتحركة والممشى",
+          "strong_terms": ["سلم متحرك", "سلالم متحركه", "escalator", "ممشى متحرك", "moving walkway", "travelator"]
+        }
+      ]
+    },
+    {
+      "id": "architectural_hardware",
+      "sector": "BUILDING_ENVELOPE",
+      "label_ar": "الأقفال والحديديات المعمارية",
+      "note": "«كوالين وأقفال» was mapped to fasteners, which is wrong: a lock and cylinder trader is not a bolt and anchor trader. Door hardware is a schedule of its own in every fit-out tender.",
+      "strong_terms": ["قفل", "اقفال", "كالون", "كوالين", "lock", "cylinder lock", "mortise lock", "اسطوانه قفل", "cylinder", "رزه", "مفصله", "مفصلات", "hinge", "مقبض باب", "door handle", "lever handle", "كبسه باب", "door knob", "مغلق باب", "door closer", "زنبرك ارضي", "floor spring", "مصد باب", "door stopper", "panic bar", "exit device", "مخرج طوارئ باب", "قفل الكتروني", "digital door lock", "ماستر كي", "master key system", "سقاطه", "latch", "حديديات ابواب", "ironmongery", "door hardware", "كوالين وحديديات"],
+      "weak_terms": ["قفل", "lock", "مقبض", "handle", "hinge", "مفصله", "hardware", "حديديات"],
+      "term_guards": [
+        {
+          "terms": ["lock", "قفل"],
+          "block_any": ["locknut", "صامولة", "نت لوك", "lock washer", "قفل مواسير", "pipe lock"],
+          "note": "A locknut or lock washer is a fastener, not door hardware."
+        },
+        {
+          "terms": ["hardware"],
+          "block_any": ["network", "server", "it hardware", "computer", "حاسب"],
+          "note": "«Hardware» alone also names IT equipment."
+        }
+      ],
+      "context_terms": ["باب", "door", "ابواب", "ستانلس", "stainless", "sus 304", "نحاس", "brass", "مطفي", "satin", "كروم", "chrome", "عدد", "no", "حريق", "fire rated"],
+      "supplier_terms": ["كوالين", "اقفال", "حديديات", "ironmongery", "door hardware", "كوالين واقفال"],
+      "preferred_archetypes": ["architectural_hardware_supplier"],
+      "allowed_archetypes": ["joinery_supplier", "aluminium_supplier", "fitout_contractor", "access_control_supplier", "general_trading", "metal_trading"],
+      "hard_conflicts": ["ready_mix_supplier", "rebar_supplier", "cybersecurity_integrator"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "material", "supplier_pool_affecting": false },
+        { "name": "finish", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "locks_cylinders",
+          "label_ar": "الأقفال والأسطوانات",
+          "strong_terms": ["قفل", "اقفال", "كالون", "كوالين", "lock", "cylinder lock", "mortise lock", "اسطوانه قفل", "cylinder", "سقاطه", "latch", "ماستر كي", "master key system", "قفل الكتروني", "digital door lock"]
+        },
+        {
+          "id": "hinges_handles",
+          "label_ar": "المفصلات والمقابض",
+          "strong_terms": ["مفصله", "مفصلات", "hinge", "مقبض باب", "door handle", "lever handle", "كبسه باب", "door knob", "رزه"]
+        },
+        {
+          "id": "closers_exit_devices",
+          "label_ar": "مغلقات الأبواب ومخارج الطوارئ",
+          "strong_terms": ["مغلق باب", "door closer", "زنبرك ارضي", "floor spring", "مصد باب", "door stopper", "panic bar", "exit device", "مخرج طوارئ باب"]
+        }
+      ]
+    },
+    {
+      "id": "electric_motors",
+      "sector": "ELECTRICAL",
+      "label_ar": "المحركات الكهربائية",
+      "note": "«مواتير كهربائية» was mapped to motor_control and pumps, both wrong: a VFD panel builder does not sell motors, and a motor is bought as a bare machine. Motor control (starters, drives) stays a separate family.",
+      "strong_terms": ["موتور كهربايي", "موتور كهربائي", "مواتير", "مواتير كهربائيه", "محرك كهربائي", "محركات كهربائيه", "electric motor", "induction motor", "ac motor", "three phase motor", "موتور ثلاثي الاوجه", "جير موتور", "gear motor", "gearbox", "مخفض سرعه", "speed reducer", "سيرفو", "servo motor", "dc motor", "stepper motor", "موتور مانع انفجار", "explosion proof motor", "ie3 motor", "موتور مروحه", "fan motor"],
+      "weak_terms": ["موتور", "محرك", "motor", "مواتير", "hp", "kw"],
+      "term_guards": [
+        {
+          "terms": ["موتور", "motor", "محرك"],
+          "block_any": ["انفرتر", "inverter", "vfd", "variable frequency", "درايف", "soft starter", "ستارتر", "كونتاكتور", "contactor", "لوحه تحكم", "starter panel", "overload relay"],
+          "note": "A drive, starter or contactor is motor control, a different supplier pool."
+        },
+        {
+          "terms": ["موتور", "motor", "محرك"],
+          "block_any": ["ديزل", "diesel", "مولد", "generator", "بنزين", "petrol engine"],
+          "note": "A diesel engine or genset is not an electric motor."
+        },
+        {
+          "terms": ["موتور", "motor"],
+          "block_any": ["باب", "شتر", "gate motor", "shutter motor", "rolling door"],
+          "note": "A gate or shutter motor is sold with the door, by the door supplier."
+        }
+      ],
+      "context_terms": ["kw", "hp", "حصان", "rpm", "380v", "400v", "v", "ip55", "ثلاثي الاوجه", "three phase", "flange", "b3", "b5", "ie3", "efficiency"],
+      "supplier_terms": ["مواتير", "محركات كهربائيه", "electric motors", "موتورات", "مواتير كهربائيه"],
+      "preferred_archetypes": ["electric_motor_supplier"],
+      "allowed_archetypes": ["electrical_distributor", "pump_supplier", "industrial_tools_supplier", "general_trading", "switchgear_supplier"],
+      "hard_conflicts": ["paint_only_supplier", "sanitary_ware_supplier", "ready_mix_supplier", "ppe_supplier", "cybersecurity_integrator"],
+      "soft_conflicts": ["general_trading"],
+      "facets": [
+        { "name": "capacity", "supplier_pool_affecting": false },
+        { "name": "voltage", "supplier_pool_affecting": false }
+      ],
+      "intents": [
+        {
+          "id": "induction_motor",
+          "label_ar": "المحركات الحثية",
+          "strong_terms": ["موتور كهربايي", "موتور كهربائي", "مواتير كهربائيه", "محرك كهربائي", "electric motor", "induction motor", "ac motor", "three phase motor", "موتور ثلاثي الاوجه", "ie3 motor", "موتور مانع انفجار", "explosion proof motor"]
+        },
+        {
+          "id": "gear_motor",
+          "label_ar": "محركات التروس والمخفضات",
+          "strong_terms": ["جير موتور", "gear motor", "gearbox", "مخفض سرعه", "speed reducer", "worm gearbox", "جير بوكس"]
+        },
+        {
+          "id": "servo_dc_motor",
+          "label_ar": "محركات السيرفو والتيار المستمر",
+          "strong_terms": ["سيرفو", "servo motor", "dc motor", "stepper motor", "موتور تيار مستمر"]
         }
       ]
     }
