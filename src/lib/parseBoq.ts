@@ -1,5 +1,4 @@
 import type { BOQItem, Supplier } from '../types'
-import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import type { BoqWorkProgress } from './boqEta'
 import {
   extractBoqTable,
@@ -9,6 +8,8 @@ import {
   type BoqTableResult,
   type PdfGlyph,
 } from './boqPdfTable'
+import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
+import { currentAuthMode } from '../api/constructionAuth'
 
 function normalizeAr(text: string): string {
   // NFKC first: printed Etimad booklets arrive as Arabic Presentation Forms-B
@@ -39,6 +40,12 @@ export type ParsedLine = {
   qty: string
   unit: string
   spec?: string
+  /** The item code the booklet prints for this row, when the read carried one. */
+  itemCode?: string
+  /** The server checked this row's code and quantity against the printed page. */
+  codeVerified?: boolean
+  /** Pure work (excavation, backfill…): nothing to buy, so nothing to match. */
+  workOnly?: boolean
 }
 
 const UNIT_NORMALIZE: Record<string, string> = {
@@ -75,59 +82,6 @@ const BOQ_UNIT_ALT =
 const BOQ_HEADER_CATEGORY_RE =
   /غير\s*رسمية|كراسة|اختبارية|صفحة|بيانات\s*اختبار|فرق\s*للبناء|توريد\s*فقط|نموذج\s*كراسة/
 
-/**
- * Curated جدول الكميات for ONE known Etimad PDF (صالة الانتظار) whose text
- * extract is badly bidi-scrambled. Must NEVER be applied to other كراسات.
- * Exported only for isolation regression tests.
- */
-export const ETIMAD_WAITING_HALL_BOQ: ParsedLine[] = [
-  { id: 1, name: 'أعمال الهدم والازالة', qty: '1,200', unit: 'م²' },
-  { id: 2, name: 'توريد وتركيب أرضيات بورسلين', qty: '800', unit: 'م²', spec: 'رمز إنشائي 2041' },
-  { id: 3, name: 'توريد وتركيب أرضيات رخام', qty: '30', unit: 'م²' },
-  { id: 4, name: 'توريد وتركيب نعلات', qty: '90', unit: 'م ط', spec: 'رمز إنشائي 2041' },
-  { id: 5, name: 'أعمال الدهان', qty: '500', unit: 'م²', spec: 'رمز إنشائي 2048' },
-  { id: 6, name: 'أعمال الأسقف الجبسية', qty: '250', unit: 'م²', spec: 'رمز إنشائي 2045' },
-  { id: 7, name: 'أعمال الأسقف المستعارة', qty: '240', unit: 'م²' },
-  { id: 8, name: 'قواطع جيبسوم بورد', qty: '70', unit: 'م²', spec: 'رمز إنشائي 2045' },
-  { id: 9, name: 'قواطع زجاجية', qty: '265', unit: 'م²' },
-  { id: 10, name: 'تجليد أعمدة م 3.5', qty: '13', unit: 'عدد' },
-  { id: 11, name: 'تجليد أعمدة م 2.4', qty: '12', unit: 'عدد' },
-  { id: 12, name: 'تجليد أعمدة م 7 مقاس 65×65', qty: '4', unit: 'عدد' },
-  { id: 13, name: 'تجليد أعمدة م 7 مقاس 65×150', qty: '4', unit: 'عدد' },
-  { id: 14, name: 'توريد وتركيب كاونتر خشب', qty: '1', unit: 'عدد' },
-  { id: 15, name: 'توريد وتركيب شرائح خشبية', qty: '9', unit: 'م ط' },
-  { id: 16, name: 'توريد وتركيب طاولات', qty: '10', unit: 'عدد' },
-  { id: 17, name: 'أعمال الدرابزين', qty: '100', unit: 'م ط' },
-  { id: 18, name: 'ألعاب أطفال', qty: '1', unit: 'مجموعة' },
-  { id: 19, name: 'أرضيات مطاطية', qty: '10', unit: 'م²' },
-  { id: 20, name: 'دواليب طفايات حريق', qty: '1', unit: 'عدد' },
-  { id: 21, name: 'قشرة لباب غرفة الكهرباء', qty: '1', unit: 'عدد' },
-  { id: 22, name: 'جلي رخام', qty: '700', unit: 'م²' },
-  { id: 23, name: 'سويتشات مخارج المعلومات', qty: '1', unit: 'عدد' },
-  { id: 24, name: 'توريد وتركيب أحواض زراعة م 1.5', qty: '13', unit: 'عدد' },
-  { id: 25, name: 'توريد وتركيب أحواض زراعة م 5', qty: '2', unit: 'عدد' },
-  { id: 26, name: 'توريد وتركيب شجيرات ظل', qty: '15', unit: 'عدد' },
-  { id: 27, name: 'كيابل نحاس 2.5 ملم', qty: '200', unit: 'م ط', spec: 'رمز إنشائي 2094' },
-  { id: 28, name: 'كيابل نحاس 4 ملم', qty: '50', unit: 'م ط', spec: 'رمز إنشائي 2094' },
-  { id: 29, name: 'كيابل نحاس 35 ملم', qty: '20', unit: 'م ط', spec: 'رمز إنشائي 2094' },
-  { id: 30, name: 'توريد وتركيب وحدة إضاءة متعددة المناسيب', qty: '1', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 31, name: 'توريد وتركيب إضاءة 60×60', qty: '158', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 32, name: 'توريد وتركيب إضاءة 10×30', qty: '90', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 33, name: 'توريد وتركيب سبوت لايت', qty: '24', unit: 'عدد', spec: 'رمز إنشائي 2087' },
-  { id: 34, name: 'توريد وتركيب شريط ليد', qty: '640', unit: 'م ط', spec: 'رمز إنشائي 2087' },
-  { id: 35, name: 'توريد وتركيب لوحة كهرباء', qty: '1', unit: 'عدد', spec: 'رمز إنشائي 2096' },
-  { id: 36, name: 'توريد وتركيب مخارج كهرباء', qty: '65', unit: 'عدد' },
-  { id: 37, name: 'توريد وتركيب مخارج كهرباء مع USB', qty: '80', unit: 'عدد' },
-  { id: 38, name: 'توريد وتركيب مخارج معلومات', qty: '48', unit: 'عدد' },
-  { id: 39, name: 'توريد وتركيب مخرج مكيف', qty: '25', unit: 'م ط' },
-  { id: 40, name: 'توريد وتركيب كواشف دخان', qty: '4', unit: 'عدد' },
-  { id: 41, name: 'توريد وتركيب سماعة سقف', qty: '5', unit: 'عدد' },
-  { id: 42, name: 'توريد وتركيب نظام الاستدعاء الرقمي', qty: '1', unit: 'عدد' },
-  { id: 43, name: 'توريد وتركيب مجرى سحب هواء', qty: '60', unit: 'م²', spec: 'رمز إنشائي 2079' },
-  { id: 44, name: 'توريد وتركيب مجرى تغذية الهواء', qty: '60', unit: 'م²', spec: 'رمز إنشائي 2079' },
-  { id: 45, name: 'توريد وتركيب مجاري هواء مرنة', qty: '100', unit: 'م ط', spec: 'رمز إنشائي 2079' },
-]
-
 function normalizeUnit(raw: string): string {
   const t = raw.replace(/\s+/g, ' ').trim()
   return UNIT_NORMALIZE[t] || t
@@ -139,79 +93,11 @@ function formatQty(n: number | string): string {
   return num.toLocaleString('en-US')
 }
 
-/** Fix common bidi-reversed Arabic fragments from PDF text extract. */
-function fixArabicName(raw: string): string {
-  let s = raw.replace(/\s+/g, ' ').trim()
-  // Drop trailing yes/no / code leftovers from Etimad tables
-  s = s.replace(/\s*(نعم|لا)\s*\d{0,6}\s*$/g, '').trim()
-  s = s.replace(/\s+\d{3,5}$/g, '').trim()
-
-  const known: [RegExp, string][] = [
-    [/هدم|ازال/, 'أعمال الهدم والازالة'],
-    [/بورسل|ارضيات.*بورس|بورس.*ارض/, 'توريد وتركيب أرضيات بورسلين'],
-    [/رخام.*ارض|ارض.*رخام/, 'توريد وتركيب أرضيات رخام'],
-    [/نعل/, 'توريد وتركيب نعلات'],
-    [/دهان/, 'أعمال الدهان'],
-    [/جبس.*اسقف|اسقف.*جبس/, 'أعمال الأسقف الجبسية'],
-    [/مستعار/, 'أعمال الأسقف المستعارة'],
-    [/جيبسوم|جبسوم.*قواط/, 'قواطع جيبسوم بورد'],
-    [/زجاج.*قواط|قواط.*زجاج/, 'قواطع زجاجية'],
-    [/درابز/, 'أعمال الدرابزين'],
-    [/اطفال|العاب/, 'ألعاب أطفال'],
-    [/مطاط/, 'أرضيات مطاطية'],
-    [/طفاي|حريق/, 'دواليب طفايات حريق'],
-    [/كهرباء.*غرفة|قشرة/, 'قشرة لباب غرفة الكهرباء'],
-    [/جلي/, 'جلي رخام'],
-    [/سويت|معلومات.*مخارج/, 'سويتشات مخارج المعلومات'],
-    [/زراعة|احواض/, 'توريد وتركيب أحواض زراعة'],
-    [/شجير|ظل/, 'توريد وتركيب شجيرات ظل'],
-    [/كيابل|كابل|نحاس/, 'كيابل نحاس'],
-    [/اضاء|إنارة|انارة|سبوت|لايت|ليد/, 'توريد وتركيب إضاءة'],
-    [/لوحة.*كهرب|كهرباء.*لوح/, 'توريد وتركيب لوحة كهرباء'],
-    [/مخرج.*كهرب|كهرباء.*مخرج/, 'توريد وتركيب مخارج كهرباء'],
-    [/مكيف/, 'توريد وتركيب مخرج مكيف'],
-    [/دخان|كواشف/, 'توريد وتركيب كواشف دخان'],
-    [/سماع/, 'توريد وتركيب سماعة سقف'],
-    [/استدعاء/, 'توريد وتركيب نظام الاستدعاء الرقمي'],
-    [/سحب.*هواء|هواء.*سحب/, 'توريد وتركيب مجرى سحب هواء'],
-    [/تغذية.*هواء|هواء.*تغذية/, 'توريد وتركيب مجرى تغذية الهواء'],
-    [/مرن.*هواء|هواء.*مرن|مجاري/, 'توريد وتركيب مجاري هواء مرنة'],
-    [/كاونتر|خشب/, 'توريد وتركيب كاونتر خشب'],
-    [/شرائح/, 'توريد وتركيب شرائح خشبية'],
-    [/طاول/, 'توريد وتركيب طاولات'],
-    [/تجليد|اعمدة/, 'تجليد أعمدة'],
-  ]
-
-  for (const [re, name] of known) {
-    if (re.test(s)) return name
-  }
-  return s
-}
-
 /** Generic Etimad/كراسة shape — shared by many unrelated tenders. */
 export function looksLikeEtimadBoq(text: string): boolean {
   return (
     /جدول\s*الكميات|الكميات\s*جدول|كراسة\s*الشروط|منافسة\s*مشروع/i.test(text) ||
     (text.includes('البند') && text.includes('الكمية') && text.includes('الوحدة'))
-  )
-}
-
-/**
- * Strong fingerprint for the waiting-hall booklet only.
- * Generic Etimad markers alone are NOT enough (cybersecurity / other كراسات
- * also contain جدول الكميات and كراسة الشروط).
- */
-export function looksLikeWaitingHallBoq(text: string): boolean {
-  const t = String(text || '')
-  if (!t.trim()) return false
-  const hall =
-    /صالات?\s*الانتظار|تجديد\s*وتحديث\s*صالات|منافسة\s*مشروع\s*تجديد\s*وتحديث\s*صالات/i.test(t) ||
-    /2020\s*\/\s*382441/.test(t)
-  if (!hall) return false
-  // Require at least one distinctive waiting-hall line signal so a title-only
-  // hit cannot pull the curated 45-line fixture into another document.
-  return /بورسلين|ارضيات\s*رخام|الاسقف\s*الجبسيه|الاسقف\s*الجبسية|مجاري\s*هواء|سبوت\s*لايت|شريط\s*ليد/i.test(
-    normalizeAr(t),
   )
 }
 
@@ -337,15 +223,15 @@ export function parseFarqTestBoqText(text: string): ParsedLine[] {
   return coded.length >= supply.length ? coded : supply
 }
 
-function parseLinesFromText(text: string, remapWaitingHallNames = false): ParsedLine[] {
+function parseLinesFromText(text: string): ParsedLine[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   const found = new Map<number, ParsedLine>()
   const cleanName = (raw: string) => {
     const trimmed = String(raw || '').replace(/\s+/g, ' ').trim()
     if (!trimmed) return ''
-    // Remap only for the known waiting-hall PDF (bidi scramble). Other كراسات
-    // must keep their own extracted names — never inherit صالة الانتظار labels.
-    return remapWaitingHallNames ? fixArabicName(trimmed) : trimmed
+    // A line keeps the name the document printed. Rewriting it to a canned
+    // label sends a supplier a material the booklet never asked for.
+    return trimmed
   }
 
   // Pattern: leading id, description, quantity, unit (tabs or multi-space)
@@ -384,7 +270,7 @@ function parseLinesFromText(text: string, remapWaitingHallNames = false): Parsed
   }
 
   // Farq test كراسات (مستودع / DC / SITE) flatten to one stream — dedicated parsers.
-  if (!remapWaitingHallNames) {
+  {
     const farqTest = parseFarqTestBoqText(text)
     if (farqTest.length > found.size) return farqTest
   }
@@ -425,13 +311,6 @@ function yieldToUi(): Promise<void> {
 function chunkSize(total: number): number {
   return Math.max(16, Math.ceil(total / 48))
 }
-
-/**
- * Mirrors `CATALOG_FETCH_TIMEOUT_MS` in `api/constructionSuppliers` (45s), which
- * is module-private there. Only used to tell the owner the ceiling on a wait we
- * cannot measure from the inside — never to drive control flow.
- */
-const CATALOG_FETCH_CAP_MS = 45_000
 
 /**
  * Reject a leg that neither resolves nor rejects. `Promise.race` leaves the
@@ -596,6 +475,24 @@ async function extractPdfText(file: File, work: BoqWorkProgress = noWork): Promi
   throw new Error(`تعذّر استخراج نص PDF (${errors.join(' | ')})`)
 }
 
+/**
+ * The PDF reader is a lazily loaded chunk whose file name carries a build hash.
+ * A tab left open across a deployment still asks for the OLD name, which no
+ * longer exists, and every browser words that failure differently. It is not a
+ * fact about the booklet — nothing was read — so it must not be reported as
+ * «لم نعثر على بنود». Measured 2026-09-17: the owner's tab asked for
+ * pdf-BPOO2IQW.js after a redeploy that ships pdf-BCrfgDb5.js; both 404.
+ */
+export function isStaleBundleError(message: string | null | undefined): boolean {
+  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i.test(
+    String(message || ''),
+  )
+}
+
+export const STALE_BUNDLE_MESSAGE =
+  'نُشرت نسخة أحدث من التطبيق أثناء فتح هذه الصفحة، فلم يعد قارئ الملفات الذي تحمله صفحتك موجودًا. ' +
+  'أعد تحميل الصفحة ثم ارفع الكراسة من جديد. لم تُقرأ الكراسة، ولم نُعد استخدام كراسة سابقة.'
+
 async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Promise<PdfExtract> {
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
     return extractPdfText(file, work)
@@ -613,21 +510,9 @@ async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Pro
 }
 
 /** Cap UI proposals so a 10k+ directory response cannot freeze the tab. */
-const MATCH_SUPPLIERS_PER_LINE = 8
-/** Client-side fallback only scores against this many directory rows. */
-const MATCH_CATALOG_SCORE_CAP = 2_500
+const MATCH_SUPPLIERS_PER_LINE = 12
 /** Prefer Farq BOQ match for at most this many lines (API max is 200). */
 const MATCH_API_LINE_CAP = 80
-
-function scoreSupplier(hay: string, needles: string[]): number {
-  let score = 0
-  const normHay = normalizeAr(hay)
-  for (const n of needles) {
-    const nn = normalizeAr(n)
-    if (nn && normHay.includes(nn)) score += 2
-  }
-  return score
-}
 
 function lineKeyFor(line: ParsedLine): string {
   return `line-${line.id}`
@@ -641,20 +526,24 @@ function mapApiSuppliers(
     city?: unknown
     evidence?: string
     channel?: string
+    learned?: boolean
   }>,
 ): Supplier[] {
   return rows
     .slice(0, MATCH_SUPPLIERS_PER_LINE)
-    .map((s, i) => {
+    .map((s) => {
       const evidence: Supplier['evidence'] =
         s.evidence === 'دليل مباشر' ||
         s.evidence === 'نشاط متطابق' ||
         s.evidence === 'دليل منتج' ||
-        s.evidence === 'اختيارك'
+        s.evidence === 'من الكتالوج' ||
+        s.evidence === 'على مستوى النشاط' ||
+        s.evidence === 'اختيارك' ||
+        s.evidence === 'تسمية آلية' ||
+        s.evidence === 'خريطة فرق'
           ? s.evidence
-          : i < 3
-            ? 'نشاط متطابق'
-            : 'دليل منتج'
+          : // Never grade a supplier by its position in the list.
+            'من الكتالوج'
       const channel: Supplier['channel'] =
         s.channel === 'واتساب' ? 'واتساب' : s.channel === 'حراج' ? 'حراج' : 'بريد'
       return {
@@ -662,6 +551,7 @@ function mapApiSuppliers(
         name: String(s.name_ar || s.name_en || s.id).trim(),
         city: cityLabel(s.city),
         evidence,
+        learned: s.learned === true ? true : undefined,
         channel,
       }
     })
@@ -669,7 +559,7 @@ function mapApiSuppliers(
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[] }>
+  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -678,7 +568,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[] }>()
+  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -694,19 +584,86 @@ async function matchViaFarqBoqApi(
       capMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
       lines: lines.length,
     })
-    const matched = await matchConstructionBoqCatalog({
-      lines: lines.slice(0, MATCH_API_LINE_CAP).map((line) => ({
-        line_key: lineKeyFor(line),
-        name_ar: line.name,
-        quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
-        uom: line.unit || 'عدد',
-        spec: line.spec,
-      })),
-    })
+    // The API takes at most 200 rows a request and this used to send the first
+    // 80 and stop: a 325-item booklet had 245 lines that were never matched and
+    // read as «مادة غير محدّدة» for a reason that had nothing to do with them.
+    // Every line is sent now, in chunks, two at a time so a large booklet does
+    // not take every connection the API keeps for construction.
+    // «عمل بلا توريد» is the page reader's opinion and nothing on the page can
+    // verify it. Measured on موقع الرياض: it said so of plain concrete, a
+    // fire-rated block wall, waterproofing and cement plaster — all bought
+    // materials — and skipping them here hid their suppliers. Every line is
+    // matched; the label survives only where matching found nothing.
+    const supplyLines = lines
+    const chunks: ParsedLine[][] = []
+    for (let i = 0; i < supplyLines.length; i += MATCH_API_LINE_CAP) chunks.push(supplyLines.slice(i, i + MATCH_API_LINE_CAP))
+    const matchedRows: Awaited<ReturnType<typeof matchConstructionBoqCatalog>>['rows'] = []
+    // One chunk failing must not erase the others. Measured 2026-09-17: two
+    // chunks in parallel, one 500, and Promise.all threw away 94 confirmed
+    // matches and 37 map suggestions the other chunks had returned — 1,039
+    // cards read «مادة غير محدّدة». Chunks now run one at a time (the heavy
+    // query did not survive being doubled), each retried once, and a chunk that
+    // still fails leaves only ITS lines unmatched and is reported by count.
+    let failedLines = 0
+    for (const chunk of chunks) {
+      const body = {
+        lines: chunk.map((line) => ({
+          line_key: lineKeyFor(line),
+          name_ar: line.name,
+          quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
+          uom: line.unit || 'عدد',
+          spec: line.spec,
+        })),
+      }
+      let part: Awaited<ReturnType<typeof matchConstructionBoqCatalog>> | null = null
+      for (let attempt = 0; attempt < 2 && !part; attempt++) {
+        try {
+          part = await matchConstructionBoqCatalog(body)
+        } catch (chunkError) {
+          if (attempt === 1) {
+            failedLines += chunk.length
+            console.warn('Farq BOQ match chunk failed twice', chunkError)
+          }
+        }
+      }
+      if (part) matchedRows.push(...(part.rows || []))
+    }
+    if (failedLines > 0 && failedLines === supplyLines.length) throw new Error('تعذّرت مطابقة الموردين على الخادم لكل الدفعات.')
+    if (failedLines > 0) error = `تعذّرت مطابقة ${failedLines} بندًا من ${supplyLines.length} على الخادم بعد محاولتين؛ بقية البنود طوبقت.`
+    const matched = { rows: matchedRows }
     for (const row of matched.rows || []) {
       out.set(row.line_key, {
         farqSpecId: row.farq_spec_id,
         suppliers: mapApiSuppliers(row.suppliers || []),
+        // An ontology-named material with the map's suppliers — beside the match, never in it.
+        mapSuggestion: row.map_suggestion
+          ? {
+              intent: row.map_suggestion.intent,
+              family: row.map_suggestion.family,
+              answeredBy: row.map_suggestion.answered_by,
+              // The number shown is the number listed: the card said «12 موردًا»
+              // over a list of eight.
+              supplierCount: mapApiSuppliers(row.map_suggestion.suppliers || []).length,
+              zeroReason: row.map_suggestion.zero_reason,
+              suppliers: mapApiSuppliers(row.map_suggestion.suppliers || []),
+            }
+          : undefined,
+        familySuggestion: row.family_suggestion?.family
+          ? { family: row.family_suggestion.family, suppliers: mapApiSuppliers(row.family_suggestion.suppliers || []) }
+          : undefined,
+        learnedSuggestion: row.learned_suggestion?.suppliers?.length
+          ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
+          : undefined,
+        // A model-named material rides alongside, never in place of, the match.
+        aiSuggestion: row.ai_suggestion
+          ? {
+              intent: row.ai_suggestion.intent,
+              family: row.ai_suggestion.family,
+              supplierCount: row.ai_suggestion.suppliers.length,
+              zeroReason: row.ai_suggestion.zero_reason,
+              suppliers: mapApiSuppliers(row.ai_suggestion.suppliers || []),
+            }
+          : undefined,
       })
     }
   } catch (err) {
@@ -726,7 +683,6 @@ export async function matchSuppliersForItems(
   opts: { onWork?: BoqWorkProgress } = {},
 ): Promise<{
   items: BOQItem[]
-  catalogLoaded: boolean
   /** Remote match request failure, if any — surfaced, never swallowed. */
   matchApiError?: string
 }> {
@@ -735,142 +691,30 @@ export async function matchSuppliersForItems(
   const remote = await matchViaFarqBoqApi(cleanLines, work)
   const apiHits = remote.hits
 
-  let catalog: Awaited<ReturnType<typeof listConstructionSuppliers>>['suppliers'] = []
-  let catalogLoaded = false
-  // ~6MB directory behind a 60s in-memory TTL: the second read of a session is
-  // free and the first is a single download with no progress events.
-  work({ kind: 'start', leg: 'match-catalog', opaque: true, capMs: CATALOG_FETCH_CAP_MS })
-  try {
-    const result = await listConstructionSuppliers({
-      limit: MATCH_CATALOG_SCORE_CAP,
-      offset: 0,
-      contactableOnly: true,
-    })
-    catalog = result.suppliers
-      .slice(0, MATCH_CATALOG_SCORE_CAP)
-    catalogLoaded = catalog.length > 0
-  } catch (err) {
-    catalog = []
-    catalogLoaded = false
-    // `catalogLoaded: false` already reaches the screen; the reason should too.
-    console.warn('Supplier directory unavailable — local keyword match will be weak', err)
-  } finally {
-    work({ kind: 'end', leg: 'match-catalog' })
-  }
-
-  // Intent → shared pool (one catalog scan per unique intent), then per-line rank.
-  // The leg opens before the dynamic import so the chunk load and the intent
-  // resolution are attributed to it, instead of leaving the screen in a gap with
-  // no named stage at all.
-  work({ kind: 'start', leg: 'match-pools', unit: 'pool', lines: cleanLines.length })
-  const {
-    resolveProcurementIntentBatch,
-    scoreSupplierAgainstProfile,
-  } = await import('./procurementIntentEngine')
-  const batch = resolveProcurementIntentBatch(
-    cleanLines.map((line) => ({ id: line.id, name: line.name })),
-  )
-  // Pool count is a product of intent resolution, so it arrives as a zero tick.
-  work({ kind: 'tick', leg: 'match-pools', done: 0, total: batch.pools.length })
-  const poolSuppliers = new Map<string, typeof catalog>()
-  const poolChunk = chunkSize(batch.pools.length)
-  let poolsDone = 0
-  for (const pool of batch.pools) {
-    const scored = catalog
-      .map((s) => {
-        const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-        const { score, vetoed } = scoreSupplierAgainstProfile(hay, {
-          intent: pool.intent,
-          domain: pool.domain,
-          type: 'product',
-          search_terms: pool.search_terms,
-          supplier_archetypes: pool.supplier_archetypes,
-          exclude: pool.exclude,
-          confidence: 1,
-          source: 'dictionary',
-          raw: pool.intent,
-        })
-        return { s, score, vetoed }
-      })
-      .filter((x) => !x.vetoed && x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((x) => x.s)
-    poolSuppliers.set(pool.pool_key, scored)
-    poolsDone += 1
-    if (poolsDone % poolChunk === 0 || poolsDone === batch.pools.length) {
-      work({ kind: 'tick', leg: 'match-pools', done: poolsDone, total: batch.pools.length })
-      await yieldToUi()
-    }
-  }
-  work({ kind: 'end', leg: 'match-pools' })
-
-  const profileByLineId = new Map(
-    batch.lines.map((row) => [row.line_id, row.profile]),
-  )
-
+  // There is no local supplier search any more, and that is deliberate.
+  //
+  // What used to happen: the directory was downloaded and every line was padded
+  // out to MATCH_SUPPLIERS_PER_LINE from it, scoring each supplier by substring
+  // over `name + category + activity + city`. That cannot establish that a
+  // business sells the material — those fields describe a registration, not a
+  // product list — and it was measured doing exactly what that predicts. On
+  // «مرحاض عربي بورسلان» it returned four paint companies and a steel firm,
+  // each scoring on the single token «عربي» found inside «المملكة العربية
+  // السعودية»: their country. Not one hit on مرحاض or بورسلان.
+  //
+  // The padding also hid the truth it was papering over. Because it always
+  // filled the line to eight, «بلا مورد مؤكد — 0 مورد» could never render, so
+  // a material with no supplier in Farq's register was indistinguishable on
+  // screen from one with eight. Farq's own answer for those lines is zero.
+  //
+  // The eligible suppliers the API returns are now the only ones shown. If that
+  // is none, the item says none.
   work({ kind: 'start', leg: 'match-rank', unit: 'line', total: cleanLines.length, lines: cleanLines.length })
   const lineChunk = chunkSize(cleanLines.length)
   const items: BOQItem[] = []
   for (const line of cleanLines) {
     const api = apiHits.get(lineKeyFor(line))
-    const apiSuppliers = api?.suppliers || []
-    const profile = profileByLineId.get(String(line.id))
-    const poolKey =
-      profile && profile.intent !== 'unknown'
-        ? profile.intent
-        : `line:${line.id}`
-    const pooled = poolSuppliers.get(poolKey) || []
-
-    // Per-line re-rank within the shared intent pool (apply line profile again).
-    const ranked = (profile
-      ? pooled
-          .map((s) => {
-            const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-            const { score, vetoed } = scoreSupplierAgainstProfile(hay, profile)
-            return { s, score, vetoed }
-          })
-          .filter((x) => !x.vetoed && x.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .map((x) => x.s)
-      : pooled)
-
-    // Fallback: if pool empty and profile unknown, soft token score (still not raw-only dump).
-    const fallbackNeedles =
-      profile?.search_terms?.length
-        ? profile.search_terms
-        : normalizeAr(line.name)
-            .split(/\s+/)
-            .filter((w) => w.length >= 3)
-            .slice(0, 4)
-    const fallback =
-      ranked.length > 0
-        ? []
-        : catalog
-            .map((s) => {
-              const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-              if (profile && scoreSupplierAgainstProfile(hay, profile).vetoed) {
-                return { s, score: 0 }
-              }
-              return { s, score: scoreSupplier(hay, fallbackNeedles) }
-            })
-            .filter((x) => x.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .map((x) => x.s)
-
-    const catalogSource = ranked.length > 0 ? ranked : fallback
-    const seen = new Set(apiSuppliers.map((s) => s.id))
-    const catalogExtras: Supplier[] = catalogSource
-      .filter((s) => !seen.has(s.id))
-      .slice(0, Math.max(0, MATCH_SUPPLIERS_PER_LINE - apiSuppliers.length))
-      .map((s, i) => ({
-        id: s.id,
-        name: s.name,
-        city: s.city,
-        evidence: (i < 3 ? 'نشاط متطابق' : 'دليل منتج') as Supplier['evidence'],
-        channel: (s.hasEmail ? 'بريد' : 'واتساب') as Supplier['channel'],
-      }))
-
-    const suppliers = [...apiSuppliers, ...catalogExtras].slice(0, MATCH_SUPPLIERS_PER_LINE)
+    const suppliers = (api?.suppliers || []).slice(0, MATCH_SUPPLIERS_PER_LINE)
 
     items.push({
       id: line.id,
@@ -883,6 +727,15 @@ export async function matchSuppliersForItems(
       suppliers,
       farqSpecId: api?.farqSpecId || undefined,
       lineKey: lineKeyFor(line),
+      aiSuggestion: api?.aiSuggestion,
+      learnedSuggestion: api?.learnedSuggestion,
+      familySuggestion: api?.familySuggestion,
+      mapSuggestion: api?.mapSuggestion,
+      workOnly:
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.familySuggestion
+          ? true
+          : undefined,
+      itemCode: line.itemCode,
     })
 
     if (items.length % lineChunk === 0 || items.length === cleanLines.length) {
@@ -892,7 +745,7 @@ export async function matchSuppliersForItems(
   }
   work({ kind: 'end', leg: 'match-rank' })
 
-  return { items, catalogLoaded, matchApiError: remote.error }
+  return { items, matchApiError: remote.error }
 }
 
 export type ParseBoqResult = {
@@ -900,7 +753,7 @@ export type ParseBoqResult = {
   projectName: string
   /** Content-hash / upload identity — lines are bound to this document only. */
   documentId: string
-  source: 'pdf-table' | 'pdf-text' | 'waiting-hall-curated' | 'empty'
+  source: 'pdf-table' | 'pdf-text' | 'empty'
   rawLineCount: number
   /** True when Farq API was unreachable / returned no directory during match. */
   matchDegraded?: boolean
@@ -916,10 +769,117 @@ export type ParseBoqResult = {
    */
   expectedLineCount?: number | null
   unreadableLineCount?: number
+  /** Rows the read refused to serve as items — counted, never dropped silently. */
+  setAsideCount?: number
+  setAsideNote?: string
+  setAsideRows?: Array<{ page?: number; quantity?: number | string | null; unit?: string | null; description?: string; reason?: string }>
   /** Arabic, user-facing reasons — one per item we could not read. */
   readIssues?: string[]
   /** Tables found in the document that were deliberately not read as items. */
   skippedTables?: string[]
+  /**
+   * True when the served descriptions repeat so heavily that they cannot be
+   * item names. The count is then not a measure of success: the rows exist and
+   * their quantities may be right, but the material is unknown.
+   */
+  descriptionColumnSuspect?: boolean
+  /** Arabic, user-facing: what repeated and how often. */
+  descriptionColumnDetail?: string
+  /** The document carries far more item codes than rows we read — the read missed the item table. */
+  codedItemsSuspect?: boolean
+  codedItemsDetail?: string
+}
+
+/**
+ * Share of rows that must share their name before the description column is
+ * called into question. Item names are near-unique per row; category labels are
+ * not, so heavy repetition in the name column means it is not the name column.
+ *
+ * Measured on every booklet fixture, and the two populations do not overlap:
+ *
+ *   reference-etimad-2020-48   pdf-table    2.9%   (68 rows, «بردورات خرسانة» twice)
+ *   warehouse-ops-02           pdf-table    0.0%   (180 rows)
+ *   site-or-wh-1__2            pdf-table    0.0%   (180 rows)
+ *   datacenter-cyber-01        pdf-text    77.8%   («DC- الإدارة المركزية وتسجيل» ×10)
+ *   booklet-02-extra           pdf-text    80.6%   («SITE-» ×19)
+ *   site-safety-02             pdf-text    80.6%   («SITE-» ×19)
+ *
+ * Good reads sit at or under 3%, bad reads at or above 78%. 35% sits in the
+ * empty middle: far enough above real repetition that a booklet quoting the
+ * same material twice cannot trip it, far enough below the broken reads that
+ * they cannot escape it.
+ */
+const NAME_DUPLICATION_SUSPECT_SHARE = 0.35
+
+/** Below this there is not enough evidence to call duplication a pattern. */
+const NAME_DUPLICATION_MIN_ROWS = 8
+
+/**
+ * Detect that the reader served a column that is not the description.
+ *
+ * This exists because the failure it catches wore the costume of a success. On
+ * a 180-item booklet the reader returned 180 of 180 items in 12.5 seconds with
+ * every quantity and unit correct, and 154 of the 180 descriptions were the
+ * neighbouring `الفئة` category plus a fragment of `المواصفة` — the item name
+ * was never served at all. Every count-based indicator was green. The only
+ * thing that distinguished it from a clean read was that the names repeated.
+ */
+export function measureNameDuplication(
+  lines: Array<Pick<ParsedLine, 'name' | 'itemCode'>>,
+): {
+  share: number
+  repeatedRows: number
+  worstName: string
+  worstCount: number
+} {
+  /*
+   * A NAME REPEATING IS NOT A FAILURE. THE SAME NAME UNDER MANY ITEMS IS.
+   *
+   * A BOQ item is priced once per building, per floor, per section: «توريد
+   * وتركيب شبكة المياه الباردة والساخنة» is nineteen correct rows under one
+   * item code. The failure this guard exists for looks different — one
+   * category or one boilerplate sentence spread over DIFFERENT items — so the
+   * count is per name across distinct item codes, and rows that carry no code
+   * are still counted the old way, because nothing there says they belong
+   * together.
+   */
+  const codesByName = new Map<string, Set<string>>()
+  const rowsByName = new Map<string, number>()
+  const uncodedByName = new Map<string, number>()
+  for (const line of lines) {
+    const key = String(line.name || '').replace(/\s+/g, ' ').trim()
+    if (!key) continue
+    rowsByName.set(key, (rowsByName.get(key) ?? 0) + 1)
+    const code = String(line.itemCode || '').trim()
+    if (!code) {
+      uncodedByName.set(key, (uncodedByName.get(key) ?? 0) + 1)
+      continue
+    }
+    if (!codesByName.has(key)) codesByName.set(key, new Set())
+    codesByName.get(key)!.add(code)
+  }
+
+  let repeatedRows = 0
+  let worstName = ''
+  let worstCount = 0
+  for (const [name, rows] of rowsByName) {
+    const spread = codesByName.get(name)?.size ?? 0
+    const uncoded = uncodedByName.get(name) ?? 0
+    // Suspicious rows: those sharing a name across more than one item, plus
+    // uncoded rows that merely share a name with something.
+    const suspicious = (spread > 1 ? rows - uncoded : 0) + (uncoded > 1 ? uncoded : 0)
+    if (suspicious > 1) repeatedRows += suspicious
+    if (suspicious > worstCount) {
+      worstCount = suspicious
+      worstName = name
+    }
+  }
+  return {
+    share: lines.length > 0 ? repeatedRows / lines.length : 0,
+    repeatedRows,
+    worstName,
+    worstCount,
+  }
 }
 
 /** SHA-256 hex of file bytes — stable document identity for this upload. */
@@ -934,6 +894,53 @@ export async function hashDocumentId(file: Blob): Promise<string> {
   const bytes = new Uint8Array(buffer)
   for (let i = 0; i < bytes.length; i++) h = (Math.imul(31, h) + bytes[i]!) | 0
   return `doc-${(h >>> 0).toString(16)}-${bytes.length}`
+}
+
+/** A document with fewer codes than this is not judged by them. */
+const CODED_ITEMS_MIN = 30
+/** Reading under this share of the printed item codes means the item table was missed. */
+const CODED_ITEMS_READ_SHARE = 0.5
+
+/**
+ * Section totals and carried sums, in the wordings real booklets use. Anchored
+ * on the WORD so a product that merely contains it («إجمالي الطول» inside a
+ * description) is judged by where it sits: only a name that STARTS or ENDS
+ * with the total wording, or is little else, is a total line.
+ */
+export function isTotalLine(name: string | null | undefined): boolean {
+  const n = String(name || '')
+    .normalize('NFKC')
+    // A PDF that cannot map a glyph emits U+0000 (and friends) in its place.
+    // Measured on the MasterFormat site booklets: «إجما\u0000» — the ي is a
+    // NUL — so the total word was followed by a character that is neither a
+    // letter nor whitespace, and the line slipped through as an item.
+    .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF\uFFFD]/g, ' ')
+    .replace(/[\u064B-\u065F\u0640]/g, '')
+    .replace(/[إأآ]/g, 'ا')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!n) return false
+  // A total WORD, never a prefix of another word: «مجموعة أدوات» is a tool set
+  // and «مجموع» is a sum. \b is ASCII-only in JavaScript, so the boundary is
+  // spelled out for Arabic letters.
+  const AR = '\\u0600-\\u06FF'
+  const word = `(?:ال)?(?:اجمال[يى]|اجما|مجموع)(?![${AR}\\w])|(?<![A-Za-z])(?:sub-?total|total|carried (?:forward|to summary))(?![A-Za-z])`
+  const starts = new RegExp(`^(?:${word})`, 'i').test(n)
+  const ends = new RegExp(`(?:^|[^${AR}\\w])(?:${word})\\s*[:：-]?\\s*$`, 'i').test(n)
+  return starts || ends
+}
+
+/**
+ * Distinct item codes printed in the document: 8-digit MasterFormat numbers
+ * (02025001) and hierarchical references (B.02.02.03.01). Read from the text,
+ * not from the rows, so it is a count the row reader did not produce.
+ */
+export function countDistinctItemCodes(text: string | null | undefined): number {
+  const t = String(text || '').normalize('NFKC')
+  const codes = new Set<string>()
+  for (const m of t.matchAll(/(?<!\d)(\d{8})(?!\d)/g)) codes.add(m[1]!)
+  for (const m of t.matchAll(/(?<![\w.])([A-Z]\.\d{2}(?:\.\d{2}){2,5})(?![\w.])/g)) codes.add(m[1]!)
+  return codes.size
 }
 
 /**
@@ -957,17 +964,21 @@ export function resolveParsedLines(input: {
   /** How many column-read rows the API could describe, so a booklet read
    *  without its technical text is visible rather than assumed. */
   specsFromApi: number
+  /** Set when the names repeat too heavily to be names. */
+  descriptionColumnSuspect: boolean
+  descriptionColumnDetail: string
+  codedItemsSuspect: boolean
+  codedItemsDetail: string
 } {
   let specsFromApi = 0
   let lines = Array.isArray(input.apiLines) ? [...input.apiLines] : []
   let source: ParseBoqResult['source'] = lines.length > 0 ? 'pdf-text' : 'empty'
   let projectName = input.fileName.replace(/\.[^.]+$/, '')
   const text = String(input.text || '')
-  const waitingHall = text.trim() ? looksLikeWaitingHallBoq(text) : false
 
   if (text.trim()) {
-    const fromText = parseLinesFromText(text, waitingHall)
-    const farqTest = waitingHall ? [] : parseFarqTestBoqText(text)
+    const fromText = parseLinesFromText(text)
+    const farqTest = parseFarqTestBoqText(text)
     const clientBest =
       farqTest.length >= fromText.length ? farqTest : fromText
 
@@ -1016,27 +1027,52 @@ export function resolveParsedLines(input: {
       text.match(/كراسة\s+اختبار\s+كبيرة\s+-\s+([^\n]{8,80})/)
     if (titleMatch?.[1]) {
       projectName = titleMatch[1].replace(/\s+/g, ' ').trim()
-    } else if (/FARQ-TEST-B|مستودع|مركز\s*تشغيل/.test(text)) {
-      projectName = 'توريد مواد ومعدات لمركز تشغيل ومستودعات'
-    } else if (/FARQ-TEST-DC|أمن\s*سيبراني|مركز\s*بيانات/.test(text)) {
-      projectName = 'توريد تجهيزات مركز بيانات وأمن سيبراني'
-    } else if (/FARQ-TEST-SITE|معدات\s*مواقع/.test(text)) {
-      projectName = 'توريد معدات مواقع وورش وسلامة صناعية'
-    } else if (waitingHall) {
-      projectName = 'منافسة مشروع تجديد وتحديث صالات الانتظار (المرحلة الثانية)'
     }
-
-    // ONLY the known waiting-hall Etimad PDF may use the curated 45-line table.
-    if (waitingHall && looksLikeEtimadBoq(text) && lines.length < 20) {
-      lines = ETIMAD_WAITING_HALL_BOQ.map((row) => ({ ...row }))
-      source = 'waiting-hall-curated'
-      projectName = 'منافسة مشروع تجديد وتحديث صالات الانتظار (المرحلة الثانية)'
-    }
+    // No canned project names and no stored table: a weak read stays a weak
+    // read and is reported as one. Quantities are never supplied by the app.
   } else if (lines.length > 0) {
     source = 'pdf-text'
   }
 
-  return { lines, source, projectName, specsFromApi }
+  // A section TOTAL is not an item, and its amount is not a quantity. Measured
+  // 2026-09-17 on a MasterFormat site booklet: 18 "items" were read from a
+  // document carrying 325 item codes, every one a «… إجمالي» line whose SAR
+  // total had landed in the quantity column — and a supplier was proposed for
+  // «اعمال خرسانة إجمالي 108,276 عدد». Dropped before anything is matched.
+  const beforeTotals = lines.length
+  lines = lines.filter((line) => !isTotalLine(line.name))
+  const totalLinesDropped = beforeTotals - lines.length
+
+  // Row count is not a denominator the reader may grade itself against. Item
+  // codes printed in the document are: when it carries many more distinct codes
+  // than rows we read, the item table was missed, whatever else "completed".
+  const codedItems = countDistinctItemCodes(text)
+  const codedItemsSuspect = codedItems >= CODED_ITEMS_MIN && lines.length < codedItems * CODED_ITEMS_READ_SHARE
+  const codedItemsDetail = codedItemsSuspect
+    ? `تحمل الوثيقة ${codedItems} كودًا مميّزًا لبنود، وقرأنا ${lines.length} صفًّا فقط` +
+      (totalLinesDropped ? ` بعد استبعاد ${totalLinesDropped} سطر إجمالي قُرئ مبلغه ككمية` : '') +
+      '. جدول البنود الحقيقي لم يُقرأ. لا تعتمد على هذه البنود ولا على كمياتها.'
+    : ''
+
+  // Measured last, on whatever won, because the question is about the text we
+  // are about to serve rather than about the path that produced it.
+  const dup = measureNameDuplication(lines)
+  // This guard exists for reads made by column geometry, which can serve the
+  // category column as the item name. A server-verified read names a row by its
+  // MATERIAL, tied to a code and a quantity both checked on the printed page —
+  // and materials repeat by nature: measured on a site BOQ, «خرسانة مسلحة 30
+  // ميجاباسكال» is 44 correct rows (columns, beams, slabs, per building), and
+  // the guard called 1,039 verified rows an invalid read.
+  const verifiedShare = lines.length ? lines.filter((l) => l.codeVerified).length / lines.length : 0
+  const descriptionColumnSuspect =
+    verifiedShare < 0.8 &&
+    lines.length >= NAME_DUPLICATION_MIN_ROWS &&
+    dup.share >= NAME_DUPLICATION_SUSPECT_SHARE
+  const descriptionColumnDetail = descriptionColumnSuspect
+    ? `${dup.repeatedRows} من ${lines.length} بندًا تحمل وصفًا مكررًا، وأكثر وصف تكرارًا «${dup.worstName}» ظهر ${dup.worstCount} مرة. أسماء البنود لا تتكرر بهذا الشكل، فالأرجح أننا قرأنا عمود الفئة أو المواصفة بدل عمود البند.`
+    : ''
+
+  return { lines, source, projectName, specsFromApi, descriptionColumnSuspect, descriptionColumnDetail, codedItemsSuspect, codedItemsDetail }
 }
 
 /**
@@ -1284,6 +1320,23 @@ export function resolveBoqCardFields(
  * Also accepts object rows keyed by those titles.
  * Positional fallbacks: [name, qty, uom] or [id, name, qty, uom].
  */
+/**
+ * What the server's verified page reader says about a row, carried in the notes
+ * cell it writes: the printed item code, that code and quantity were checked
+ * against the page, and whether the row is work with nothing to buy.
+ */
+function serverReadFacts(notes: string): Pick<ParsedLine, 'itemCode' | 'codeVerified' | 'workOnly'> {
+  const text = String(notes || '')
+  // Two server reads qualify: the verified extractor, and the column reader,
+  // which ties every row to a code and a quantity taken from the printed page
+  // by their coordinates. The second used to be treated as unverified, so a
+  // booklet read entirely by geometry scored zero and tripped the duplicate
+  // guard on its own correct rows.
+  if (!/قراءة آلية مُتحقَّق|قراءة جدولية من إحداثيات الصفحة/.test(text)) return {}
+  const code = text.match(/بند الكراسة:\s*(\S+)/)?.[1]
+  return { itemCode: code || undefined, codeVerified: true, workOnly: /عمل بلا توريد/.test(text) || undefined }
+}
+
 export function rowsToLines(rows: unknown[]): ParsedLine[] {
   if (!Array.isArray(rows) || rows.length === 0) return []
 
@@ -1321,6 +1374,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     let unitRaw = 'عدد'
     let spec: string | undefined
     let idHint: number | null = null
+    let notesText = ''
 
     if (nameCol >= 0) {
       name = cellAt(row, nameCol)
@@ -1329,6 +1383,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       const specVal = cellAt(row, specCol)
       if (specVal && !isHeaderLabel(specVal)) spec = specVal
       const notes = cellAt(row, notesCol)
+      notesText = notes
       idHint = extractBoqItemNumber(notes)
       if (idCol >= 0) {
         const rawId = Number(cellAt(row, idCol))
@@ -1351,12 +1406,24 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     if (isHeaderLabel(name)) continue
     if (isHeaderLabel(qtyRaw) && isHeaderLabel(unitRaw)) continue
 
-    // Keep API/Excel cell text as-is. fixArabicName is only for scrambled PDF text extract.
+    // Keep API/Excel cell text as-is.
     const cleanedName = name.replace(/\s+/g, ' ').trim()
     if (!cleanedName || isHeaderLabel(cleanedName)) continue
 
-    let id = idHint && !usedIds.has(idHint) ? idHint : out.length + 1
-    if (usedIds.has(id)) id = out.length + 1
+    // A server-verified row is identified by its printed CODE, which is not a
+    // row number: «بند الكراسة: 03300002» parsed as one gave id 330, and the
+    // 330th row then took 330 as its positional fallback — the old guard below
+    // re-assigned `out.length + 1` without checking that it was free. Duplicate
+    // ids are duplicate line keys, and the API refuses the whole request for
+    // one («أرسل من 1 إلى 200 بند», its message for ANY invalid body). Seen on
+    // a 1,319-row site BOQ: every chunk refused, no supplier shown.
+    const facts = serverReadFacts(notesText)
+    if (facts.codeVerified) idHint = null
+    let id = idHint && !usedIds.has(idHint) ? idHint : 0
+    if (!id) {
+      id = out.length + 1
+      while (usedIds.has(id)) id += 1
+    }
     usedIds.add(id)
 
     out.push({
@@ -1365,6 +1432,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       qty: formatQty(qtyRaw),
       unit: normalizeUnit(String(unitRaw || 'عدد')),
       spec,
+      ...facts,
     })
   }
   return sanitizeBoqLines(out)
@@ -1377,6 +1445,16 @@ export type BoqReadFacts = {
   unreadableLineCount: number
   readIssues?: string[]
   skippedTables?: string[]
+  /** Rows the read refused to serve as items, counted by reason. */
+  setAsideCount?: number
+  setAsideNote?: string
+  setAsideRows?: Array<{ page?: number; quantity?: number | string | null; unit?: string | null; description?: string; reason?: string }>
+  /** Travels with the early facts so the screen can refuse to call this a
+   *  complete read before the longest leg even starts. */
+  descriptionColumnSuspect?: boolean
+  descriptionColumnDetail?: string
+  codedItemsSuspect?: boolean
+  codedItemsDetail?: string
 }
 
 export async function parseBoqFile(
@@ -1441,11 +1519,28 @@ export async function parseBoqFile(
       table.expectedCount === table.rows.length,
   )
 
+  /** Rows the server read but refused to serve as items, with their reason. */
+  let setAside: Array<{
+    page?: number
+    quantity?: number | string | null
+    unit?: string | null
+    description?: string
+    reason?: string
+  }> = []
+
   // Optional API enrichment — capped wait so a hung job cannot strand UploadView.
   // Scanned PDFs: give Farq tender extract (OCR when enabled) more time before giving up.
   if (isPdf) {
     let apiTimer: ReturnType<typeof setTimeout> | undefined
-    const apiWaitMs = clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
+    let serverReadError = ''
+    // A coded BOQ (MasterFormat, hierarchical) is one this browser cannot read:
+    // measured, it yields a dozen total lines out of hundreds of items. The
+    // server reads those page by page with the AI reader, which takes 1-3
+    // minutes — so here, as for a scan, the server is not an enrichment but the
+    // only chance of a real read. Waiting 12s and then serving the local read
+    // is what showed «قراءة غير صالحة» while the server was on page 3 of 36.
+    const codedBoq = countDistinctItemCodes(text) >= CODED_ITEMS_MIN
+    const apiWaitMs = codedBoq ? 840_000 : clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
     // A scan gets the longer wait because OCR is its only chance of any lines at
     // all — the owner must be told which of the two ceilings he is sitting under.
     work({ kind: 'start', leg: 'api-parse', opaque: true, capMs: apiWaitMs })
@@ -1459,15 +1554,32 @@ export async function parseBoqFile(
       ])
       if (apiOrTimeout.kind === 'api' && apiOrTimeout.api.rows?.length) {
         apiLines = rowsToLines(apiOrTimeout.api.rows)
+        // «لا أريد أي بند يختفي بصمت»: what the read refused, carried to the
+        // screen with its reason instead of being dropped without a word.
+        setAside = apiOrTimeout.api.set_aside || []
       }
     } catch (err) {
       console.warn('Farq BOQ parse API unavailable, using client parse', err)
       if (!extractError && isPdfScanNoTextError(err)) {
         extractError = PDF_SCAN_NO_TEXT
       }
+      serverReadError = err instanceof Error ? err.message : 'تعذّر الوصول إلى الخادم'
     } finally {
       if (apiTimer) clearTimeout(apiTimer)
       work({ kind: 'end', leg: 'api-parse' })
+    }
+    // A booklet that numbers its own items can only be read by the server. If
+    // that read did not arrive, the local one is known in advance to be wrong
+    // (20 rows of «ما بند» for 387 printed codes), so it is not shown at all:
+    // the buyer gets one sentence and «إعادة المحاولة».
+    if (codedBoq && apiLines.length === 0) {
+      // The server names an outage in words meant for the buyer («ملفك سليم»);
+      // wrapping it in «انقطعت القراءة» would hide that nothing is wrong with
+      // his file.
+      if (/ملفك سليم/.test(serverReadError)) throw new Error(serverReadError)
+      throw new Error(
+        `انقطعت قراءة الكراسة على الخادم قبل أن تكتمل${serverReadError ? ` (${serverReadError})` : ''}. لم يُفقد شيء: اضغط «إعادة المحاولة».`,
+      )
     }
   }
 
@@ -1495,11 +1607,34 @@ export async function parseBoqFile(
       ? `قرأنا هذا الملف بالمسار النصي. قارئ الأعمدة رأى جدولًا ولم يكمله (${table.rows.length} من ${table.expectedCount ?? '؟'}).`
       : ''
   // The quantities table carries no technical column; that text comes from the
-  // API. Without it every line matches on its name alone, which is how a
-  // «ماسورة» finds the wrong material — so its absence is stated, not assumed.
+  // API. Without it a line matches on its name alone, which is how a «ماسورة»
+  // finds the wrong material — so the shortfall is stated, not assumed.
+  //
+  // It is stated as pending rather than as absent on purpose. The API has not
+  // failed here, it has not answered inside the window this screen waits (see
+  // the extraction timeout below): on a 6.9 MB booklet the server is still
+  // reading while we render. Saying «وصلت لـ 0» invites the reader to conclude
+  // the text does not exist, and he then finds technical text on a later
+  // screen and concludes the count lied to him.
+  // Count the specifications the reader will actually put on screen, from
+  // whichever source supplied them. `specsFromApi` counts only the ones the
+  // API filled in, and a booklet that prints its own «المواصفة المختصرة»
+  // column needs nothing from the API at all — so datacenter-cyber-01, which
+  // reads perfectly and shows technical text on every card, was reporting
+  // «المواصفات الفنية لم تصل بعد لـ 180 من 180». That is the same false
+  // count we have been clearing all day, pointing the other way: it tells the
+  // owner everything failed while the evidence in front of him says otherwise.
+  const specsPresent = lines.filter((line) => String(line.spec || '').trim()).length
+  const specsPending = lines.length - specsPresent
+  // Two different causes, and blaming the slow one for the other is how the
+  // owner was told a 6-second window was at fault when he simply had no
+  // session: the extraction runs on the server, so with no session it never
+  // started rather than ran late.
   const specNote =
-    source === 'pdf-table' && specsFromApi < lines.length
-      ? `المواصفات الفنية وصلت لـ ${specsFromApi} من ${lines.length} بندًا؛ الباقي سيُطابق بالاسم والكمية فقط.`
+    source === 'pdf-table' && specsPending > 0
+      ? currentAuthMode() === 'demo'
+        ? `المواصفات الفنية لم تُستخرج (${specsPending} من ${lines.length} بندًا): استخراجها يجري على خادم فرق ويحتاج تسجيل دخول. الكميات والوحدات مقروءة بالكامل من الكراسة نفسها.`
+        : `المواصفات الفنية لم تصل بعد لـ ${specsPending} من ${lines.length} بندًا — استخراجها من الكراسة أبطأ من مهلة هذه الشاشة، فطُوبقت هذه البنود بالاسم والكمية. الكميات والوحدات مقروءة بالكامل.`
       : ''
   const expectedLineCount = usedTable ? table!.expectedCount : null
   const unreadableLineCount = usedTable ? unreadableCount(table!) : 0
@@ -1507,11 +1642,43 @@ export async function parseBoqFile(
   const skippedTables = usedTable
     ? table!.otherTables.map((t) => `صفحة ${t.page}: جدول آخر لم نقرأه كبنود — «${t.header}»`)
     : []
+  /*
+   * WHAT THE READ REFUSED TO SERVE, SAID OUT LOUD.
+   *
+   * «لا أريد أي بند يختفي بصمت». The server sets a row aside when it has no
+   * quantity, no readable text, or a number sitting off the quantity column.
+   * Those rows are almost always totals and sub-headings — «almost always» is
+   * not a reason to delete them without a word, so they are counted by reason
+   * and reported beside the read.
+   */
+  const REASON_AR: Record<string, string> = {
+    NO_QUANTITY: 'بلا كمية',
+    NO_TEXT: 'بلا نص مقروء',
+    OFF_QUANTITY_COLUMN: 'رقمها خارج عمود الكميات',
+  }
+  const setAsideByReason = new Map<string, number>()
+  for (const row of setAside) {
+    const key = REASON_AR[String(row.reason || '')] || 'سبب غير معروف'
+    setAsideByReason.set(key, (setAsideByReason.get(key) || 0) + 1)
+  }
+  const setAsideNote = setAside.length
+    ? `استبعدنا ${setAside.length} سطرًا من الكراسة ولم نعرضها كبنود: ` +
+      [...setAsideByReason.entries()].map(([reason, n]) => `${n} ${reason}`).join('، ') +
+      '. غالبها إجماليات وعناوين، راجعها إن كنت تتوقع بنودًا أكثر.'
+    : ''
+
   const readFacts = {
     expectedLineCount,
     unreadableLineCount,
+    setAsideCount: setAside.length || undefined,
+    setAsideNote: setAsideNote || undefined,
+    setAsideRows: setAside.length ? setAside.slice(0, 50) : undefined,
     readIssues: readIssues.length ? readIssues : undefined,
     skippedTables: skippedTables.length ? skippedTables : undefined,
+    descriptionColumnSuspect: resolved.descriptionColumnSuspect || undefined,
+    descriptionColumnDetail: resolved.descriptionColumnDetail || undefined,
+    codedItemsSuspect: resolved.codedItemsSuspect || undefined,
+    codedItemsDetail: resolved.codedItemsDetail || undefined,
   }
   opts.onRead?.({ read: lines.length, ...readFacts })
 
@@ -1534,7 +1701,10 @@ export async function parseBoqFile(
       source: 'empty',
       rawLineCount: 0,
       ...readFacts,
-      matchWarning: `لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة.${detail}${tableDetail}`,
+      // A stale page cannot say anything about the booklet: it never opened it.
+      matchWarning: isStaleBundleError(extractError)
+        ? STALE_BUNDLE_MESSAGE
+        : `لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة.${detail}${tableDetail}`,
     }
   }
 
@@ -1550,18 +1720,21 @@ export async function parseBoqFile(
       source,
       rawLineCount: lines.length,
       ...readFacts,
-      matchDegraded: !matched.catalogLoaded || Boolean(matched.matchApiError),
+      matchDegraded: Boolean(matched.matchApiError),
       matchApiFailed: Boolean(matched.matchApiError),
       matchApiError: matched.matchApiError,
       matchWarning:
         [
-          !matched.catalogLoaded
-            ? 'تعذر الاتصال بـ Farq API (:3000). شغّل الـ API ثم أعد رفع الكراسة.'
-            : matched.matchApiError
-              ? `فشلت مطابقة الموردين على الـ API (${matched.matchApiError}). الاقتراحات أدناه من مطابقة محلية بالكلمات فقط.`
-              : ready === 0
-                ? 'قُرئت البنود لكن لم يُعثر على موردين مطابقين. تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'
-                : '',
+          // The server is the only source of suppliers now, so when it does not
+          // answer there are no suggestions to describe — the old wording
+          // promised «اقتراحات أدناه من مطابقة محلية», and there are none.
+          matched.matchApiError
+            ? currentAuthMode() === 'demo'
+              ? 'لم تسجّل الدخول، فلم تصل مطابقة الموردين إلى خادم فرق ولم نعرض أي مورد. سجّل الدخول ثم أعد رفع الكراسة.'
+              : `تعذّرت مطابقة الموردين على الخادم (${matched.matchApiError}) ولم نعرض أي مورد — لا نخمّن الموردين محليًا.`
+            : ready === 0
+              ? `قُرئت البنود بالكامل، ولا يوجد لأي بند مورد مؤكد في سجل فرق.${isProductionBuild() ? '' : ' تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'}`
+              : '',
           shelvedTableNote,
           specNote,
         ]

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { setPendingUpload } from '../lib/pendingUpload'
 import type { NavProps, RFQSummary } from '../types'
 import { UploadIcon, ArrowRightIcon } from '../icons'
 import { getSession, subscribeSession } from '../store/session'
@@ -70,7 +71,7 @@ export function HomeView({ navigate }: NavProps) {
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-8 py-10">
       <div className="mb-10">
-        <h1 className="text-4xl lg:text-5xl font-black text-[#0D1F1D] leading-tight mb-3">سوّم كراستك في دقائق</h1>
+        <h1 className="text-4xl lg:text-5xl font-black text-[#0D1F1D] leading-tight mb-3">سعّر مناقصتك بدقائق</h1>
         <p className="text-lg text-neutral-500 leading-relaxed max-w-xl">
           ارفع كراسة الشروط والمواصفات، ونقرأ البنود ونقترح الموردين المناسبين لكل بند.
         </p>
@@ -90,6 +91,7 @@ export function HomeView({ navigate }: NavProps) {
         onDrop={(e) => {
           e.preventDefault()
           setDragging(false)
+          setPendingUpload(e.dataTransfer.files?.[0])
           navigate('create-upload')
         }}
         onClick={() => inputRef.current?.click()}
@@ -99,7 +101,10 @@ export function HomeView({ navigate }: NavProps) {
           type="file"
           accept=".pdf,.xlsx,.xls"
           className="hidden"
-          onChange={() => navigate('create-upload')}
+          onChange={(e) => {
+            setPendingUpload(e.target.files?.[0])
+            navigate('create-upload')
+          }}
         />
         <div className="flex flex-col items-center py-16 px-8">
           <div className="w-16 h-16 rounded-2xl bg-[#CFF5DC] flex items-center justify-center mb-5">

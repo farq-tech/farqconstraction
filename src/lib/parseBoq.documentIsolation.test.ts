@@ -5,9 +5,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  ETIMAD_WAITING_HALL_BOQ,
   looksLikeEtimadBoq,
-  looksLikeWaitingHallBoq,
   parseCodedFarqTestBoq,
   parseFarqTestBoqText,
   parseSupplyFarqTestBoq,
@@ -23,6 +21,15 @@ import {
 import type { BOQItem } from '../types'
 
 const FIXTURES = path.resolve(__dirname, '../../fixtures/boq')
+
+/** Stand-in for "booklet A's lines". The app no longer ships a stored table. */
+const HALL_LINES = [
+  { id: 1, name: 'أعمال الهدم والازالة', qty: '1,200', unit: 'م²' },
+  { id: 2, name: 'توريد وتركيب أرضيات بورسلين', qty: '800', unit: 'م²' },
+  { id: 3, name: 'توريد وتركيب أرضيات رخام', qty: '400', unit: 'م²' },
+  { id: 4, name: 'أعمال الأسقف الجبسية', qty: '600', unit: 'م²' },
+  { id: 5, name: 'توريد وتركيب مجاري هواء مرنة', qty: '100', unit: 'م ط' },
+]
 
 const WAITING_HALL_TEXT = `
 كراسة الشروط والمنافسات
@@ -85,31 +92,25 @@ function nameOverlap(a: string[], b: string[]): string[] {
 }
 
 describe('document identity / booklet isolation', () => {
-  it('fingerprints waiting-hall vs generic Etimad cybersecurity booklet', () => {
+  it('a weak read of a known booklet is never padded from a stored table', () => {
     expect(looksLikeEtimadBoq(WAITING_HALL_TEXT)).toBe(true)
-    expect(looksLikeWaitingHallBoq(WAITING_HALL_TEXT)).toBe(true)
-
-    expect(looksLikeEtimadBoq(CYBERSECURITY_TEXT)).toBe(true)
-    expect(looksLikeWaitingHallBoq(CYBERSECURITY_TEXT)).toBe(false)
-    expect(looksLikeWaitingHallBoq(CYBER_WEAK_EXTRACT)).toBe(false)
+    const weak = resolveParsedLines({ fileName: 'waiting-hall.pdf', text: WAITING_HALL_TEXT, apiLines: [] })
+    // Every quantity the app reports must be printed in the document itself.
+    for (const line of weak.lines) {
+      expect(WAITING_HALL_TEXT.replace(/,/g, '')).toContain(String(line.qty).replace(/,/g, ''))
+    }
+    expect(weak.lines.length).toBeLessThan(45)
+    expect(String(weak.source)).not.toBe('waiting-hall-curated')
   })
 
   it('upload A (waiting-hall) then upload B (cybersecurity) yields B lines only', () => {
-    const uploadA = resolveParsedLines({
-      fileName: 'waiting-hall.pdf',
-      text: WAITING_HALL_TEXT,
-      apiLines: [],
-    })
-    expect(uploadA.source).toBe('waiting-hall-curated')
-    expect(uploadA.lines).toHaveLength(45)
-
     setParsedBoq({
       fileName: 'waiting-hall.pdf',
-      projectName: uploadA.projectName,
-      items: asBoqItems(uploadA.lines),
+      projectName: 'صالات الانتظار',
+      items: asBoqItems(HALL_LINES),
       documentId: 'doc-waiting-hall-aaa',
     })
-    expect(getBoqItems()).toHaveLength(45)
+    expect(getBoqItems()).toHaveLength(HALL_LINES.length)
 
     beginBoqUpload({ fileName: 'cybersecurity.pdf', documentId: null })
     expect(getBoqItems()).toHaveLength(0)
@@ -122,7 +123,7 @@ describe('document identity / booklet isolation', () => {
     expect(uploadB.source).toBe('pdf-text')
     expect(uploadB.lines.length).toBeGreaterThanOrEqual(3)
 
-    const hallNames = ETIMAD_WAITING_HALL_BOQ.map((l) => l.name)
+    const hallNames = HALL_LINES.map((l) => l.name)
     const cyberNames = uploadB.lines.map((l) => l.name)
     expect(nameOverlap(cyberNames, hallNames)).toHaveLength(0)
 
@@ -150,7 +151,7 @@ describe('document identity / booklet isolation', () => {
     setParsedBoq({
       fileName: 'waiting-hall.pdf',
       projectName: 'صالات الانتظار',
-      items: asBoqItems(ETIMAD_WAITING_HALL_BOQ.slice(0, 5)),
+      items: asBoqItems(HALL_LINES),
       documentId: 'doc-a',
     })
     expect(getBoqItems()).toHaveLength(5)
@@ -177,7 +178,7 @@ describe('warehouse / Farq-test booklet parse', () => {
     expect(lines.length).toBeGreaterThanOrEqual(6)
     expect(lines.some((l) => /قطاع حديد|ساندوتش|Pallet Rack|مولد ديزل/i.test(l.name))).toBe(true)
 
-    const hallNames = ETIMAD_WAITING_HALL_BOQ.map((l) => l.name)
+    const hallNames = HALL_LINES.map((l) => l.name)
     expect(nameOverlap(lines.map((l) => l.name), hallNames)).toHaveLength(0)
 
     const resolved = resolveParsedLines({
@@ -187,7 +188,7 @@ describe('warehouse / Farq-test booklet parse', () => {
     })
     expect(resolved.source).toBe('pdf-text')
     expect(resolved.lines.length).toBeGreaterThanOrEqual(6)
-    expect(resolved.source).not.toBe('waiting-hall-curated')
+    expect(String(resolved.source)).not.toBe('waiting-hall-curated')
   })
 
   it('parses real warehouse PDF flat extract (≥150 lines, includes UPS category)', () => {
@@ -198,14 +199,14 @@ describe('warehouse / Farq-test booklet parse', () => {
     expect(lines.some((l) => l.id === 1 && /حديد|IPE/i.test(l.name))).toBe(true)
     expect(lines.some((l) => l.id === 133 && /مولد|UPS|ديزل/i.test(l.name))).toBe(true)
 
-    const hallNames = ETIMAD_WAITING_HALL_BOQ.map((l) => l.name)
+    const hallNames = HALL_LINES.map((l) => l.name)
     expect(nameOverlap(lines.map((l) => l.name), hallNames)).toHaveLength(0)
 
     // A then failed B still clears; warehouse C succeeds with its own lines.
     setParsedBoq({
       fileName: 'a.pdf',
       projectName: 'A',
-      items: asBoqItems(ETIMAD_WAITING_HALL_BOQ.slice(0, 10)),
+      items: asBoqItems(HALL_LINES.slice(0, 10)),
       documentId: 'doc-a',
     })
     beginBoqUpload({ fileName: 'fail.pdf' })
@@ -233,7 +234,7 @@ describe('warehouse / Farq-test booklet parse', () => {
     const lines = parseCodedFarqTestBoq(text)
     expect(lines.length).toBeGreaterThanOrEqual(80)
     expect(lines.some((l) => /خادم|Rack|سيبر|جدار|شبكة|تخزين/i.test(l.name))).toBe(true)
-    expect(nameOverlap(lines.map((l) => l.name), ETIMAD_WAITING_HALL_BOQ.map((l) => l.name))).toHaveLength(
+    expect(nameOverlap(lines.map((l) => l.name), HALL_LINES.map((l) => l.name))).toHaveLength(
       0,
     )
   })
@@ -243,7 +244,7 @@ describe('warehouse / Farq-test booklet parse', () => {
     const lines = parseCodedFarqTestBoq(text)
     expect(lines.length).toBeGreaterThanOrEqual(100)
     expect(lines.some((l) => /خوذة|سلامة|Bump Cap|واقي وجه|حزام|Harness/i.test(l.name))).toBe(true)
-    expect(nameOverlap(lines.map((l) => l.name), ETIMAD_WAITING_HALL_BOQ.map((l) => l.name))).toHaveLength(
+    expect(nameOverlap(lines.map((l) => l.name), HALL_LINES.map((l) => l.name))).toHaveLength(
       0,
     )
 
@@ -289,7 +290,7 @@ describe('warehouse / Farq-test booklet parse', () => {
     expect(datacenter.length).toBeGreaterThanOrEqual(80)
     expect(site.length).toBeGreaterThanOrEqual(100)
 
-    const hall = ETIMAD_WAITING_HALL_BOQ.map((l) => l.name)
+    const hall = HALL_LINES.map((l) => l.name)
     expect(nameOverlap(warehouse.map((l) => l.name), hall)).toHaveLength(0)
     expect(nameOverlap(datacenter.map((l) => l.name), hall)).toHaveLength(0)
     expect(nameOverlap(site.map((l) => l.name), hall)).toHaveLength(0)

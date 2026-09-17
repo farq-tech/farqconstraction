@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NavProps } from '../types'
 import { apiUnreachableAdvice } from '../api/apiBase'
 import {
   buildConstructionGmailReturnTo,
   constructionRateLimitSec,
-  formatArDate,
   getConstructionGmailStatus,
   getConstructionInboxStatus,
-  inboxThreadSupplierLabel,
   isOutboundInviteSnapshot,
   listConstructionInboxThreads,
   startConstructionGmailConnect,
@@ -17,6 +15,9 @@ import {
   type ConstructionInboxThreadsResult,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
+import { ChatPane } from '../components/inbox/ChatPane'
+import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
+import { useFillViewport } from '../components/inbox/useFillViewport'
 
 function readGmailReturnQuery(): { status: string | null; error: string | null } {
   try {
@@ -43,8 +44,6 @@ function clearGmailReturnQuery() {
     /* ignore */
   }
 }
-
-type InboxTab = 'inbound' | 'needs_reply' | 'sent'
 
 /** How long «ربط Gmail» stays shut after a failed attempt. */
 const CONNECT_COOLDOWN_MS = 3000
@@ -90,8 +89,32 @@ function displayTotal(
   return visible.length
 }
 
-export function InboxView({ navigate }: NavProps) {
-  const { openRfq, setSelectedOfferId, openInboxThread } = useProcurement()
+export type InboxViewProps = NavProps & {
+  /**
+   * Conversation to open on arrival. The `'inbox-thread'` route passes the
+   * context's `selectedThreadId` here, so a deep link lands on the same
+   * two-pane screen with that chat already open.
+   */
+  initialThreadId?: string | null
+}
+
+/**
+ * «المراسلات» as a tablet chat app: the conversation list and the open chat
+ * side by side from `lg` (iPad landscape) up, one pane at a time below it.
+ * Picking a conversation is local state, not a route change — a route change
+ * would remount this screen and re-read the list, the inbox status and the
+ * Gmail status on every tap, against an API that rate-limits at 60/min.
+ */
+export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) {
+  const { openRfq, setSelectedOfferId } = useProcurement()
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const viewport = useFillViewport(rootRef)
+  /** Invitation id of the chat showing in the chat pane. */
+  const [activeId, setActiveId] = useState<string | null>(initialThreadId)
+  /** The mailbox/Gmail status panel takes the chat pane's place while open. */
+  const [showStatus, setShowStatus] = useState(false)
+  /** Bumped by «إعادة المحاولة»: re-runs the same reads, adds no new ones. */
+  const [reloadKey, setReloadKey] = useState(0)
   const [status, setStatus] = useState<ConstructionInboxStatus | null>(null)
   const [gmail, setGmail] = useState<ConstructionGmailStatus | null>(null)
   const [gmailError, setGmailError] = useState<string | null>(null)
@@ -188,12 +211,14 @@ export function InboxView({ navigate }: NavProps) {
     const returned = readGmailReturnQuery()
     if (returned.status === 'connected') {
       setGmailReturnBanner({ kind: 'connected' })
+      setShowStatus(true)
       clearGmailReturnQuery()
     } else if (returned.status === 'error') {
       setGmailReturnBanner({
         kind: 'error',
         detail: returned.error || undefined,
       })
+      setShowStatus(true)
       clearGmailReturnQuery()
     }
   }, [])
@@ -252,7 +277,7 @@ export function InboxView({ navigate }: NavProps) {
     return () => {
       cancelled = true
     }
-  }, [tab])
+  }, [tab, reloadKey])
 
   const handleGmailConnect = async () => {
     if (connectInFlight.current) return
@@ -423,320 +448,385 @@ export function InboxView({ navigate }: NavProps) {
   const needsReplyCount = threadMeta?.follow_up_counts?.action
   const sentCount = threadMeta?.follow_up_counts?.unanswered
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-3xl font-black text-[#0D1F1D]">صندوق الوارد</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+  // A deep link / notification can change the requested thread while mounted.
+  useEffect(() => {
+    if (initialThreadId) {
+      setActiveId(initialThreadId)
+      setShowStatus(false)
+    }
+  }, [initialThreadId])
+
+  const handleSelect = (thread: ConstructionInboxThread) => {
+    const rfqId = thread.request_context?.rfq_id
+    // A conversation opens as a conversation, beside the list. The RFQ/offer
+    // surfaces stay reachable from inside the chat header.
+    if (thread.invite_id) {
+      setSelectedOfferId(thread.invite_id)
+      setActiveId(String(thread.invite_id))
+      setShowStatus(false)
+    } else if (rfqId) {
+      openRfq(rfqId, 'offers')
+    }
+  }
+
+  /**
+   * The chat pane re-reads a thread after marking it read; its count of unread
+   * inbound messages replaces the row's older `unread_count` so the badge does
+   * not keep announcing messages the owner is looking at.
+   */
+  const handleUnreadKnown = useCallback((inviteId: string, unread: number) => {
+    setThreads((rows) =>
+      rows.some((row) => String(row.invite_id || '') === inviteId && Number(row.unread_count || 0) !== unread)
+        ? rows.map((row) =>
+            String(row.invite_id || '') === inviteId ? { ...row, unread_count: unread } : row,
+          )
+        : rows,
+    )
+  }, [])
+
+  const closeDetail = () => {
+    setActiveId(null)
+    setShowStatus(false)
+  }
+
+  const detailOpen = showStatus || activeId != null
+  const mailboxWarning = gmailDiagnosis?.tone === 'warn' ? gmailDiagnosis.title : null
+
+  const statusPanel = (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex-shrink-0 flex items-center gap-3 px-3 sm:px-4 py-3 bg-white border-b border-neutral-200">
+        <button
+          type="button"
+          onClick={closeDetail}
+          aria-label="رجوع إلى قائمة المحادثات"
+          className="flex-shrink-0 w-9 h-9 -ms-1 rounded-full flex items-center justify-center text-[#123F3A] hover:bg-neutral-100"
+        >
+          <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 4l6 6-6 6" />
+          </svg>
+        </button>
+        <div className="min-w-0">
+          <h2 className="text-base font-black text-[#0D1F1D]">حالة الصندوق وربط Gmail</h2>
+          <p className="text-[11px] text-neutral-500 leading-relaxed">
             أي رد مورد يصل عبر Reply-To أو صندوق info@ (بعد ربط Gmail) — وليس قائمة دعوات الإرسال.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('offers')}
-          className="text-xs font-semibold text-[#123F3A] hover:underline"
-        >
-          العروض والمراسلات ←
-        </button>
       </div>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-[#FAFAF8] px-3 sm:px-6 py-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+          {loading && <p className="text-sm text-neutral-400 text-center py-10">جاري تحميل حالة الصندوق…</p>}
 
-      {loading && (
-        <div className="text-center py-16 text-neutral-400 text-sm">جاري تحميل حالة الصندوق…</div>
-      )}
-
-      {!loading && error && (
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 mb-6">
-          <div className="font-bold text-amber-900 text-sm mb-1">
-            {rateLimitSec != null ? 'تجاوزنا حد المحاولات' : 'تعذّر قراءة الصندوق'}
-          </div>
-          <p className="text-xs text-amber-800 leading-relaxed mb-2">{error}</p>
-          {/* The flag checklist below is for a real outage. Printing it for a
-              rate limit is what sends the reader chasing settings that are
-              already correct. */}
-          <p className={`text-[11px] text-amber-700 leading-relaxed ${rateLimitSec != null ? 'hidden' : ''}`}>
-            إن ظهر أن الاستقبال معطّل على الـ API، فعّل على Railway (أسماء فقط): `CONSTRUCTION_INBOX_ENABLED`,
-            `CONSTRUCTION_CORRESPONDENCE_ENABLED`, `CONSTRUCTION_INBOX_DOMAIN`, `CONSTRUCTION_INBOX_ROUTING_SECRET`,
-            `CONSTRUCTION_INBOX_WEBHOOK_SECRET`, `CONSTRUCTION_INBOX_RESEND_API_KEY`. لا نختلق بيانات واردة هنا.
-          </p>
-        </div>
-      )}
-
-      {!loading && status && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          {(
-            [
-              ['الاستقبال', enabled && receiving],
-              ['المراسلات', correspondence],
-              ['العامل', Boolean(status.worker_enabled)],
-              ['الردود', Boolean(status.replying_allowed)],
-            ] as [string, boolean][]
-          ).map(([label, on]) => {
-            const badge = flagLabel(on)
-            return (
-              <div key={label} className="bg-white border border-neutral-100 rounded-2xl px-4 py-3">
-                <div className="text-xs text-neutral-400 mb-1">{label}</div>
-                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${badge.className}`}>
-                  {badge.text}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {!loading && (
-        <div className="bg-white border border-neutral-100 rounded-2xl p-4 mb-6">
-          <div className="text-sm font-bold text-[#0D1F1D] mb-1">Gmail — info@farq.sa</div>
-          {gmailReturnBanner?.kind === 'connected' && (
-            <p className="text-xs text-[#1a7a45] font-semibold mb-2 leading-relaxed">
-              اكتمل ربط Google من هذا التطبيق. حدّث الحالة أدناه إن لزم.
-            </p>
-          )}
-          {gmailReturnBanner?.kind === 'error' && (
-            <p className="text-xs text-amber-800 mb-2 leading-relaxed">
-              فشل إكمال ربط Gmail
-              {gmailReturnBanner.detail ? ` (${gmailReturnBanner.detail})` : ''}. أعد المحاولة من الزر أدناه —
-              لا أسرار Google في الواجهة.
-            </p>
-          )}
-          {gmail && !gmailError ? (
-            <p className="text-xs text-neutral-500 mb-2 leading-relaxed">
-              مسموح للمالك: {gmailFlagAr(gmail.allowed)} · مهيّأ (OAuth):{' '}
-              {gmailFlagAr(gmail.configured)} · متصل: {gmailFlagAr(gmail.connected)}
-              {gmail.sync?.state
-                ? ` · المزامنة: ${gmail.sync.state}`
-                : gmail.state
-                  ? ` · الحالة: ${gmail.state}`
-                  : ''}
-              {rateLimitSec != null ? ' — آخر قراءة ناجحة (الحالة الآن محدودة بحدّ السرعة)' : ''}
-            </p>
-          ) : gmailStatusUnread ? (
-            // No successful read, so we say we don't know — we do NOT say
-            // «غير متصل».
-            <p className="text-xs text-amber-800 mb-2 leading-relaxed">
-              حالة Gmail غير معروفة الآن بسبب حدّ السرعة — لم نتمكّن من قراءتها، وهذا لا يعني أن الربط منقطع.
-            </p>
-          ) : !gmail && !gmailError ? (
-            <p className="text-xs text-neutral-400 mb-2">لم تُجلب حالة Gmail.</p>
-          ) : null}
-          {gmailDiagnosis && (
-            <div
-              className={`rounded-xl px-3 py-2 mb-3 ${
-                gmailDiagnosis.tone === 'ok'
-                  ? 'bg-[#CFF5DC]/40'
-                  : gmailDiagnosis.tone === 'warn'
-                    ? 'bg-amber-50'
-                    : 'bg-neutral-50'
-              }`}
-            >
-              <p
-                className={`text-xs font-bold leading-relaxed ${
-                  gmailDiagnosis.tone === 'ok'
-                    ? 'text-[#1a7a45]'
-                    : gmailDiagnosis.tone === 'warn'
-                      ? 'text-amber-900'
-                      : 'text-[#0D1F1D]'
-                }`}
-              >
-                {gmailDiagnosis.title}
-              </p>
-              <p className="text-[11px] text-neutral-600 leading-relaxed mt-1">
-                الإجراء: {gmailDiagnosis.action}
+          {!loading && error && rateLimitSec == null && (
+            // The flag checklist is for a real outage. Printing it for a rate
+            // limit is what sends the reader chasing settings that are already
+            // correct.
+            <div role="alert" className="rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4">
+              <div className="font-bold text-amber-900 text-sm mb-1">تعذّر قراءة الصندوق</div>
+              <p className="text-xs text-amber-800 leading-relaxed mb-2 break-words">{error}</p>
+              <p className="text-[11px] text-amber-700 leading-relaxed">
+                إن ظهر أن الاستقبال معطّل على الـ API، فعّل على Railway (أسماء فقط): `CONSTRUCTION_INBOX_ENABLED`,
+                `CONSTRUCTION_CORRESPONDENCE_ENABLED`, `CONSTRUCTION_INBOX_DOMAIN`, `CONSTRUCTION_INBOX_ROUTING_SECRET`,
+                `CONSTRUCTION_INBOX_WEBHOOK_SECRET`, `CONSTRUCTION_INBOX_RESEND_API_KEY`. لا نختلق بيانات واردة هنا.
               </p>
             </div>
           )}
-          {gmail?.connected ? (
-            <p className="text-xs text-neutral-500 leading-relaxed">
-              الربط يلتقط ردود <bdi>info@farq.sa</bdi> ويربطها بدعوة RFQ عند تطابق فريد: Reply-To الموقّع،
-              In-Reply-To، مرجع ELE-RFQ-…، أو اسم المورد في From (مثل Zendesk). التطابق الغامض لا يُستورد،
-              والمزامنة لا تعمل قبل تفعيل CONSTRUCTION_GMAIL_SYNC_ENABLED.
-            </p>
-          ) : (
-            <>
-              <p className="text-xs text-neutral-500 leading-relaxed mb-3">
-                اضغط «ربط Gmail» هنا ووافق بحساب <bdi>info@farq.sa</bdi> على شاشة Google. مسار Resend على
-                replies.farq.sa يبقى يعمل بالتوازي.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  // Blocked while a connect is in flight, while the limiter is
-                  // counting down, and while the status is unknown — starting
-                  // OAuth on a guess is how the storm began.
-                  disabled={
-                    gmailBusy ||
-                    connectCooldown ||
-                    rateLimitSec != null ||
-                    gmailStatusUnread ||
-                    gmail?.configured === false
-                  }
-                  onClick={handleGmailConnect}
-                  className="px-4 py-2 bg-[#123F3A] text-white text-xs font-bold rounded-lg disabled:opacity-50"
-                >
-                  {rateLimitSec != null
-                    ? `حدّ السرعة — بعد ${rateLimitSec} ثانية`
-                    : gmailBusy
-                      ? 'جارٍ فتح Google…'
-                      : connectCooldown
-                        ? 'تعذّرت المحاولة — انتظر لحظة'
-                        : 'ربط Gmail'}
-                </button>
-                {rateLimitSec == null && (gmailStatusUnread || gmailError) && (
-                  <button
-                    type="button"
-                    onClick={() => void reloadGmail()}
-                    className="px-4 py-2 border border-neutral-200 text-[#123F3A] text-xs font-bold rounded-lg"
-                  >
-                    إعادة قراءة الحالة
-                  </button>
-                )}
-              </div>
-              {gmailConnectNote && (
-                <p className="text-xs text-amber-800 mt-2 leading-relaxed">{gmailConnectNote}</p>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        {(
-          [
-            ['inbound', 'وارد', null as number | null],
-            ['needs_reply', 'تحتاج ردًا', needsReplyCount ?? null],
-            ['sent', 'مرسَل', sentCount ?? null],
-          ] as const
-        ).map(([id, label, badge]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${
-              tab === id
-                ? 'bg-[#123F3A] text-white'
-                : 'bg-white border border-neutral-100 text-neutral-500'
-            }`}
-          >
-            {label}
-            {badge != null && badge > 0 && (
-              <span
-                className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${
-                  tab === id ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+          {!loading && status && (
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+              {(
+                [
+                  ['الاستقبال', enabled && receiving],
+                  ['المراسلات', correspondence],
+                  ['العامل', Boolean(status.worker_enabled)],
+                  ['الردود', Boolean(status.replying_allowed)],
+                ] as [string, boolean][]
+              ).map(([label, on]) => {
+                const badge = flagLabel(on)
+                return (
+                  <div key={label} className="bg-white border border-neutral-100 rounded-2xl px-4 py-3">
+                    <div className="text-xs text-neutral-400 mb-1">{label}</div>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${badge.className}`}>
+                      {badge.text}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {!loading && (
+          <div className="bg-white border border-neutral-100 rounded-2xl p-4">
+            <div className="text-sm font-bold text-[#0D1F1D] mb-1">Gmail — info@farq.sa</div>
+            {gmailReturnBanner?.kind === 'connected' && (
+              <p className="text-xs text-[#1a7a45] font-semibold mb-2 leading-relaxed">
+                اكتمل ربط Google من هذا التطبيق. حدّث الحالة أدناه إن لزم.
+              </p>
+            )}
+            {gmailReturnBanner?.kind === 'error' && (
+              <p className="text-xs text-amber-800 mb-2 leading-relaxed">
+                فشل إكمال ربط Gmail
+                {gmailReturnBanner.detail ? ` (${gmailReturnBanner.detail})` : ''}. أعد المحاولة من الزر أدناه —
+                لا أسرار Google في الواجهة.
+              </p>
+            )}
+            {gmail && !gmailError ? (
+              <p className="text-xs text-neutral-500 mb-2 leading-relaxed">
+                مسموح للمالك: {gmailFlagAr(gmail.allowed)} · مهيّأ (OAuth):{' '}
+                {gmailFlagAr(gmail.configured)} · متصل: {gmailFlagAr(gmail.connected)}
+                {gmail.sync?.state
+                  ? ` · المزامنة: ${gmail.sync.state}`
+                  : gmail.state
+                    ? ` · الحالة: ${gmail.state}`
+                    : ''}
+                {rateLimitSec != null ? ' — آخر قراءة ناجحة (الحالة الآن محدودة بحدّ السرعة)' : ''}
+              </p>
+            ) : gmailStatusUnread ? (
+              // No successful read, so we say we don't know — we do NOT say
+              // «غير متصل».
+              <p className="text-xs text-amber-800 mb-2 leading-relaxed">
+                حالة Gmail غير معروفة الآن بسبب حدّ السرعة — لم نتمكّن من قراءتها، وهذا لا يعني أن الربط منقطع.
+              </p>
+            ) : !gmail && !gmailError ? (
+              <p className="text-xs text-neutral-400 mb-2">لم تُجلب حالة Gmail.</p>
+            ) : null}
+            {gmailDiagnosis && (
+              <div
+                className={`rounded-xl px-3 py-2 mb-3 ${
+                  gmailDiagnosis.tone === 'ok'
+                    ? 'bg-[#CFF5DC]/40'
+                    : gmailDiagnosis.tone === 'warn'
+                      ? 'bg-amber-50'
+                      : 'bg-neutral-50'
                 }`}
               >
-                {badge}
-              </span>
-            )}
-          </button>
-        ))}
-        <span className="text-xs text-neutral-400 ms-auto">
-          {tab === 'sent' ? `${total} دعوة مرسلة` : `${total} محادثة`}
-        </span>
-      </div>
-
-      {!loading && !error && tab === 'sent' && (
-        <p className="text-[11px] text-neutral-500 mb-3 leading-relaxed">
-          لقطات إرسال الدعوة («دعوة طلب عرض مرسلة») من `dispatch_attempts` — للمتابعة التفصيلية استخدم{' '}
-          <button type="button" className="font-bold text-[#123F3A] hover:underline" onClick={() => navigate('offers')}>
-            العروض والمراسلات
-          </button>
-          .
-        </p>
-      )}
-
-      {!loading && !error && threads.length === 0 && (
-        <div className="text-center py-14 bg-white border border-neutral-100 rounded-2xl px-4">
-          {tab === 'sent' ? (
-            <>
-              <p className="text-sm text-neutral-500 mb-1">لا دعوات مرسلة ظاهرة في هذه الصفحة.</p>
-              <p className="text-xs text-neutral-400 max-w-md mx-auto leading-relaxed">
-                سجلات الإرسال تظهر أيضًا داخل تفاصيل كل RFQ وقائمة العروض والمراسلات.
-              </p>
-            </>
-          ) : tab === 'needs_reply' ? (
-            <>
-              <p className="text-sm text-neutral-500 mb-1">لا محادثات تحتاج ردًا الآن.</p>
-              <p className="text-xs text-neutral-400 max-w-md mx-auto leading-relaxed">
-                يظهر العدد هنا فقط عند وصول رسالة واردة من المورد ولم تُعالَج بعد — وليس بعدد الدعوات المرسلة.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-neutral-500 mb-1">لا ردود واردة من الموردين بعد.</p>
-              <p className="text-xs text-neutral-400 max-w-md mx-auto leading-relaxed mb-3">
-                {!enabled || !receiving
-                  ? 'صندوق الوارد غير جاهز على الـ API — راجع أعلام CONSTRUCTION_INBOX_* أعلاه.'
-                  : 'هنا تظهر ردود الموردين بعد ربطها بدعوة: عبر Reply-To على replies.farq.sa، أو عبر مزامنة Gmail لصندوق info@farq.sa (بما فيها ردود Zendesk/CC عندما يتطابق مرجع ELE-RFQ-… أو اسم المورد بشكل فريد). دعوات «تم الإرسال» ليست واردًا — راجع تبويب مرسَل أو العروض.'}
-              </p>
-              {enabled && receiving && !gmail?.connected && !gmailStatusUnread && rateLimitSec == null && (
-                <p className="text-xs text-amber-800 max-w-md mx-auto leading-relaxed bg-amber-50 rounded-xl px-3 py-2">
-                  لتظهر ردود مثل دهانات الجزيرة التي تصل إلى info@ دون Reply-To الموقّع: أكمل «ربط Gmail» أعلاه بحساب
-                  المالك، ثم أعد فتح الوارد لتشغيل المزامنة. المطابقات غير الفريدة تُرفض ولن تُختلق.
+                <p
+                  className={`text-xs font-bold leading-relaxed ${
+                    gmailDiagnosis.tone === 'ok'
+                      ? 'text-[#1a7a45]'
+                      : gmailDiagnosis.tone === 'warn'
+                        ? 'text-amber-900'
+                        : 'text-[#0D1F1D]'
+                  }`}
+                >
+                  {gmailDiagnosis.title}
                 </p>
-              )}
-            </>
+                <p className="text-[11px] text-neutral-600 leading-relaxed mt-1">
+                  الإجراء: {gmailDiagnosis.action}
+                </p>
+              </div>
+            )}
+            {gmail?.connected ? (
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                الربط يلتقط ردود <bdi>info@farq.sa</bdi> ويربطها بدعوة RFQ عند تطابق فريد: Reply-To الموقّع،
+                In-Reply-To، مرجع ELE-RFQ-…، أو اسم المورد في From (مثل Zendesk). التطابق الغامض لا يُستورد،
+                والمزامنة لا تعمل قبل تفعيل CONSTRUCTION_GMAIL_SYNC_ENABLED.
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-neutral-500 leading-relaxed mb-3">
+                  اضغط «ربط Gmail» هنا ووافق بحساب <bdi>info@farq.sa</bdi> على شاشة Google. مسار Resend على
+                  replies.farq.sa يبقى يعمل بالتوازي.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    // Blocked while a connect is in flight, while the limiter is
+                    // counting down, and while the status is unknown — starting
+                    // OAuth on a guess is how the storm began.
+                    disabled={
+                      gmailBusy ||
+                      connectCooldown ||
+                      rateLimitSec != null ||
+                      gmailStatusUnread ||
+                      gmail?.configured === false
+                    }
+                    onClick={handleGmailConnect}
+                    className="px-4 py-2 bg-[#123F3A] text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                  >
+                    {rateLimitSec != null
+                      ? `حدّ السرعة — بعد ${rateLimitSec} ثانية`
+                      : gmailBusy
+                        ? 'جارٍ فتح Google…'
+                        : connectCooldown
+                          ? 'تعذّرت المحاولة — انتظر لحظة'
+                          : 'ربط Gmail'}
+                  </button>
+                  {rateLimitSec == null && (gmailStatusUnread || gmailError) && (
+                    <button
+                      type="button"
+                      onClick={() => void reloadGmail()}
+                      className="px-4 py-2 border border-neutral-200 text-[#123F3A] text-xs font-bold rounded-lg"
+                    >
+                      إعادة قراءة الحالة
+                    </button>
+                  )}
+                </div>
+                {gmailConnectNote && (
+                  <p className="text-xs text-amber-800 mt-2 leading-relaxed">{gmailConnectNote}</p>
+                )}
+              </>
+            )}
+          </div>
           )}
         </div>
-      )}
-
-      <div className="space-y-2">
-        {threads.map((thread) => {
-          const name = inboxThreadSupplierLabel(thread)
-          const rfqId = thread.request_context?.rfq_id
-          const outbound = isOutboundInviteSnapshot(thread)
-          return (
-            <button
-              key={String(thread.invite_id || `${thread.supplier_id}-${thread.last_received_at}`)}
-              type="button"
-              onClick={() => {
-                // A conversation opens as a conversation. The RFQ/offer surfaces
-                // stay reachable from inside the thread.
-                if (thread.invite_id) {
-                  setSelectedOfferId(thread.invite_id)
-                  openInboxThread(String(thread.invite_id))
-                } else if (rfqId) {
-                  openRfq(rfqId, 'offers')
-                }
-              }}
-              className="w-full text-right bg-white border border-neutral-100 rounded-2xl px-4 py-3 hover:border-[#123F3A]/30 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-bold text-[#0D1F1D] text-sm truncate">{name}</div>
-                  <div className="text-xs text-neutral-500 mt-0.5 truncate">
-                    {thread.locked
-                      ? 'مغلق (ظرف مختوم)'
-                      : outbound
-                        ? 'دعوة طلب عرض مرسلة (صادر)'
-                        : thread.subject || thread.preview || 'بدون عنوان'}
-                  </div>
-                  {thread.request_context?.reference && (
-                    <div className="text-[10px] text-neutral-400 mt-0.5">
-                      <bdi>{thread.request_context.reference}</bdi>
-                    </div>
-                  )}
-                </div>
-                <div className="text-left flex-shrink-0">
-                  {thread.needs_reply && (
-                    <span className="inline-block bg-amber-50 text-amber-800 text-[10px] font-bold rounded-full px-1.5 py-0.5 mb-1">
-                      تحتاج ردًا
-                    </span>
-                  )}
-                  {(thread.unread_count || 0) > 0 && (
-                    <span className="inline-block bg-[#123F3A] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 mb-1 ms-1">
-                      {thread.unread_count}
-                    </span>
-                  )}
-                  <div className="text-[10px] text-neutral-400">
-                    {formatArDate(thread.last_received_at)}
-                  </div>
-                </div>
-              </div>
-            </button>
-          )
-        })}
       </div>
+    </div>
+  )
+
+  const emptyState =
+    tab === 'sent' ? (
+      <>
+        <p className="text-sm text-neutral-500 mb-1">لا دعوات مرسلة ظاهرة في هذه الصفحة.</p>
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          سجلات الإرسال تظهر أيضًا داخل تفاصيل كل RFQ وقائمة العروض والمراسلات.
+        </p>
+      </>
+    ) : tab === 'needs_reply' ? (
+      <>
+        <p className="text-sm text-neutral-500 mb-1">لا محادثات تحتاج ردًا الآن.</p>
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          يظهر العدد هنا فقط عند وصول رسالة واردة من المورد ولم تُعالَج بعد — وليس بعدد الدعوات المرسلة.
+        </p>
+      </>
+    ) : (
+      <>
+        <p className="text-sm text-neutral-500 mb-1">لا ردود واردة من الموردين بعد.</p>
+        <p className="text-xs text-neutral-400 leading-relaxed mb-3">
+          {!enabled || !receiving
+            ? 'صندوق الوارد غير جاهز على الـ API — راجع أعلام CONSTRUCTION_INBOX_* في «حالة الصندوق».'
+            : 'هنا تظهر ردود الموردين بعد ربطها بدعوة: عبر Reply-To على replies.farq.sa، أو عبر مزامنة Gmail لصندوق info@farq.sa (بما فيها ردود Zendesk/CC عندما يتطابق مرجع ELE-RFQ-… أو اسم المورد بشكل فريد). دعوات «تم الإرسال» ليست واردًا — راجع تبويب مرسَل أو العروض.'}
+        </p>
+        {enabled && receiving && !gmail?.connected && !gmailStatusUnread && rateLimitSec == null && (
+          <p className="text-xs text-amber-800 leading-relaxed bg-amber-50 rounded-xl px-3 py-2">
+            لتظهر ردود مثل دهانات الجزيرة التي تصل إلى info@ دون Reply-To الموقّع: أكمل «ربط Gmail» من «حالة الصندوق»
+            بحساب المالك، ثم أعد فتح الوارد لتشغيل المزامنة. المطابقات غير الفريدة تُرفض ولن تُختلق.
+          </p>
+        )}
+      </>
+    )
+
+  return (
+    <div
+      ref={rootRef}
+      // Until measured, a safe CSS guess; afterwards exactly the space the shell leaves.
+      style={
+        viewport.height != null
+          ? { height: viewport.height, marginBottom: viewport.marginBottom }
+          : { height: 'calc(100dvh - 8rem)' }
+      }
+      className="flex overflow-hidden bg-white lg:border-s border-neutral-200"
+    >
+      {/* First child = the right-hand pane in RTL, where Arabic WhatsApp keeps its list. */}
+      <section
+        aria-label="قائمة المحادثات"
+        className={`${detailOpen ? 'hidden lg:flex' : 'flex'} flex-col min-h-0 w-full lg:w-[360px] xl:w-[400px] lg:flex-shrink-0 lg:border-e border-neutral-200`}
+      >
+        <ConversationList
+          threads={threads}
+          loading={loading}
+          error={error}
+          rateLimitSec={rateLimitSec}
+          onRetry={() => setReloadKey((n) => n + 1)}
+          tab={tab}
+          onTabChange={setTab}
+          needsReplyCount={needsReplyCount ?? null}
+          sentCount={sentCount ?? null}
+          total={error ? null : total}
+          hasMore={Boolean(threadMeta?.next_cursor)}
+          activeKey={activeId}
+          onSelect={handleSelect}
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => navigate('offers')}
+                className="text-[11px] font-bold text-[#123F3A] rounded-full px-2.5 py-1.5 hover:bg-neutral-100"
+              >
+                العروض
+              </button>
+              <button
+                type="button"
+                aria-pressed={showStatus}
+                onClick={() => {
+                  setShowStatus((open) => !open)
+                  setActiveId(null)
+                }}
+                className={`relative text-[11px] font-bold rounded-full px-2.5 py-1.5 border ${
+                  showStatus
+                    ? 'bg-[#123F3A] text-white border-[#123F3A]'
+                    : 'text-[#123F3A] border-neutral-200 hover:border-[#123F3A]/40'
+                }`}
+              >
+                حالة الصندوق
+                {mailboxWarning && (
+                  <span className="absolute -top-0.5 -start-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white" />
+                )}
+              </button>
+            </>
+          }
+          alert={
+            mailboxWarning && !showStatus ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStatus(true)
+                  setActiveId(null)
+                }}
+                className="w-full text-start rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-[11px] text-amber-900 leading-relaxed hover:border-amber-300"
+              >
+                <span className="font-bold">تنبيه الصندوق: </span>
+                {mailboxWarning}
+              </button>
+            ) : null
+          }
+          tabNote={
+            !loading && !error && tab === 'sent' ? (
+              <p className="text-[11px] text-neutral-500 mt-2 leading-relaxed">
+                لقطات إرسال الدعوة («دعوة طلب عرض مرسلة») من `dispatch_attempts` — للمتابعة التفصيلية استخدم{' '}
+                <button
+                  type="button"
+                  className="font-bold text-[#123F3A] hover:underline"
+                  onClick={() => navigate('offers')}
+                >
+                  العروض والمراسلات
+                </button>
+                .
+              </p>
+            ) : null
+          }
+          emptyState={emptyState}
+        />
+      </section>
+
+      <section
+        aria-label="المحادثة"
+        className={`${detailOpen ? 'flex' : 'hidden lg:flex'} flex-col flex-1 min-w-0 min-h-0`}
+      >
+        {showStatus ? (
+          statusPanel
+        ) : activeId ? (
+          <ChatPane
+            key={activeId}
+            inviteId={activeId}
+            onBack={closeDetail}
+            onOpenRfq={(rfqId) => openRfq(rfqId, 'rfq-detail')}
+            onUnreadKnown={handleUnreadKnown}
+          />
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#F7F6F2]">
+            <div className="w-20 h-20 rounded-full bg-[#CFF5DC] flex items-center justify-center mb-5" aria-hidden="true">
+              <svg viewBox="0 0 24 24" className="w-9 h-9 text-[#123F3A]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 5h16v11H9l-5 4V5z" />
+                <path d="M8 9h8M8 12h5" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-black text-[#0D1F1D] mb-2">اختر محادثة لعرضها هنا</h2>
+            <p className="text-sm text-neutral-500 max-w-sm leading-relaxed">
+              كل مورد في محادثة واحدة: ردوده ورسائلنا ومرفقاته بترتيبها، والأحدث في أعلى القائمة.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

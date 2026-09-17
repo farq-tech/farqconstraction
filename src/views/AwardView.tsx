@@ -106,7 +106,7 @@ export function AwardView({ navigate }: NavProps) {
         supplier_quote_version_id: quoteVersionId,
         selection_reason: selectionReason,
         awarded_line_ids: [],
-        approval_note: 'Client demo award from farqconstraction UI',
+        approval_note: selectionReason,
       })
       setAwardResult(award)
       navigate('award-success')

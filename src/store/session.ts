@@ -1,6 +1,7 @@
 import type { BOQItem, RFQSummary } from '../types'
 import { farqSession } from '../api/farqSession'
 import { sanitizeBoqLines } from '../lib/parseBoq'
+import { clearPersistedSession, loadPersistedSession, persistSession } from './sessionPersistence'
 
 export type SessionOffer = {
   id: string
@@ -12,6 +13,12 @@ export type SessionOffer = {
   amount: string
   delivery: string
   shipping: string
+}
+
+export type ReadIssue = {
+  /** `invalid` blocks sending; `partial` needs the buyer's explicit acknowledgement. */
+  kind: 'invalid' | 'partial'
+  detail: string
 }
 
 type SessionState = {
@@ -29,6 +36,12 @@ type SessionState = {
   fileName: string
   projectName: string
   boqItems: BOQItem[]
+  /**
+   * The upload screen's verdict on this read, carried to the send step. It was
+   * computed, printed as «لا تُرسل طلب تسعير من هذه القراءة», and then dropped:
+   * the send button stayed fully enabled on a read the app itself called invalid.
+   */
+  readIssue: ReadIssue | null
   rfqs: RFQSummary[]
   offers: SessionOffer[]
   activeRfqId: string | null
@@ -43,6 +56,7 @@ function emptyState(ownerUserId: string | null): SessionState {
     fileName: '',
     projectName: '',
     boqItems: [],
+    readIssue: null,
     rfqs: [],
     offers: [],
     activeRfqId: null,
@@ -54,6 +68,38 @@ const state: SessionState = emptyState(farqSession.getUser()?.id ?? null)
 const listeners = new Set<Listener>()
 
 function emit() {
+  // Every change is written through, so the only thing that can lose a
+  // booklet is the buyer deciding to start again.
+  persistSession(state.ownerUserId, state)
+  listeners.forEach((fn) => fn())
+}
+
+/**
+ * Bring back the booklet this account was working on.
+ *
+ * Called once at boot. It never overwrites work already on screen — a restore
+ * that raced an upload would replace the new booklet with the old one.
+ */
+export async function restoreSession(): Promise<boolean> {
+  const stored = (await loadPersistedSession(state.ownerUserId)) as Partial<SessionState> | null
+  if (!stored || state.documentId || state.boqItems.length) return false
+  Object.assign(state, {
+    ...emptyState(state.ownerUserId),
+    ...stored,
+    ownerUserId: state.ownerUserId,
+    boqItems: sanitizeBoqLines(Array.isArray(stored.boqItems) ? stored.boqItems : []),
+  })
+  listeners.forEach((fn) => fn())
+  return Boolean(state.documentId || state.boqItems.length)
+}
+
+/**
+ * «ابدأ من جديد»: the one act that throws the work away, on the screen and in
+ * the browser both. Nothing else clears the stored copy.
+ */
+export function resetWorkingSession(): void {
+  Object.assign(state, emptyState(state.ownerUserId))
+  clearPersistedSession()
   listeners.forEach((fn) => fn())
 }
 
@@ -63,7 +109,8 @@ function emit() {
  */
 export function resetSessionForIdentity(ownerUserId: string | null) {
   Object.assign(state, emptyState(ownerUserId))
-  emit()
+  clearPersistedSession()
+  listeners.forEach((fn) => fn())
 }
 
 farqSession.subscribe((event, next) => {
@@ -90,6 +137,7 @@ export function beginBoqUpload(meta?: { fileName?: string; documentId?: string |
   state.fileName = meta?.fileName || ''
   state.projectName = ''
   state.boqItems = []
+  state.readIssue = null
   state.offers = []
   state.activeRfqId = null
   emit()
@@ -100,7 +148,11 @@ export function setParsedBoq(payload: {
   projectName?: string
   items: BOQItem[]
   documentId: string
+  /** Omit to keep the verdict of the same document; pass null to clear it. */
+  readIssue?: ReadIssue | null
 }) {
+  if (payload.readIssue !== undefined) state.readIssue = payload.readIssue
+  else if (state.documentId !== payload.documentId) state.readIssue = null
   state.documentId = payload.documentId
   state.fileName = payload.fileName
   state.projectName = payload.projectName || payload.fileName.replace(/\.[^.]+$/, '')
@@ -115,6 +167,7 @@ export function clearParsedBoq() {
   state.fileName = ''
   state.projectName = ''
   state.boqItems = []
+  state.readIssue = null
   state.offers = []
   state.activeRfqId = null
   emit()

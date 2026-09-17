@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { loadCompanyProfile, saveCompanyProfile } from '../lib/companyProfile'
 import type { NavProps } from '../types'
 import {
   getConstructionGmailStatus,
@@ -9,27 +10,31 @@ import {
 import { farqSession } from '../api/farqSession'
 import { useFarqSession } from '../api/useFarqSession'
 
-const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-  <button
-    onClick={onChange}
-    className={`relative inline-flex w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-      checked ? 'bg-[#123F3A]' : 'bg-neutral-200'
-    }`}
-  >
-    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all ${
-      checked ? 'right-0.5' : 'left-0.5'
-    }`} />
-  </button>
+// Module scope on purpose: declared inside the component these were a new
+// component type every render, so each keystroke remounted the input and the
+// field lost focus after one character.
+const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden mb-4">
+    <div className="px-5 py-4 border-b border-neutral-50">
+      <div className="text-sm font-bold text-[#0D1F1D]">{title}</div>
+    </div>
+    <div className="px-5 py-4 space-y-4">{children}</div>
+  </div>
 )
 
-const EyeIcon = ({ open }: { open: boolean }) => (
-  <svg className="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-    {open
-      ? <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      : <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-    }
-  </svg>
+const Field = ({ label, value, onChange, dir = 'rtl' }: { label: string; value: string; onChange: (v: string) => void; dir?: string }) => (
+  <div>
+    <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">{label}</label>
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      dir={dir}
+      className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123F3A] transition-colors"
+    />
+  </div>
 )
+
 
 export function SettingsView({ navigate }: NavProps) {
   const [toast, setToast] = useState<string | null>(null)
@@ -45,18 +50,13 @@ export function SettingsView({ navigate }: NavProps) {
     inboxNote?: string
     gmailState?: string
   }>({})
-  const [company, setCompany] = useState({ name: 'فرق للبناء', city: 'الرياض', phone: '0563333463', email: 'info@farq.sa' })
+  // What is saved here is what the send form uses. See lib/companyProfile.
+  const [company, setCompany] = useState(() => loadCompanyProfile())
   const session = useFarqSession()
   // Placeholders only until `/api/construction/me` and the session answer. A
   // signed-in account overwrites both below; demo mode keeps saying so plainly
   // rather than showing an invented identity.
-  const [user, setUser] = useState({ name: 'وضع تجريبي', email: 'local-buyer@demo', role: 'ADMIN (demo)' })
-  const [defaults, setDefaults] = useState({ deadline: '14', location: 'الرياض' })
-  const [notifs, setNotifs] = useState({ newOffer: true, closingDeadline: true, sendFail: true, award: false })
-  const [pw, setPw] = useState({ current: '', next: '', confirm: '' })
-  const [showCurrent, setShowCurrent] = useState(false)
-  const [showNext, setShowNext] = useState(false)
-  const [pwError, setPwError] = useState<string | null>(null)
+  const [user, setUser] = useState({ name: '—', email: '—', role: '—' })
 
   /** Show who is actually signed in, not a placeholder. */
   useEffect(() => {
@@ -129,37 +129,6 @@ export function SettingsView({ navigate }: NavProps) {
     setTimeout(() => setToast(null), 3000)
   }
 
-  const changePassword = () => {
-    setPwError(null)
-    if (!pw.current) return setPwError('أدخل كلمة المرور الحالية.')
-    if (pw.next.length < 8) return setPwError('كلمة المرور يجب أن تكون 8 أحرف على الأقل.')
-    if (pw.next !== pw.confirm) return setPwError('كلمتا المرور غير متطابقتين.')
-    setPw({ current: '', next: '', confirm: '' })
-    showToast('تم تغيير كلمة المرور بنجاح.')
-  }
-
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden mb-4">
-      <div className="px-5 py-4 border-b border-neutral-50">
-        <div className="text-sm font-bold text-[#0D1F1D]">{title}</div>
-      </div>
-      <div className="px-5 py-4 space-y-4">{children}</div>
-    </div>
-  )
-
-  const Field = ({ label, value, onChange, dir = 'rtl' }: { label: string; value: string; onChange: (v: string) => void; dir?: string }) => (
-    <div>
-      <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        dir={dir}
-        className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123F3A] transition-colors"
-      />
-    </div>
-  )
-
   const ChannelRow = ({
     label,
     on,
@@ -194,12 +163,6 @@ export function SettingsView({ navigate }: NavProps) {
     <div className="max-w-2xl mx-auto px-4 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-black text-[#0D1F1D]">الإعدادات</h1>
-        <button
-          onClick={() => navigate('access-denied')}
-          className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
-        >
-          إدارة الصلاحيات
-        </button>
       </div>
 
       <div className="mb-4 rounded-xl border border-neutral-100 bg-white px-4 py-3 text-xs text-neutral-500 font-mono break-all">
@@ -210,23 +173,23 @@ export function SettingsView({ navigate }: NavProps) {
         <ChannelRow
           label="بريد صادر (Resend)"
           on={channels.email}
-          detail="RESEND_API_KEY + CONSTRUCTION_RFQ_* على السيرفر"
+          detail="بريد طلبات التسعير الصادر من خادم فرق"
         />
         <ChannelRow
           label="واتساب Cloud (Meta)"
           on={channels.whatsapp}
           detail={
             channels.whatsapp
-              ? `جاهز للإرسال بشرط send_consent=true · مزوّد ${channels.whatsappProvider || 'META_CLOUD_API'} · kill switch WHATSAPP_ENABLED`
+              ? 'جاهز للإرسال للموردين الذين وافقوا على المراسلة عبر واتساب'
               : channels.metaReady
-                ? 'Meta ready لكن القناة OFF (kill switch أو بانتظار نشر كود الموزّع المحدّث)'
+                ? 'الحساب مهيّأ لدى Meta لكن القناة موقوفة على خادم فرق'
                 : 'غير مهيأ'
           }
         />
         <ChannelRow
           label="واتساب يدوي (WhatsApp Web)"
           on={channels.whatsappManual}
-          detail="متاح دائمًا عند غياب consent أو تعطيل Cloud"
+          detail="رابط واتساب تفتحه أنت وترسله بنفسك: متاح دائمًا"
         />
         <ChannelRow
           label="حراج"
@@ -257,90 +220,21 @@ export function SettingsView({ navigate }: NavProps) {
         <Field label="المدينة" value={company.city} onChange={v => setCompany(p => ({ ...p, city: v }))} />
         <Field label="رقم التواصل" value={company.phone} onChange={v => setCompany(p => ({ ...p, phone: v }))} dir="ltr" />
         <Field label="البريد الإلكتروني" value={company.email} onChange={v => setCompany(p => ({ ...p, email: v }))} dir="ltr" />
+        <Field label="الاسم النظامي (كما في السجل التجاري)" value={company.legalName} onChange={v => setCompany(p => ({ ...p, legalName: v }))} />
+        <Field label="رقم السجل التجاري" value={company.crNumber} onChange={v => setCompany(p => ({ ...p, crNumber: v }))} dir="ltr" />
+        <Field label="الرقم الضريبي" value={company.vatNumber} onChange={v => setCompany(p => ({ ...p, vatNumber: v }))} dir="ltr" />
+        <Field label="العنوان الوطني" value={company.nationalAddress} onChange={v => setCompany(p => ({ ...p, nationalAddress: v }))} />
+        <p className="text-[11px] text-neutral-500">تظهر هذه البيانات للمورد في طلب التسعير حتى يصدر عرضًا رسميًا باسم شركتكم. الحقل الفارغ لا يظهر.</p>
       </Section>
 
-      {/* User */}
+      {/* User: read from the session, not editable here. */}
       <Section title="المستخدم">
-        <Field label="الاسم" value={user.name} onChange={v => setUser(p => ({ ...p, name: v }))} />
-        <Field label="البريد الإلكتروني" value={user.email} onChange={v => setUser(p => ({ ...p, email: v }))} dir="ltr" />
-        <div>
-          <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">الدور</label>
-          <div className="px-4 py-2.5 bg-neutral-50 rounded-xl text-sm text-neutral-500">{user.role}</div>
-        </div>
-      </Section>
-
-      {/* Password */}
-      <Section title="كلمة المرور">
-        <div>
-          <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">كلمة المرور الحالية</label>
-          <div className="relative">
-            <input
-              type={showCurrent ? 'text' : 'password'}
-              value={pw.current}
-              onChange={e => setPw(p => ({ ...p, current: e.target.value }))}
-              placeholder="••••••••"
-              dir="ltr"
-              className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123F3A] pl-10 transition-colors"
-            />
-            <button type="button" onClick={() => setShowCurrent(v => !v)} className="absolute left-3 top-1/2 -translate-y-1/2">
-              <EyeIcon open={showCurrent} />
-            </button>
+        {([['الاسم', user.name], ['البريد الإلكتروني', user.email], ['الدور', user.role]] as [string, string][]).map(([label, value]) => (
+          <div key={label}>
+            <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">{label}</label>
+            <div className="px-4 py-2.5 bg-neutral-50 rounded-xl text-sm text-neutral-500" dir="auto">{value}</div>
           </div>
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">كلمة المرور الجديدة</label>
-          <div className="relative">
-            <input
-              type={showNext ? 'text' : 'password'}
-              value={pw.next}
-              onChange={e => setPw(p => ({ ...p, next: e.target.value }))}
-              placeholder="8 أحرف على الأقل"
-              dir="ltr"
-              className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123F3A] pl-10 transition-colors"
-            />
-            <button type="button" onClick={() => setShowNext(v => !v)} className="absolute left-3 top-1/2 -translate-y-1/2">
-              <EyeIcon open={showNext} />
-            </button>
-          </div>
-          {pw.next.length > 0 && (
-            <div className="mt-2 space-y-1">
-              <div className="flex gap-1">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${
-                    pw.next.length < 6 ? i === 1 ? 'bg-red-400' : 'bg-neutral-100' :
-                    pw.next.length < 8 ? i <= 2 ? 'bg-amber-400' : 'bg-neutral-100' :
-                    pw.next.length < 12 ? i <= 3 ? 'bg-[#123F3A]/60' : 'bg-neutral-100' :
-                    'bg-[#123F3A]'
-                  }`} />
-                ))}
-              </div>
-              <div className="text-[10px] text-neutral-400">
-                {pw.next.length < 6 ? 'ضعيفة' : pw.next.length < 8 ? 'مقبولة' : pw.next.length < 12 ? 'جيدة' : 'قوية جداً'}
-              </div>
-            </div>
-          )}
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">تأكيد كلمة المرور الجديدة</label>
-          <input
-            type="password"
-            value={pw.confirm}
-            onChange={e => setPw(p => ({ ...p, confirm: e.target.value }))}
-            placeholder="••••••••"
-            dir="ltr"
-            className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123F3A] transition-colors ${
-              pw.confirm && pw.confirm !== pw.next ? 'border-red-300 bg-red-50' : 'border-neutral-200'
-            }`}
-          />
-        </div>
-        {pwError && <div className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{pwError}</div>}
-        <button
-          onClick={changePassword}
-          disabled={!pw.current || !pw.next || !pw.confirm}
-          className="px-5 py-2.5 bg-[#123F3A] text-white text-sm font-bold rounded-xl hover:bg-[#1a5c54] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          تغيير كلمة المرور
-        </button>
+        ))}
       </Section>
 
       {/* RFQ Defaults */}
@@ -349,33 +243,22 @@ export function SettingsView({ navigate }: NavProps) {
           <label className="text-xs font-semibold text-neutral-600 mb-1.5 block">موعد الاستلام الافتراضي (بالأيام)</label>
           <input
             type="number"
-            value={defaults.deadline}
-            onChange={e => setDefaults(p => ({ ...p, deadline: e.target.value }))}
+            value={String(company.defaultDeadlineDays)}
+            onChange={e => setCompany(p => ({ ...p, defaultDeadlineDays: Number(e.target.value) || 0 }))}
             min="1"
             className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123F3A] transition-colors"
             dir="ltr"
           />
         </div>
-        <Field label="موقع التسليم الافتراضي" value={defaults.location} onChange={v => setDefaults(p => ({ ...p, location: v }))} />
-      </Section>
-
-      {/* Notifications */}
-      <Section title="الإشعارات">
-        {([
-          ['newOffer', 'عروض جديدة'],
-          ['closingDeadline', 'قرب موعد الإغلاق'],
-          ['sendFail', 'فشل إرسال دعوة'],
-          ['award', 'اعتماد ترسية'],
-        ] as [keyof typeof notifs, string][]).map(([key, label]) => (
-          <div key={key} className="flex items-center justify-between">
-            <span className="text-sm text-[#0D1F1D]">{label}</span>
-            <Toggle checked={notifs[key]} onChange={() => setNotifs(p => ({ ...p, [key]: !p[key] }))} />
-          </div>
-        ))}
+        <Field label="موقع التسليم الافتراضي" value={company.defaultDeliveryCity} onChange={v => setCompany(p => ({ ...p, defaultDeliveryCity: v }))} />
       </Section>
 
       <button
-        onClick={() => showToast('تم حفظ التغييرات.')}
+        onClick={() => {
+          const ok = saveCompanyProfile(company)
+          if (ok) setCompany(loadCompanyProfile())
+          showToast(ok ? 'حُفظت بيانات الشركة وإعدادات الطلبات على هذا المتصفح، وستُستخدم في طلب التسعير القادم.' : 'تعذّر الحفظ: المتصفح يمنع التخزين في هذه النافذة.')
+        }}
         className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
       >
         حفظ التغييرات
@@ -384,7 +267,7 @@ export function SettingsView({ navigate }: NavProps) {
       <button
         onClick={() => {
           if (!session.isAuthenticated) {
-            showToast('التطبيق يعمل بالوضع التجريبي — لا توجد جلسة للخروج منها.')
+            navigate('login')
             return
           }
           // Sign out ends the session AND clears this account's working state
@@ -394,7 +277,7 @@ export function SettingsView({ navigate }: NavProps) {
         }}
         className="w-full mt-3 py-2.5 text-neutral-400 text-sm font-semibold hover:text-neutral-600 transition-colors"
       >
-        {session.isAuthenticated ? 'تسجيل الخروج' : 'وضع بدون تسجيل دخول'}
+        {session.isAuthenticated ? 'تسجيل الخروج' : 'تسجيل الدخول'}
       </button>
 
       {toast && (

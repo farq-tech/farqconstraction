@@ -13,8 +13,10 @@
  */
 
 import { apiBase, apiUnreachableAdvice } from './apiBase'
+import { buildOntologyResolution, withOntologyResolution } from '../lib/canonicalIntent'
 import {
   constructionHeaders,
+  currentAuthMode,
   shouldRetryAfterRefresh,
   supplierPortalHeaders,
 } from './constructionAuth'
@@ -130,6 +132,8 @@ export type ConstructionRfq = {
     email_snapshot?: string
     role?: string
     snapshot?: Record<string, unknown>
+    /** RECORDED = written by the system when it happened; DERIVED = reconstructed at read time from dispatch attempts and RFQ timestamps. */
+    source?: 'RECORDED' | 'DERIVED'
   }>
   supplier_count: number
   response_count: number
@@ -268,6 +272,48 @@ export type BoqCatalogMatchRow = {
     channel?: string
     rfq_eligible?: boolean
   }>
+  /** Ontology-named material whose suppliers were read from Farq's intent map (review required, never a match). */
+  map_suggestion?: {
+    intent: string
+    family: string | null
+    answered_by: string | null
+    supplier_count: number
+    zero_reason: string | null
+    suppliers: Array<{
+      id: string
+      name_ar?: string
+      name_en?: string
+      city?: string
+      evidence?: string
+      channel?: string
+      rfq_eligible?: boolean
+    }>
+  }
+  /** Trade known, material not in the list: that family's suppliers, at family grade. */
+  family_suggestion?: {
+    family: string
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+  }
+  /** Suppliers the buyer chose for this same line before and that no list above contains. */
+  learned_suggestion?: {
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+  }
+  /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
+  ai_suggestion?: {
+    intent: string
+    family: string | null
+    supplier_count: number
+    zero_reason: string | null
+    suppliers: Array<{
+      id: string
+      name_ar?: string
+      name_en?: string
+      city?: string
+      evidence?: string
+      channel?: string
+      rfq_eligible?: boolean
+    }>
+  }
 }
 
 export class ConstructionApiError extends Error {
@@ -510,8 +556,19 @@ async function rawFetch(
       )
     }
     // A transport failure is not a feature flag problem; say so separately.
+    //
+    // And with no session it is not a server problem either, so it must not be
+    // reported as one. Without a session this client sends
+    // `x-construction-demo-user`, which is absent from the API's
+    // `access-control-allow-headers` (Authorization is present), so the browser
+    // blocks the request before it is sent and `fetch` rejects. The server is
+    // healthy and never hears about it. Telling the reader the API is
+    // unreachable sends him to check a server that is fine; the true and
+    // actionable statement is that he is not signed in.
     throw new ConstructionApiError(
-      `لا يمكن الوصول إلى Farq API من هذا التطبيق — ${apiUnreachableAdvice()}`,
+      currentAuthMode() === 'demo'
+        ? 'لم تسجّل الدخول. هذا الرابط لا يستطيع مخاطبة خادم فرق بدون جلسة، فلم يصل الطلب إليه أصلًا. سجّل الدخول ثم أعد المحاولة.'
+        : `لا يمكن الوصول إلى Farq API من هذا التطبيق — ${apiUnreachableAdvice()}`,
       0,
       'CONSTRUCTION_API_UNREACHABLE',
     )
@@ -587,7 +644,7 @@ function unwrap<T>(
       code === 'CONSTRUCTION_WRITE_DISABLED'
     ) {
       throw new ConstructionApiError(
-        `واجهة البناء غير مفعّلة (${code}). تأكد من CONSTRUCTION_DB_URL و READ/RFQ/WRITE على Farq API.`,
+        `خدمة فرق للبناء متوقفة مؤقتًا من جهة الخادم (${code}). لم يُحفظ شيء؛ أعد المحاولة بعد قليل أو تواصل مع دعم فرق.`,
         response.status,
         String(code),
       )
@@ -882,6 +939,61 @@ export async function markConstructionInboxMessageRead(messageId: string) {
   )
 }
 
+export type IntentCandidate = {
+  key: string
+  sample_text: string | null
+  sample_texts: string[]
+  lines: number
+  booklets: number
+  proposed_family: string | null
+  proposed_intent: string | null
+  confidence: number | null
+  status: string
+}
+
+/** Unknown material cores from the buyer's own booklets, most repeated first. */
+export async function listConstructionIntentCandidates(limit = 100) {
+  return request<{ total_open: number; candidates: IntentCandidate[] }>(
+    `/api/construction/learning/candidates?limit=${limit}`,
+  )
+}
+
+/** APPROVE the proposal, REJECT it, or CORRECT it to another material of the closed list. */
+export async function decideConstructionIntentCandidate(
+  key: string,
+  body: { decision: 'APPROVE' | 'REJECT' | 'CORRECT'; intent?: string },
+) {
+  return request<{ key: string; status: string }>(
+    `/api/construction/learning/candidates/${encodeURIComponent(key)}/decision`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+}
+
+export type SupplierFeedbackItem = {
+  subject_kind: 'SPEC' | 'INTENT' | 'LINE_TEXT'
+  subject_key: string
+  supplier_id: string
+  verdict: 'CHOSEN' | 'REJECTED' | 'CLEARED'
+  line_text?: string
+}
+
+/** The buyer's verdicts on suggested suppliers; the API replays them on the next match. */
+export async function recordConstructionSupplierFeedback(items: SupplierFeedbackItem[]) {
+  return request<{ recorded: number }>('/api/construction/boq/supplier-feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  })
+}
+
+/** Back to unread for the signed-in member only; colleagues keep their own state. */
+export async function markConstructionInboxMessageUnread(messageId: string) {
+  return request<{ read: boolean }>(
+    `/api/construction/inbox/messages/${encodeURIComponent(messageId)}/unread`,
+    { method: 'POST' },
+  )
+}
+
 export async function listConstructionInboxThreads(query: {
   /** API only accepts needs_reply | all. Use client helpers for inbound vs مرسل. */
   filter?: 'needs_reply' | 'all'
@@ -1082,7 +1194,7 @@ export function inboxReplyErrorMessageAr(code: string): string {
     case 'INBOX_NO_REPLY_ADDRESS':
       return 'لا يوجد عنوان رد محفوظ لهذا المورد — أضف بريد جهة الاتصال في بطاقة المورد.'
     case 'INBOX_SENDING_DISABLED':
-      return 'الإرسال غير مهيّأ على الـ API (RESEND_API_KEY أو CONSTRUCTION_RFQ_SENDER_EMAIL).'
+      return 'البريد الصادر غير مهيّأ على خادم فرق، فلم تُرسل الرسالة. تواصل مع دعم فرق (رمز: إعداد البريد الصادر).'
     case 'SUPPLIER_SCOPE_REQUIRED':
       return 'لا يمكن إرفاق بنود هذا الطلب: لم يُقسّم على الموردين، وإرسال الكتيّب كاملًا ممنوع. قسّم البنود على الموردين أولًا.'
     case 'SUPPLIER_NO_SCOPED_LINES':
@@ -1104,7 +1216,7 @@ export function inboxReplyErrorMessageAr(code: string): string {
     case 'INBOX_RECONCILIATION_REQUIRED':
       return 'تعذّر تأكيد الإرسال السابق — راجع بريد info@ قبل إعادة الإرسال لتجنّب التكرار.'
     case 'INBOX_CORRESPONDENCE_DISABLED':
-      return 'المراسلات غير مفعّلة على الـ API (CONSTRUCTION_CORRESPONDENCE_ENABLED).'
+      return 'المراسلات موقوفة على خادم فرق، فلم تُرسل الرسالة. تواصل مع دعم فرق.'
     default:
       return `تعذّر تنفيذ الطلب (${code}).`
   }
@@ -1134,9 +1246,9 @@ export type ConstructionGmailStatus = {
 export function gmailErrorMessageAr(code: string): string {
   switch (code) {
     case 'GMAIL_NOT_CONFIGURED':
-      return 'تفويض Gmail غير مهيّأ على الـ API: ناقص CONSTRUCTION_GMAIL_ENABLED=1 أو CONSTRUCTION_GMAIL_CLIENT_ID أو CLIENT_SECRET أو TOKEN_KEY أو OWNER_ACTOR_ID. (قواعد البيانات وأعلام القراءة/الكتابة ليست السبب.)'
+      return 'ربط Gmail غير مهيّأ على خادم فرق بعد، فلا يمكن إتمامه من هنا. تواصل مع دعم فرق.'
     case 'GMAIL_FORBIDDEN':
-      return 'جلستك ليست مالك الصندوق: actorId يجب أن يساوي CONSTRUCTION_GMAIL_OWNER_ACTOR_ID بدور ADMIN. في الوضع التجريبي اجعل CONSTRUCTION_DEMO_BUYER_USER_ID نفس ذلك الـ UUID.'
+      return 'هذا الحساب ليس مالك صندوق بريد الشركة. ادخل بحساب مدير الشركة لربط البريد أو الرد منه.'
     case 'GMAIL_INVALID_STATE':
       return 'انتهت صلاحية جلسة الربط أو لم تُحفظ كعكة المتصفح على أصل الـ callback — ابدأ الربط من جديد من هذا الزر (يتطلب نشر Farq API الحديث).'
     case 'GMAIL_CONSENT_DECLINED':
@@ -1330,12 +1442,34 @@ export async function revertSupplierImportBatch(batchId: string) {
   )
 }
 
+/**
+ * Ask the directory which suppliers can serve these items.
+ *
+ * `lines` carries the RESOLVER'S OWN ANSWER for each item, which is the whole
+ * reason this signature changed. The API's intent-keyed supplier map can only
+ * be reached through `lines`, and the answer it needs — a `canonical_intent_id`
+ * the ontology recognises — can only be produced here, where the resolver
+ * lives. Without it the API falls back to its own vocabulary, which names the
+ * same product differently and misses every lookup.
+ *
+ * A line with no resolvable name sends `ontology_resolution: null`, which the
+ * API reads as ABSENT and answers on its own weaker path. That is a fallback,
+ * not a verdict about the line.
+ */
 export async function matchConstructionSuppliers(payload: {
   item_ids?: string[]
   farq_spec_ids?: string[]
   city?: string
   limit?: number
+  lines?: Array<{
+    line_key: string
+    farq_spec_id: string
+    name_ar?: string
+    name_en?: string
+  }>
+  include_inferred?: boolean
 }) {
+  const lines = payload.lines?.length ? withOntologyResolution(payload.lines) : undefined
   return request<{
     matches?: Array<{
       item?: { farq_spec_id?: string; name_ar?: string }
@@ -1345,8 +1479,49 @@ export async function matchConstructionSuppliers(payload: {
   }>('/api/construction/suppliers/match', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(lines ? { ...payload, lines } : payload),
   })
+}
+
+/**
+ * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
+ * product match, so `rfq_eligible` is false and the badge names the source.
+ */
+function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string) {
+  // One business listed twice (two directory rows, same name) is one choice,
+  // not two. The server returns at most 12; all of them are listed so the
+  // count on the card is the count the buyer can actually see.
+  const seenIds = new Set<string>()
+  const seenNames = new Set<string>()
+  return (list || [])
+    .filter((s) => {
+      const id = String(s.id || '').trim()
+      if (!id || seenIds.has(id)) return false
+      const name = String(s.name_ar || s.name_en || '').replace(/\s+/g, ' ').trim().toLowerCase()
+      if (name && seenNames.has(name)) return false
+      seenIds.add(id)
+      if (name) seenNames.add(name)
+      return true
+    })
+    .slice(0, 12)
+    .map((s) => {
+      const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
+      const id = String(s.id || '')
+      const isHaraj =
+        isHarajSellerExternalKey(id) ||
+        String(s.source_system || s.source || '') === 'HARAJ' ||
+        Boolean(channels.haraj)
+      return {
+        id,
+        name_ar: s.name_ar as string | undefined,
+        name_en: s.name_en as string | undefined,
+        city: (s.city as string | undefined) || undefined,
+        evidence,
+        learned: s.learned_choice === true,
+        channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
+        rfq_eligible: false,
+      }
+    })
 }
 
 /**
@@ -1372,7 +1547,7 @@ export async function matchConstructionBoqCatalog(payload: {
     brand?: string
   }>
 }): Promise<{ rows: BoqCatalogMatchRow[]; matches?: BoqCatalogMatchRow[] }> {
-  const rows =
+  const baseRows =
     payload.rows?.length
       ? payload.rows.slice(0, 200)
       : (payload.lines || []).slice(0, 200).map((line) => ({
@@ -1381,6 +1556,31 @@ export async function matchConstructionBoqCatalog(payload: {
           name_en: line.name_en,
           specification: line.spec,
         }))
+  // The resolver's own answer rides on every row. `/boq/match` is the endpoint
+  // this screen actually calls, and the server has no paired resolver of its
+  // own, so without this the ontology's name for a line never reaches the one
+  // place that could read the supplier map for it. A server that does not know
+  // the field ignores it (parseBoqMatchRows copies known keys only).
+  const rows = baseRows.map((row) => {
+    /*
+     * THE NAME FIRST, THE LINE'S OWN TEXT AFTER IT.
+     *
+     * These booklets print the material in English and abbreviate it in Arabic:
+     * «توريد وتركيب واختبار وتشغيل هيدروليكي - 6 طن» beside «hydraulic dock
+     * leveler». The Arabic alone names nothing, and the catalogue knows «dock
+     * leveler» perfectly well — so when the name resolves to nothing at all,
+     * the line's own description is tried before giving up. Measured on the
+     * five test booklets: 20 more lines named out of 336.
+     */
+    const named = buildOntologyResolution(row.name || row.name_en || '')
+    const resolved =
+      named?.canonical_intent_id || named?.family
+        ? named
+        : buildOntologyResolution(
+            [row.name, row.name_en, row.specification].filter(Boolean).join(' ').slice(0, 400),
+          ) || named
+    return { ...row, ontology_resolution: resolved }
+  })
 
   const data = await request<{
     rows?: Array<{
@@ -1402,11 +1602,30 @@ export async function matchConstructionBoqCatalog(payload: {
         rfq_eligible_supplier_count?: number
         suppliers?: Array<Record<string, unknown>>
       }>
+      learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
+      ai_suggestion?: {
+        intent?: string
+        family?: string | null
+        supplier_count?: number
+        zero_reason?: string | null
+        suppliers?: Array<Record<string, unknown>>
+      } | null
+      map_suggestion?: {
+        intent?: string
+        family?: string | null
+        answered_by?: string | null
+        supplier_count?: number
+        zero_reason?: string | null
+        suppliers?: Array<Record<string, unknown>>
+      } | null
     }>
   }>('/api/construction/boq/match', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows }),
+    // `compact` asks the API to leave out the candidate items and long catalogue
+    // texts this screen never renders: about a quarter of the bytes per call.
+    body: JSON.stringify({ rows, compact: true }),
     timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
   })
 
@@ -1444,7 +1663,7 @@ export async function matchConstructionBoqCatalog(payload: {
       match_kind: row.kind,
       kind: row.kind,
       /** Unconfirmed candidates, for diagnostics only — never a match. */
-      candidate_count: row.candidates?.length || 0,
+      candidate_count: Number((row as { candidate_count?: number }).candidate_count) || row.candidates?.length || 0,
       rfq_eligible_supplier_ids: [...eligibleIds],
       rfq_eligible_supplier_count:
         chosen?.rfq_eligible_supplier_count ?? eligibleIds.size,
@@ -1464,70 +1683,145 @@ export async function matchConstructionBoqCatalog(payload: {
           name_ar: s.name_ar as string | undefined,
           name_en: s.name_en as string | undefined,
           city: (s.city as string | undefined) || undefined,
-          evidence: 'نشاط متطابق',
+          // «دليل منتج» only when the server returned product evidence for this
+          // supplier; otherwise the honest statement is that the catalog listed it.
+          evidence:
+            Array.isArray((s.product_match as { evidence?: unknown[] } | undefined)?.evidence) &&
+            ((s.product_match as { evidence?: unknown[] }).evidence as unknown[]).length > 0
+              ? 'دليل منتج'
+              : 'من الكتالوج',
+          learned: s.learned_choice === true,
           channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
       }),
+      ...(row.map_suggestion && row.map_suggestion.intent
+        ? {
+            map_suggestion: {
+              intent: String(row.map_suggestion.intent),
+              family: row.map_suggestion.family ?? null,
+              answered_by: row.map_suggestion.answered_by ?? null,
+              supplier_count: Number(row.map_suggestion.supplier_count) || 0,
+              zero_reason: row.map_suggestion.zero_reason ?? null,
+              // The ontology named the material; the map supplied the seller.
+              suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق'),
+            },
+          }
+        : {}),
+      ...(row.family_suggestion?.family
+        ? { family_suggestion: { family: String(row.family_suggestion.family), suppliers: suggestionSuppliers(row.family_suggestion.suppliers, 'على مستوى النشاط') } }
+        : {}),
+      ...(row.learned_suggestion?.suppliers?.length
+        ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }
+        : {}),
+      ...(row.ai_suggestion && row.ai_suggestion.intent
+        ? {
+            ai_suggestion: {
+              intent: String(row.ai_suggestion.intent),
+              family: row.ai_suggestion.family ?? null,
+              supplier_count: Number(row.ai_suggestion.supplier_count) || 0,
+              zero_reason: row.ai_suggestion.zero_reason ?? null,
+              // The model named the material; the map supplied the seller.
+              suppliers: suggestionSuppliers(row.ai_suggestion.suppliers, 'تسمية آلية'),
+            },
+          }
+        : {}),
     }
   })
 
   return { rows: mapped, matches: mapped }
 }
 
+/** A row the read refused to serve as an item, with the reason it refused. */
+export type SetAsideRow = {
+  page?: number
+  quantity?: number | string | null
+  unit?: string | null
+  description?: string
+  reason?: string
+}
+
 export async function parseConstructionBoqPdf(file: File): Promise<{
   rows: (string | number)[][]
   item_count: number
   job_id?: string
+  set_aside?: SetAsideRow[]
 }> {
-  const submit = await request<{
+  type Submit = {
     job_id: string
     status: 'QUEUED' | 'COMPLETE'
     rows?: (string | number)[][]
     item_count?: number
-  }>('/api/construction/boq/parse-pdf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/pdf' },
-    body: file,
-  })
-
-  if (submit.status === 'COMPLETE' && submit.rows) {
-    return {
-      rows: submit.rows,
-      item_count: submit.item_count ?? submit.rows.length,
-      job_id: submit.job_id,
-    }
+    set_aside?: SetAsideRow[]
   }
+  const submitFile = () =>
+    request<Submit>('/api/construction/boq/parse-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: file,
+    })
 
-  const deadline = Date.now() + 600_000
+  let submit = await submitFile()
+  const deadline = Date.now() + 840_000
+  // The reading job lives in the server's memory. A server restart (every
+  // deploy is one) loses it: the poll answers 404, or nothing answers at all
+  // for a minute. Measured 2026-09-17: the owner's 387-code booklet died five
+  // minutes in and the screen served the local 20-row read under «قراءة غير
+  // صالحة». A lost job is resubmitted, and a server that is coming back up is
+  // waited for, instead of giving up on the first bad poll.
+  let resubmits = 0
+  let unreachableSince: number | null = null
   for (;;) {
-    await new Promise((r) => setTimeout(r, 1000))
-    const job = await request<{
+    if (submit.status === 'COMPLETE' && submit.rows) {
+      return {
+        rows: submit.rows,
+        item_count: submit.item_count ?? submit.rows.length,
+        job_id: submit.job_id,
+        set_aside: submit.set_aside || [],
+      }
+    }
+    await new Promise((r) => setTimeout(r, unreachableSince ? 4000 : 1000))
+    if (Date.now() >= deadline) {
+      throw new ConstructionApiError(
+        'انتهت مهلة قراءة الكراسة على الخادم. أعد المحاولة.',
+        504,
+        'BOQ_EXTRACTION_TIMEOUT',
+      )
+    }
+    let job: {
       status: string
       rows?: (string | number)[][]
       item_count?: number
+      set_aside?: SetAsideRow[]
       error?: string | null
-    }>(`/api/construction/boq/extraction/${encodeURIComponent(submit.job_id)}`)
+    }
+    try {
+      job = await request(`/api/construction/boq/extraction/${encodeURIComponent(submit.job_id)}`)
+      unreachableSince = null
+    } catch (err) {
+      const status = err instanceof ConstructionApiError ? err.status : 0
+      if (status === 401 || status === 403 || status === 429) throw err
+      if (status === 404) {
+        if (resubmits >= 2) throw err
+        resubmits += 1
+        submit = await submitFile()
+        continue
+      }
+      // 5xx or no answer: the server is restarting. Give it two minutes.
+      unreachableSince = unreachableSince ?? Date.now()
+      if (Date.now() - unreachableSince > 120_000) throw err
+      continue
+    }
     if (job.status === 'COMPLETE') {
       return {
         rows: job.rows ?? [],
         item_count: job.item_count ?? job.rows?.length ?? 0,
         job_id: submit.job_id,
+        set_aside: job.set_aside || [],
       }
     }
     if (job.status === 'FAILED') {
-      throw new ConstructionApiError(
-        job.error || 'تعذرت قراءة جدول الكميات من PDF',
-        500,
-        'BOQ_EXTRACTION_FAILED',
-      )
-    }
-    if (Date.now() >= deadline) {
-      throw new ConstructionApiError(
-        'انتهت مهلة تحليل PDF — ارفع صفحات جدول الكميات وحدها أو استخدم Excel.',
-        504,
-        'BOQ_EXTRACTION_TIMEOUT',
-      )
+      throw new ConstructionApiError(job.error || 'تعذرت قراءة جدول الكميات من PDF', 500, 'BOQ_EXTRACTION_FAILED')
     }
   }
 }

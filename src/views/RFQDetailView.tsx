@@ -28,6 +28,32 @@ const TABS: [Tab, string][] = [
   ['log', 'السجل'],
 ]
 
+const AUDIT_EVENT_LABELS: Record<string, string> = {
+  RFQ_CREATED: 'أُنشئ الطلب',
+  RFQ_VERSION_CREATED: 'أُنشئت نسخة جديدة من الطلب',
+  RFQ_DISPATCHED: 'أُرسل الطلب إلى الموردين',
+  RFQ_DISPATCH_FAILED: 'محاولة إرسال لم تصل إلى أي مورد',
+  AWARD_DISPATCHED: 'أُرسل إشعار الترسية',
+  AWARD_DISPATCH_FAILED: 'محاولة إشعار ترسية لم تصل',
+  RFP_SUBMISSIONS_CLOSED: 'أُغلق باب التقديم',
+  RFP_ENVELOPES_OPENED: 'فُتحت المظاريف',
+  AWARD_APPROVED: 'اعتُمدت الترسية',
+}
+
+function auditEventLabel(type: string): string {
+  return AUDIT_EVENT_LABELS[type] || type
+}
+
+/** One line of the numbers behind a dispatch event, so the label is never the only evidence. */
+function auditEventDetail(event: { event_type: string; snapshot?: Record<string, unknown> }): string | null {
+  const s = event.snapshot || {}
+  if (/DISPATCH/.test(event.event_type) && typeof s.attempts === 'number') {
+    return `${s.sent ?? 0} محاولة ناجحة من ${s.attempts} على ${s.invites ?? 0} دعوة — لم تُرسل: ${s.not_sent ?? 0}، بلا مستلم: ${s.skipped ?? 0}`
+  }
+  if (event.event_type === 'RFQ_VERSION_CREATED' && typeof s.version_number === 'number') return `النسخة ${s.version_number}`
+  return null
+}
+
 export function RFQDetailView({ navigate }: NavProps) {
   const { selectedRfqId, openRfq, setSelectedOfferId } = useProcurement()
   const [rfq, setRfq] = useState<ConstructionRfq | null>(null)
@@ -37,6 +63,7 @@ export function RFQDetailView({ navigate }: NavProps) {
   const [dispatching, setDispatching] = useState(false)
   const [dispatchProgress, setDispatchProgress] = useState<string | null>(null)
   const [dispatchNote, setDispatchNote] = useState<string | null>(null)
+  const [waLinks, setWaLinks] = useState<Array<{ name: string; url: string }>>([])
 
   const reload = async (id: string) => {
     const data = await getConstructionRfq(id)
@@ -83,9 +110,19 @@ export function RFQDetailView({ navigate }: NavProps) {
     }
     setDispatching(true)
     setDispatchNote(null)
+    setWaLinks([])
     let sent = 0
     let failed = 0
     let waPrepared = 0
+    const reasons = new Map<string, number>()
+    const links: Array<{ name: string; url: string }> = []
+    const noteFailure = (err: unknown) => {
+      failed += 1
+      const code =
+        (err as { code?: string } | null)?.code ||
+        (err instanceof Error ? err.message.slice(0, 60) : 'سبب غير معروف')
+      reasons.set(code, (reasons.get(code) || 0) + 1)
+    }
     try {
       for (let i = 0; i < pending.length; i += 1) {
         const invite = pending[i]!
@@ -98,11 +135,13 @@ export function RFQDetailView({ navigate }: NavProps) {
           try {
             const link = await prepareConstructionWhatsAppLink(rfq.id, invite.id)
             if (link.url) {
+              // Links are listed, not opened in a loop: a pop-up blocker kept the
+              // first tab and dropped the rest while all were counted as prepared.
               waPrepared += 1
-              window.open(link.url, '_blank', 'noopener,noreferrer')
+              links.push({ name: String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد'), url: link.url })
             }
-          } catch {
-            failed += 1
+          } catch (err) {
+            noteFailure(err)
           }
           continue
         }
@@ -112,17 +151,26 @@ export function RFQDetailView({ navigate }: NavProps) {
             harajLimit: isHarajSellerExternalKey(supplierId) ? 1 : undefined,
           })
           sent += 1
-        } catch {
-          failed += 1
+        } catch (err) {
+          noteFailure(err)
         }
       }
-      await reload(rfq.id)
+      // The outcome is stated BEFORE the screen re-reads the request. When that
+      // re-read failed (likely right after a batch) nothing was shown at all,
+      // and the natural reaction to silence is to press send again.
+      const why = [...reasons].map(([code, count]) => `${code} ×${count}`).join('، ')
+      setWaLinks(links)
       setDispatchNote(
         failed
-          ? `أُرسل ${sent}${waPrepared ? ` · واتساب يدوي ${waPrepared}` : ''} وفشل ${failed}. راقب «المراسلات».`
-          : `تم إرسال ${sent} دعوة${waPrepared ? ` · واتساب يدوي ${waPrepared}` : ''}.`,
+          ? `قبل الخادم ${sent}${waPrepared ? ` · روابط واتساب ${waPrepared}` : ''} وفشل ${failed} (${why}). الحالة المؤكدة لكل مورد في «المراسلات».`
+          : `قبل الخادم ${sent} دعوة${waPrepared ? ` · روابط واتساب ${waPrepared}` : ''}.`,
       )
       setTab('correspondence')
+      try {
+        await reload(rfq.id)
+      } catch {
+        setDispatchNote((note) => `${note || ''} تعذّر تحديث الصفحة بعد الإرسال: لا تُعد الإرسال، حدّث الصفحة.`)
+      }
     } finally {
       setDispatching(false)
       setDispatchProgress(null)
@@ -224,6 +272,17 @@ export function RFQDetailView({ navigate }: NavProps) {
       {dispatchNote && (
         <div className="mb-5 rounded-2xl border border-[#d7efe6] bg-[#f0faf7] px-4 py-3 text-sm text-[#123F3A]">
           {dispatchNote}
+          {waLinks.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {waLinks.map((link) => (
+                <li key={link.url}>
+                  <a href={link.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+                    افتح واتساب: {link.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -433,13 +492,22 @@ export function RFQDetailView({ navigate }: NavProps) {
         <div className="space-y-2">
           {(rfq.audit_timeline || []).length === 0 ? (
             <div className="text-center py-12 text-neutral-500 text-sm">
-              لا أحداث تدقيق بعد. إنشاء المسودة سجّل {invites.length} دعوة — راقب «المراسلات» لحالة كل مورد.
+              لا أحداث مسجّلة ولا محاولات إرسال لهذا الطلب.
             </div>
           ) : (
             (rfq.audit_timeline || []).map((event, index) => (
               <div key={`${event.event_type}-${index}`} className="bg-white border border-neutral-100 rounded-xl px-4 py-3">
-                <div className="text-sm font-semibold text-[#0D1F1D]">{event.event_type}</div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-[#0D1F1D]">{auditEventLabel(event.event_type)}</div>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full ${event.source === 'RECORDED' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}
+                    title={event.source === 'RECORDED' ? 'حدث كتبه النظام لحظة وقوعه' : 'حدث مشتق من محاولات الإرسال وطوابع الطلب عند القراءة'}
+                  >
+                    {event.source === 'RECORDED' ? 'مسجّل' : 'مشتق'}
+                  </span>
+                </div>
                 <div className="text-xs text-neutral-400 mt-1">{formatArDate(event.created_at)}</div>
+                {auditEventDetail(event) && <div className="text-xs text-neutral-600 mt-1">{auditEventDetail(event)}</div>}
               </div>
             ))
           )}

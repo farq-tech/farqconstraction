@@ -13,8 +13,18 @@ import {
   type BoqEtaUnit,
   type BoqEtaView,
 } from '../lib/boqEta'
-import { beginBoqUpload, clearParsedBoq, setParsedBoq, upsertDraftRfq } from '../store/session'
+import {
+  beginBoqUpload,
+  clearParsedBoq,
+  getSession,
+  resetWorkingSession,
+  setParsedBoq,
+  subscribeSession,
+  upsertDraftRfq,
+} from '../store/session'
+import { takePendingUpload } from '../lib/pendingUpload'
 import { useProcurement } from '../procurementContext'
+import { currentAuthMode } from '../api/constructionAuth'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -33,7 +43,10 @@ const STAGES: Array<{ id: BoqParseStage; label: string; progress: number }> = [
  * Hard stop for the whole upload. `parseBoqFile` caps each leg, but this is the
  * backstop that guarantees the user is never left with an endless spinner.
  */
-const UPLOAD_WATCHDOG_MS = 180_000
+// 180s was sized for the reference booklet. A coded BOQ read page by page on
+// the server takes 1-3 minutes before matching starts, and the server's own
+// extraction ceiling is 480s, so the screen must not give up before it does.
+const UPLOAD_WATCHDOG_MS = 900_000
 const SLOW_HINT_AFTER_S = 15
 
 type Phase = 'idle' | 'processing' | 'done' | 'error'
@@ -46,20 +59,20 @@ const PHASE_LABEL: Record<BoqEtaPhase, string> = {
 }
 
 const LEG_LABEL: Record<BoqEtaLeg, string> = {
-  hash: 'بصمة الملف',
-  extract: 'استخراج نص الصفحات على جهازك',
-  table: 'قراءة أعمدة جدول الكميات',
-  'api-parse': 'انتظار خدمة قراءة PDF على الخادم',
-  resolve: 'استخراج البنود من النص',
-  'match-remote': 'طلب مطابقة البنود على الخادم',
-  'match-catalog': 'تنزيل دليل الموردين',
-  'match-pools': 'ترشيح الموردين لكل نية شراء',
-  'match-rank': 'ترتيب الموردين لكل بند',
+  hash: 'فتح الملف',
+  extract: 'قراءة الصفحات',
+  table: 'قراءة جدول الكميات',
+  'api-parse': 'قراءة جدول الكميات',
+  resolve: 'استخراج البنود',
+  'match-remote': 'البحث عن الموردين',
+  'match-catalog': 'البحث عن الموردين',
+  'match-pools': 'البحث عن الموردين',
+  'match-rank': 'ترتيب الموردين',
 }
 
 const UNIT_LABEL: Record<BoqEtaUnit, { one: string; many: string }> = {
   page: { one: 'صفحة', many: 'صفحة' },
-  pool: { one: 'نية', many: 'نية' },
+  pool: { one: 'مادة', many: 'مادة' },
   line: { one: 'بند', many: 'بندًا' },
 }
 
@@ -115,86 +128,34 @@ const LEG_BAR_SPAN: Partial<Record<BoqEtaLeg, [number, number]>> = {
  * It never freezes and never restarts to look better. The elapsed counter above
  * it keeps running in every one of those states.
  */
-function EtaPanel({ eta, hasHistory }: { eta: BoqEtaView; hasHistory: boolean }) {
-  const legCap = secondsOf(eta.legCapMs)
-  const phaseLabel = eta.phase ? PHASE_LABEL[eta.phase] : 'المعالجة'
-  const legLabel = eta.leg ? LEG_LABEL[eta.leg] : ''
+function EtaPanel({ eta, elapsed }: { eta: BoqEtaView; hasHistory: boolean; elapsed: number }) {
+  // The owner's ruling, 2026-09-17: no promise, only a counter. Every estimate
+  // this panel ever printed was eventually wrong in front of him («قدّرنا 50
+  // ثانية وتجاوزناها بـ 4 دقائق»). It now states what is happening and how
+  // long it has been happening, both of which are always true.
+  const legLabel = eta.leg ? LEG_LABEL[eta.leg] : 'قراءة الكراسة'
   const unit = eta.unit
   const measured =
     unit && eta.done !== null && eta.total !== null
       ? `${eta.done} من ${eta.total} ${eta.total === 1 ? UNIT_LABEL[unit].one : UNIT_LABEL[unit].many}`
       : null
-  const nextPhases = eta.remainingPhases.map((p) => PHASE_LABEL[p]).join(' ثم ')
-
-  const tone = eta.overdue
-    ? 'border-amber-200 bg-amber-50'
-    : eta.remainingMs !== null
-      ? 'border-[#123F3A]/15 bg-[#f0faf7]'
-      : 'border-neutral-200 bg-neutral-50'
-
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
+  const ss = String(elapsed % 60).padStart(2, '0')
   return (
-    <div className={`mt-4 rounded-xl border px-4 py-3 animate-fade-up ${tone}`}>
-      {eta.overdue ? (
-        <>
-          <div className="text-sm font-bold text-amber-800">تجاوزنا الوقت المتوقع</div>
-          <div className="mt-1 text-xs text-amber-800 leading-relaxed">
-            {eta.brokenEstimateMs !== null
-              ? `قدّرنا ${arSeconds(secondsOf(eta.brokenEstimateMs)!)} لمرحلة «${phaseLabel}» وتجاوزناها بـ ${arSeconds(secondsOf(eta.overdueByMs) ?? 0)}.`
-              : `تجاوزنا تقديرنا لمرحلة «${phaseLabel}».`}{' '}
-            العمل ما زال جاريًا ومضى {arSeconds(secondsOf(eta.elapsedMs)!)} على القراءة. لن نعيد ضبط
-            العد التنازلي ولن نعرض رقمًا جديدًا لا نستطيع إثباته.
-          </div>
-        </>
-      ) : eta.remainingMs !== null ? (
-        <>
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-xs text-neutral-500">متوقّع لإنهاء «{phaseLabel}»</span>
-            <span className="text-xl font-black text-[#123F3A] tabular-nums">
-              {countdownLabel(eta.remainingMs)}
-            </span>
-          </div>
-          <div className="mt-1 text-xs text-neutral-600 leading-relaxed">
-            {eta.basis === 'in-run' && eta.ratePerSec && unit
-              ? `مقيس داخل هذه القراءة: ${formatRate(eta.ratePerSec, unit)}.`
-              : eta.basis === 'history-fit'
-                ? `مبني على قياس ${eta.historySamples} قراءات سابقة على هذا الجهاز${eta.lines ? ` مقيسة على ${eta.lines} بندًا` : ''}.`
-                : eta.basis === 'history-ratio'
-                  ? 'مبني على قياس قراءة واحدة سابقة فقط — تقدير خشن قد يبتعد كثيرًا.'
-                  : ''}
-            {eta.revisedUp && eta.firstPromisedMs !== null
-              ? ` حدّثنا التقدير للأعلى: كان ${arSeconds(secondsOf(eta.firstPromisedMs)!)} ثم قِسنا سرعة أبطأ.`
-              : ''}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="text-sm font-bold text-[#0D1F1D]">لا تقدير بعد</div>
-          <div className="mt-1 text-xs text-neutral-600 leading-relaxed">
-            {eta.leg === null
-              ? 'ننتقل بين مرحلتين الآن.'
-              : eta.legKind === 'opaque'
-                ? `«${legLabel}» طلب واحد لا يُبلّغ عن تقدّمه من الداخل، فلا يوجد ما نقيسه لنقدّر مدته.${
-                    legCap ? ` يتوقف عند ${arSeconds(legCap)} كحد أقصى ثم نكمل بما لدينا.` : ''
-                  }`
-                : eta.phase === 'match' && eta.lines === null
-                  ? 'لا نستطيع تقدير مطابقة الموردين قبل معرفة عدد البنود — سنقدّر بعد استخراجها.'
-                  : `نقيس السرعة الفعلية لهذا الملف الآن${measured ? ` (${measured})` : ''}؛ نعرض رقمًا حين يكفي القياس.`}
-            {!hasHistory
-              ? ' هذه أول كراسة تُقرأ على هذا الجهاز، فلا قياس سابق نبني عليه. نقيس هذه القراءة لتقدير ما بعدها.'
-              : ''}
-          </div>
-        </>
-      )}
-
-      <div className="mt-2 pt-2 border-t border-black/5 text-[11px] text-neutral-500 leading-relaxed">
-        المرحلة الحالية: {legLabel || 'بين مرحلتين'}
-        {measured && !eta.overdue ? ` — ${measured}` : ''}
-        {eta.overdue && measured ? ` — أنجزنا ${measured} حتى الآن` : ''}
-        {legCap ? `. سقفها ${arSeconds(legCap)}` : ''}
-        {nextPhases ? `. يتبعها: ${nextPhases}` : '. لا مرحلة بعدها'}
-        {eta.phase !== 'match' && eta.remainingPhases.includes('match')
-          ? '. مدة المطابقة تعتمد على عدد البنود، ولا تُقدَّر قبل استخراجها'
-          : ''}
+    <div className="mt-5 rounded-2xl px-4 py-3.5 flex items-center justify-between gap-4 bg-[#f0faf7] animate-fade-up">
+      <div className="min-w-0 flex items-center gap-3">
+        <span className="flex gap-1 flex-shrink-0" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#123F3A] animate-pulse-dot" style={{ animationDelay: `${i * 200}ms` }} />
+          ))}
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-[#0D1F1D] truncate">{legLabel}</div>
+          {measured && <div className="text-xs text-neutral-500 mt-0.5">{measured}</div>}
+        </div>
+      </div>
+      <div className="text-2xl font-black text-[#123F3A] tabular-nums flex-shrink-0" dir="ltr" aria-label="الوقت المنقضي">
+        {mm}:{ss}
       </div>
     </div>
   )
@@ -216,7 +177,17 @@ type ReadReport = {
   unreadable: number
   issues: string[]
   skippedTables: string[]
+  /** Rows the read refused to serve as items — counted, never dropped silently. */
+  setAsideCount?: number
+  setAsideNote?: string
+  setAsideRows?: Array<{ page?: number; quantity?: number | string | null; unit?: string | null; description?: string; reason?: string }>
   matchApiFailed: boolean
+  /** The served descriptions repeat too heavily to be item names. */
+  descriptionColumnSuspect?: boolean
+  descriptionColumnDetail?: string
+  /** The document prints far more item codes than rows were read. */
+  codedItemsSuspect?: boolean
+  codedItemsDetail?: string
   matchApiError?: string
   source: string
 }
@@ -224,7 +195,6 @@ type ReadReport = {
 const SOURCE_LABEL: Record<string, string> = {
   'pdf-table': 'قراءة أعمدة الجدول بالإحداثيات',
   'pdf-text': 'قراءة نصية للأسطر',
-  'waiting-hall-curated': 'جدول محفوظ لكراسة صالات الانتظار',
   empty: 'لا مصدر',
 }
 
@@ -257,6 +227,88 @@ function PartialReadPanel({ report }: { report: ReadReport }) {
   )
 }
 
+/**
+ * Shown when the descriptions repeat too heavily to be item names.
+ *
+ * It leads with the fact that the read is unusable rather than with the count,
+ * because the count is exactly what made this failure invisible: 180 of 180
+ * items, every quantity correct, and the material absent from every line.
+ */
+/**
+ * WHAT THE READ REFUSED, WHERE THE BUYER CAN SEE IT.
+ *
+ * «لا أريد أي بند يختفي بصمت». A row with no quantity, no readable text, or a
+ * number sitting off the quantity column is not shown as an item. Those are
+ * almost always totals and section headings — and «almost always» is why they
+ * are listed rather than deleted in silence.
+ */
+function SetAsidePanel({ report }: { report: ReadReport }) {
+  const [open, setOpen] = useState(false)
+  const rows = report.setAsideRows || []
+  return (
+    <div className="mb-4 rounded-xl bg-neutral-50 border border-neutral-200 px-4 py-3 text-right" dir="rtl">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-bold text-[#0D1F1D]">
+          سطور لم تُعرض كبنود: {report.setAsideCount}
+        </div>
+        {rows.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="text-xs font-bold text-[#123F3A] hover:underline flex-shrink-0"
+          >
+            {open ? 'إخفاء' : 'اعرضها'}
+          </button>
+        )}
+      </div>
+      <div className="text-xs text-neutral-600 mt-1 leading-relaxed">{report.setAsideNote}</div>
+      {open && (
+        <div className="mt-3 max-h-64 overflow-auto space-y-1.5">
+          {rows.map((row, i) => (
+            <div key={i} className="bg-white border border-neutral-100 rounded-lg px-3 py-2">
+              <div className="text-[11px] text-neutral-400">
+                صفحة {row.page ?? '؟'} · {row.reason === 'NO_QUANTITY' ? 'بلا كمية' : row.reason === 'NO_TEXT' ? 'بلا نص مقروء' : 'خارج عمود الكميات'}
+                {row.quantity ? ` · ${row.quantity} ${row.unit || ''}` : ''}
+              </div>
+              <div className="text-xs text-[#0D1F1D] leading-relaxed">{String(row.description || '').slice(0, 160)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CodedItemsPanel({ report }: { report: ReadReport }) {
+  return (
+    <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-right" dir="rtl">
+      <div className="text-sm font-bold text-red-800">قراءة غير صالحة: لم نقرأ جدول البنود</div>
+      <div className="text-xs text-red-700 mt-1 leading-relaxed">{report.codedItemsDetail}</div>
+      <div className="text-xs text-red-700 mt-2 leading-relaxed">
+        اكتمال المعالجة وسرعتها ليسا دليل نجاح. هذا التخطيط لا يقرؤه فرق بعد قراءة صحيحة، فلا تُرسل
+        طلب تسعير من هذه القراءة.
+      </div>
+    </div>
+  )
+}
+
+function DescriptionColumnPanel({ report }: { report: ReadReport }) {
+  return (
+    <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-right" dir="rtl">
+      <div className="text-sm font-bold text-red-800">
+        قراءة غير صالحة: قرأنا {report.read} صفًا، لكن لم نقرأ أسماء البنود
+      </div>
+      <div className="text-xs text-red-700 mt-1 leading-relaxed">
+        {report.descriptionColumnDetail}
+      </div>
+      <div className="text-xs text-red-700 mt-2 leading-relaxed">
+        عدد الصفوف أعلاه ليس دليل نجاح: الكميات والوحدات قد تكون صحيحة، لكن المادة نفسها مجهولة،
+        ولذلك لن تُطابَق بموردين. لا ترسل طلب عرض سعر على هذه الكراسة.
+      </div>
+    </div>
+  )
+}
+
 export function UploadView({ navigate }: NavProps) {
   const { setDraftBoq } = useProcurement()
   const [phase, setPhase] = useState<Phase>('idle')
@@ -269,6 +321,7 @@ export function UploadView({ navigate }: NavProps) {
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   /** How much of the booklet we actually read, and why the rest is missing. */
   const [readReport, setReadReport] = useState<ReadReport | null>(null)
   const [elapsed, setElapsed] = useState(0)
@@ -296,6 +349,16 @@ export function UploadView({ navigate }: NavProps) {
   }, [phase])
 
   const runProcessing = async (file: File) => {
+    // No session on a deployed build means no call reaches the API at all: the
+    // server-side readers never run, no supplier is matched, and the screen then
+    // apologises for a read it should not have started. Seen twice on
+    // 2026-09-17 — a coded BOQ read locally in two seconds, the invalid-read
+    // guard, and the actual cause («لم تسجّل الدخول») buried under it. Ask first.
+    if (import.meta.env.PROD && currentAuthMode() === 'demo') {
+      setNeedsSignIn(true)
+      return
+    }
+    setNeedsSignIn(false)
     // Isolate this upload immediately — never keep previous booklet lines around.
     beginBoqUpload({ fileName: file.name })
     setDraftBoq(null)
@@ -346,8 +409,15 @@ export function UploadView({ navigate }: NavProps) {
             unreadable: facts.unreadableLineCount,
             issues: facts.readIssues ?? [],
             skippedTables: facts.skippedTables ?? [],
+            setAsideCount: facts.setAsideCount,
+            setAsideNote: facts.setAsideNote,
+            setAsideRows: facts.setAsideRows,
             matchApiFailed: false,
             source: 'pdf-table',
+            descriptionColumnSuspect: facts.descriptionColumnSuspect,
+            descriptionColumnDetail: facts.descriptionColumnDetail,
+            codedItemsSuspect: facts.codedItemsSuspect,
+            codedItemsDetail: facts.codedItemsDetail,
           })
         },
       })
@@ -393,9 +463,16 @@ export function UploadView({ navigate }: NavProps) {
         unreadable: result.unreadableLineCount ?? 0,
         issues: result.readIssues ?? [],
         skippedTables: result.skippedTables ?? [],
+        setAsideCount: result.setAsideCount,
+        setAsideNote: result.setAsideNote,
+        setAsideRows: result.setAsideRows,
         matchApiFailed: Boolean(result.matchApiFailed),
         matchApiError: result.matchApiError,
         source: result.source,
+        descriptionColumnSuspect: result.descriptionColumnSuspect,
+        descriptionColumnDetail: result.descriptionColumnDetail,
+        codedItemsSuspect: result.codedItemsSuspect,
+        codedItemsDetail: result.codedItemsDetail,
       })
       setProgress(100)
       // Measured durations of this run are the only basis the next one will have.
@@ -407,18 +484,30 @@ export function UploadView({ navigate }: NavProps) {
       if (result.matchWarning) {
         setErrorMsg(result.matchWarning)
       }
+      const unreadLines = result.unreadableLineCount ?? 0
       setParsedBoq({
         fileName: file.name,
         projectName: result.projectName,
         items: result.items,
         documentId: result.documentId,
+        // The verdict travels with the lines, so the send step can enforce it.
+        readIssue: result.codedItemsSuspect
+          ? { kind: 'invalid', detail: result.codedItemsDetail || 'الكراسة ترقّم بنودًا أكثر بكثير مما قرأناه.' }
+          : result.descriptionColumnSuspect
+            ? { kind: 'invalid', detail: result.descriptionColumnDetail || 'عمود الوصف قُرئ بدل اسم البند.' }
+            : unreadLines > 0
+              ? { kind: 'partial', detail: `${unreadLines} بندًا في الكراسة لم تُقرأ ولن تكون في طلب التسعير.` }
+              : null,
       })
       setDraftBoq({
         documentId: result.documentId,
         fileName: file.name,
         items: result.items,
+        // Persisted as empty for the same reason the proposals screen no longer
+        // pre-ticks: being returned by ranking is a suggestion, not the buyer's
+        // decision, and a stored selection would put the decision back.
         selectedSupplierIds: Object.fromEntries(
-          result.items.map((item) => [String(item.id), item.suppliers.map((s) => s.id)]),
+          result.items.map((item) => [String(item.id), [] as string[]]),
         ),
       })
 
@@ -464,6 +553,25 @@ export function UploadView({ navigate }: NavProps) {
     if (file) void runProcessing(file)
   }
 
+  // A file chosen on the home screen starts reading here, once.
+  useEffect(() => {
+    const file = takePendingUpload()
+    if (file) void runProcessing(file)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // What a restore brought back, if anything.
+  const [restoredItems, setRestoredItems] = useState(() => getSession().boqItems.length)
+  const [restoredName, setRestoredName] = useState(() => getSession().fileName)
+  useEffect(
+    () =>
+      subscribeSession(() => {
+        setRestoredItems(getSession().boqItems.length)
+        setRestoredName(getSession().fileName)
+      }),
+    [],
+  )
+
   const reset = () => {
     clearParsedBoq()
     setDraftBoq(null)
@@ -498,6 +606,9 @@ export function UploadView({ navigate }: NavProps) {
  * everything on the screen below reads differently because of it.
  */
   const partialRead = Boolean(readReport && readReport.unreadable > 0)
+  // A read can be complete by count and still be worthless, so «اكتملت» is not
+  // allowed to depend on the count alone.
+  const badRead = partialRead || Boolean(readReport?.descriptionColumnSuspect) || Boolean(readReport?.codedItemsSuspect)
   const searchingCount = items.filter((i) => i.status === 'searching').length
   const supplierCount = new Set(items.flatMap((i) => i.suppliers.map((s) => s.id))).size
 
@@ -507,6 +618,40 @@ export function UploadView({ navigate }: NavProps) {
         <h1 className="text-3xl font-black text-[#0D1F1D] mb-2">ارفع الكراسة</h1>
         <p className="text-neutral-500">ارفع ملف الكراسة وسيقرأ فرق البنود تلقائيًا</p>
       </div>
+
+      {/*
+        A booklet already read is not lost by leaving the screen, so say so and
+        offer the way back. Only «ابدأ من جديد» throws it away.
+      */}
+      {phase === 'idle' && restoredItems > 0 && (
+        <div className="mb-6 rounded-2xl border border-[#CFF5DC] bg-[#F3FBF6] px-5 py-4">
+          <div className="text-sm font-bold text-[#123F3A] mb-1">كراستك السابقة ما زالت محفوظة</div>
+          <div className="text-xs text-neutral-600 mb-3">
+            {restoredName ? `${restoredName} · ` : ''}
+            {restoredItems} بندًا واختياراتك للموردين. لن تُحذف إلا إذا بدأت من جديد.
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('create-proposals')}
+              className="text-xs font-bold bg-[#123F3A] text-white rounded-lg px-3 py-2"
+            >
+              تابع من حيث توقفت
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!window.confirm('سيُحذف ما قرأناه من الكراسة واختياراتك للموردين. هل تريد البدء من جديد؟')) return
+                resetWorkingSession()
+                reset()
+              }}
+              className="text-xs font-bold text-neutral-500 border border-neutral-200 rounded-lg px-3 py-2 hover:text-red-700 hover:border-red-200"
+            >
+              ابدأ من جديد
+            </button>
+          </div>
+        </div>
+      )}
 
       {phase === 'idle' && (
         <div
@@ -526,6 +671,25 @@ export function UploadView({ navigate }: NavProps) {
           }}
           onClick={() => inputRef.current?.click()}
         >
+          {needsSignIn && (
+            <div
+              className="mx-6 mt-6 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-right"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-sm font-bold text-amber-900">سجّل الدخول أولًا، ثم ارفع الكراسة</div>
+              <div className="text-xs text-amber-800 mt-1 leading-relaxed">
+                قراءة الكراسة ومطابقة الموردين تجريان على خادم فرق، وهو لا يستقبل ملفًا بلا جلسة. لم نقرأ
+                ملفك ولم نرفعه.
+              </div>
+              <button
+                onClick={() => navigate('login')}
+                className="mt-2 text-xs font-bold text-white bg-[#123F3A] rounded-lg px-3 py-1.5"
+              >
+                تسجيل الدخول
+              </button>
+            </div>
+          )}
           <input
             ref={inputRef}
             type="file"
@@ -560,10 +724,12 @@ export function UploadView({ navigate }: NavProps) {
               <div className="font-semibold text-[#0D1F1D] text-sm truncate">{fileName}</div>
               <div className="text-xs text-neutral-400 mt-0.5">
                 {phase === 'processing'
-                  ? `جاري المعالجة… مضى ${arSeconds(elapsed)}`
+                  ? 'جاري المعالجة…'
                   : partialRead
                     ? 'انتهت المعالجة بقراءة ناقصة'
-                    : 'اكتملت المعالجة'}
+                    : readReport?.descriptionColumnSuspect || readReport?.codedItemsSuspect
+                      ? 'انتهت المعالجة بقراءة غير صالحة'
+                      : 'اكتملت المعالجة'}
               </div>
             </div>
           </div>
@@ -575,7 +741,11 @@ export function UploadView({ navigate }: NavProps) {
                   ? 'فرق يقرأ الكراسة…'
                   : partialRead
                     ? 'قرأنا جزءًا من الكراسة'
-                    : 'تمت قراءة الكراسة'}
+                    : readReport?.codedItemsSuspect
+                      ? 'لم نقرأ جدول البنود'
+                      : readReport?.descriptionColumnSuspect
+                      ? 'قرأنا الصفوف دون أسماء البنود'
+                      : 'تمت قراءة الكراسة'}
               </span>
               <span className="text-sm font-bold text-[#123F3A]">{displayProgress}%</span>
             </div>
@@ -609,7 +779,7 @@ export function UploadView({ navigate }: NavProps) {
               })}
             </div>
 
-            {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} />}
+            {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} elapsed={elapsed} />}
 
             {phase === 'processing' && partialRead && readReport && (
               <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 animate-fade-up text-right" dir="rtl">
@@ -617,8 +787,7 @@ export function UploadView({ navigate }: NavProps) {
                   قراءة ناقصة: قرأنا {readReport.read} من {readReport.expected ?? readReport.read + readReport.unreadable} بندًا
                 </div>
                 <div className="text-[11px] text-red-700 mt-1 leading-relaxed">
-                  المطابقة الجارية الآن تخص المقروء فقط، و{readReport.unreadable} بندًا لن تظهر في النتيجة.
-                  العدّ التنازلي أدناه يقدّر وقت إكمال المطابقة، لا وقت قراءة ما تعذّر.
+                  {readReport.unreadable} بندًا لن تظهر في النتيجة.
                 </div>
               </div>
             )}
@@ -629,16 +798,20 @@ export function UploadView({ navigate }: NavProps) {
               </div>
             )}
 
+            {/* The browser has not handed the file over yet. Measured 2026-09-17: a
+                booklet on an iCloud-synced Desktop that was not downloaded sat
+                on «فتح الملف» for five minutes; even `cp` stalled on it. */}
+            {phase === 'processing' && eta?.leg === 'hash' && elapsed >= 10 && (
+              <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-800 leading-relaxed animate-fade-up">
+                المتصفح لم يستلم الملف من جهازك بعد. إن كان الملف محفوظًا في iCloud أو Google Drive وعليه علامة السحابة،
+                افتحه مرة من جهازك حتى يُنزَّل، ثم ارفعه من جديد.
+              </div>
+            )}
+
             {phase === 'processing' && elapsed >= SLOW_HINT_AFTER_S && (
-              <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 animate-fade-up">
-                <div className="text-xs text-amber-700 leading-relaxed">
-                  ما زال العمل جاريًا. العملية كلها تتوقف عند {arSeconds(UPLOAD_WATCHDOG_MS / 1000)} بخطأ
-                  واضح، ولن نستخدم كراسة سابقة.
-                </div>
-                <button
-                  onClick={reset}
-                  className="mt-2 text-xs font-bold text-amber-800 underline"
-                >
+              <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 animate-fade-up">
+                <span>ما زال العمل جاريًا.</span>
+                <button onClick={reset} className="font-bold text-[#123F3A] hover:underline">
                   إلغاء
                 </button>
               </div>
@@ -646,11 +819,8 @@ export function UploadView({ navigate }: NavProps) {
 
             {phase === 'done' && (
               <div className="mt-4 text-xs text-neutral-500 leading-relaxed">
-                {partialRead ? 'توقفت القراءة' : 'اكتملت القراءة'} في {arSeconds(elapsed)}.
-                {eta?.overranEarlier
-                  ? ' تجاوزنا تقديرًا في الطريق — حفظنا الزمن الفعلي حتى يكون تقدير المرة القادمة أقرب.'
-                  : ' حفظنا زمن هذه القراءة لتقدير المرة القادمة.'}
-                {readReport?.source ? ` المصدر: ${SOURCE_LABEL[readReport.source] ?? readReport.source}.` : ''}
+                {partialRead ? 'توقفت القراءة' : badRead ? 'انتهت القراءة' : 'اكتملت القراءة'} في{' '}
+                {arSeconds(elapsed)}.
               </div>
             )}
           </div>
@@ -661,6 +831,9 @@ export function UploadView({ navigate }: NavProps) {
                 <div className="text-sm font-semibold text-[#0D1F1D] mb-3 truncate">{projectName}</div>
               )}
               {partialRead && readReport && <PartialReadPanel report={readReport} />}
+              {Boolean(readReport?.setAsideCount) && <SetAsidePanel report={readReport!} />}
+              {readReport?.codedItemsSuspect && <CodedItemsPanel report={readReport} />}
+              {readReport?.descriptionColumnSuspect && <DescriptionColumnPanel report={readReport} />}
 
               {readReport?.matchApiFailed && (
                 <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-right" dir="rtl">

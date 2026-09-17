@@ -5,8 +5,6 @@ import { LoginView } from './views/LoginView'
 import { HomeView } from './views/HomeView'
 import { UploadView } from './views/UploadView'
 import { ProposalsView } from './views/ProposalsView'
-import { SuccessView } from './views/SuccessView'
-import { SendFailureView } from './views/SendFailureView'
 import { RFQListView } from './views/RFQListView'
 import { RFQDetailView } from './views/RFQDetailView'
 import { RFQClosedView } from './views/RFQClosedView'
@@ -22,6 +20,10 @@ import { AccessDeniedView } from './views/AccessDeniedView'
 import { SupplierPortalView } from './views/SupplierPortalView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
+import { useEffect, useRef } from 'react'
+import { useFarqSession } from './api/useFarqSession'
+import { restoreSession } from './store/session'
+import { LearningReviewView } from './views/LearningReviewView'
 
 function AppRoutes() {
   const {
@@ -30,18 +32,35 @@ function AppRoutes() {
     selectedSupplierId,
     setSelectedSupplierId,
   } = useProcurement()
+  const session = useFarqSession()
+  const restored = useRef(false)
 
-  // Login kept reachable for demos that want to show the gate; default entry is home (no-login).
-  if (view === 'login') return <LoginView navigate={navigate} />
+  /*
+   * Bring the booklet back after a refresh.
+   *
+   * Restoring once per signed-in identity, and only into an empty session, so a
+   * restore can never land on top of an upload the buyer has just started.
+   */
+  useEffect(() => {
+    if (restored.current || !session.isAuthenticated) return
+    restored.current = true
+    void restoreSession()
+  }, [session.isAuthenticated])
+
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
+  // A production build has no demo identity, so without a session every screen
+  // behind this line can only fail to load. The visitor meets the sign-in form
+  // instead of an app-shaped page of errors. Suppliers are exempt above: they
+  // carry a one-use token, never a buyer session.
+  if (view === 'login' || (import.meta.env.PROD && !session.isAuthenticated)) {
+    return <LoginView navigate={navigate} />
+  }
 
   return (
     <Shell view={view} navigate={navigate}>
       {view === 'home' && <HomeView navigate={navigate} />}
       {view === 'create-upload' && <UploadView navigate={navigate} />}
       {view === 'create-proposals' && <ProposalsView navigate={navigate} />}
-      {view === 'sent' && <SuccessView navigate={navigate} />}
-      {view === 'sent-failure' && <SendFailureView navigate={navigate} />}
       {view === 'rfq-list' && <RFQListView navigate={navigate} />}
       {view === 'rfq-detail' && <RFQDetailView navigate={navigate} />}
       {view === 'rfq-closed' && <RFQClosedView navigate={navigate} />}
@@ -65,6 +84,7 @@ function AppRoutes() {
         />
       )}
       {view === 'settings' && <SettingsView navigate={navigate} />}
+      {view === 'learning-review' && <LearningReviewView navigate={navigate} />}
       {view === 'inbox' && <InboxView navigate={navigate} />}
       {view === 'inbox-thread' && <InboxThreadView navigate={navigate} />}
       {view === 'access-denied' && <AccessDeniedView navigate={navigate} />}

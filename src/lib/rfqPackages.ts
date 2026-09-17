@@ -18,8 +18,8 @@ export type RfqLineDraft = {
   /** Null when no catalog row was CONFIRMED. The line is still sent. */
   farq_spec_id: string | null
   quantity: number
-  uom: string
-  pack: string
+  uom: string | null
+  pack: string | null
   name_ar: string
   original_name: string
   original_description: string
@@ -48,8 +48,11 @@ export function buildRfqLinesFromItems(
       line_key: lineKey,
       farq_spec_id: item.farqSpecId || input.specIdForLine?.(lineKey) || null,
       quantity: parseQty(String(item.qty)),
-      uom: item.unit || input.uomForLine?.(lineKey) || 'عدد',
-      pack: 'قطعة',
+      // No invented unit and no invented pack: the API completes both from the
+      // catalog item when they are absent, and a supplier must never price
+      // «200 عدد» for a line the booklet measured in something else.
+      uom: item.unit || input.uomForLine?.(lineKey) || null,
+      pack: null,
       name_ar: item.name,
       original_name: item.name,
       original_description: item.spec || '',
@@ -57,7 +60,7 @@ export function buildRfqLinesFromItems(
   })
 }
 
-export function departmentForBoqItem(item: Pick<BOQItem, 'name' | 'spec'>): string {
+export function departmentForBoqItem(item: Pick<BOQItem, 'name' | 'spec'>): string | null {
   const hay = `${item.name || ''} ${item.spec || ''}`.toLowerCase()
   if (/كهرب|كابل|كيبل|إنارة|لوحات|قواطع|تيار|اتصالات|solar|cable|electrical|pcb|ليزر|منشار|مولد|generator|makita|osb/.test(hay)) {
     return 'ELECTRICAL'
@@ -71,19 +74,22 @@ export function departmentForBoqItem(item: Pick<BOQItem, 'name' | 'spec'>): stri
   if (/خرسانة|أسمنت|حديد|بلوك|مدني|رمل|بحص|cement|rebar|concrete|aggregate/.test(hay)) {
     return 'CIVIL'
   }
-  return 'ELECTRICAL'
+  // Unknown is unknown. This used to answer ELECTRICAL, so a paint or concrete
+  // tender reached suppliers under an electrical reference.
+  return null
 }
 
 /** Dominant department across ready items (for RFQ.engineering_department). */
 export function dominantEngineeringDepartment(
   items: Array<Pick<BOQItem, 'name' | 'spec'>>,
-): string {
+): string | null {
   const counts = new Map<string, number>()
   for (const item of items) {
     const key = departmentForBoqItem(item)
-    counts.set(key, (counts.get(key) || 0) + 1)
+    if (key) counts.set(key, (counts.get(key) || 0) + 1)
   }
-  let best = 'ELECTRICAL'
+  // null when no line could be classified: the buyer chooses, the app does not guess.
+  let best: string | null = null
   let bestCount = -1
   for (const [key, count] of counts) {
     if (count > bestCount) {
@@ -103,6 +109,8 @@ export function buildRfqPackagesFromSelection(input: {
   selectedByItem: Record<number, string[]>
   /** Map UI supplier ids → Farq external_key when they differ. */
   resolveSupplierId?: (id: string) => string
+  /** The department the buyer chose, used for a line no rule could classify. */
+  fallbackDepartment?: string | null
 }): { packages: RfqPackageDraft[]; lineKeys: Set<string> } {
   const resolve = input.resolveSupplierId || ((id: string) => id)
   const packages: RfqPackageDraft[] = []
@@ -118,7 +126,7 @@ export function buildRfqPackagesFromSelection(input: {
     packages.push({
       id: `material:${specId}:${item.id}`,
       name: item.name || specId,
-      category_keys: [departmentForBoqItem(item)],
+      category_keys: [departmentForBoqItem(item) || input.fallbackDepartment || ''].filter(Boolean),
       line_keys: [lineKey],
       selected_supplier_ids: supplierIds,
     })
