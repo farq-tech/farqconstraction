@@ -131,6 +131,8 @@ export type ConstructionRfq = {
     email_snapshot?: string
     role?: string
     snapshot?: Record<string, unknown>
+    /** RECORDED = written by the system when it happened; DERIVED = reconstructed at read time from dispatch attempts and RFQ timestamps. */
+    source?: 'RECORDED' | 'DERIVED'
   }>
   supplier_count: number
   response_count: number
