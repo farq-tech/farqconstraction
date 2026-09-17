@@ -1,0 +1,1039 @@
+{
+ "measured_at": "2026-09-17T14:06+03:00",
+ "source": {
+  "items": "live POST /boq/parse-pdf on api.farq.sa (reference-etimad-2020-48.pdf, cache hit)",
+  "match": "live POST /boq/match on api.farq.sa, owner session",
+  "v10": "client resolver on branch feat/ai-named-suggestion",
+  "map": "production construction DB, read-only lookupIntentSuppliers, page limit 12 (12 means >=12, not a count)"
+ },
+ "rows": [
+  {
+   "key": "p28-1",
+   "name": "درابزين حديدي",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "handrail_balustrade",
+   "status": "CANONICAL",
+   "label": "الدرابزين والحواجز",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "السيلفيرتيكه ساودي ستييل ستاينليسس ستييل فرب لاددير جرب هاندرايل فيبيرجلاسس جراتينج كيتكهين كابينيتس نيار مي ريياذ",
+    "القاسم المنيوم حديد دربزين اخشاب",
+    "حداد مظلات دربزين ابؤاب"
+   ]
+  },
+  {
+   "key": "p28-2",
+   "name": "بوابة المدخل الرئيسي",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-3",
+   "name": "بوابة لمدخل الافراد",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-4",
+   "name": "باب زجاجي سحاب (منزلق)",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-5",
+   "name": "باب سيكوريت",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "tempered_glass",
+   "status": "CANONICAL",
+   "label": "زجاج مقسي",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "anaqco.com",
+    "atce.sa",
+    "زجاج سيكوريت واجهات مكاتب"
+   ]
+  },
+  {
+   "key": "p28-6",
+   "name": "قواطع زجاج سيكوريت",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "tempered_glass",
+   "status": "CANONICAL",
+   "label": "زجاج مقسي",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "anaqco.com",
+    "atce.sa",
+    "زجاج سيكوريت واجهات مكاتب"
+   ]
+  },
+  {
+   "key": "p28-7",
+   "name": "باب معدني",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-8",
+   "name": "باب خشب",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "wooden_door",
+   "status": "CANONICAL",
+   "label": "أبواب خشبية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصدر لمواد البناء — المتجر الإلكتروني",
+    "خشب تراثيات نجد",
+    "ديكور خشب سي إن سي"
+   ]
+  },
+  {
+   "key": "p28-9",
+   "name": "نوافذ ألمنيوم",
+   "kind": "NAME",
+   "matched": true,
+   "eligible": 0,
+   "intent": "aluminium_window_door",
+   "status": "CANONICAL",
+   "label": "نوافذ وأبواب ألمنيوم",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "ورشة ركن التباريح",
+    "atce.sa",
+    "نوافذ المنيوم شتر"
+   ]
+  },
+  {
+   "key": "p28-10",
+   "name": "منور سقفي",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-11",
+   "name": "لياسة اسمنتية",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "cement_render",
+   "status": "CANONICAL",
+   "label": "لياسة أسمنتية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "دركال مبسط مواد بناء رمل لياسة زيرو بحص دفان",
+    "رمل احمر ورمل لياسه ابيض",
+    "لياسة بديل الحجر ملونه"
+   ]
+  },
+  {
+   "key": "p28-12",
+   "name": "دهان بلاستيك",
+   "kind": "REJECT_NOT_SUPPLY",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-13",
+   "name": "سيراميك حوائط",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-14",
+   "name": "بورسلان أرضيات",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-15",
+   "name": "وزرة بورسلان",
+   "kind": "BROWSE",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-16",
+   "name": "سيراميك أرضيات",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p28-17",
+   "name": "وزرة سيراميك",
+   "kind": "BROWSE",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p29-18",
+   "name": "جرانيت للدرج",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 2,
+   "intent": "stone_slab",
+   "status": "CANONICAL",
+   "label": "أحجار وأسطح",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "أبود با ناصر للديكور الأسمنتي",
+    "أفضل مورد للرخام والجرانيت",
+    "ألفا للرخام"
+   ]
+  },
+  {
+   "key": "p29-19",
+   "name": "بلاط تيرازو",
+   "kind": "NAME",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p29-20",
+   "name": "هيكل لألواح الجبس",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 2,
+   "intent": "drywall_framing",
+   "status": "CANONICAL",
+   "label": "قطاعات قواطع جافة",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "شركة جودة الصناعية",
+    "شركة الاسقف التجارية",
+    "شركة خالد سعد العتيبي للتجارة"
+   ]
+  },
+  {
+   "key": "p29-21",
+   "name": "ألواح جبسوم بورد",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "gypsum_board",
+   "status": "CANONICAL",
+   "label": "ألواح الجبس",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "شركة جودة الصناعية",
+    "شركة خالد سعد العتيبي للتجارة",
+    "مصدر لمواد البناء — المتجر الإلكتروني"
+   ]
+  },
+  {
+   "key": "p29-22",
+   "name": "خشب لعزل جدران",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p29-23",
+   "name": "طبقة عازلة للرطوبة أفقية ورأسية من البيتومين الساخن",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p29-24",
+   "name": "عازل بيتومين",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p29-25",
+   "name": "عازل بيتومين مسلح بالبوليستر",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p29-26",
+   "name": "الواح عزل حراري",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 4,
+   "intent": "rigid_board_insulation",
+   "status": "CANONICAL",
+   "label": "ألواح عزل حراري",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "عزل فوم عزل حراري",
+    "مواد بناء مدار",
+    "شركة مصنع الحديث للبوليسترين المحدودة"
+   ]
+  },
+  {
+   "key": "p29-27",
+   "name": "مظلات لمواقف السيارات",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "car_park_shade",
+   "status": "CANONICAL",
+   "label": "مظلات مواقف",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مظلات سيارات قماش",
+    "خيمة ومظلات",
+    "تفصيل خيام مظلات سيارات"
+   ]
+  },
+  {
+   "key": "p29-28",
+   "name": "بلاط انترلوك",
+   "kind": "NAME",
+   "matched": true,
+   "eligible": 1,
+   "intent": "paving_block",
+   "status": "CANONICAL",
+   "label": "بلاطات رصف",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصنع زهرة الفؤاد",
+    "مصنع وشركة علامات الجودة للبلاط والانترلوك ومنتجات البريكاست",
+    "معلم بلاط وسيراميك بورسلان انترلوك مزاييك وتخريم خرسانة"
+   ]
+  },
+  {
+   "key": "p29-29",
+   "name": "بردورات خرسانة",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "kerbstone",
+   "status": "CANONICAL",
+   "label": "بردورات",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصنع زهرة الفؤاد",
+    "شركة بردورات للمنتجات الاسمنتية",
+    "mgcgroup-sa.com"
+   ]
+  },
+  {
+   "key": "p29-30",
+   "name": "بردورات خرسانة",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "kerbstone",
+   "status": "CANONICAL",
+   "label": "بردورات",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصنع زهرة الفؤاد",
+    "شركة بردورات للمنتجات الاسمنتية",
+    "mgcgroup-sa.com"
+   ]
+  },
+  {
+   "key": "p29-31",
+   "name": "بلوك اسمني مفرغ",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "concrete_block",
+   "status": "CANONICAL",
+   "label": "بلوك إسمنتي",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصنع بلك الذيبية الاتوماتيكي للخرسانة الجاهزة",
+    "شركة السعودية للكتل الحرارية المحدودة",
+    "مصدر لمواد البناء — المتجر الإلكتروني"
+   ]
+  },
+  {
+   "key": "p29-32",
+   "name": "خرسانة خفيفة رغوية",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "special_concrete",
+   "status": "CANONICAL",
+   "label": "خرسانات خاصة",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصنع الدبش للبلوك والخرسانة الجاهزة",
+    "مصنع السديس للخرسانة الجاهزة والبلوك",
+    "مصنع همسة المصيف للبلوك والخرسانة الجاهزة"
+   ]
+  },
+  {
+   "key": "p29-33",
+   "name": "حديد تسليح للخرسانة المسلحة",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p30-34",
+   "name": "خرسانة أرضيات",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "structural_ready_mix",
+   "status": "CANONICAL",
+   "label": "خرسانة جاهزة إنشائية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "أبود با ناصر للديكور الأسمنتي",
+    "توريد خرسانة جاهزة وبلوك",
+    "خرسانة جاهزة وبلوك شركة آل طاوي للتشييد والبناء"
+   ]
+  },
+  {
+   "key": "p30-35",
+   "name": "خرسانة عادية",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "blinding_lean_concrete",
+   "status": "CANONICAL",
+   "label": "خرسانة عادية ونظافة",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصنع الدبش للبلوك والخرسانة الجاهزة",
+    "مصنع السديس للخرسانة الجاهزة والبلوك",
+    "مصنع همسة المصيف للبلوك والخرسانة الجاهزة"
+   ]
+  },
+  {
+   "key": "p30-36",
+   "name": "خرسانة قواعد",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "structural_ready_mix",
+   "status": "CANONICAL",
+   "label": "خرسانة جاهزة إنشائية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "أبود با ناصر للديكور الأسمنتي",
+    "توريد خرسانة جاهزة وبلوك",
+    "خرسانة جاهزة وبلوك شركة آل طاوي للتشييد والبناء"
+   ]
+  },
+  {
+   "key": "p30-37",
+   "name": "خرسانة للأعمدة والكمرات",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "structural_ready_mix",
+   "status": "CANONICAL",
+   "label": "خرسانة جاهزة إنشائية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "أبود با ناصر للديكور الأسمنتي",
+    "توريد خرسانة جاهزة وبلوك",
+    "خرسانة جاهزة وبلوك شركة آل طاوي للتشييد والبناء"
+   ]
+  },
+  {
+   "key": "p30-38",
+   "name": "كابلات الجهد المتوسط",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "mv_power_cable",
+   "status": "CANONICAL",
+   "label": "كابل جهد متوسط",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "ماتكل — وسيط توريد مواد البناء",
+    "أوبتمال لايت للإنارة | Optimal Light LED Lighting | فرع الرياض",
+    "الفنار — الأسلاك والكابلات"
+   ]
+  },
+  {
+   "key": "p30-39",
+   "name": "مفتاح تحويل",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "transfer_switch",
+   "status": "CANONICAL",
+   "label": "مفتاح تحويل",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "شركة واحة لتوريد الكهرباء في المملكة العربية السعودية",
+    "مصدر لمواد البناء — المتجر الإلكتروني",
+    "منشأة لوحة الجهد المنخفض جامد جفالي"
+   ]
+  },
+  {
+   "key": "p30-40",
+   "name": "لوحات توزيع",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "distribution_board",
+   "status": "CANONICAL",
+   "label": "لوحة توزيع نهائية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "شركة واحة لتوريد الكهرباء في المملكة العربية السعودية",
+    "مصدر لمواد البناء — المتجر الإلكتروني",
+    "bahra-electric.com"
+   ]
+  },
+  {
+   "key": "p30-41",
+   "name": "لوحةكهرباء",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p30-42",
+   "name": "كابلات نحاسية",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p30-43",
+   "name": "قاطع 100 امبير",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "mccb",
+   "status": "CANONICAL",
+   "label": "قاطع MCCB",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصدر لمواد البناء — المتجر الإلكتروني",
+    "مصنع القواطع الكهربائية مجموعة العجيمي الصناعية",
+    "شركة واحة لتوريد الكهرباء في المملكة العربية السعودية"
+   ]
+  },
+  {
+   "key": "p30-44",
+   "name": "قاطع 32 امبير",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "mcb",
+   "status": "CANONICAL",
+   "label": "قاطع MCB",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "مصدر لمواد البناء — المتجر الإلكتروني",
+    "مصنع القواطع الكهربائية مجموعة العجيمي الصناعية",
+    "شركة واحة لتوريد الكهرباء في المملكة العربية السعودية"
+   ]
+  },
+  {
+   "key": "p30-45",
+   "name": "مخرج سخان",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": "socket_outlet",
+   "status": "CANONICAL",
+   "label": "مخارج كهربائية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "ftc.com.sa",
+    "إم دي تي العربية للتجارة",
+    "مصدر لمواد البناء — المتجر الإلكتروني"
+   ]
+  },
+  {
+   "key": "p30-46",
+   "name": "نظام تأريض",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p30-47",
+   "name": "وحدات إنارة",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p30-48",
+   "name": "مخارج القوى والأفياش",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "socket_outlet",
+   "status": "CANONICAL",
+   "label": "مخارج كهربائية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "ftc.com.sa",
+    "إم دي تي العربية للتجارة",
+    "مصدر لمواد البناء — المتجر الإلكتروني"
+   ]
+  },
+  {
+   "key": "p30-49",
+   "name": "مخرج هاتف وبيانات",
+   "kind": "BROWSE",
+   "matched": false,
+   "eligible": 0,
+   "intent": "data_outlet",
+   "status": "CANONICAL",
+   "label": "مخارج بيانات",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "الشعيرات للضوئية",
+    "مصدر لمواد البناء — المتجر الإلكتروني",
+    "Connect Network Trading , company"
+   ]
+  },
+  {
+   "key": "p30-50",
+   "name": "أنابيب الباردة والحارة المياه",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-51",
+   "name": "أنابيب صرف صحي",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-52",
+   "name": "أنابيب مياه الأمطار",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 3,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-53",
+   "name": "مانهول",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "precast_chamber",
+   "status": "CANONICAL",
+   "label": "غرف تفتيش مسبقة الصب",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "ساكب للمنتجات الخرسانية",
+    "sawab.app",
+    "fyind.com"
+   ]
+  },
+  {
+   "key": "p31-54",
+   "name": "أغطية مانهول",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "manhole_cover",
+   "status": "CANONICAL",
+   "label": "أغطية غرف تفتيش",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "ساكب للمنتجات الخرسانية",
+    "sawab.app",
+    "ساحة بريكاست الرياض نيو موبيليتي"
+   ]
+  },
+  {
+   "key": "p31-55",
+   "name": "أنابيب مياه الحريق",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-56",
+   "name": "حنفية حريق خارجية",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": "fire_hydrant",
+   "status": "CANONICAL",
+   "label": "حنفيات الحريق",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "فرصة للتجارة العامة",
+    "adsystems-ksa.com",
+    "avksvmc.com"
+   ]
+  },
+  {
+   "key": "p31-57",
+   "name": "صندوق حريق",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-58",
+   "name": "مواسير UPVC",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-59",
+   "name": "صمام",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-60",
+   "name": "مرحاض",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "wc_sanitaryware",
+   "status": "CANONICAL",
+   "label": "أدوات صحية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "أبيات نجد للأدوات الصحية",
+    "إسناد الخليج للأدوات الصحية",
+    "البراك للأدوات الصحية والسباكة والكهرباء"
+   ]
+  },
+  {
+   "key": "p31-61",
+   "name": "حوض غسيل يدي",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "wc_sanitaryware",
+   "status": "CANONICAL",
+   "label": "أدوات صحية",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "أبيات نجد للأدوات الصحية",
+    "إسناد الخليج للأدوات الصحية",
+    "البراك للأدوات الصحية والسباكة والكهرباء"
+   ]
+  },
+  {
+   "key": "p31-62",
+   "name": "سخان كهربائي",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "water_heater",
+   "status": "CANONICAL",
+   "label": "سخانات مياه",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "أدوات الفرسان تكييف وتبريد",
+    "أساس التكييف للتجارة",
+    "أقل الأسعار للتكييف"
+   ]
+  },
+  {
+   "key": "p31-63",
+   "name": "نظام التحكم بالأبواب",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": "access_controller",
+   "status": "CANONICAL",
+   "label": "وحدات التحكم بالدخول",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "شركة نوار الحلول كاميرات مراقبة انتركوم اكسس كنترول شبكات",
+    "كاميرات مراقبة وإنتركم وشبكات مؤسسة بعد الخليج للتجارة",
+    "كاميرات مراقبة والشبكات وانتركم COMMAX وأدوات السلامة حلول المراقبة هيكفيجن"
+   ]
+  },
+  {
+   "key": "p31-64",
+   "name": "خزان مياه",
+   "kind": "RELATED",
+   "matched": false,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-65",
+   "name": "وحدات التكييف والتدفئة",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 0,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-66",
+   "name": "قنوات التبريد والتكييف والتهوية",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  },
+  {
+   "key": "p31-67",
+   "name": "عزل حرارى لمجاري التكييف",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 2,
+   "intent": "pipe_duct_insulation",
+   "status": "CANONICAL",
+   "label": "عزل مواسير ومجاري",
+   "map_status": "MAP",
+   "map_suppliers_page": 12,
+   "map_top3": [
+    "شركة مصنع الحديث للبوليسترين المحدودة",
+    "مصنع البركة للبوليسترين",
+    "مصنع الهشاني للبوليسترين"
+   ]
+  },
+  {
+   "key": "p32-68",
+   "name": "مخارجالتهوية",
+   "kind": "RELATED",
+   "matched": true,
+   "eligible": 1,
+   "intent": null,
+   "status": "UNRESOLVED",
+   "label": null,
+   "map_status": null,
+   "map_suppliers_page": null,
+   "map_top3": []
+  }
+ ]
+}
