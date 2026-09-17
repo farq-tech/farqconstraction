@@ -840,6 +840,9 @@ export type ParseBoqResult = {
   descriptionColumnSuspect?: boolean
   /** Arabic, user-facing: what repeated and how often. */
   descriptionColumnDetail?: string
+  /** The document carries far more item codes than rows we read — the read missed the item table. */
+  codedItemsSuspect?: boolean
+  codedItemsDetail?: string
 }
 
 /**
@@ -920,6 +923,48 @@ export async function hashDocumentId(file: Blob): Promise<string> {
   return `doc-${(h >>> 0).toString(16)}-${bytes.length}`
 }
 
+/** A document with fewer codes than this is not judged by them. */
+const CODED_ITEMS_MIN = 30
+/** Reading under this share of the printed item codes means the item table was missed. */
+const CODED_ITEMS_READ_SHARE = 0.5
+
+/**
+ * Section totals and carried sums, in the wordings real booklets use. Anchored
+ * on the WORD so a product that merely contains it («إجمالي الطول» inside a
+ * description) is judged by where it sits: only a name that STARTS or ENDS
+ * with the total wording, or is little else, is a total line.
+ */
+export function isTotalLine(name: string | null | undefined): boolean {
+  const n = String(name || '')
+    .normalize('NFKC')
+    .replace(/[\u064B-\u065F\u0640]/g, '')
+    .replace(/[إأآ]/g, 'ا')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!n) return false
+  // A total WORD, never a prefix of another word: «مجموعة أدوات» is a tool set
+  // and «مجموع» is a sum. \b is ASCII-only in JavaScript, so the boundary is
+  // spelled out for Arabic letters.
+  const AR = '\\u0600-\\u06FF'
+  const word = `(?:ال)?(?:اجمال[يى]|اجما|مجموع)(?![${AR}\\w])|(?<![A-Za-z])(?:sub-?total|total|carried (?:forward|to summary))(?![A-Za-z])`
+  const starts = new RegExp(`^(?:${word})`, 'i').test(n)
+  const ends = new RegExp(`(?:^|[^${AR}\\w])(?:${word})\\s*[:：-]?\\s*$`, 'i').test(n)
+  return starts || ends
+}
+
+/**
+ * Distinct item codes printed in the document: 8-digit MasterFormat numbers
+ * (02025001) and hierarchical references (B.02.02.03.01). Read from the text,
+ * not from the rows, so it is a count the row reader did not produce.
+ */
+export function countDistinctItemCodes(text: string | null | undefined): number {
+  const t = String(text || '').normalize('NFKC')
+  const codes = new Set<string>()
+  for (const m of t.matchAll(/(?<!\d)(\d{8})(?!\d)/g)) codes.add(m[1]!)
+  for (const m of t.matchAll(/(?<![\w.])([A-Z]\.\d{2}(?:\.\d{2}){2,5})(?![\w.])/g)) codes.add(m[1]!)
+  return codes.size
+}
+
 /**
  * Pure line-selection for one upload. Never reuses a previous document's lines.
  * The waiting-hall curated list applies only when this document fingerprints as
@@ -944,6 +989,8 @@ export function resolveParsedLines(input: {
   /** Set when the names repeat too heavily to be names. */
   descriptionColumnSuspect: boolean
   descriptionColumnDetail: string
+  codedItemsSuspect: boolean
+  codedItemsDetail: string
 } {
   let specsFromApi = 0
   let lines = Array.isArray(input.apiLines) ? [...input.apiLines] : []
@@ -1023,6 +1070,26 @@ export function resolveParsedLines(input: {
     source = 'pdf-text'
   }
 
+  // A section TOTAL is not an item, and its amount is not a quantity. Measured
+  // 2026-09-17 on a MasterFormat site booklet: 18 "items" were read from a
+  // document carrying 325 item codes, every one a «… إجمالي» line whose SAR
+  // total had landed in the quantity column — and a supplier was proposed for
+  // «اعمال خرسانة إجمالي 108,276 عدد». Dropped before anything is matched.
+  const beforeTotals = lines.length
+  lines = lines.filter((line) => !isTotalLine(line.name))
+  const totalLinesDropped = beforeTotals - lines.length
+
+  // Row count is not a denominator the reader may grade itself against. Item
+  // codes printed in the document are: when it carries many more distinct codes
+  // than rows we read, the item table was missed, whatever else "completed".
+  const codedItems = countDistinctItemCodes(text)
+  const codedItemsSuspect = codedItems >= CODED_ITEMS_MIN && lines.length < codedItems * CODED_ITEMS_READ_SHARE
+  const codedItemsDetail = codedItemsSuspect
+    ? `تحمل الوثيقة ${codedItems} كودًا مميّزًا لبنود، وقرأنا ${lines.length} صفًّا فقط` +
+      (totalLinesDropped ? ` بعد استبعاد ${totalLinesDropped} سطر إجمالي قُرئ مبلغه ككمية` : '') +
+      '. جدول البنود الحقيقي لم يُقرأ. لا تعتمد على هذه البنود ولا على كمياتها.'
+    : ''
+
   // Measured last, on whatever won, because the question is about the text we
   // are about to serve rather than about the path that produced it.
   const dup = measureNameDuplication(lines)
@@ -1032,7 +1099,7 @@ export function resolveParsedLines(input: {
     ? `${dup.repeatedRows} من ${lines.length} بندًا تحمل وصفًا مكررًا، وأكثر وصف تكرارًا «${dup.worstName}» ظهر ${dup.worstCount} مرة. أسماء البنود لا تتكرر بهذا الشكل، فالأرجح أننا قرأنا عمود الفئة أو المواصفة بدل عمود البند.`
     : ''
 
-  return { lines, source, projectName, specsFromApi, descriptionColumnSuspect, descriptionColumnDetail }
+  return { lines, source, projectName, specsFromApi, descriptionColumnSuspect, descriptionColumnDetail, codedItemsSuspect, codedItemsDetail }
 }
 
 /**
@@ -1377,6 +1444,8 @@ export type BoqReadFacts = {
    *  complete read before the longest leg even starts. */
   descriptionColumnSuspect?: boolean
   descriptionColumnDetail?: string
+  codedItemsSuspect?: boolean
+  codedItemsDetail?: string
 }
 
 export async function parseBoqFile(
@@ -1537,6 +1606,8 @@ export async function parseBoqFile(
     skippedTables: skippedTables.length ? skippedTables : undefined,
     descriptionColumnSuspect: resolved.descriptionColumnSuspect || undefined,
     descriptionColumnDetail: resolved.descriptionColumnDetail || undefined,
+    codedItemsSuspect: resolved.codedItemsSuspect || undefined,
+    codedItemsDetail: resolved.codedItemsDetail || undefined,
   }
   opts.onRead?.({ read: lines.length, ...readFacts })
 

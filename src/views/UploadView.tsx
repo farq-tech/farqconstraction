@@ -220,6 +220,9 @@ type ReadReport = {
   /** The served descriptions repeat too heavily to be item names. */
   descriptionColumnSuspect?: boolean
   descriptionColumnDetail?: string
+  /** The document prints far more item codes than rows were read. */
+  codedItemsSuspect?: boolean
+  codedItemsDetail?: string
   matchApiError?: string
   source: string
 }
@@ -267,6 +270,19 @@ function PartialReadPanel({ report }: { report: ReadReport }) {
  * because the count is exactly what made this failure invisible: 180 of 180
  * items, every quantity correct, and the material absent from every line.
  */
+function CodedItemsPanel({ report }: { report: ReadReport }) {
+  return (
+    <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-right" dir="rtl">
+      <div className="text-sm font-bold text-red-800">قراءة غير صالحة: لم نقرأ جدول البنود</div>
+      <div className="text-xs text-red-700 mt-1 leading-relaxed">{report.codedItemsDetail}</div>
+      <div className="text-xs text-red-700 mt-2 leading-relaxed">
+        اكتمال المعالجة وسرعتها ليسا دليل نجاح. هذا التخطيط لا يقرؤه فرق بعد قراءة صحيحة، فلا تُرسل
+        طلب تسعير من هذه القراءة.
+      </div>
+    </div>
+  )
+}
+
 function DescriptionColumnPanel({ report }: { report: ReadReport }) {
   return (
     <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-right" dir="rtl">
@@ -377,6 +393,8 @@ export function UploadView({ navigate }: NavProps) {
             source: 'pdf-table',
             descriptionColumnSuspect: facts.descriptionColumnSuspect,
             descriptionColumnDetail: facts.descriptionColumnDetail,
+            codedItemsSuspect: facts.codedItemsSuspect,
+            codedItemsDetail: facts.codedItemsDetail,
           })
         },
       })
@@ -427,6 +445,8 @@ export function UploadView({ navigate }: NavProps) {
         source: result.source,
         descriptionColumnSuspect: result.descriptionColumnSuspect,
         descriptionColumnDetail: result.descriptionColumnDetail,
+        codedItemsSuspect: result.codedItemsSuspect,
+        codedItemsDetail: result.codedItemsDetail,
       })
       setProgress(100)
       // Measured durations of this run are the only basis the next one will have.
@@ -534,7 +554,7 @@ export function UploadView({ navigate }: NavProps) {
   const partialRead = Boolean(readReport && readReport.unreadable > 0)
   // A read can be complete by count and still be worthless, so «اكتملت» is not
   // allowed to depend on the count alone.
-  const badRead = partialRead || Boolean(readReport?.descriptionColumnSuspect)
+  const badRead = partialRead || Boolean(readReport?.descriptionColumnSuspect) || Boolean(readReport?.codedItemsSuspect)
   const searchingCount = items.filter((i) => i.status === 'searching').length
   const supplierCount = new Set(items.flatMap((i) => i.suppliers.map((s) => s.id))).size
 
@@ -600,7 +620,7 @@ export function UploadView({ navigate }: NavProps) {
                   ? `جاري المعالجة… مضى ${arSeconds(elapsed)}`
                   : partialRead
                     ? 'انتهت المعالجة بقراءة ناقصة'
-                    : readReport?.descriptionColumnSuspect
+                    : readReport?.descriptionColumnSuspect || readReport?.codedItemsSuspect
                       ? 'انتهت المعالجة بقراءة غير صالحة'
                       : 'اكتملت المعالجة'}
               </div>
@@ -614,7 +634,9 @@ export function UploadView({ navigate }: NavProps) {
                   ? 'فرق يقرأ الكراسة…'
                   : partialRead
                     ? 'قرأنا جزءًا من الكراسة'
-                    : readReport?.descriptionColumnSuspect
+                    : readReport?.codedItemsSuspect
+                      ? 'لم نقرأ جدول البنود'
+                      : readReport?.descriptionColumnSuspect
                       ? 'قرأنا الصفوف دون أسماء البنود'
                       : 'تمت قراءة الكراسة'}
               </span>
@@ -703,6 +725,7 @@ export function UploadView({ navigate }: NavProps) {
                 <div className="text-sm font-semibold text-[#0D1F1D] mb-3 truncate">{projectName}</div>
               )}
               {partialRead && readReport && <PartialReadPanel report={readReport} />}
+              {readReport?.codedItemsSuspect && <CodedItemsPanel report={readReport} />}
               {readReport?.descriptionColumnSuspect && <DescriptionColumnPanel report={readReport} />}
 
               {readReport?.matchApiFailed && (
