@@ -217,6 +217,9 @@ type ReadReport = {
   issues: string[]
   skippedTables: string[]
   matchApiFailed: boolean
+  /** The served descriptions repeat too heavily to be item names. */
+  descriptionColumnSuspect?: boolean
+  descriptionColumnDetail?: string
   matchApiError?: string
   source: string
 }
@@ -253,6 +256,30 @@ function PartialReadPanel({ report }: { report: ReadReport }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+/**
+ * Shown when the descriptions repeat too heavily to be item names.
+ *
+ * It leads with the fact that the read is unusable rather than with the count,
+ * because the count is exactly what made this failure invisible: 180 of 180
+ * items, every quantity correct, and the material absent from every line.
+ */
+function DescriptionColumnPanel({ report }: { report: ReadReport }) {
+  return (
+    <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-right" dir="rtl">
+      <div className="text-sm font-bold text-red-800">
+        قراءة غير صالحة: قرأنا {report.read} صفًا، لكن لم نقرأ أسماء البنود
+      </div>
+      <div className="text-xs text-red-700 mt-1 leading-relaxed">
+        {report.descriptionColumnDetail}
+      </div>
+      <div className="text-xs text-red-700 mt-2 leading-relaxed">
+        عدد الصفوف أعلاه ليس دليل نجاح: الكميات والوحدات قد تكون صحيحة، لكن المادة نفسها مجهولة،
+        ولذلك لن تُطابَق بموردين. لا ترسل طلب عرض سعر على هذه الكراسة.
+      </div>
     </div>
   )
 }
@@ -348,6 +375,8 @@ export function UploadView({ navigate }: NavProps) {
             skippedTables: facts.skippedTables ?? [],
             matchApiFailed: false,
             source: 'pdf-table',
+            descriptionColumnSuspect: facts.descriptionColumnSuspect,
+            descriptionColumnDetail: facts.descriptionColumnDetail,
           })
         },
       })
@@ -396,6 +425,8 @@ export function UploadView({ navigate }: NavProps) {
         matchApiFailed: Boolean(result.matchApiFailed),
         matchApiError: result.matchApiError,
         source: result.source,
+        descriptionColumnSuspect: result.descriptionColumnSuspect,
+        descriptionColumnDetail: result.descriptionColumnDetail,
       })
       setProgress(100)
       // Measured durations of this run are the only basis the next one will have.
@@ -501,6 +532,9 @@ export function UploadView({ navigate }: NavProps) {
  * everything on the screen below reads differently because of it.
  */
   const partialRead = Boolean(readReport && readReport.unreadable > 0)
+  // A read can be complete by count and still be worthless, so «اكتملت» is not
+  // allowed to depend on the count alone.
+  const badRead = partialRead || Boolean(readReport?.descriptionColumnSuspect)
   const searchingCount = items.filter((i) => i.status === 'searching').length
   const supplierCount = new Set(items.flatMap((i) => i.suppliers.map((s) => s.id))).size
 
@@ -566,7 +600,9 @@ export function UploadView({ navigate }: NavProps) {
                   ? `جاري المعالجة… مضى ${arSeconds(elapsed)}`
                   : partialRead
                     ? 'انتهت المعالجة بقراءة ناقصة'
-                    : 'اكتملت المعالجة'}
+                    : readReport?.descriptionColumnSuspect
+                      ? 'انتهت المعالجة بقراءة غير صالحة'
+                      : 'اكتملت المعالجة'}
               </div>
             </div>
           </div>
@@ -578,7 +614,9 @@ export function UploadView({ navigate }: NavProps) {
                   ? 'فرق يقرأ الكراسة…'
                   : partialRead
                     ? 'قرأنا جزءًا من الكراسة'
-                    : 'تمت قراءة الكراسة'}
+                    : readReport?.descriptionColumnSuspect
+                      ? 'قرأنا الصفوف دون أسماء البنود'
+                      : 'تمت قراءة الكراسة'}
               </span>
               <span className="text-sm font-bold text-[#123F3A]">{displayProgress}%</span>
             </div>
@@ -649,7 +687,8 @@ export function UploadView({ navigate }: NavProps) {
 
             {phase === 'done' && (
               <div className="mt-4 text-xs text-neutral-500 leading-relaxed">
-                {partialRead ? 'توقفت القراءة' : 'اكتملت القراءة'} في {arSeconds(elapsed)}.
+                {partialRead ? 'توقفت القراءة' : badRead ? 'انتهت القراءة' : 'اكتملت القراءة'} في{' '}
+                {arSeconds(elapsed)}.
                 {eta?.overranEarlier
                   ? ' تجاوزنا تقديرًا في الطريق — حفظنا الزمن الفعلي حتى يكون تقدير المرة القادمة أقرب.'
                   : ' حفظنا زمن هذه القراءة لتقدير المرة القادمة.'}
@@ -664,6 +703,7 @@ export function UploadView({ navigate }: NavProps) {
                 <div className="text-sm font-semibold text-[#0D1F1D] mb-3 truncate">{projectName}</div>
               )}
               {partialRead && readReport && <PartialReadPanel report={readReport} />}
+              {readReport?.descriptionColumnSuspect && <DescriptionColumnPanel report={readReport} />}
 
               {readReport?.matchApiFailed && (
                 <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-right" dir="rtl">

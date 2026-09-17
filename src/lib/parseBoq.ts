@@ -789,6 +789,78 @@ export type ParseBoqResult = {
   readIssues?: string[]
   /** Tables found in the document that were deliberately not read as items. */
   skippedTables?: string[]
+  /**
+   * True when the served descriptions repeat so heavily that they cannot be
+   * item names. The count is then not a measure of success: the rows exist and
+   * their quantities may be right, but the material is unknown.
+   */
+  descriptionColumnSuspect?: boolean
+  /** Arabic, user-facing: what repeated and how often. */
+  descriptionColumnDetail?: string
+}
+
+/**
+ * Share of rows that must share their name before the description column is
+ * called into question. Item names are near-unique per row; category labels are
+ * not, so heavy repetition in the name column means it is not the name column.
+ *
+ * Measured on every booklet fixture, and the two populations do not overlap:
+ *
+ *   reference-etimad-2020-48   pdf-table    2.9%   (68 rows, «بردورات خرسانة» twice)
+ *   warehouse-ops-02           pdf-table    0.0%   (180 rows)
+ *   site-or-wh-1__2            pdf-table    0.0%   (180 rows)
+ *   datacenter-cyber-01        pdf-text    77.8%   («DC- الإدارة المركزية وتسجيل» ×10)
+ *   booklet-02-extra           pdf-text    80.6%   («SITE-» ×19)
+ *   site-safety-02             pdf-text    80.6%   («SITE-» ×19)
+ *
+ * Good reads sit at or under 3%, bad reads at or above 78%. 35% sits in the
+ * empty middle: far enough above real repetition that a booklet quoting the
+ * same material twice cannot trip it, far enough below the broken reads that
+ * they cannot escape it.
+ */
+const NAME_DUPLICATION_SUSPECT_SHARE = 0.35
+
+/** Below this there is not enough evidence to call duplication a pattern. */
+const NAME_DUPLICATION_MIN_ROWS = 8
+
+/**
+ * Detect that the reader served a column that is not the description.
+ *
+ * This exists because the failure it catches wore the costume of a success. On
+ * a 180-item booklet the reader returned 180 of 180 items in 12.5 seconds with
+ * every quantity and unit correct, and 154 of the 180 descriptions were the
+ * neighbouring `الفئة` category plus a fragment of `المواصفة` — the item name
+ * was never served at all. Every count-based indicator was green. The only
+ * thing that distinguished it from a clean read was that the names repeated.
+ */
+export function measureNameDuplication(lines: Array<Pick<ParsedLine, 'name'>>): {
+  share: number
+  repeatedRows: number
+  worstName: string
+  worstCount: number
+} {
+  const counts = new Map<string, number>()
+  for (const line of lines) {
+    const key = String(line.name || '').replace(/\s+/g, ' ').trim()
+    if (!key) continue
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  let repeatedRows = 0
+  let worstName = ''
+  let worstCount = 0
+  for (const [name, count] of counts) {
+    if (count > 1) repeatedRows += count
+    if (count > worstCount) {
+      worstCount = count
+      worstName = name
+    }
+  }
+  return {
+    share: lines.length > 0 ? repeatedRows / lines.length : 0,
+    repeatedRows,
+    worstName,
+    worstCount,
+  }
 }
 
 /** SHA-256 hex of file bytes — stable document identity for this upload. */
@@ -826,6 +898,9 @@ export function resolveParsedLines(input: {
   /** How many column-read rows the API could describe, so a booklet read
    *  without its technical text is visible rather than assumed. */
   specsFromApi: number
+  /** Set when the names repeat too heavily to be names. */
+  descriptionColumnSuspect: boolean
+  descriptionColumnDetail: string
 } {
   let specsFromApi = 0
   let lines = Array.isArray(input.apiLines) ? [...input.apiLines] : []
@@ -905,7 +980,16 @@ export function resolveParsedLines(input: {
     source = 'pdf-text'
   }
 
-  return { lines, source, projectName, specsFromApi }
+  // Measured last, on whatever won, because the question is about the text we
+  // are about to serve rather than about the path that produced it.
+  const dup = measureNameDuplication(lines)
+  const descriptionColumnSuspect =
+    lines.length >= NAME_DUPLICATION_MIN_ROWS && dup.share >= NAME_DUPLICATION_SUSPECT_SHARE
+  const descriptionColumnDetail = descriptionColumnSuspect
+    ? `${dup.repeatedRows} من ${lines.length} بندًا تحمل وصفًا مكررًا، وأكثر وصف تكرارًا «${dup.worstName}» ظهر ${dup.worstCount} مرة. أسماء البنود لا تتكرر بهذا الشكل، فالأرجح أننا قرأنا عمود الفئة أو المواصفة بدل عمود البند.`
+    : ''
+
+  return { lines, source, projectName, specsFromApi, descriptionColumnSuspect, descriptionColumnDetail }
 }
 
 /**
@@ -1246,6 +1330,10 @@ export type BoqReadFacts = {
   unreadableLineCount: number
   readIssues?: string[]
   skippedTables?: string[]
+  /** Travels with the early facts so the screen can refuse to call this a
+   *  complete read before the longest leg even starts. */
+  descriptionColumnSuspect?: boolean
+  descriptionColumnDetail?: string
 }
 
 export async function parseBoqFile(
@@ -1395,6 +1483,8 @@ export async function parseBoqFile(
     unreadableLineCount,
     readIssues: readIssues.length ? readIssues : undefined,
     skippedTables: skippedTables.length ? skippedTables : undefined,
+    descriptionColumnSuspect: resolved.descriptionColumnSuspect || undefined,
+    descriptionColumnDetail: resolved.descriptionColumnDetail || undefined,
   }
   opts.onRead?.({ read: lines.length, ...readFacts })
 
