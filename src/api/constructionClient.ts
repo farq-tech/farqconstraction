@@ -289,6 +289,10 @@ export type BoqCatalogMatchRow = {
       rfq_eligible?: boolean
     }>
   }
+  /** Suppliers the buyer chose for this same line before and that no list above contains. */
+  learned_suggestion?: {
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+  }
   /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
   ai_suggestion?: {
     intent: string
@@ -930,6 +934,23 @@ export async function markConstructionInboxMessageRead(messageId: string) {
   )
 }
 
+export type SupplierFeedbackItem = {
+  subject_kind: 'SPEC' | 'INTENT' | 'LINE_TEXT'
+  subject_key: string
+  supplier_id: string
+  verdict: 'CHOSEN' | 'REJECTED' | 'CLEARED'
+  line_text?: string
+}
+
+/** The buyer's verdicts on suggested suppliers; the API replays them on the next match. */
+export async function recordConstructionSupplierFeedback(items: SupplierFeedbackItem[]) {
+  return request<{ recorded: number }>('/api/construction/boq/supplier-feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  })
+}
+
 /** Back to unread for the signed-in member only; colleagues keep their own state. */
 export async function markConstructionInboxMessageUnread(messageId: string) {
   return request<{ read: boolean }>(
@@ -1461,6 +1482,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         name_en: s.name_en as string | undefined,
         city: (s.city as string | undefined) || undefined,
         evidence,
+        learned: s.learned_choice === true,
         channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
         rfq_eligible: false,
       }
@@ -1529,6 +1551,7 @@ export async function matchConstructionBoqCatalog(payload: {
         rfq_eligible_supplier_count?: number
         suppliers?: Array<Record<string, unknown>>
       }>
+      learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       ai_suggestion?: {
         intent?: string
         family?: string | null
@@ -1613,6 +1636,7 @@ export async function matchConstructionBoqCatalog(payload: {
             ((s.product_match as { evidence?: unknown[] }).evidence as unknown[]).length > 0
               ? 'دليل منتج'
               : 'من الكتالوج',
+          learned: s.learned_choice === true,
           channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
@@ -1629,6 +1653,9 @@ export async function matchConstructionBoqCatalog(payload: {
               suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق'),
             },
           }
+        : {}),
+      ...(row.learned_suggestion?.suppliers?.length
+        ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }
         : {}),
       ...(row.ai_suggestion && row.ai_suggestion.intent
         ? {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
   getBoqItems,
@@ -9,6 +9,7 @@ import {
 import { resolveBoqCardFields } from '../lib/parseBoq'
 import { intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
+import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
 import { useProcurement } from '../procurementContext'
@@ -47,6 +48,7 @@ interface BOQCardProps {
   onSelectAll: () => void
   onClearAll: () => void
   onAddSupplier: (supplier: Supplier) => void
+  onRejectSupplier: (supplier: Supplier) => void
 }
 
 const SUGGESTION_TONE = {
@@ -65,8 +67,9 @@ function SuggestionBox({
   emptyText,
   suppliers,
   evidence,
-  alreadyIds,
-  onAdd,
+  selectedIds,
+  onPick,
+  onReject,
 }: {
   tone: keyof typeof SUGGESTION_TONE
   title: string
@@ -74,32 +77,59 @@ function SuggestionBox({
   emptyText: string
   suppliers: Supplier[]
   evidence: Supplier['evidence']
-  alreadyIds: Set<string>
-  onAdd: (supplier: Supplier) => void
+  selectedIds: string[]
+  /** Tick or untick. The list never collapses: the buyer picks as many as he likes. */
+  onPick: (supplier: Supplier) => void
+  /** «غير مناسب»: gone from this material's suggestions from now on. */
+  onReject: (supplier: Supplier) => void
 }) {
   const t = SUGGESTION_TONE[tone]
+  const picked = suppliers.filter((s) => selectedIds.includes(s.id)).length
   return (
     <div className={`mb-3 rounded-xl border px-4 py-3 ${t.box}`}>
-      <div className={`text-xs font-bold ${t.title}`}>{title}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div className={`text-xs font-bold ${t.title}`}>{title}</div>
+        {suppliers.length > 0 && (
+          <span className="flex-shrink-0 text-[11px] font-bold text-[#123F3A]">{picked} مختار من {suppliers.length}</span>
+        )}
+      </div>
       <div className={`text-[11px] mt-1 ${t.note}`}>{note}</div>
       {suppliers.length > 0 ? (
         <div className="mt-2 space-y-1.5">
-          {suppliers.map((s) => (
-            <div key={`${evidence}-${s.id}`} className={`flex items-center gap-3 px-3 py-2 rounded-lg bg-white border ${t.row}`}>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-[#0D1F1D] truncate">{s.name}</div>
-                <div className="text-xs text-neutral-400">{s.city}</div>
-              </div>
-              <span className="text-xs">{CHANNEL_ICON[s.channel]}</span>
-              <button
-                onClick={() => onAdd({ ...s, evidence })}
-                disabled={alreadyIds.has(s.id)}
-                className="text-xs font-semibold text-[#123F3A] hover:underline disabled:text-neutral-300"
+          {suppliers.map((s) => {
+            const checked = selectedIds.includes(s.id)
+            return (
+              <div
+                key={`${evidence}-${s.id}`}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg bg-white border ${checked ? 'border-[#123F3A]/40' : t.row}`}
               >
-                {alreadyIds.has(s.id) ? 'أُضيف للإرسال' : 'أضف للإرسال'}
-              </button>
-            </div>
-          ))}
+                <label className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onPick({ ...s, evidence: s.learned ? 'اختيارك' : evidence })}
+                    className="accent-[#123F3A] w-4 h-4 flex-shrink-0"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[#0D1F1D] truncate">{s.name}</span>
+                    <span className="block text-xs text-neutral-400">
+                      {s.city}
+                      {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
+                    </span>
+                  </span>
+                </label>
+                <span className="text-xs flex-shrink-0">{CHANNEL_ICON[s.channel]}</span>
+                <button
+                  type="button"
+                  onClick={() => onReject(s)}
+                  title="لا يناسب هذه المادة: لن يُقترح لها مرة أخرى"
+                  className="flex-shrink-0 text-[11px] font-semibold text-neutral-400 hover:text-red-600"
+                >
+                  غير مناسب
+                </button>
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div className="text-[11px] text-neutral-500 mt-2">{emptyText}</div>
@@ -115,6 +145,7 @@ function BOQCard({
   onSelectAll,
   onClearAll,
   onAddSupplier,
+  onRejectSupplier,
 }: BOQCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [search, setSearch] = useState('')
@@ -125,7 +156,6 @@ function BOQCard({
   const [searchingCatalog, setSearchingCatalog] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
 
-  const visible = showAll ? item.suppliers : item.suppliers.slice(0, 4)
   const allIds = item.suppliers.map((s) => s.id)
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.includes(id))
   const { name, qty, unit, spec } = resolveBoqCardFields(item)
@@ -138,6 +168,27 @@ function BOQCard({
   // when the API resolved the line, so it is what separates the two.
   const unresolved = isSearching && !item.farqSpecId
   const alreadyIds = useMemo(() => new Set(item.suppliers.map((s) => s.id)), [item.suppliers])
+  // Suppliers dismissed on this card. They also leave the lists for good, server side.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
+  const boxedIds = useMemo(
+    () =>
+      new Set(
+        [
+          ...(item.learnedSuggestion?.suppliers || []),
+          ...(item.mapSuggestion?.suppliers || []),
+          ...(!item.mapSuggestion ? item.aiSuggestion?.suppliers || [] : []),
+        ].map((x) => x.id),
+      ),
+    [item.learnedSuggestion, item.mapSuggestion, item.aiSuggestion],
+  )
+  // Below the boxes: only suppliers that are not already listed in one.
+  const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
+  const visible = showAll ? listed : listed.slice(0, 4)
+  const pick = (supplier: Supplier) => (alreadyIds.has(supplier.id) ? onToggle(supplier.id) : onAddSupplier(supplier))
+  const reject = (supplier: Supplier) => {
+    setHiddenIds((prev) => new Set(prev).add(supplier.id))
+    onRejectSupplier(supplier)
+  }
 
   useEffect(() => {
     if (!showSearch) return
@@ -283,34 +334,43 @@ function BOQCard({
             </div>
           )}
 
-          {unresolved && item.mapSuggestion && (
+          {item.learnedSuggestion && item.learnedSuggestion.suppliers.length > 0 && (
             <SuggestionBox
               tone="teal"
-              title={`عرّفت الأنطولوجيا هذه المادة: «${intentLabelAr(item.mapSuggestion.intent)}»`}
-              note={
-                'لم يؤكّد الكتالوج مطابقة لهذا البند، لكن المادة معروفة. الموردون أدناه من خريطة فرق لهذه المادة، ' +
-                'وهم مرشّحون للمراجعة لا مطابقة مؤكدة. لم يُحدَّد أحد مسبقًا: أضف من تراه مناسبًا.'
-              }
-              emptyText="المادة معروفة، ولا يحمل دليل فرق موردًا لها بعد. هذا نقص في الدليل لا في قراءة البند."
-              suppliers={item.mapSuggestion.suppliers}
-              evidence="خريطة فرق"
-              alreadyIds={alreadyIds}
-              onAdd={onAddSupplier}
+              title="موردون اخترتهم لهذا البند في كراسة سابقة"
+              note="تذكّرهم فرق من اختياراتك. لم يُحدَّد أحد: اختر من تريد."
+              emptyText=""
+              suppliers={item.learnedSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="اختيارك"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
             />
           )}
-          {unresolved && !item.mapSuggestion && item.aiSuggestion && (
+          {item.mapSuggestion && (
+            <SuggestionBox
+              tone="teal"
+              title={`المادة: «${intentLabelAr(item.mapSuggestion.intent)}»`}
+              note="موردون من خريطة فرق لهذه المادة. اختر أي عدد، واضغط «غير مناسب» على من لا يناسب: فرق يتعلّم من الاثنين."
+              emptyText="المادة معروفة، ولا يحمل دليل فرق موردًا لها بعد."
+              suppliers={item.mapSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="خريطة فرق"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+            />
+          )}
+          {!item.mapSuggestion && item.aiSuggestion && (
             <SuggestionBox
               tone="purple"
-              title={`اقتراح آلي للمراجعة: قد تكون هذه المادة «${intentLabelAr(item.aiSuggestion.intent)}»`}
-              note={
-                'سمّى الذكاء الاصطناعي المادة مرة واحدة وحُفظت التسمية. لم يختر أي مورد: الموردون أدناه من ' +
-                'خريطة فرق لهذه التسمية، وهي ليست مطابقة مؤكدة. أضف من تراه مناسبًا بنفسك.'
-              }
+              title={`اقتراح آلي: قد تكون المادة «${intentLabelAr(item.aiSuggestion.intent)}»`}
+              note="سمّى الذكاء الاصطناعي المادة، والموردون من خريطة فرق لهذه التسمية. اختر أي عدد، واضغط «غير مناسب» على من لا يناسب."
               emptyText="لا يحمل دليل فرق موردًا لهذه التسمية بعد."
-              suppliers={item.aiSuggestion.suppliers}
+              suppliers={item.aiSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
               evidence="تسمية آلية"
-              alreadyIds={alreadyIds}
-              onAdd={onAddSupplier}
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
             />
           )}
 
@@ -349,12 +409,12 @@ function BOQCard({
             })}
           </div>
 
-          {item.suppliers.length > 4 && (
+          {listed.length > 4 && (
             <button
               onClick={() => setShowAll((v) => !v)}
               className="mt-2 text-xs font-semibold text-[#123F3A] hover:underline"
             >
-              {showAll ? 'عرض أقل' : `عرض الكل (${item.suppliers.length})`}
+              {showAll ? 'عرض أقل' : `عرض الكل (${listed.length})`}
             </button>
           )}
 
@@ -501,6 +561,60 @@ export function ProposalsView({ navigate }: NavProps) {
     })
   }
 
+  // Every tick, untick and «غير مناسب» is a verdict the API replays on the next
+  // booklet. Sent in small batches; a failed batch is retried with the next one,
+  // and the buyer is told once if learning is not being saved.
+  const learnQueue = useRef<SupplierFeedbackItem[]>([])
+  const learnTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [learnError, setLearnError] = useState<string | null>(null)
+  const [learnedCount, setLearnedCount] = useState(0)
+  const flushLearning = useCallback(() => {
+    learnTimer.current = null
+    const batch = learnQueue.current.splice(0, 400)
+    if (!batch.length) return
+    recordConstructionSupplierFeedback(batch)
+      .then((res) => {
+        setLearnError(null)
+        setLearnedCount((n) => n + (res?.recorded ?? batch.length))
+      })
+      .catch((err) => {
+        learnQueue.current.unshift(...batch)
+        setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
+      })
+  }, [])
+  const learn = useCallback(
+    (item: BOQItem | undefined, supplierIds: string[], verdict: SupplierFeedbackItem['verdict']) => {
+      if (!item || !supplierIds.length) return
+      const subjects: Array<Pick<SupplierFeedbackItem, 'subject_kind' | 'subject_key'>> = []
+      if (item.farqSpecId) subjects.push({ subject_kind: 'SPEC', subject_key: item.farqSpecId })
+      const intent = item.mapSuggestion?.intent || item.aiSuggestion?.intent
+      if (intent) subjects.push({ subject_kind: 'INTENT', subject_key: intent })
+      if (item.name.trim().length >= 3) subjects.push({ subject_kind: 'LINE_TEXT', subject_key: item.name })
+      for (const supplier_id of supplierIds)
+        for (const subject of subjects) learnQueue.current.push({ ...subject, supplier_id, verdict, line_text: item.name.slice(0, 300) })
+      if (learnTimer.current) clearTimeout(learnTimer.current)
+      learnTimer.current = setTimeout(flushLearning, 900)
+    },
+    [flushLearning],
+  )
+  useEffect(() => () => {
+    if (learnTimer.current) clearTimeout(learnTimer.current)
+    flushLearning()
+  }, [flushLearning])
+
+  const rejectSupplier = (itemId: number, supplier: Supplier) => {
+    const item = items.find((i) => i.id === itemId)
+    learn(item, [supplier.id], 'REJECTED')
+    persistItems(
+      items.map((it) => {
+        if (it.id !== itemId) return it
+        const suppliers = it.suppliers.filter((x) => x.id !== supplier.id)
+        return { ...it, suppliers, supplierCount: suppliers.length, status: suppliers.length ? it.status : ('searching' as const) }
+      }),
+    )
+    setSelected((prev) => ({ ...prev, [itemId]: (prev[itemId] || []).filter((id) => id !== supplier.id) }))
+  }
+
   const addSupplierToItem = (itemId: number, supplier: Supplier) => {
     persistItems(
       items.map((item) => {
@@ -522,9 +636,11 @@ export function ProposalsView({ navigate }: NavProps) {
       if (cur.includes(supplier.id)) return prev
       return { ...prev, [itemId]: [...cur, supplier.id] }
     })
+    learn(items.find((i) => i.id === itemId), [supplier.id], 'CHOSEN')
   }
 
   const toggle = (itemId: number, supplierId: string) => {
+    learn(items.find((i) => i.id === itemId), [supplierId], (selected[itemId] || []).includes(supplierId) ? 'CLEARED' : 'CHOSEN')
     setSelected((prev) => {
       const cur = prev[itemId] || []
       return {
@@ -539,10 +655,12 @@ export function ProposalsView({ navigate }: NavProps) {
   const selectAll = (itemId: number) => {
     const item = items.find((i) => i.id === itemId)
     if (!item) return
+    learn(item, item.suppliers.map((s) => s.id), 'CHOSEN')
     setSelected((prev) => ({ ...prev, [itemId]: item.suppliers.map((s) => s.id) }))
   }
 
   const clearAll = (itemId: number) => {
+    learn(items.find((i) => i.id === itemId), selected[itemId] || [], 'CLEARED')
     setSelected((prev) => ({ ...prev, [itemId]: [] }))
   }
 
@@ -649,6 +767,7 @@ export function ProposalsView({ navigate }: NavProps) {
               onSelectAll={() => selectAll(item.id)}
               onClearAll={() => clearAll(item.id)}
               onAddSupplier={(supplier) => addSupplierToItem(item.id, supplier)}
+              onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
             />
           ))}
         </div>
@@ -669,6 +788,11 @@ export function ProposalsView({ navigate }: NavProps) {
                 <span className="font-bold text-[#0D1F1D]">{totalSelected}</span> موردًا اخترته
               </>
             )}
+            {learnError ? (
+              <div className="text-[11px] text-amber-700 mt-0.5">اختياراتك لم تُحفظ للتعلّم بعد: {learnError}</div>
+            ) : learnedCount > 0 ? (
+              <div className="text-[11px] text-[#1a7a45] mt-0.5">حفظ فرق اختياراتك وسيبدأ بها في الكراسة القادمة.</div>
+            ) : null}
           </div>
           <button
             disabled={totalSelected === 0}

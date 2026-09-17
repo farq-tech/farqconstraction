@@ -510,7 +510,7 @@ async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Pro
 }
 
 /** Cap UI proposals so a 10k+ directory response cannot freeze the tab. */
-const MATCH_SUPPLIERS_PER_LINE = 8
+const MATCH_SUPPLIERS_PER_LINE = 12
 /** Prefer Farq BOQ match for at most this many lines (API max is 200). */
 const MATCH_API_LINE_CAP = 80
 
@@ -526,6 +526,7 @@ function mapApiSuppliers(
     city?: unknown
     evidence?: string
     channel?: string
+    learned?: boolean
   }>,
 ): Supplier[] {
   return rows
@@ -549,6 +550,7 @@ function mapApiSuppliers(
         name: String(s.name_ar || s.name_en || s.id).trim(),
         city: cityLabel(s.city),
         evidence,
+        learned: s.learned === true ? true : undefined,
         channel,
       }
     })
@@ -556,7 +558,7 @@ function mapApiSuppliers(
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion'] }>
+  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion'] }>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -565,7 +567,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion'] }>()
+  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion'] }>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -640,10 +642,13 @@ async function matchViaFarqBoqApi(
               answeredBy: row.map_suggestion.answered_by,
               // The number shown is the number listed: the card said «12 موردًا»
               // over a list of eight.
-              supplierCount: row.map_suggestion.suppliers.length,
+              supplierCount: mapApiSuppliers(row.map_suggestion.suppliers || []).length,
               zeroReason: row.map_suggestion.zero_reason,
               suppliers: mapApiSuppliers(row.map_suggestion.suppliers || []),
             }
+          : undefined,
+        learnedSuggestion: row.learned_suggestion?.suppliers?.length
+          ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
           : undefined,
         // A model-named material rides alongside, never in place of, the match.
         aiSuggestion: row.ai_suggestion
@@ -719,9 +724,10 @@ export async function matchSuppliersForItems(
       farqSpecId: api?.farqSpecId || undefined,
       lineKey: lineKeyFor(line),
       aiSuggestion: api?.aiSuggestion,
+      learnedSuggestion: api?.learnedSuggestion,
       mapSuggestion: api?.mapSuggestion,
       workOnly:
-        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion
           ? true
           : undefined,
       itemCode: line.itemCode,

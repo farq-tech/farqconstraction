@@ -34,6 +34,8 @@ export interface Supplier {
   city: string
   evidence: EvidenceType
   channel: ChannelType
+  /** The buyer chose this supplier for this material before. */
+  learned?: boolean
 }
 
 export interface BOQItem {
@@ -60,6 +62,8 @@ export interface BOQItem {
     suppliers: Supplier[]
     zeroReason?: string | null
   }
+  /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
+  learnedSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */
   workOnly?: boolean
   /** The item code the booklet prints for this row. */
