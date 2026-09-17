@@ -689,6 +689,16 @@ export function UploadView({ navigate }: NavProps) {
               </div>
             )}
 
+            {/* The browser has not handed the file over yet. Measured 2026-09-17: a
+                booklet on an iCloud-synced Desktop that was not downloaded sat
+                on «فتح الملف» for five minutes; even `cp` stalled on it. */}
+            {phase === 'processing' && eta?.leg === 'hash' && elapsed >= 10 && (
+              <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-800 leading-relaxed animate-fade-up">
+                المتصفح لم يستلم الملف من جهازك بعد. إن كان الملف محفوظًا في iCloud أو Google Drive وعليه علامة السحابة،
+                افتحه مرة من جهازك حتى يُنزَّل، ثم ارفعه من جديد.
+              </div>
+            )}
+
             {phase === 'processing' && elapsed >= SLOW_HINT_AFTER_S && (
               <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 animate-fade-up">
                 <span>ما زال العمل جاريًا.</span>
