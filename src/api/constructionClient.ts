@@ -1571,7 +1571,9 @@ export async function matchConstructionBoqCatalog(payload: {
   }>('/api/construction/boq/match', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows }),
+    // `compact` asks the API to leave out the candidate items and long catalogue
+    // texts this screen never renders: about a quarter of the bytes per call.
+    body: JSON.stringify({ rows, compact: true }),
     timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
   })
 
@@ -1609,7 +1611,7 @@ export async function matchConstructionBoqCatalog(payload: {
       match_kind: row.kind,
       kind: row.kind,
       /** Unconfirmed candidates, for diagnostics only — never a match. */
-      candidate_count: row.candidates?.length || 0,
+      candidate_count: Number((row as { candidate_count?: number }).candidate_count) || row.candidates?.length || 0,
       rfq_eligible_supplier_ids: [...eligibleIds],
       rfq_eligible_supplier_count:
         chosen?.rfq_eligible_supplier_count ?? eligibleIds.size,
