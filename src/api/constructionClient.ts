@@ -12,7 +12,8 @@
  * is the whole credential and they carry no buyer session. See `auth: 'supplier'`.
  */
 
-import { apiBase } from './apiBase'
+import { apiBase, apiUnreachableAdvice } from './apiBase'
+import { withOntologyResolution } from '../lib/canonicalIntent'
 import {
   constructionHeaders,
   shouldRetryAfterRefresh,
@@ -511,7 +512,7 @@ async function rawFetch(
     }
     // A transport failure is not a feature flag problem; say so separately.
     throw new ConstructionApiError(
-      'لا يمكن الوصول إلى Farq API من هذا التطبيق — تأكد أن الـ API يعمل وأن VITE_API_PROXY_TARGET يشير إليه.',
+      `لا يمكن الوصول إلى Farq API من هذا التطبيق — ${apiUnreachableAdvice()}`,
       0,
       'CONSTRUCTION_API_UNREACHABLE',
     )
@@ -1330,12 +1331,34 @@ export async function revertSupplierImportBatch(batchId: string) {
   )
 }
 
+/**
+ * Ask the directory which suppliers can serve these items.
+ *
+ * `lines` carries the RESOLVER'S OWN ANSWER for each item, which is the whole
+ * reason this signature changed. The API's intent-keyed supplier map can only
+ * be reached through `lines`, and the answer it needs — a `canonical_intent_id`
+ * the ontology recognises — can only be produced here, where the resolver
+ * lives. Without it the API falls back to its own vocabulary, which names the
+ * same product differently and misses every lookup.
+ *
+ * A line with no resolvable name sends `ontology_resolution: null`, which the
+ * API reads as ABSENT and answers on its own weaker path. That is a fallback,
+ * not a verdict about the line.
+ */
 export async function matchConstructionSuppliers(payload: {
   item_ids?: string[]
   farq_spec_ids?: string[]
   city?: string
   limit?: number
+  lines?: Array<{
+    line_key: string
+    farq_spec_id: string
+    name_ar?: string
+    name_en?: string
+  }>
+  include_inferred?: boolean
 }) {
+  const lines = payload.lines?.length ? withOntologyResolution(payload.lines) : undefined
   return request<{
     matches?: Array<{
       item?: { farq_spec_id?: string; name_ar?: string }
@@ -1345,7 +1368,7 @@ export async function matchConstructionSuppliers(payload: {
   }>('/api/construction/suppliers/match', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(lines ? { ...payload, lines } : payload),
   })
 }
 
