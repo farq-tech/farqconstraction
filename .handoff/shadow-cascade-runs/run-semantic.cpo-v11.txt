@@ -1,0 +1,100 @@
+payload cpo-v11 · docs 218 · fingerprint 0d4e2df45ddcc52c
+mode conservative · verifier evidence · topK 5
+semantic path: bge-m3, 1024 dims, 218 vectors in memory, no vector database
+intents with at least one real archive example: 44 of 218
+
+==============================================================================
+CORPUS A — the owner's real 68-item booklet (his adjudication) — 68 lines
+==============================================================================
+                                cpo-v10        cascade        delta
+  reached an intent (A)          38 (55.88%)    38 (55.88%)           +0
+  poolable (A or family B)       67 (98.53%)    67 (98.53%)           +0
+  remained unknown                 1 (1.47%)      1 (1.47%)           +0
+  complete to ceiling           68 (100.00%)   68 (100.00%)           +0
+  correct abstentions              1 (1.47%)      1 (1.47%)           +0
+  over-specified split             0 (0.00%)      0 (0.00%)           +0
+  CONFIDENT-WRONG                  0 (0.00%)      0 (0.00%)           +0
+
+  VERDICT: NO CHANGE — nothing gained, nothing lost.
+
+  --- 0 disagreements with v10, listed individually for adjudication ---
+
+==============================================================================
+CORPUS B — 60 real Arabic catalogue lines (lane adjudication; NOT the owner's 60-line RFQ) — 60 lines
+==============================================================================
+                                cpo-v10        cascade        delta
+  reached an intent (A)          12 (20.00%)    14 (23.33%)           +2
+  poolable (A or family B)       37 (61.67%)    41 (68.33%)           +4
+  remained unknown               23 (38.33%)    19 (31.67%)           -4
+  complete to ceiling            32 (53.33%)    33 (55.00%)           +1
+  correct abstentions              5 (8.33%)      5 (8.33%)           +0
+  over-specified split             4 (6.67%)      4 (6.67%)           +0
+  CONFIDENT-WRONG                  5 (8.33%)     7 (11.67%)           +2
+
+  VERDICT: FAILURE — confident-wrong increased. Any coverage gain here is not accepted.
+
+  --- cascade over-specified (4) — right trade, invented depth ---
+    cable_accessories/cable_tray  the family was the complete answer  ::  أنظمة صاعد حامل كابلات كابل
+    cable_accessories/cable_tray  the family was the complete answer  ::  موصل تي حامل كابلات كابل
+    wiring_devices/socket_outlet  the family was the complete answer  ::  مقابس و مفاتيح كهرباء
+    sanitary_ware/mixer_tap  the family was the complete answer  ::  خرطوم خلاط
+
+  --- v10 confident-wrong (5) ---
+    road_furniture/traffic_sign  want site_safety_barriers/-  ::  حواجز طرق بلاستيكية
+    pipes_fittings/-  want cable_accessories/electrical_conduit  ::  أنبوب مرن مانع لتسرب السوائل
+    pipes_fittings/-  want lubricants_chemicals/-  ::  مزلق أنابيب
+    lighting/-  want wiring_devices/-  ::  مخفتات إضاءة قابلة للتعديل
+    valves/-  want unknown/-  ::  صفاية مصفاة
+
+  --- cascade confident-wrong (7) ---
+    road_furniture/traffic_sign  want site_safety_barriers/-  ::  حواجز طرق بلاستيكية
+    pipes_fittings/-  want cable_accessories/electrical_conduit  ::  أنبوب مرن مانع لتسرب السوائل
+    pipes_fittings/-  want lubricants_chemicals/-  ::  مزلق أنابيب
+    ready_mix_concrete/structural_ready_mix  want masonry_blocks/concrete_block  ::  وحدات بناء خرسانة
+    measuring_instruments/-  want pipes_fittings/pipe_fitting  ::  كبلن فيبر جلاس
+    lighting/-  want wiring_devices/-  ::  مخفتات إضاءة قابلة للتعديل
+    valves/-  want unknown/-  ::  صفاية مصفاة
+
+  --- 5 disagreements with v10, listed individually for adjudication ---
+
+    «تي بي بي آر»
+      adjudicated : pipes_fittings/pipe_fitting
+      v10         : NULL/- (C, none)
+      cascade     : pipes_fittings/- (B, retrieval_family)   → improvement
+      candidates  : pipe_fitting[lex 1 sem 10], breathing_apparatus[lex - sem 1], survey_instrument[lex - sem 2], environmental_meter[lex - sem 3], thermal_imaging[lex - sem 4]
+      evidence    : تي   [no discriminating term]
+
+    «وحدات بناء خرسانة»
+      adjudicated : masonry_blocks/concrete_block
+      v10         : NULL/- (B, none)
+      cascade     : ready_mix_concrete/structural_ready_mix (A, retrieval_intent)   → REGRESSION
+      candidates  : structural_ready_mix[lex 1 sem 1], blinding_lean_concrete[lex 2 sem 2], special_concrete[lex 3 sem 3], concrete_aggregate[lex 9 sem 4], concrete_admixture[lex 7 sem 6]
+      evidence    : خرسانه, خرسانات, الخرسانه   [discriminating: خرسانه]
+
+    «كابلات مقاومة للحريق مسلحة بأسلاك فولاذية»
+      adjudicated : power_cables/fire_resistant_cable
+      v10         : power_cables/- (B, strong)
+      cascade     : power_cables/fire_resistant_cable (A, retrieval_intent)   → improvement
+      candidates  : fire_resistant_cable[lex 1 sem 1], mv_power_cable[lex 2 sem 3], lv_power_cable[lex 5 sem 2], control_cable[lex 3 sem 4], instrumentation_cable[lex 4 sem 5]
+      evidence    : كابل, مقاوم, للحريق, حريق, مقاومه, والاسلاك, كابلات, اسلاك   [discriminating: كابل, مقاوم, للحريق, حريق]
+
+    «كبلن فيبر جلاس»
+      adjudicated : pipes_fittings/pipe_fitting
+      v10         : NULL/- (C, none)
+      cascade     : measuring_instruments/- (B, retrieval_family)   → REGRESSION
+      candidates  : cable_gland[lex - sem 1], precision_gauge[lex 1 sem -], cable_ladder[lex - sem 2], electrical_tester[lex 2 sem -], environmental_meter[lex 3 sem -]
+
+    «بي في سي تي»
+      adjudicated : pipes_fittings/pipe_fitting
+      v10         : NULL/- (C, none)
+      cascade     : pipes_fittings/- (B, retrieval_family)   → improvement
+      candidates  : pipe_fitting[lex 1 sem 2], bms_controller[lex - sem 1], ptz_camera[lex - sem 3], cctv_camera[lex - sem 4], vms[lex - sem 5]
+      evidence    : تي   [no discriminating term]
+
+==============================================================================
+THE PAIR OF NUMBERS
+==============================================================================
+  booklet 68     coverage 67 → 67 poolable, 38 → 38 intents · confident-wrong 0 → 0 · 0 disagreements
+  catalogue 60   coverage 37 → 41 poolable, 12 → 14 intents · confident-wrong 5 → 7 · 5 disagreements
+
+  BAR NOT CLEARED — a new confident error or a lost answer appears above. Under the stated rule this is a failure, whatever the coverage gain.

@@ -1,0 +1,221 @@
+payload cpo-v11 · docs 218 · fingerprint 0d4e2df45ddcc52c
+mode conservative · verifier model (gemma3:4b) · topK 5
+semantic path: bge-m3, 1024 dims, 218 vectors in memory, no vector database
+intents with at least one real archive example: 44 of 218
+
+==============================================================================
+CORPUS A — the owner's real 68-item booklet (his adjudication) — 68 lines
+==============================================================================
+                                cpo-v10        cascade        delta
+  reached an intent (A)          38 (55.88%)    44 (64.71%)           +6
+  poolable (A or family B)       67 (98.53%)   68 (100.00%)           +1
+  remained unknown                 1 (1.47%)      0 (0.00%)           -1
+  complete to ceiling           68 (100.00%)    67 (98.53%)           -1
+  correct abstentions              1 (1.47%)      0 (0.00%)           -1
+  over-specified split             0 (0.00%)      5 (7.35%)           +5
+  CONFIDENT-WRONG                  0 (0.00%)      1 (1.47%)           +1
+
+  VERDICT: FAILURE — confident-wrong increased. Any coverage gain here is not accepted.
+
+  --- cascade over-specified (5) — right trade, invented depth ---
+    floor_tiling/resilient_flooring  the family was the complete answer  ::  سيراميك حوائط
+    floor_tiling/resilient_flooring  the family was the complete answer  ::  وزرة بورسلان
+    floor_tiling/resilient_flooring  the family was the complete answer  ::  وزرة سيراميك
+    floor_tiling/stone_slab  the family was the complete answer  ::  بلاط تيرازو
+    lighting/linear_light  the family was the complete answer  ::  وحدات إنارة
+
+  --- cascade confident-wrong (1) ---
+    wood_panels_joinery/plywood  want unknown/-  ::  خشب لعزل جدران
+
+  --- 6 disagreements with v10, listed individually for adjudication ---
+
+    «سيراميك حوائط»
+      adjudicated : floor_tiling/-
+      v10         : floor_tiling/- (B, strong)
+      cascade     : floor_tiling/resilient_flooring (A, retrieval_intent)   → improvement
+      candidates  : carpet_tile[lex 2 sem 3], resilient_flooring[lex 3 sem 2], stone_slab[lex 4 sem 5]
+      evidence    : سيراميك   [no discriminating term]
+
+    «وزرة بورسلان»
+      adjudicated : floor_tiling/-
+      v10         : floor_tiling/- (B, strong)
+      cascade     : floor_tiling/resilient_flooring (A, retrieval_intent)   → improvement
+      candidates  : carpet_tile[lex 1 sem -], resilient_flooring[lex 2 sem -], stone_slab[lex 3 sem -]
+      evidence    : بورسلان   [no discriminating term]
+
+    «وزرة سيراميك»
+      adjudicated : floor_tiling/-
+      v10         : floor_tiling/- (B, strong)
+      cascade     : floor_tiling/resilient_flooring (A, retrieval_intent)   → improvement
+      candidates  : carpet_tile[lex 1 sem -], resilient_flooring[lex 2 sem -], stone_slab[lex 3 sem -]
+      evidence    : سيراميك   [no discriminating term]
+
+    «بلاط تيرازو»
+      adjudicated : floor_tiling/-
+      v10         : floor_tiling/- (B, strong)
+      cascade     : floor_tiling/stone_slab (A, retrieval_intent)   → improvement
+      candidates  : carpet_tile[lex 1 sem 7], stone_slab[lex 5 sem 6], resilient_flooring[lex 2 sem 10]
+      evidence    : بلاطات, بلاط   [no discriminating term]
+      guard-refused: mixer_tap (hard_conflict: floor_tiling hard-conflicts «sanitary_ware_supplier»)
+
+    «خشب لعزل جدران»
+      adjudicated : unknown/-
+      v10         : NULL/- (B, none)
+      cascade     : wood_panels_joinery/plywood (A, retrieval_intent)   → improvement
+      candidates  : plywood[lex 1 sem 5], wooden_door[lex 2 sem 4], mineral_wool_insulation[lex 7 sem 1], rigid_board_insulation[lex 6 sem 2], pipe_duct_insulation[lex 5 sem 3]
+      evidence    : خشب   [no discriminating term]
+
+    «وحدات إنارة»
+      adjudicated : lighting/-
+      v10         : lighting/- (B, strong)
+      cascade     : lighting/linear_light (A, retrieval_intent)   → improvement
+      candidates  : linear_light[lex 6 sem 2], emergency_light[lex 1 sem 8], led_panel_light[lex 4 sem 6], lighting_pole[lex 5 sem 5], track_light[lex 8 sem 3]
+      evidence    : اناره   [no discriminating term]
+
+==============================================================================
+CORPUS B — 60 real Arabic catalogue lines (lane adjudication; NOT the owner's 60-line RFQ) — 60 lines
+==============================================================================
+                                cpo-v10        cascade        delta
+  reached an intent (A)          12 (20.00%)    20 (33.33%)           +8
+  poolable (A or family B)       37 (61.67%)    47 (78.33%)          +10
+  remained unknown               23 (38.33%)    13 (21.67%)          -10
+  complete to ceiling            32 (53.33%)    30 (50.00%)           -2
+  correct abstentions              5 (8.33%)      2 (3.33%)           -3
+  over-specified split             4 (6.67%)     8 (13.33%)           +4
+  CONFIDENT-WRONG                  5 (8.33%)    14 (23.33%)           +9
+
+  VERDICT: FAILURE — confident-wrong increased. Any coverage gain here is not accepted.
+
+  --- cascade over-specified (8) — right trade, invented depth ---
+    sanitary_ware/washroom_accessories  the family was the complete answer  ::  خزائن حمام
+    cable_accessories/cable_tray  the family was the complete answer  ::  أنظمة صاعد حامل كابلات كابل
+    pipes_fittings/pipe_fitting  the family was the complete answer  ::  أنابيب بولي إيثيلين منخفض الكثافة
+    cable_accessories/cable_tray  the family was the complete answer  ::  موصل تي حامل كابلات كابل
+    wiring_devices/socket_outlet  the family was the complete answer  ::  مقابس و مفاتيح كهرباء
+    power_cables/lv_power_cable  the family was the complete answer  ::  مستلزمات كابل نحاس مصمت عرق مفرد
+    power_cables/mv_power_cable  the family was the complete answer  ::  كابلات عرق مرن
+    sanitary_ware/mixer_tap  the family was the complete answer  ::  خرطوم خلاط
+
+  --- v10 confident-wrong (5) ---
+    road_furniture/traffic_sign  want site_safety_barriers/-  ::  حواجز طرق بلاستيكية
+    pipes_fittings/-  want cable_accessories/electrical_conduit  ::  أنبوب مرن مانع لتسرب السوائل
+    pipes_fittings/-  want lubricants_chemicals/-  ::  مزلق أنابيب
+    lighting/-  want wiring_devices/-  ::  مخفتات إضاءة قابلة للتعديل
+    valves/-  want unknown/-  ::  صفاية مصفاة
+
+  --- cascade confident-wrong (14) ---
+    road_furniture/traffic_sign  want site_safety_barriers/-  ::  حواجز طرق بلاستيكية
+    thermal_insulation/rigid_board_insulation  want unknown/-  ::  ألواح حماية إنشاءات
+    pipes_fittings/-  want cable_accessories/electrical_conduit  ::  أنبوب مرن مانع لتسرب السوائل
+    pipes_fittings/-  want lubricants_chemicals/-  ::  مزلق أنابيب
+    ready_mix_concrete/structural_ready_mix  want masonry_blocks/concrete_block  ::  وحدات بناء خرسانة
+    hvac_equipment/-  want unknown/-  ::  أطقم تجهيز حاويات
+    rebar_mesh/-  want pipes_fittings/pipe_fitting  ::  سرج بي في سي
+    lighting/-  want wiring_devices/-  ::  مخفتات إضاءة قابلة للتعديل
+    structured_cabling/-  want pipes_fittings/pipe_fitting  ::  وصلات مخفض فيبر جلاس
+    structured_cabling/-  want power_cables/-  ::  أسلاك نحاس مصمت
+    pipe_supports/strut_channel_accessory  want unknown/-  ::  قضبان ساندة
+    valves/-  want unknown/-  ::  صفاية مصفاة
+    interior_systems/-  want sanitary_ware/-  ::  خزائن وحدات تزيين الحمامات
+    concrete_admixtures/concrete_fiber  want pipes_fittings/pipe_fitting  ::  مخفضات بولي إيثيلين عالي الكثافة
+
+  --- 13 disagreements with v10, listed individually for adjudication ---
+
+    «خزائن حمام»
+      adjudicated : sanitary_ware/-
+      v10         : NULL/- (C, none)
+      cascade     : sanitary_ware/washroom_accessories (A, retrieval_intent)   → improvement
+      candidates  : comms_cabinet[lex 1 sem 1], washroom_accessories[lex 2 sem 4], toilet_partition[lex 3 sem 5], floor_drain[lex 7 sem 2], wc_sanitaryware[lex 9 sem 3]
+      evidence    : خزاين   [no discriminating term]
+
+    «ألواح حماية إنشاءات»
+      adjudicated : unknown/-
+      v10         : NULL/- (C, none)
+      cascade     : thermal_insulation/rigid_board_insulation (A, retrieval_intent)   → improvement
+      candidates  : rigid_board_insulation[lex 3 sem 3], gypsum_board[lex 1 sem 8], protection_relay[lex 8 sem 1], mdf_board[lex 2 sem 10], wall_protection[lex 9 sem 5]
+      evidence    : الواح   [no discriminating term]
+
+    «أنابيب بولي إيثيلين منخفض الكثافة»
+      adjudicated : pipes_fittings/-
+      v10         : pipes_fittings/- (B, strong)
+      cascade     : pipes_fittings/pipe_fitting (A, retrieval_intent)   → improvement
+      candidates  : pipe_fitting[lex 1 sem 11]
+      evidence    : انابيب   [no discriminating term]
+      guard-refused: primer_coating (hard_conflict: pipes_fittings hard-conflicts «paint_only_supplier»)
+
+    «وحدات بناء خرسانة»
+      adjudicated : masonry_blocks/concrete_block
+      v10         : NULL/- (B, none)
+      cascade     : ready_mix_concrete/structural_ready_mix (A, retrieval_intent)   → REGRESSION
+      candidates  : structural_ready_mix[lex 1 sem 1], blinding_lean_concrete[lex 2 sem 2], special_concrete[lex 3 sem 3], concrete_admixture[lex 4 sem 6], concrete_aggregate[lex 8 sem 4]
+      evidence    : خرسانه   [discriminating: خرسانه]
+
+    «أطقم تجهيز حاويات»
+      adjudicated : unknown/-
+      v10         : NULL/- (B, none)
+      cascade     : hvac_equipment/- (B, retrieval_family)   → improvement
+      candidates  : expansion_vessel[lex 6 sem 1], ventilation_opening[lex 10 sem 3], air_terminal_device[lex 4 sem 9], vav_terminal[lex 9 sem 4], fan_unit[lex 7 sem 11]
+      evidence    : تجهيزات   [no discriminating term]
+
+    «سرج بي في سي»
+      adjudicated : pipes_fittings/pipe_fitting
+      v10         : NULL/- (C, none)
+      cascade     : rebar_mesh/- (B, retrieval_family)   → REGRESSION
+      candidates  : welded_mesh[lex - sem 1], acb[lex - sem 2], cold_formed_section[lex - sem 3], barcode_scanners[lex - sem 4], pa_speaker[lex - sem 5]
+
+    «مستلزمات كابل نحاس مصمت عرق مفرد»
+      adjudicated : power_cables/-
+      v10         : power_cables/- (B, strong)
+      cascade     : power_cables/lv_power_cable (A, retrieval_intent)   → improvement
+      candidates  : lv_power_cable[lex 5 sem 2], mv_power_cable[lex 2 sem 8], instrumentation_cable[lex 3 sem 7], fire_resistant_cable[lex 4 sem 10], control_cable[lex 1 sem -]
+      evidence    : كابل, كابلات, نحاس   [no discriminating term]
+
+    «وصلات مخفض فيبر جلاس»
+      adjudicated : pipes_fittings/pipe_fitting
+      v10         : NULL/- (B, none)
+      cascade     : structured_cabling/- (B, retrieval_family)   → REGRESSION
+      candidates  : pipe_fitting[lex 1 sem 4], fiber_patch_cord[lex 4 sem 5], copper_patch_cord[lex 3 sem 8], lv_power_cable[lex - sem 1], cable_ladder[lex - sem 2]
+      evidence    : وصلات   [no discriminating term]
+
+    «أسلاك نحاس مصمت»
+      adjudicated : power_cables/-
+      v10         : NULL/- (C, none)
+      cascade     : structured_cabling/- (B, retrieval_family)   → REGRESSION
+      candidates  : cable_termination[lex 2 sem 4], busbar[lex 1 sem 7], lv_power_cable[lex 8 sem 2], copper_patch_cord[lex 10 sem 1], control_cable[lex 5 sem 6]
+      evidence    : نحاس   [no discriminating term]
+
+    «قضبان ساندة»
+      adjudicated : unknown/-
+      v10         : NULL/- (C, none)
+      cascade     : pipe_supports/strut_channel_accessory (A, retrieval_intent)   → improvement
+      candidates  : threaded_rod[lex 2 sem 1], busbar[lex 1 sem 5], strut_channel_accessory[lex 6 sem 2], pipe_hanger[lex 5 sem 4], earth_rod[lex 3 sem -]
+      evidence    : قضبان   [no discriminating term]
+
+    «كابلات عرق مرن»
+      adjudicated : power_cables/-
+      v10         : power_cables/- (B, strong)
+      cascade     : power_cables/mv_power_cable (A, retrieval_intent)   → improvement
+      candidates  : mv_power_cable[lex 2 sem 12], control_cable[lex 1 sem -], instrumentation_cable[lex 4 sem -], fire_resistant_cable[lex 6 sem -], lv_power_cable[lex 7 sem -]
+      evidence    : كابل, كابلات   [no discriminating term]
+
+    «خزائن وحدات تزيين الحمامات»
+      adjudicated : sanitary_ware/-
+      v10         : NULL/- (B, none)
+      cascade     : interior_systems/- (B, retrieval_family)   → REGRESSION
+      candidates  : comms_cabinet[lex 1 sem 1], toilet_partition[lex 4 sem 3], vav_terminal[lex 3 sem 12], buried_drainage_pipe[lex - sem 2], optical_transceiver[lex 2 sem -]
+      evidence    : خزاين   [no discriminating term]
+
+    «مخفضات بولي إيثيلين عالي الكثافة»
+      adjudicated : pipes_fittings/pipe_fitting
+      v10         : NULL/- (C, none)
+      cascade     : concrete_admixtures/concrete_fiber (A, retrieval_intent)   → REGRESSION
+      candidates  : concrete_fiber[lex 2 sem 3], rigid_board_insulation[lex 1 sem 10], lv_power_cable[lex - sem 1], pipe_fitting[lex - sem 2], primer_coating[lex 3 sem -]
+      evidence    : بولي   [no discriminating term]
+
+==============================================================================
+THE PAIR OF NUMBERS
+==============================================================================
+  booklet 68     coverage 67 → 68 poolable, 38 → 44 intents · confident-wrong 0 → 1 · 6 disagreements
+  catalogue 60   coverage 37 → 47 poolable, 12 → 20 intents · confident-wrong 5 → 14 · 13 disagreements
+
+  BAR NOT CLEARED — a new confident error or a lost answer appears above. Under the stated rule this is a failure, whatever the coverage gain.
