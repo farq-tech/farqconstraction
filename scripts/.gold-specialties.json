@@ -1,0 +1,542 @@
+[
+ {
+  "specialty_id": "hardware-general",
+  "specialty_level": "رئيسي",
+  "n": 471,
+  "suppliers": 471
+ },
+ {
+  "specialty_id": "cement",
+  "specialty_level": "إضافي",
+  "n": 448,
+  "suppliers": 448
+ },
+ {
+  "specialty_id": "electrical-general",
+  "specialty_level": "رئيسي",
+  "n": 355,
+  "suppliers": 355
+ },
+ {
+  "specialty_id": "general-supply",
+  "specialty_level": "رئيسي",
+  "n": 322,
+  "suppliers": 322
+ },
+ {
+  "specialty_id": "general-supply",
+  "specialty_level": "إضافي",
+  "n": 296,
+  "suppliers": 296
+ },
+ {
+  "specialty_id": "cables",
+  "specialty_level": "إضافي",
+  "n": 267,
+  "suppliers": 267
+ },
+ {
+  "specialty_id": "lighting",
+  "specialty_level": "رئيسي",
+  "n": 264,
+  "suppliers": 264
+ },
+ {
+  "specialty_id": "plumbing-general",
+  "specialty_level": "إضافي",
+  "n": 260,
+  "suppliers": 260
+ },
+ {
+  "specialty_id": "wiring-devices",
+  "specialty_level": "إضافي",
+  "n": 259,
+  "suppliers": 259
+ },
+ {
+  "specialty_id": "switchgear",
+  "specialty_level": "إضافي",
+  "n": 247,
+  "suppliers": 247
+ },
+ {
+  "specialty_id": "equipment",
+  "specialty_level": "رئيسي",
+  "n": 234,
+  "suppliers": 234
+ },
+ {
+  "specialty_id": "equipment",
+  "specialty_level": "إضافي",
+  "n": 227,
+  "suppliers": 227
+ },
+ {
+  "specialty_id": "paints",
+  "specialty_level": "رئيسي",
+  "n": 226,
+  "suppliers": 226
+ },
+ {
+  "specialty_id": "kitchens",
+  "specialty_level": "رئيسي",
+  "n": 214,
+  "suppliers": 214
+ },
+ {
+  "specialty_id": "electrical-general",
+  "specialty_level": "إضافي",
+  "n": 188,
+  "suppliers": 188
+ },
+ {
+  "specialty_id": "valves",
+  "specialty_level": "إضافي",
+  "n": 185,
+  "suppliers": 185
+ },
+ {
+  "specialty_id": "safety",
+  "specialty_level": "رئيسي",
+  "n": 181,
+  "suppliers": 181
+ },
+ {
+  "specialty_id": "steel-sections",
+  "specialty_level": "إضافي",
+  "n": 180,
+  "suppliers": 180
+ },
+ {
+  "specialty_id": "doors-windows",
+  "specialty_level": "رئيسي",
+  "n": 172,
+  "suppliers": 172
+ },
+ {
+  "specialty_id": "timber",
+  "specialty_level": "رئيسي",
+  "n": 171,
+  "suppliers": 171
+ },
+ {
+  "specialty_id": "hand-tools",
+  "specialty_level": "إضافي",
+  "n": 169,
+  "suppliers": 169
+ },
+ {
+  "specialty_id": "site-consumables",
+  "specialty_level": "رئيسي",
+  "n": 164,
+  "suppliers": 164
+ },
+ {
+  "specialty_id": "pumps-tanks",
+  "specialty_level": "رئيسي",
+  "n": 134,
+  "suppliers": 134
+ },
+ {
+  "specialty_id": "nonferrous",
+  "specialty_level": "رئيسي",
+  "n": 132,
+  "suppliers": 132
+ },
+ {
+  "specialty_id": "bms-av",
+  "specialty_level": "رئيسي",
+  "n": 130,
+  "suppliers": 130
+ },
+ {
+  "specialty_id": "hvac-units",
+  "specialty_level": "رئيسي",
+  "n": 128,
+  "suppliers": 128
+ },
+ {
+  "specialty_id": "stone-marble",
+  "specialty_level": "رئيسي",
+  "n": 126,
+  "suppliers": 126
+ },
+ {
+  "specialty_id": "landscape",
+  "specialty_level": "رئيسي",
+  "n": 122,
+  "suppliers": 122
+ },
+ {
+  "specialty_id": "facades",
+  "specialty_level": "إضافي",
+  "n": 119,
+  "suppliers": 119
+ },
+ {
+  "specialty_id": "doors-windows",
+  "specialty_level": "إضافي",
+  "n": 118,
+  "suppliers": 118
+ },
+ {
+  "specialty_id": "aluminium",
+  "specialty_level": "إضافي",
+  "n": 117,
+  "suppliers": 117
+ },
+ {
+  "specialty_id": "metal-fab",
+  "specialty_level": "رئيسي",
+  "n": 113,
+  "suppliers": 113
+ },
+ {
+  "specialty_id": "facades",
+  "specialty_level": "رئيسي",
+  "n": 106,
+  "suppliers": 106
+ },
+ {
+  "specialty_id": "aluminium",
+  "specialty_level": "رئيسي",
+  "n": 103,
+  "suppliers": 103
+ },
+ {
+  "specialty_id": "ducting",
+  "specialty_level": "إضافي",
+  "n": 96,
+  "suppliers": 96
+ },
+ {
+  "specialty_id": "tiles",
+  "specialty_level": "رئيسي",
+  "n": 95,
+  "suppliers": 95
+ },
+ {
+  "specialty_id": "hardware-general",
+  "specialty_level": "إضافي",
+  "n": 94,
+  "suppliers": 94
+ },
+ {
+  "specialty_id": "networks",
+  "specialty_level": "رئيسي",
+  "n": 91,
+  "suppliers": 91
+ },
+ {
+  "specialty_id": "rental-parts",
+  "specialty_level": "رئيسي",
+  "n": 84,
+  "suppliers": 84
+ },
+ {
+  "specialty_id": "glass",
+  "specialty_level": "رئيسي",
+  "n": 83,
+  "suppliers": 83
+ },
+ {
+  "specialty_id": "steel-sheets",
+  "specialty_level": "إضافي",
+  "n": 82,
+  "suppliers": 82
+ },
+ {
+  "specialty_id": "lighting",
+  "specialty_level": "إضافي",
+  "n": 81,
+  "suppliers": 81
+ },
+ {
+  "specialty_id": "access-intercom",
+  "specialty_level": "رئيسي",
+  "n": 76,
+  "suppliers": 76
+ },
+ {
+  "specialty_id": "rebar",
+  "specialty_level": "إضافي",
+  "n": 73,
+  "suppliers": 73
+ },
+ {
+  "specialty_id": "sanitary",
+  "specialty_level": "إضافي",
+  "n": 70,
+  "suppliers": 70
+ },
+ {
+  "specialty_id": "paints",
+  "specialty_level": "إضافي",
+  "n": 70,
+  "suppliers": 70
+ },
+ {
+  "specialty_id": "safety",
+  "specialty_level": "إضافي",
+  "n": 70,
+  "suppliers": 70
+ },
+ {
+  "specialty_id": "kitchens",
+  "specialty_level": "إضافي",
+  "n": 67,
+  "suppliers": 67
+ },
+ {
+  "specialty_id": "cctv",
+  "specialty_level": "رئيسي",
+  "n": 66,
+  "suppliers": 66
+ },
+ {
+  "specialty_id": "site-consumables",
+  "specialty_level": "إضافي",
+  "n": 64,
+  "suppliers": 64
+ },
+ {
+  "specialty_id": "rental-parts",
+  "specialty_level": "إضافي",
+  "n": 60,
+  "suppliers": 60
+ },
+ {
+  "specialty_id": "ready-mix",
+  "specialty_level": "رئيسي",
+  "n": 59,
+  "suppliers": 59
+ },
+ {
+  "specialty_id": "tiles",
+  "specialty_level": "إضافي",
+  "n": 59,
+  "suppliers": 59
+ },
+ {
+  "specialty_id": "aggregates",
+  "specialty_level": "رئيسي",
+  "n": 55,
+  "suppliers": 55
+ },
+ {
+  "specialty_id": "landscape",
+  "specialty_level": "إضافي",
+  "n": 53,
+  "suppliers": 53
+ },
+ {
+  "specialty_id": "thermal",
+  "specialty_level": "إضافي",
+  "n": 51,
+  "suppliers": 51
+ },
+ {
+  "specialty_id": "elevators",
+  "specialty_level": "رئيسي",
+  "n": 48,
+  "suppliers": 48
+ },
+ {
+  "specialty_id": "glass",
+  "specialty_level": "إضافي",
+  "n": 48,
+  "suppliers": 48
+ },
+ {
+  "specialty_id": "pipes-fittings",
+  "specialty_level": "رئيسي",
+  "n": 48,
+  "suppliers": 48
+ },
+ {
+  "specialty_id": "generators",
+  "specialty_level": "رئيسي",
+  "n": 47,
+  "suppliers": 47
+ },
+ {
+  "specialty_id": "cables",
+  "specialty_level": "رئيسي",
+  "n": 47,
+  "suppliers": 47
+ },
+ {
+  "specialty_id": "firefighting",
+  "specialty_level": "إضافي",
+  "n": 47,
+  "suppliers": 47
+ },
+ {
+  "specialty_id": "stone-marble",
+  "specialty_level": "إضافي",
+  "n": 45,
+  "suppliers": 45
+ },
+ {
+  "specialty_id": "ready-mix",
+  "specialty_level": "إضافي",
+  "n": 44,
+  "suppliers": 44
+ },
+ {
+  "specialty_id": "plumbing-general",
+  "specialty_level": "رئيسي",
+  "n": 43,
+  "suppliers": 43
+ },
+ {
+  "specialty_id": "block-brick",
+  "specialty_level": "رئيسي",
+  "n": 41,
+  "suppliers": 41
+ },
+ {
+  "specialty_id": "waterproofing",
+  "specialty_level": "إضافي",
+  "n": 41,
+  "suppliers": 41
+ },
+ {
+  "specialty_id": "sanitary",
+  "specialty_level": "رئيسي",
+  "n": 40,
+  "suppliers": 40
+ },
+ {
+  "specialty_id": "cement",
+  "specialty_level": "رئيسي",
+  "n": 39,
+  "suppliers": 39
+ },
+ {
+  "specialty_id": "hvac-units",
+  "specialty_level": "إضافي",
+  "n": 37,
+  "suppliers": 37
+ },
+ {
+  "specialty_id": "nonferrous",
+  "specialty_level": "إضافي",
+  "n": 36,
+  "suppliers": 36
+ },
+ {
+  "specialty_id": "timber",
+  "specialty_level": "إضافي",
+  "n": 35,
+  "suppliers": 35
+ },
+ {
+  "specialty_id": "wiring-devices",
+  "specialty_level": "رئيسي",
+  "n": 33,
+  "suppliers": 33
+ },
+ {
+  "specialty_id": "flooring",
+  "specialty_level": "إضافي",
+  "n": 33,
+  "suppliers": 33
+ },
+ {
+  "specialty_id": "survey",
+  "specialty_level": "رئيسي",
+  "n": 33,
+  "suppliers": 33
+ },
+ {
+  "specialty_id": "pumps-tanks",
+  "specialty_level": "إضافي",
+  "n": 33,
+  "suppliers": 33
+ },
+ {
+  "specialty_id": "storage-ups",
+  "specialty_level": "إضافي",
+  "n": 32,
+  "suppliers": 32
+ },
+ {
+  "specialty_id": "pipes-fittings",
+  "specialty_level": "إضافي",
+  "n": 31,
+  "suppliers": 31
+ },
+ {
+  "specialty_id": "cctv",
+  "specialty_level": "إضافي",
+  "n": 31,
+  "suppliers": 31
+ },
+ {
+  "specialty_id": "waterproofing",
+  "specialty_level": "رئيسي",
+  "n": 31,
+  "suppliers": 31
+ },
+ {
+  "specialty_id": "gypsum-plaster",
+  "specialty_level": "رئيسي",
+  "n": 28,
+  "suppliers": 28
+ },
+ {
+  "specialty_id": "flooring",
+  "specialty_level": "رئيسي",
+  "n": 28,
+  "suppliers": 28
+ },
+ {
+  "specialty_id": "solar",
+  "specialty_level": "رئيسي",
+  "n": 26,
+  "suppliers": 26
+ },
+ {
+  "specialty_id": "networks",
+  "specialty_level": "إضافي",
+  "n": 25,
+  "suppliers": 25
+ },
+ {
+  "specialty_id": "block-brick",
+  "specialty_level": "إضافي",
+  "n": 25,
+  "suppliers": 25
+ },
+ {
+  "specialty_id": "acoustic",
+  "specialty_level": "إضافي",
+  "n": 25,
+  "suppliers": 25
+ },
+ {
+  "specialty_id": "hand-tools",
+  "specialty_level": "رئيسي",
+  "n": 24,
+  "suppliers": 24
+ },
+ {
+  "specialty_id": "steel-sections",
+  "specialty_level": "رئيسي",
+  "n": 23,
+  "suppliers": 23
+ },
+ {
+  "specialty_id": "fire-alarm",
+  "specialty_level": "إضافي",
+  "n": 23,
+  "suppliers": 23
+ },
+ {
+  "specialty_id": "cranes",
+  "specialty_level": "رئيسي",
+  "n": 22,
+  "suppliers": 22
+ }
+]

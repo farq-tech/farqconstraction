@@ -1,0 +1,436 @@
+{
+ "instrument": "gold_set",
+ "run_at": "2026-09-17T08:23:21.274Z",
+ "fingerprint": {
+  "payload_sha16": "dfb34f19c807563f",
+  "resolver_sha16": "a3e96860aa9aedb6",
+  "ontology_version": "cpo-v11",
+  "supplier_side": "live_directory_query",
+  "intent_supplier_map": "ABSENT — relation construction.intent_supplier_map does not exist"
+ },
+ "metrics_definition": "fixtures/gold/METRICS.md (fixed 2026-09-17, before measurement)",
+ "composition": {
+  "booklet_68": 68,
+  "rfq_60": 0,
+  "rfq_60_status": "ABSENT — no 60-line real RFQ exists in either repository; production holds 1 RFQ with 2 lines. Slot reserved.",
+  "error_corpus": 17,
+  "fresh_heldout": 120,
+  "total": 205
+ },
+ "overall": {
+  "live_text": {
+   "items": 205,
+   "returned_suppliers_at_all": 158,
+   "suppliers_per_item": {
+    "median": 83,
+    "mean": 589.3,
+    "distribution": {
+     "0": 47,
+     "6-20": 15,
+     "1-2": 12,
+     "21-100": 27,
+     ">100": 96,
+     "3-5": 8
+    }
+   },
+   "precision_at_5": {
+    "positions": 734,
+    "appropriate": 309,
+    "wrong_material": 41,
+    "unsure": 384
+   },
+   "wrong_material_count": 41,
+   "items_with_any_wrong_material": 19,
+   "resolved_to_a_family": 133,
+   "zero_count": 47,
+   "zero_reasons": {
+    "ZERO_BECAUSE_MAPPING_BROKEN": 42,
+    "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 4,
+    "ZERO_BECAUSE_UNRESOLVED": 1
+   }
+  },
+  "specialty": {
+   "items": 205,
+   "returned_suppliers_at_all": 126,
+   "suppliers_per_item": {
+    "median": 103,
+    "mean": 193.6,
+    "distribution": {
+     "0": 79,
+     ">100": 107,
+     "21-100": 19
+    }
+   },
+   "precision_at_5": {
+    "refused": "CIRCULAR — this path retrieves on the same evidence Precision@5 judges. Use live_text for precision; this path measures availability only."
+   },
+   "wrong_material_count": null,
+   "items_with_any_wrong_material": null,
+   "resolved_to_a_family": 133,
+   "zero_count": 79,
+   "zero_reasons": {
+    "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 7,
+    "ZERO_BECAUSE_UNRESOLVED": 72
+   }
+  }
+ },
+ "by_component": {
+  "booklet_68": {
+   "live_text": {
+    "items": 68,
+    "returned_suppliers_at_all": 48,
+    "suppliers_per_item": {
+     "median": 19,
+     "mean": 528.9,
+     "distribution": {
+      "0": 20,
+      "6-20": 6,
+      "1-2": 6,
+      "21-100": 8,
+      ">100": 25,
+      "3-5": 3
+     }
+    },
+    "precision_at_5": {
+     "positions": 211,
+     "appropriate": 150,
+     "wrong_material": 32,
+     "unsure": 29
+    },
+    "wrong_material_count": 32,
+    "items_with_any_wrong_material": 15,
+    "resolved_to_a_family": 67,
+    "zero_count": 20,
+    "zero_reasons": {
+     "ZERO_BECAUSE_MAPPING_BROKEN": 18,
+     "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 2
+    }
+   },
+   "specialty": {
+    "items": 68,
+    "returned_suppliers_at_all": 63,
+    "suppliers_per_item": {
+     "median": 332.5,
+     "mean": 299.1,
+     "distribution": {
+      "0": 5,
+      ">100": 54,
+      "21-100": 9
+     }
+    },
+    "precision_at_5": {
+     "refused": "CIRCULAR — this path retrieves on the same evidence Precision@5 judges. Use live_text for precision; this path measures availability only."
+    },
+    "wrong_material_count": null,
+    "items_with_any_wrong_material": null,
+    "resolved_to_a_family": 67,
+    "zero_count": 5,
+    "zero_reasons": {
+     "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 4,
+     "ZERO_BECAUSE_UNRESOLVED": 1
+    }
+   }
+  },
+  "error_corpus": {
+   "live_text": {
+    "items": 17,
+    "returned_suppliers_at_all": 7,
+    "suppliers_per_item": {
+     "median": 0,
+     "mean": 444.4,
+     "distribution": {
+      "0": 10,
+      "3-5": 1,
+      ">100": 3,
+      "1-2": 3
+     }
+    },
+    "precision_at_5": {
+     "positions": 24,
+     "appropriate": 14,
+     "wrong_material": 3,
+     "unsure": 7
+    },
+    "wrong_material_count": 3,
+    "items_with_any_wrong_material": 1,
+    "resolved_to_a_family": 16,
+    "zero_count": 10,
+    "zero_reasons": {
+     "ZERO_BECAUSE_MAPPING_BROKEN": 9,
+     "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 1
+    }
+   },
+   "specialty": {
+    "items": 17,
+    "returned_suppliers_at_all": 15,
+    "suppliers_per_item": {
+     "median": 189,
+     "mean": 263.1,
+     "distribution": {
+      "0": 2,
+      ">100": 10,
+      "21-100": 5
+     }
+    },
+    "precision_at_5": {
+     "refused": "CIRCULAR — this path retrieves on the same evidence Precision@5 judges. Use live_text for precision; this path measures availability only."
+    },
+    "wrong_material_count": null,
+    "items_with_any_wrong_material": null,
+    "resolved_to_a_family": 16,
+    "zero_count": 2,
+    "zero_reasons": {
+     "ZERO_BECAUSE_UNRESOLVED": 1,
+     "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 1
+    }
+   }
+  },
+  "fresh_heldout": {
+   "live_text": {
+    "items": 120,
+    "returned_suppliers_at_all": 103,
+    "suppliers_per_item": {
+     "median": 145,
+     "mean": 644.1,
+     "distribution": {
+      "0": 17,
+      ">100": 68,
+      "6-20": 9,
+      "21-100": 19,
+      "3-5": 4,
+      "1-2": 3
+     }
+    },
+    "precision_at_5": {
+     "positions": 499,
+     "appropriate": 145,
+     "wrong_material": 6,
+     "unsure": 348
+    },
+    "wrong_material_count": 6,
+    "items_with_any_wrong_material": 3,
+    "resolved_to_a_family": 50,
+    "zero_count": 17,
+    "zero_reasons": {
+     "ZERO_BECAUSE_UNRESOLVED": 1,
+     "ZERO_BECAUSE_MAPPING_BROKEN": 15,
+     "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 1
+    }
+   },
+   "specialty": {
+    "items": 120,
+    "returned_suppliers_at_all": 48,
+    "suppliers_per_item": {
+     "median": 0,
+     "mean": 124,
+     "distribution": {
+      "0": 72,
+      ">100": 43,
+      "21-100": 5
+     }
+    },
+    "precision_at_5": {
+     "refused": "CIRCULAR — this path retrieves on the same evidence Precision@5 judges. Use live_text for precision; this path measures availability only."
+    },
+    "wrong_material_count": null,
+    "items_with_any_wrong_material": null,
+    "resolved_to_a_family": 50,
+    "zero_count": 72,
+    "zero_reasons": {
+     "ZERO_BECAUSE_UNRESOLVED": 70,
+     "ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER": 2
+    }
+   }
+  }
+ },
+ "error_corpus_adjudication": [
+  {
+   "id": "ERR-01",
+   "line": "رشاش ري بلاستيك",
+   "broke_in": "cpo-v4",
+   "fixed_in": "cpo-v5",
+   "still_open": false,
+   "resolved_to": "irrigation_systems/irrigation_emitter (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-02",
+   "line": "رشاش حريق",
+   "broke_in": "cpo-v4",
+   "fixed_in": "cpo-v5",
+   "still_open": false,
+   "resolved_to": "fire_fighting/fire_sprinkler (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-03",
+   "line": "حديد تسليح قطر 16 مم",
+   "broke_in": "cpo-v4",
+   "fixed_in": "cpo-v5",
+   "still_open": false,
+   "resolved_to": "rebar_mesh/- (B)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-04",
+   "line": "خزان الياف زجاجيه",
+   "broke_in": "cpo-v5",
+   "fixed_in": "cpo-v10",
+   "still_open": false,
+   "resolved_to": "water_tanks/- (B)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-05",
+   "line": "مواسير مرنه لتمديد الكابلات الكهربائيه",
+   "broke_in": "cpo-v4",
+   "fixed_in": "cpo-v6",
+   "still_open": false,
+   "resolved_to": "pipes_fittings/- (B)",
+   "regressed": false,
+   "reaches_expected_family": false,
+   "verdict": "NOT WRONG, BUT NOT RIGHT"
+  },
+  {
+   "id": "ERR-06",
+   "line": "نظام التحكم بالابواب",
+   "broke_in": "cpo-v6",
+   "fixed_in": "cpo-v7",
+   "still_open": false,
+   "resolved_to": "physical_security/access_controller (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-07",
+   "line": "قاطع 32 امبير عزل مزدوج",
+   "broke_in": "cpo-v8",
+   "fixed_in": null,
+   "still_open": true,
+   "resolved_to": "switchgear_panels/mcb (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-08",
+   "line": "باب خشب",
+   "broke_in": "cpo-v6",
+   "fixed_in": "cpo-v7",
+   "still_open": false,
+   "resolved_to": "wood_panels_joinery/wooden_door (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-09",
+   "line": "باب خشبي",
+   "broke_in": "cpo-v6",
+   "fixed_in": "cpo-v7",
+   "still_open": false,
+   "resolved_to": "wood_panels_joinery/wooden_door (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-10",
+   "line": "بلوك اسمني مفرغ",
+   "broke_in": "cpo-v7",
+   "fixed_in": "cpo-v8",
+   "still_open": false,
+   "resolved_to": "masonry_blocks/concrete_block (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-11",
+   "line": "بلوك اسمنتي مفرغ",
+   "broke_in": "cpo-v7",
+   "fixed_in": "cpo-v8",
+   "still_open": false,
+   "resolved_to": "masonry_blocks/concrete_block (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-12",
+   "line": "لوحه توزيع كهربائيه",
+   "broke_in": null,
+   "fixed_in": "cpo-v10",
+   "still_open": false,
+   "resolved_to": "switchgear_panels/distribution_board (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-13",
+   "line": "لوحات توزيع كهربائيه",
+   "broke_in": "pre-cpo-v10",
+   "fixed_in": "cpo-v10",
+   "still_open": false,
+   "resolved_to": "switchgear_panels/distribution_board (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-14",
+   "line": "الياف معدنيه",
+   "broke_in": "cpo-v6",
+   "fixed_in": "cpo-v10",
+   "still_open": true,
+   "resolved_to": "unresolved/- (B)",
+   "regressed": false,
+   "reaches_expected_family": false,
+   "verdict": "NOT WRONG, BUT NOT RIGHT"
+  },
+  {
+   "id": "ERR-15",
+   "line": "بلاطه سقف معدني",
+   "broke_in": "cpo-v5",
+   "fixed_in": "cpo-v6",
+   "still_open": false,
+   "resolved_to": "interior_systems/metal_ceiling (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-16",
+   "line": "باب زجاجي سحاب",
+   "broke_in": "cpo-v10-candidate",
+   "fixed_in": "cpo-v10",
+   "still_open": false,
+   "resolved_to": "glazing/- (B)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  },
+  {
+   "id": "ERR-17",
+   "line": "صوف زجاجي",
+   "broke_in": "cpo-v7",
+   "fixed_in": "cpo-v10",
+   "still_open": false,
+   "resolved_to": "thermal_insulation/mineral_wool_insulation (A)",
+   "regressed": false,
+   "reaches_expected_family": true,
+   "verdict": "HOLDS"
+  }
+ ],
+ "error_corpus_regressions": 0
+}

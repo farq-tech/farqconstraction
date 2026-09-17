@@ -88,4 +88,8 @@ for (const form of occurring) {
   }
 }
 
+console.log('\n=== shortest generated forms, for linguistic inspection (short = likeliest to be a real word) ===')
+const short = [...generated.keys()].sort((a,b)=>a.length-b.length).slice(0,60)
+console.log(short.map((f)=>`${f} (<- ${[...generated.get(f)][0]})`).join('\n'))
+
 await server.close()

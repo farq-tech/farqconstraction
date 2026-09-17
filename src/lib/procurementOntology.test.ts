@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v10')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v11')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -2455,8 +2455,58 @@ describe('cpo-v9: supplier prose is its own register', () => {
  * generated freely and derivation is generated only where it provably cannot
  * cross a trade.
  */
-describe('cpo-v10: inflection is generated, derivation is gated', () => {
+describe('cpo-v11: inflection is generated, derivation is gated by sector and position', () => {
   const matches = (haystack: string, term: string) => termIndex(haystack, term) >= 0
+
+  /** Every word of a deciding term, mapped to the families that use it. */
+  const wordOwners = (): Map<string, Set<string>> => {
+    const out = new Map<string, Set<string>>()
+    for (const family of FAMILIES) {
+      const walk = (node: Record<string, unknown>) => {
+        for (const tier of ['strong_terms', 'weak_terms'] as const) {
+          for (const term of (node[tier] as string[] | undefined) ?? []) {
+            for (const word of normalizeProcurementText(term).split(' ')) {
+              if (!word) continue
+              if (!out.has(word)) out.set(word, new Set())
+              out.get(word)!.add(family.id)
+            }
+          }
+        }
+        for (const child of ((node.categories as Record<string, unknown>[] | undefined) ?? []).concat(
+          (node.intents as Record<string, unknown>[] | undefined) ?? [],
+        )) {
+          walk(child)
+        }
+      }
+      walk(family as unknown as Record<string, unknown>)
+    }
+    return out
+  }
+
+  /** Multi-word Arabic terms, mapped to every family that carries them. */
+  const multiWordExemptions = (): Map<string, Set<string>> => {
+    const out = new Map<string, Set<string>>()
+    for (const family of FAMILIES) {
+      const walk = (node: Record<string, unknown>) => {
+        for (const tier of ['strong_terms', 'weak_terms'] as const) {
+          for (const term of (node[tier] as string[] | undefined) ?? []) {
+            const normalized = normalizeProcurementText(term)
+            if (normalized.split(' ').length < 2) continue
+            if (!/[\u0621-\u064A]/.test(normalized)) continue
+            if (!out.has(normalized)) out.set(normalized, new Set())
+            out.get(normalized)!.add(family.id)
+          }
+        }
+        for (const child of ((node.categories as Record<string, unknown>[] | undefined) ?? []).concat(
+          (node.intents as Record<string, unknown>[] | undefined) ?? [],
+        )) {
+          walk(child)
+        }
+      }
+      walk(family as unknown as Record<string, unknown>)
+    }
+    return out
+  }
 
   describe('INFLECTION — the sound feminine plural, which was missing', () => {
     // The most common plural formation in Arabic. It REPLACES the taa marbuta
@@ -2489,12 +2539,46 @@ describe('cpo-v10: inflection is generated, derivation is gated', () => {
   })
 
   describe('DERIVATION — the nisba, which is a new word and not a new form', () => {
-    it('refuses a bare material noun the adjective another trade owns', () => {
-      // «معدني» is metallic AND mineral; «أرضية» is flooring, not ground.
+    /**
+     * THE CLAIM THIS REPLACES, because how it was wrong is worth keeping.
+     *
+     * v10 declared a class-level close unreachable for derivation, on the
+     * strength of a symmetry: «معدن» → «معدني» correctly refused, «زجاج» →
+     * «زجاجي» wrongly refused, nothing structural between them. But bare
+     * «معدن» is not deciding vocabulary anywhere in the payload — it occurs
+     * once, as a context term — so the gate is never asked about it. The
+     * refusal the argument rested on does not happen.
+     *
+     * The correct claim is narrower and is a fact about the gate rather than
+     * about the level of description: THAT gate could not see the difference,
+     * because it discarded sector and position.
+     */
+    it('refuses a derivation that leaves the base sector', () => {
+      // «زجاج» is BUILDING_ENVELOPE; these owners are MEP_WATER and
+      // CIVIL_CONCRETE, which is exactly who a wrong RFQ would reach.
+      expect(matches('خزان ألياف زجاجية', 'زجاج')).toBe(false)
+      expect(matches('ألياف زجاجية', 'زجاج')).toBe(false)
+      // «شبك» is STRUCTURAL_METALS; «شبكي» is owned in DATACENTER_ICT.
+      expect(matches('فلتر شبكي', 'شبك')).toBe(false)
+      expect(matches('طابعة شبكية', 'شبك')).toBe(false)
+    })
+
+    it('allows a derivation that stays inside the sector as a modifier', () => {
+      // `glazing` and `thermal_insulation` are both BUILDING_ENVELOPE, and
+      // «زجاجي» is only ever a modifier there — «صوف زجاجي» is longer than
+      // «زجاج» and outscores it, so there was never a contest to lose. This is
+      // the single decision the sector signal changes, and it is the case v10
+      // declared unfixable.
+      expect(matches('صوف زجاجي', 'زجاج')).toBe(true)
+      expect(resolveOntology('صوف زجاجي').intent).toBe('mineral_wool_insulation')
+    })
+
+    it('refuses a derivation from a base the ontology does not carry', () => {
+      // The sector test asks who the base's trade neighbours are, and a word
+      // the payload does not carry has no trade to be adjacent to.
       expect(matches('ألواح جبس معدنية', 'معدن')).toBe(false)
       expect(matches('بلاط سقف مستعار ألياف معدنية 600x600', 'معدن')).toBe(false)
       expect(matches('أرضيات إيبوكسي صناعية', 'ارض')).toBe(false)
-      expect(matches('صوف زجاجي', 'زجاج')).toBe(false)
     })
 
     it('allows the nisba where one family owns both forms', () => {
@@ -2509,11 +2593,125 @@ describe('cpo-v10: inflection is generated, derivation is gated', () => {
      * where the neighbouring word was doing the disambiguating all along. In a
      * phrase the head has already pinned the trade.
      */
-    it('allows the nisba inside a phrase, where the head pins the trade', () => {
+    /**
+     * v10 justified this exemption by saying the head had already pinned the
+     * trade. That is false by construction in 142 multi-word terms whose head
+     * is owned by three or more families — «لوح» by seven. What actually
+     * protects them is the LENGTH TERM in `bestHit`'s score, and the corrected
+     * reason matters because it predicts a different failure: the exemption
+     * breaks when a foreign family adds a term at least as long as the
+     * exempted phrase, not when a head becomes generic.
+     */
+    it('allows the nisba inside a phrase, which length protects', () => {
       expect(matches('باب زجاجي سحاب', 'باب زجاج')).toBe(true)
       expect(resolveOntology('باب زجاجي سحاب (منزلق)').family).toBe('glazing')
-      // And the bare material still does not reach another trade's product.
-      expect(resolveOntology('صوف زجاجي').family).toBe('thermal_insulation')
+      // Real inflections of multi-word terms that a blanket gate would lose.
+      expect(matches('كمرة حديدية', 'كمره حديد')).toBe(true)
+      expect(matches('درابزين زجاجي', 'درابزين زجاج')).toBe(true)
+      expect(resolveOntology('خزان ألياف زجاجية').family).toBe('water_tanks')
+    })
+
+    /**
+     * THE PROTECTION, ASSERTED RATHER THAN EMERGENT. A guarantee that rests on
+     * a scoring constant is the same shape as the ratchet that turned out to be
+     * a comment, so this checks the property itself: for every multi-word term
+     * whose derivation is only permitted by the phrase exemption, the inflected
+     * line still resolves to a family that owns the term. It fails if someone
+     * adds a competing term long enough to beat the phrase.
+     */
+    it('holds the length advantage the phrase exemption depends on', () => {
+      const owners = wordOwners()
+      const losses: string[] = []
+      for (const [term, families] of multiWordExemptions()) {
+        const words = term.split(' ')
+        for (let i = 0; i < words.length; i++) {
+          const word = words[i]!
+          if (!/^[\u0621-\u064A]/.test(word) || word.endsWith('ي')) continue
+          for (const suffix of ['ي', 'يه']) {
+            const derived = `${word}${suffix}`
+            /**
+             * Only CONTESTED derivations are a risk. If no family carries the
+             * derived form there is no competing term to outscore, so the
+             * invariant is vacuous — and generating every possible suffix
+             * produces strings that are not Arabic at all («فحصي», «برايمري»),
+             * which test the proclitic rule by accident rather than this one.
+             */
+            const rivals = owners.get(derived)
+            if (!rivals || [...rivals].every((f) => families.has(f))) continue
+            const variant = [...words]
+            variant[i] = derived
+            const line = variant.join(' ')
+            if (termIndex(line, term) < 0) continue
+            const got = resolveOntology(line).family
+            if (got && !families.has(got)) losses.push(`«${term}» lost «${line}» to ${got}`)
+          }
+        }
+      }
+      expect(losses).toEqual([])
+    })
+  })
+
+  /**
+   * A generated plural that is also an ordinary word of an UNRELATED lexeme.
+   * The gate cannot see this — by the narrowed claim above, it compares
+   * ownership and sector, and a homograph looks like ordinary vocabulary from
+   * there. So the two known cases are listed in the payload, the same answer
+   * given to broken plurals.
+   */
+  describe('HOMOGRAPHS — the two known generated forms that are real words', () => {
+    it('refuses a plural that means something else entirely', () => {
+      expect(matches('درجات الحرارة', 'درج')).toBe(false) // degrees, not stairs
+      expect(matches('حجرات النوم', 'حجر')).toBe(false) // rooms, not stone
+      expect(matches('تكييف حجرات المرضى', 'حجر')).toBe(false)
+    })
+
+    it('leaves the base words working', () => {
+      expect(matches('درج خشبي', 'درج')).toBe(true)
+      expect(matches('حجر طبيعي', 'حجر')).toBe(true)
+      expect(matches('ألواح حجر', 'حجر')).toBe(true)
+    })
+
+    it('declares them in the payload with what they really mean', () => {
+      const payload = JSON.parse(
+        readFileSync(new URL('./procurementOntology.data.json', import.meta.url), 'utf8'),
+      ) as { morphology_rule?: { generated_form_exclusions?: Array<{ form: string; generated_from: string }> } }
+      const declared = payload.morphology_rule?.generated_form_exclusions ?? []
+      expect(declared.length).toBeGreaterThanOrEqual(2)
+      for (const entry of declared) {
+        expect(entry.form).toBeTruthy()
+        expect(entry.generated_from).toBeTruthy()
+      }
+    })
+  })
+
+  /**
+   * ITEM 3 — the collision was closed by FALLBACK, not by a correct answer.
+   * Mineral wool's Arabic name was missing while five English spellings were
+   * present, which is the language asymmetry class for the fourth time, this
+   * time in vocabulary rather than in morphology.
+   */
+  describe('VOCABULARY — the right answer has to exist, not just the wrong one absent', () => {
+    it('resolves mineral wool under its Arabic name', () => {
+      expect(resolveOntology('صوف معدني').intent).toBe('mineral_wool_insulation')
+      expect(resolveOntology('عزل صوف معدني').intent).toBe('mineral_wool_insulation')
+      expect(resolveOntology('صوف صخري').intent).toBe('mineral_wool_insulation')
+    })
+
+    it('resolves the bare material phrases in an insulation context', () => {
+      expect(resolveOntology('عزل ألياف معدنية').family).toBe('thermal_insulation')
+      expect(resolveOntology('عزل ألياف زجاجية').family).toBe('thermal_insulation')
+    })
+
+    /**
+     * Bare, they serve insulation, acoustic ceilings and admixtures, so
+     * abstaining is the correct answer rather than a missing one — and it is
+     * now deliberate, because the vocabulary exists at context tier.
+     */
+    it('still abstains on the bare material, and now by decision', () => {
+      expect(resolveOntology('ألياف معدنية').poolable).toBe(false)
+      expect(resolveOntology('ألياف زجاجية').poolable).toBe(false)
+      // The trades that own them specifically still answer.
+      expect(resolveOntology('بلاط سقف مستعار ألياف معدنية').intent).toBe('acoustic_ceiling_tile')
       expect(resolveOntology('خزان ألياف زجاجية').family).toBe('water_tanks')
     })
   })

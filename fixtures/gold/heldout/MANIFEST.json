@@ -1,0 +1,698 @@
+{
+ "component": "gold_set_component_4_fresh_heldout",
+ "drawn_at": "2026-09-17",
+ "source": "construction.items (production) — real vendor product lines, database-only, never available to any ontology lane",
+ "why_unseen": "ontology lanes work in the repository and have no database access; this vocabulary was never fittable",
+ "seed": 0.20260917,
+ "per_category_cap": 10,
+ "count": 120,
+ "category_distribution": {
+  "plumbing": 10,
+  "product": 10,
+  "standard-and-specialty-logic": 1,
+  "sanitary-ware": 10,
+  "lighting-transformers": 1,
+  "fiber-optic-network-infrastructure": 1,
+  "kitchen": 4,
+  "hdi-pcb": 1,
+  "pbx-systems": 1,
+  "blue-tarpaulin": 1,
+  "bathroom": 10,
+  "electrical": 10,
+  "deposit-lockers": 1,
+  "construction-adhesives-bonding": 1,
+  "tile-cutters-tools": 1,
+  "residential-lighting": 1,
+  "tiles-flooring": 5,
+  "fire-retardant-coatings": 1,
+  "rigid-pcb": 1,
+  "wi-fi-door-locks": 1,
+  "wood": 2,
+  "ready-mix-concrete": 1,
+  "smart-specialty-lighting": 1,
+  "aluminum-pcb": 1,
+  "bitumen-membranes-coatings": 1,
+  "hydrogen-energy": 1,
+  "indoor-air-quality-testing": 1,
+  "thermal-blocks": 1,
+  "palm-recognition-locks": 1,
+  "polished-porcelain": 1,
+  "hardware": 1,
+  "tile-sealers": 1,
+  "telephone-cords": 1,
+  "building-material": 5,
+  "tvs-diodes": 1,
+  "particle-boards": 1,
+  "tool-accessories-consumables": 1,
+  "flexible-pu-foam": 1,
+  "other-hardware": 1,
+  "insulation-testers": 1,
+  "clock-timing": 1,
+  "nickel-metal-hydride-batteries-ni-mh": 1,
+  "i-o-relay-module-and-racks": 1,
+  "paints": 1,
+  "wind-power-products": 1,
+  "solar-street-lights": 1,
+  "networks-and-interfaces": 1,
+  "ground-mounting-systems": 1,
+  "miniature-motors": 1,
+  "hardware-kitchen": 1,
+  "hearing-protection": 1,
+  "spill-control": 1,
+  "power-line-filter-modules": 1,
+  "glass-glazing-hardware": 1,
+  "coffee-makers": 1,
+  "concrete-bonding-agents": 1,
+  "signal-transformers": 1,
+  "tie-system": 1,
+  "pvc-fittings": 1,
+  "electrical-material": 1,
+  "led-driver-board-and-module": 1,
+  "wifi-finders": 1,
+  "energy-storage-system": 1
+ },
+ "plaintext_location": "$HOME/.farq-gold-heldout/heldout-2026-09-17.jsonl",
+ "plaintext_mode": "0600, directory 0700, outside the repository",
+ "manifest_hmac": "HMAC-SHA256, key at $HOME/.farq-gold-heldout/manifest-hmac.key, also outside the repository",
+ "may_read_plaintext": [
+  "the measuring/adjudicating lane, when not concurrently tuning"
+ ],
+ "may_read_aggregates_only": [
+  "ontology lane",
+  "API/Phase-2 lane",
+  "retriever+verifier lane"
+ ],
+ "redraw_required_after_measurements": 2,
+ "measured_count": 1,
+ "items": [
+  {
+   "id": "HELD-001",
+   "hmac": "25f49ac81abf09591fa3aaa86547138f",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-002",
+   "hmac": "8a97e77a31f52bbd048f0aef6048f4fc",
+   "category": "product"
+  },
+  {
+   "id": "HELD-003",
+   "hmac": "979d4cd73970b5010a9bbaf52ca6246b",
+   "category": "standard-and-specialty-logic"
+  },
+  {
+   "id": "HELD-004",
+   "hmac": "ec32912f7ec564cbcd74a9dae5258872",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-005",
+   "hmac": "8b5eeaf17e284dc03b01de4bfb9b04ca",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-006",
+   "hmac": "7740374c51b0551eb9ab9703c7b9face",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-007",
+   "hmac": "de0104dbe926ad562855b1bfbef3430a",
+   "category": "lighting-transformers"
+  },
+  {
+   "id": "HELD-008",
+   "hmac": "f892144937df6c0c777554435fd50699",
+   "category": "fiber-optic-network-infrastructure"
+  },
+  {
+   "id": "HELD-009",
+   "hmac": "f3f2855c3709c0689e2a663d66cf34eb",
+   "category": "kitchen"
+  },
+  {
+   "id": "HELD-010",
+   "hmac": "1b12f1ca80d0f24c5ef198bdb7b0da1e",
+   "category": "hdi-pcb"
+  },
+  {
+   "id": "HELD-011",
+   "hmac": "1d9ef26d977fd477343dc65a818ef252",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-012",
+   "hmac": "e67aaa7c1581630dd1f5c6f2b24feced",
+   "category": "product"
+  },
+  {
+   "id": "HELD-013",
+   "hmac": "723f7bedc40702ea3fde161887292782",
+   "category": "product"
+  },
+  {
+   "id": "HELD-014",
+   "hmac": "7f89d5ab6102f23cf537b6b3c1aed847",
+   "category": "pbx-systems"
+  },
+  {
+   "id": "HELD-015",
+   "hmac": "6f2dd56820d96359606e14d8d77fbbd3",
+   "category": "blue-tarpaulin"
+  },
+  {
+   "id": "HELD-016",
+   "hmac": "96d230b6697b1560eb1f9f8e23df63e4",
+   "category": "product"
+  },
+  {
+   "id": "HELD-017",
+   "hmac": "918f986b8f1e4ff41720c0923b45a88d",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-018",
+   "hmac": "2bdf982fdb91cce0ebfead290b37fe6c",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-019",
+   "hmac": "fbadb6c6c71066cd0430c9079d6fe733",
+   "category": "product"
+  },
+  {
+   "id": "HELD-020",
+   "hmac": "de453b307eb7783cfdb8a65fa788fb16",
+   "category": "deposit-lockers"
+  },
+  {
+   "id": "HELD-021",
+   "hmac": "2ef84ee618ee8702eac5513695b28b04",
+   "category": "construction-adhesives-bonding"
+  },
+  {
+   "id": "HELD-022",
+   "hmac": "341f86e49ffccbf4e782fd5e2f684bc9",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-023",
+   "hmac": "c975723e85889bb351832328845577f0",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-024",
+   "hmac": "aac5d15c4bef38fb2967a40766a24c30",
+   "category": "tile-cutters-tools"
+  },
+  {
+   "id": "HELD-025",
+   "hmac": "3a3769c7845c316232db81cfc2bfca95",
+   "category": "residential-lighting"
+  },
+  {
+   "id": "HELD-026",
+   "hmac": "30f90623d58b9bc3dbd49edaefc23e2f",
+   "category": "tiles-flooring"
+  },
+  {
+   "id": "HELD-027",
+   "hmac": "f800d9bb0213d97b965b440a92d33999",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-028",
+   "hmac": "65a58fe8047ca19df4e7a7e10b672a28",
+   "category": "fire-retardant-coatings"
+  },
+  {
+   "id": "HELD-029",
+   "hmac": "f9d9e4e276737b6f4ef71677a10ae6d4",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-030",
+   "hmac": "1b4ba1cae522468086c3e8ee850af6ce",
+   "category": "product"
+  },
+  {
+   "id": "HELD-031",
+   "hmac": "998f79761d26c4fa278f90e3ee1a618a",
+   "category": "rigid-pcb"
+  },
+  {
+   "id": "HELD-032",
+   "hmac": "b1bb9e11006c76076fa2c26c51c6fe6c",
+   "category": "wi-fi-door-locks"
+  },
+  {
+   "id": "HELD-033",
+   "hmac": "d30c9065857a21c857becc56da3bb40a",
+   "category": "wood"
+  },
+  {
+   "id": "HELD-034",
+   "hmac": "35d42e95ab244f333f5f3ea31ee77f4e",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-035",
+   "hmac": "2ea055c8c8b9355caa61d6fe02b8b188",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-036",
+   "hmac": "9f59f12d2e16d41f259db4069edd06a9",
+   "category": "ready-mix-concrete"
+  },
+  {
+   "id": "HELD-037",
+   "hmac": "c3a9a98fd1793105a2cbf0093697c739",
+   "category": "product"
+  },
+  {
+   "id": "HELD-038",
+   "hmac": "90f42da116116547baf18cbaa49d3463",
+   "category": "smart-specialty-lighting"
+  },
+  {
+   "id": "HELD-039",
+   "hmac": "8679e2ada57e208255445a1b746426c2",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-040",
+   "hmac": "1d6b7b0b8dcf03e2a169cf2141b5826d",
+   "category": "aluminum-pcb"
+  },
+  {
+   "id": "HELD-041",
+   "hmac": "4bc7a69409e833d46981fa76e29d97ea",
+   "category": "kitchen"
+  },
+  {
+   "id": "HELD-042",
+   "hmac": "82e26e2a025a9e6bedbfb9fd7d6bd5cc",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-043",
+   "hmac": "6c50077d423fa0d47fed5111536a6664",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-044",
+   "hmac": "cf511f56413061d5f55f50feefe5125b",
+   "category": "product"
+  },
+  {
+   "id": "HELD-045",
+   "hmac": "85fe6e636f7a2d7412241f347c305788",
+   "category": "bitumen-membranes-coatings"
+  },
+  {
+   "id": "HELD-046",
+   "hmac": "fac4ab4b540db56adeacab97f260fb31",
+   "category": "product"
+  },
+  {
+   "id": "HELD-047",
+   "hmac": "f6dfa8792a7766f1cbc01adc3a145479",
+   "category": "hydrogen-energy"
+  },
+  {
+   "id": "HELD-048",
+   "hmac": "654089b9a202c0b0bc8edea11d2ed496",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-049",
+   "hmac": "d0e4b0362cff61dc1d7f9a5d50004cb1",
+   "category": "indoor-air-quality-testing"
+  },
+  {
+   "id": "HELD-050",
+   "hmac": "cd5107d43175a08375e7e6bddca0b4e7",
+   "category": "product"
+  },
+  {
+   "id": "HELD-051",
+   "hmac": "3e740a9c3f0c2866a873a53045aebe36",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-052",
+   "hmac": "86e174d372339a576d85acd25e03a9fe",
+   "category": "thermal-blocks"
+  },
+  {
+   "id": "HELD-053",
+   "hmac": "95978f39429c5525224810de16899aa7",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-054",
+   "hmac": "763f848edaa8960b9fb208e9523b78cc",
+   "category": "palm-recognition-locks"
+  },
+  {
+   "id": "HELD-055",
+   "hmac": "011bd0db240b1c7adfd748432e0ad78b",
+   "category": "polished-porcelain"
+  },
+  {
+   "id": "HELD-056",
+   "hmac": "bc170aa91a4de489b189e5e7dab4a077",
+   "category": "hardware"
+  },
+  {
+   "id": "HELD-057",
+   "hmac": "cd4cf441db44184bf54d5d10851c6d01",
+   "category": "tile-sealers"
+  },
+  {
+   "id": "HELD-058",
+   "hmac": "1ed7b36e4b3106d96a310819a9eb42a7",
+   "category": "telephone-cords"
+  },
+  {
+   "id": "HELD-059",
+   "hmac": "ac8fc0967decb75c2d810f030d6b6cb6",
+   "category": "wood"
+  },
+  {
+   "id": "HELD-060",
+   "hmac": "3f52e6a1459d40aab168df17fea8d5d2",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-061",
+   "hmac": "7532fb29455210ddb420ee09f7c2de00",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-062",
+   "hmac": "5defe2518f4254f321ab1dc531db63eb",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-063",
+   "hmac": "87868776dcdc74712d083532b8e5209e",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-064",
+   "hmac": "5ce47faee25d24ea9aa4bdcdaf3c747b",
+   "category": "tiles-flooring"
+  },
+  {
+   "id": "HELD-065",
+   "hmac": "1aac85ece5c5625359be850a2f355c40",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-066",
+   "hmac": "a056aa7536ec43c2bfb5e9c519c676b6",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-067",
+   "hmac": "d41e2eea1b31d53e108a67a32aea0604",
+   "category": "building-material"
+  },
+  {
+   "id": "HELD-068",
+   "hmac": "71e13d4a29810a2815e8e4eac7d6be7c",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-069",
+   "hmac": "b56efcef87b68296844a035ac466d7ef",
+   "category": "kitchen"
+  },
+  {
+   "id": "HELD-070",
+   "hmac": "1d273d7797dacc1db6a57c2b5a017c59",
+   "category": "building-material"
+  },
+  {
+   "id": "HELD-071",
+   "hmac": "a0831718ac19a73554b6c1007dc7b4ff",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-072",
+   "hmac": "627133e0d3d645ef3ab4e65ddd139077",
+   "category": "tvs-diodes"
+  },
+  {
+   "id": "HELD-073",
+   "hmac": "1a9526648b704fb11b3b0ffee415e3f4",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-074",
+   "hmac": "06da312b7aaf4b17e657919b3fbf9a07",
+   "category": "particle-boards"
+  },
+  {
+   "id": "HELD-075",
+   "hmac": "4dc98263659ac7b24dbf16eb598b5cbe",
+   "category": "sanitary-ware"
+  },
+  {
+   "id": "HELD-076",
+   "hmac": "a1d1a33be0fa3c323e39c01c4aa42f06",
+   "category": "tool-accessories-consumables"
+  },
+  {
+   "id": "HELD-077",
+   "hmac": "bc7ad5d6b430b3a36af8fed200d2e630",
+   "category": "flexible-pu-foam"
+  },
+  {
+   "id": "HELD-078",
+   "hmac": "d9d29a2ca3a20ab60a01d137bc673808",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-079",
+   "hmac": "d0b4ba309cd7dcbe50be24d160e0cbfc",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-080",
+   "hmac": "9e515020957ed82f012a423a2629677a",
+   "category": "other-hardware"
+  },
+  {
+   "id": "HELD-081",
+   "hmac": "4bf0dc92fac9d3600da034dc374f3c28",
+   "category": "kitchen"
+  },
+  {
+   "id": "HELD-082",
+   "hmac": "f1ce7e4f9eb0664c9a3f22439d6700ae",
+   "category": "insulation-testers"
+  },
+  {
+   "id": "HELD-083",
+   "hmac": "b75b2f4d0e45a28baaffe51e7c9444fa",
+   "category": "clock-timing"
+  },
+  {
+   "id": "HELD-084",
+   "hmac": "93931112587d6e55a8de6d615b92c493",
+   "category": "nickel-metal-hydride-batteries-ni-mh"
+  },
+  {
+   "id": "HELD-085",
+   "hmac": "0848a9f67db83911ac05c496a8dc8e3a",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-086",
+   "hmac": "f817b086d376aac6e6b70aec4404f16e",
+   "category": "tiles-flooring"
+  },
+  {
+   "id": "HELD-087",
+   "hmac": "a4a75c0a3f428e350ae16544d524120b",
+   "category": "i-o-relay-module-and-racks"
+  },
+  {
+   "id": "HELD-088",
+   "hmac": "169e11bac068de7af6b1b500bccff91a",
+   "category": "paints"
+  },
+  {
+   "id": "HELD-089",
+   "hmac": "faf7849e84ecd1d3bd2d1744dbca4114",
+   "category": "wind-power-products"
+  },
+  {
+   "id": "HELD-090",
+   "hmac": "bbd43459045593a79704e4e45116b079",
+   "category": "solar-street-lights"
+  },
+  {
+   "id": "HELD-091",
+   "hmac": "250f6f1e0e280cc1b860cad32fd10150",
+   "category": "building-material"
+  },
+  {
+   "id": "HELD-092",
+   "hmac": "a44bf0834ad4651b43d52275aa6a46b2",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-093",
+   "hmac": "7107aba7848677a1859eb227e2624bf3",
+   "category": "networks-and-interfaces"
+  },
+  {
+   "id": "HELD-094",
+   "hmac": "408fd2e28263998324384a0c8ae84b1a",
+   "category": "ground-mounting-systems"
+  },
+  {
+   "id": "HELD-095",
+   "hmac": "8dc6eb10ab92555c86f9fd36c113a697",
+   "category": "miniature-motors"
+  },
+  {
+   "id": "HELD-096",
+   "hmac": "0779fdf41f90aa095f06edf6849bd695",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-097",
+   "hmac": "d42691f4c6bf0316c874a5b004eaff74",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-098",
+   "hmac": "d2bbeabb9a61d0f2b1be840deb2603e6",
+   "category": "plumbing"
+  },
+  {
+   "id": "HELD-099",
+   "hmac": "db2ab804cd8258d72e4dfce5ea9c18cf",
+   "category": "hardware-kitchen"
+  },
+  {
+   "id": "HELD-100",
+   "hmac": "a9fd410d86cb4b02c21a557bad55836c",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-101",
+   "hmac": "698a3d946e7d1733345e98505468b18c",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-102",
+   "hmac": "00c025b882a75c2598c59e46f69adc7f",
+   "category": "bathroom"
+  },
+  {
+   "id": "HELD-103",
+   "hmac": "8f494cd09926f8a5f5e8b5ea44714d18",
+   "category": "hearing-protection"
+  },
+  {
+   "id": "HELD-104",
+   "hmac": "9e8a4c5e1d6606305d7a606d32857ab7",
+   "category": "electrical"
+  },
+  {
+   "id": "HELD-105",
+   "hmac": "acb1b978c3649d52a1eec04e6bf0703c",
+   "category": "tiles-flooring"
+  },
+  {
+   "id": "HELD-106",
+   "hmac": "14ad3862e20e774f2f880f649b07bccd",
+   "category": "building-material"
+  },
+  {
+   "id": "HELD-107",
+   "hmac": "0627841976d3d1902ef4ad5ecf8a77a4",
+   "category": "spill-control"
+  },
+  {
+   "id": "HELD-108",
+   "hmac": "1aad0937c71bf67a65210a9e154b25be",
+   "category": "power-line-filter-modules"
+  },
+  {
+   "id": "HELD-109",
+   "hmac": "e982e931d2bf4f477c8b54371ec7f209",
+   "category": "glass-glazing-hardware"
+  },
+  {
+   "id": "HELD-110",
+   "hmac": "d34c1c9c821ea0da9f4d1ced95717447",
+   "category": "coffee-makers"
+  },
+  {
+   "id": "HELD-111",
+   "hmac": "9a1118c488704b675a52c8c6a1479850",
+   "category": "concrete-bonding-agents"
+  },
+  {
+   "id": "HELD-112",
+   "hmac": "31644bdf5fe49865c05c86244e2c8a2e",
+   "category": "signal-transformers"
+  },
+  {
+   "id": "HELD-113",
+   "hmac": "01c550d575e00634bed9659513a2a865",
+   "category": "tiles-flooring"
+  },
+  {
+   "id": "HELD-114",
+   "hmac": "c953a44ae22e19e1a145abb5ee2f787f",
+   "category": "tie-system"
+  },
+  {
+   "id": "HELD-115",
+   "hmac": "34bcc671897ffee1d4b7f6cff3f9768f",
+   "category": "pvc-fittings"
+  },
+  {
+   "id": "HELD-116",
+   "hmac": "2d293103613326f7d8b1d76e055f1a2c",
+   "category": "electrical-material"
+  },
+  {
+   "id": "HELD-117",
+   "hmac": "2b8ab000629d91f91e76694438fbfa9f",
+   "category": "led-driver-board-and-module"
+  },
+  {
+   "id": "HELD-118",
+   "hmac": "211db4d479a0ec0783e7cdb7b71b7bd4",
+   "category": "wifi-finders"
+  },
+  {
+   "id": "HELD-119",
+   "hmac": "6ddbfe99b6b5932d0246466c5d686140",
+   "category": "building-material"
+  },
+  {
+   "id": "HELD-120",
+   "hmac": "6f3eeed81ad389fcc0ffd3d2d621354b",
+   "category": "energy-storage-system"
+  }
+ ],
+ "measurements": [
+  {
+   "version": "cpo-v10",
+   "payload_sha16": "fafa97d20586ca1f",
+   "resolver_sha16": "d6a2d876af6757a6",
+   "at": "2026-09-17",
+   "by": "adjudication lane"
+  }
+ ]
+}

@@ -1,8 +1,16 @@
 diff --git a/fixtures/ontology/attribute-rule-conformance.json b/fixtures/ontology/attribute-rule-conformance.json
-index e49037f..e246809 100644
+index e49037f..8ed324c 100644
 --- a/fixtures/ontology/attribute-rule-conformance.json
 +++ b/fixtures/ontology/attribute-rule-conformance.json
-@@ -159,7 +159,7 @@
+@@ -1,5 +1,7 @@
+ {
+   "note": "Generated from src/lib/procurementOntology.ts by attributeRuleConformance.test.ts. The line resolver owns the attribute-clause rule; the API map builder must reproduce these answers.",
++  "ontology_version": "cpo-v10",
++  "reader_contract": "Compare ontology_version FIRST. If it differs from the payload you resolve against, these answers are from a different generation and any mismatch below is expected — resync, do not investigate. Only once the versions agree does a mismatch in `cases` mean the two implementations disagree about behaviour.",
+   "cases": [
+     {
+       "text": "وصلة PPR Elbow مقاس 50 مم ربط Solvent Cement",
+@@ -159,7 +161,7 @@
        "note": "ELV cable: a BOQ line, not a supplier quirk",
        "normalized": "كابل تيار خفيف 2x1 5",
        "term_index": 5,
@@ -11,7 +19,7 @@ index e49037f..e246809 100644
      },
      {
        "text": "أنظمة تيار خفيف",
-@@ -167,7 +167,7 @@
+@@ -167,7 +169,7 @@
        "note": "ELV systems",
        "normalized": "انظمه تيار خفيف",
        "term_index": 6,
@@ -20,7 +28,7 @@ index e49037f..e246809 100644
      },
      {
        "text": "معدات السلامة على الطرق مراقبة حركة المرور road safety equipment",
-@@ -184,6 +184,147 @@
+@@ -184,6 +186,147 @@
        "normalized": "alrashed building material steel metals wood rebar",
        "term_index": 40,
        "decides": false
@@ -537,7 +545,7 @@ index 0000000..3d918e2
 +
 +process.exit(failures ? 1 : 0)
 diff --git a/src/lib/attributeRuleConformance.test.ts b/src/lib/attributeRuleConformance.test.ts
-index cf73cef..0598cf2 100644
+index cf73cef..e14a0ce 100644
 --- a/src/lib/attributeRuleConformance.test.ts
 +++ b/src/lib/attributeRuleConformance.test.ts
 @@ -1,7 +1,7 @@
@@ -545,7 +553,7 @@ index cf73cef..0598cf2 100644
  import fs from 'node:fs'
  import path from 'node:path'
 -import { decideByTiers, normalizeProcurementText, termIndex } from './procurementOntology'
-+import { normalizeProcurementText, termDecidesIn, termIndex } from './procurementOntology'
++import { ONTOLOGY_VERSION, normalizeProcurementText, termDecidesIn, termIndex } from './procurementOntology'
  
  /**
   * THE ATTRIBUTE-CLAUSE RULE HAS ONE OWNER AND TWO READERS.
@@ -647,6 +655,64 @@ index cf73cef..0598cf2 100644
    }))
  
    it('publishes the rule as behaviour the supply side can be held to', () => {
+@@ -120,7 +186,22 @@ describe('attribute-clause rule conformance', () => {
+             note:
+               'Generated from src/lib/procurementOntology.ts by attributeRuleConformance.test.ts. ' +
+               'The line resolver owns the attribute-clause rule; the API map builder must reproduce these answers.',
+-            ontology_version: normalizeProcurementText('') === '' ? undefined : undefined,
++            /**
++             * WHICH GENERATION THESE ANSWERS BELONG TO.
++             *
++             * This was emitted as `undefined` and it cost the supply lane a
++             * false alarm: a v10 fixture checked against a v9 port reported a
++             * DIVERGENCE when what it had found was a VERSION GAP. The two need
++             * opposite reactions — a gap means resync, a divergence means one
++             * side has a bug — and a detector that can cry wolf is one that
++             * gets disbelieved, at which point it has stopped detecting.
++             */
++            ontology_version: ONTOLOGY_VERSION,
++            reader_contract:
++              'Compare ontology_version FIRST. If it differs from the payload you resolve against, ' +
++              'these answers are from a different generation and any mismatch below is expected — resync, ' +
++              'do not investigate. Only once the versions agree does a mismatch in `cases` mean the two ' +
++              'implementations disagree about behaviour.',
+             cases: produced,
+           },
+           null,
+@@ -130,9 +211,33 @@ describe('attribute-clause rule conformance', () => {
+     }
+     expect(fs.existsSync(FIXTURE), `${FIXTURE} missing — regenerate with UPDATE_CONFORMANCE=1`).toBe(true)
+     const recorded = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'))
++
++    /**
++     * The generation is checked BEFORE the answers, so the two failure modes
++     * are never confused for each other. A stale stamp is a bookkeeping error
++     * on this side; a behaviour change with a current stamp is a real move that
++     * the supply side has to be told about.
++     */
++    expect(
++      recorded.ontology_version,
++      `fixture was recorded under ${recorded.ontology_version} and the resolver is ${ONTOLOGY_VERSION} — ` +
++        'a GENERATION GAP, not a behaviour divergence. Regenerate with UPDATE_CONFORMANCE=1.',
++    ).toBe(ONTOLOGY_VERSION)
+     expect(recorded.cases).toEqual(produced)
+   })
+ 
++  /**
++   * The stamp is the mechanism, so it is tested rather than assumed. An
++   * unstamped fixture reads as current to anyone who consumes it, which is
++   * exactly how a version gap gets reported as a divergence.
++   */
++  it('stamps the generation it was recorded under', () => {
++    const recorded = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'))
++    expect(recorded.ontology_version).toBeTypeOf('string')
++    expect(recorded.ontology_version).toMatch(/^cpo-v\d+$/)
++    expect(recorded.reader_contract).toContain('different generation')
++  })
++
+   it('suppresses a term that starts inside an attribute clause', () => {
+     expect(decides('وصلة PPR Elbow مقاس 50 مم ربط Solvent Cement', 'solvent')).toBe(false)
+     expect(decides('VCD Opposed Blade مادة Aluminium', 'aluminium')).toBe(false)
 diff --git a/src/lib/procurementOntology.data.json b/src/lib/procurementOntology.data.json
 index a84f71c..c215125 100644
 --- a/src/lib/procurementOntology.data.json

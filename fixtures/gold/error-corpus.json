@@ -1,0 +1,201 @@
+{
+  "_comment": "Component 3 of the Gold Set. Every item that caused a real error in v4..v10, each carrying the generation that broke it and the generation that fixed it, so a regression is identifiable by name rather than by a count moving. `must_not` is the assertion that actually matters: these lines are here because of where they WENT, not only because of where they should go.",
+  "items": [
+    {
+      "id": "ERR-01",
+      "line": "رشاش ري بلاستيك",
+      "en": "plastic irrigation head",
+      "expect_family": "irrigation_systems",
+      "must_not_family": "fire_fighting",
+      "must_not_reason": "irrigation head sold as a fire sprinkler — the inversion that sent an RFQ for landscape parts to a fire-protection contractor",
+      "broke_in": "cpo-v4",
+      "fixed_in": "cpo-v5",
+      "fully_closed_in": "cpo-v7",
+      "closure_note": "v5 fixed the resolution; the guard was still bypassable through the lexicon path until v7 routed it through bestHit",
+      "class": "cross_trade_inversion"
+    },
+    {
+      "id": "ERR-02",
+      "line": "رشاش حريق",
+      "en": "fire sprinkler",
+      "expect_family": "fire_fighting",
+      "expect_level": "A",
+      "broke_in": "cpo-v4",
+      "fixed_in": "cpo-v5",
+      "class": "missing_specific_intent",
+      "note": "the other half of the inversion: the Arabic fire sprinkler did not reach a specific intent at all"
+    },
+    {
+      "id": "ERR-03",
+      "line": "حديد تسليح قطر 16 مم",
+      "en": "16mm reinforcement steel",
+      "expect_family": "rebar_mesh",
+      "must_not_family": "ready_mix_concrete",
+      "must_not_reason": "reinforcement steel resolving as ready-mix concrete — a batching plant cannot supply rebar",
+      "broke_in": "cpo-v4",
+      "fixed_in": "cpo-v5",
+      "class": "cross_trade_inversion"
+    },
+    {
+      "id": "ERR-04",
+      "line": "خزان الياف زجاجيه",
+      "en": "fibreglass (GRP) water tank",
+      "expect_family": "water_tanks",
+      "must_not_family": "concrete_admixtures",
+      "must_not_reason": "the fibreglass tank reaching a concrete-admixture supplier, because «ألياف زجاجية» is also glass fibre for concrete",
+      "broke_in": "cpo-v5",
+      "fixed_in": "cpo-v10",
+      "class": "shared_material_word",
+      "note": "closed in v10 by removing the «زجاج» -> «ألياف زجاجية» suffix reach; verified on this line, not on the term list"
+    },
+    {
+      "id": "ERR-05",
+      "line": "مواسير مرنه لتمديد الكابلات الكهربائيه",
+      "en": "flexible conduit for electrical cable runs",
+      "expect_family": "electrical_conduit_trunking",
+      "must_not_family": "power_cables",
+      "must_not_reason": "conduit resolving as cable — the error that became MORE confident at A@0.90 in v5 before the attribute-clause rule",
+      "broke_in": "cpo-v4",
+      "worsened_in": "cpo-v5",
+      "fixed_in": "cpo-v6",
+      "class": "attribute_clause",
+      "note": "«لتمديد الكابلات» is an attribute clause describing the conduit, not naming a cable"
+    },
+    {
+      "id": "ERR-06",
+      "line": "نظام التحكم بالابواب",
+      "en": "door control system",
+      "expect_family": "physical_security",
+      "must_not_intent": "turnstile_gate",
+      "must_not_reason": "a door access-control system resolving as a turnstile — different product, different supplier",
+      "broke_in": "cpo-v6",
+      "fixed_in": "cpo-v7",
+      "class": "over_specific_intent"
+    },
+    {
+      "id": "ERR-07",
+      "line": "قاطع 32 امبير عزل مزدوج",
+      "en": "32A double-insulated circuit breaker",
+      "expect_family": "switchgear_panels",
+      "must_not_family": "thermal_insulation",
+      "must_not_reason": "«عزل» in the breaker guard's block_any collides with insulation vocabulary, demoting a legitimate double-insulated breaker",
+      "broke_in": "cpo-v8",
+      "fixed_in": null,
+      "class": "guard_vocabulary_collision",
+      "open": true,
+      "note": "OPEN as of v10. Recommended fix recorded in the v8 adjudication: replace the sloppy «عزل» with an isolator-specific term."
+    },
+    {
+      "id": "ERR-08",
+      "line": "باب خشب",
+      "en": "wood door (non-nisba form)",
+      "expect_family": "wood_panels_joinery",
+      "expect_intent": "wooden_door",
+      "broke_in": "cpo-v6",
+      "fixed_in": "cpo-v7",
+      "class": "inflection_missing",
+      "pair_with": "ERR-09"
+    },
+    {
+      "id": "ERR-09",
+      "line": "باب خشبي",
+      "en": "wood door (nisba form) — must resolve identically to ERR-08",
+      "expect_family": "wood_panels_joinery",
+      "expect_intent": "wooden_door",
+      "broke_in": "cpo-v6",
+      "fixed_in": "cpo-v7",
+      "class": "inflection_missing",
+      "assert_same_as": "ERR-08"
+    },
+    {
+      "id": "ERR-10",
+      "line": "بلوك اسمني مفرغ",
+      "en": "hollow cement block, misspelled «اسمني»",
+      "expect_family": "masonry_blocks",
+      "broke_in": "cpo-v7",
+      "fixed_in": "cpo-v8",
+      "class": "adjacency_and_misspelling",
+      "note": "closed by removing the adjacency requirement between «بلوك» and «مفرغ», so any adjective or misspelling between them is tolerated — rather than by adding «اسمني» to the vocabulary",
+      "pair_with": "ERR-11"
+    },
+    {
+      "id": "ERR-11",
+      "line": "بلوك اسمنتي مفرغ",
+      "en": "hollow cement block, correct spelling — must resolve identically to ERR-10",
+      "expect_family": "masonry_blocks",
+      "broke_in": "cpo-v7",
+      "fixed_in": "cpo-v8",
+      "class": "adjacency_and_misspelling",
+      "assert_same_as": "ERR-10"
+    },
+    {
+      "id": "ERR-12",
+      "line": "لوحه توزيع كهربائيه",
+      "en": "electrical distribution board, singular",
+      "expect_family": "switchgear_panels",
+      "broke_in": null,
+      "fixed_in": "cpo-v10",
+      "class": "sound_plural",
+      "pair_with": "ERR-13"
+    },
+    {
+      "id": "ERR-13",
+      "line": "لوحات توزيع كهربائيه",
+      "en": "electrical distribution boards, sound feminine plural — must resolve identically to ERR-12",
+      "expect_family": "switchgear_panels",
+      "broke_in": "pre-cpo-v10",
+      "fixed_in": "cpo-v10",
+      "class": "sound_plural",
+      "assert_same_as": "ERR-12",
+      "note": "the plural was unreachable before v10 unless hand-listed; «لوح» sheet and «لوحة» board were two collisions pointing at each other"
+    },
+    {
+      "id": "ERR-14",
+      "line": "الياف معدنيه",
+      "en": "mineral fibre (rock wool insulation)",
+      "expect_family": "thermal_insulation",
+      "must_not_family": "interior_systems",
+      "must_not_reason": "«معدني» read as METAL when it means MINERAL — a within-family-department error no cross-trade sweep can see",
+      "broke_in": "cpo-v6",
+      "fixed_in": "cpo-v10",
+      "class": "polysemous_material",
+      "open": true,
+      "current_behaviour": "resolves to NOTHING rather than wrongly — safe, but the correct answer is unreachable because mineral wool's Arabic name is not in thermal_insulation's vocabulary",
+      "note": "This entry stays OPEN until the vocabulary gap is filled. Scoring it as a pass because it stopped being wrong would let a fallback masquerade as a fix."
+    },
+    {
+      "id": "ERR-15",
+      "line": "بلاطه سقف معدني",
+      "en": "metal ceiling tile",
+      "expect_family": "interior_systems",
+      "expect_intent": "metal_ceiling",
+      "must_not_family": "thermal_insulation",
+      "must_not_reason": "the metal ceiling tile going to a mineral-wool distributor instead of a metal former — the mirror image of ERR-14",
+      "broke_in": "cpo-v5",
+      "fixed_in": "cpo-v6",
+      "class": "polysemous_material"
+    },
+    {
+      "id": "ERR-16",
+      "line": "باب زجاجي سحاب",
+      "en": "sliding glass door",
+      "expect_family": "glazing",
+      "broke_in": "cpo-v10-candidate",
+      "fixed_in": "cpo-v10",
+      "class": "derivation_gate_overreach",
+      "note": "never shipped broken: the derivation gate refused «زجاج» -> «زجاجي» and cost this line its family, moving booklet confident-wrong to 1.47%. Kept in the set because it is the regression the phrase exemption exists to prevent, and because a sector+position signal reaches it without the exemption."
+    },
+    {
+      "id": "ERR-17",
+      "line": "صوف زجاجي",
+      "en": "glass wool insulation",
+      "expect_family": "thermal_insulation",
+      "expect_intent": "mineral_wool_insulation",
+      "must_not_family": "glazing",
+      "must_not_reason": "glass wool being claimed by a glazier because both are «زجاج»",
+      "broke_in": "cpo-v7",
+      "fixed_in": "cpo-v10",
+      "class": "shared_material_word"
+    }
+  ]
+}

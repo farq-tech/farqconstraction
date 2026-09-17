@@ -2429,6 +2429,144 @@ v8 مرّرت ادّعاءات المورِّدين عبر قاعدة الشرط
 0.00%**.
 
 
+# `cpo-v11` — الإشارة القطاعية، وثلاثة تصحيحات لسِجلّ v10 (2026-09-17)
+
+| | |
+|---|---|
+| الناتج | حِزمة `dfb34f19c807563f`، مُحلِّل `a3e96860aa9aedb6`، إصدار `cpo-v11` |
+| الرقعة | `.handoff/cpo-v11-sector-signal-and-mineral-vocabulary.patch` |
+| الاختبارات | 472 ناجحاً |
+| المذكّرة | `.handoff/CPO_V11_SECTOR_SIGNAL_AND_MINERAL_VOCABULARY_2026_09_17.md` |
+| **الهدف للنشر** | **ليس v11 — بل v10.** v11 مُجمَّدٌ ومُتحقَّقٌ من أصله، ويُنتظر |
+
+## 1) المثال المركزي لم يكن موجوداً — إقرارٌ لا جدال
+
+«معدن» مجرّدةً **ليست مفردةً حاكمة** في الحِزمة: ترد مرّةً واحدة، مصطلحَ سياقٍ في
+`welding_equipment`، ومصطلحات السياق لا تحكم وحدها. فالبوّابة **لا تُسأل** عنها قطّ، وخللُ
+الألياف المعدنية كان **تصادماً بين صورتين مُدرَجتين** لا اشتقاقاً رفضته البوّابة. وبرهان
+v10 قارن رفضاً واقعاً برفضٍ لا يقع.
+
+والأسوأ في هذا أنّ الدليل كان بيدي: مِجَسُّ فهرس الكلمات قال إنّ «معدن» ليست مفردة، ثم
+بُني الاستدلال على مِجَسّ التثبيت. **الشاهد المُناقض كان حاضراً ولم أدَعه يُغيِّر الحكم.**
+
+فالدعوى تُضيَّق في الحِزمة نفسها، من قولٍ في مستوى الوصف إلى واقعةٍ في هذه الأداة:
+
+> ~~لا قاعدة بنيويّة ترى تعدُّد المعنى.~~
+> **تلك البوّابة لم تكن ترى الفرق، لأنها أسقطت القطاع والموضع. وكلتا الإشارتين كانت في
+> الفهرس أصلاً.**
+
+## 2) الإشارة — مُعتمَدة، وسببُ الاعتماد ليس القياس
+
+| | |
+|---|---|
+| قرارات البوّابة المتغيّرة | **1 من 17** — «زجاج» ← «زجاجي»، وهي التي أُعلن تعذُّرها |
+| تصادمٌ مُضاف | **1** — «زجاج» تصل «صوف زجاجي»، حميدٌ على مستوى السطر |
+| المجموع | v9 **67** ← v10 **41** ← v11 **42** |
+| بنود الكرّاسة المتحرّكة | **0 من 68** |
+| صفوف المحجوز المتحرّكة | **0 من 183,942**، بتطابق SHA256 للملفّ كاملاً |
+
+**حالةٌ واحدة مختلفة ليست برهاناً على السعة، ولستُ أعتمدها على القياس.** الذي يُصحِّح
+الاعتماد أنّ البوّابة كانت **تحكم في 17 من 1,376 اشتقاقاً وتُمرِّر 1,359 بلا دليلٍ
+أصلاً**. بوّابةٌ تغطّي 1.2% ليست سوراً، بل سياجٌ على الموضع الوحيد الذي وُجد فيه دليل.
+وتحسينُ السبعة عشر لا يمكن أن يُكلِّف ما تُفرِّط فيه الألف والثلاث مئة والتسع والخمسون
+سلفاً. **التفاوت بين ما تفحصه البوّابة وما تُجيزه هو الحُجّة، لا الحالة المقيسة.**
+
+- **القطاع**: المالكُ الغريب في قطاع الأساس **جارُ مهنة**. «الزجاج» و«العزل الحراري» كلاهما
+  `BUILDING_ENVELOPE`، فحملُ «صوف زجاجي» لـ«زجاجي» لا يُشبه خسارة `rebar_mesh` لـ«شبكي»
+  لصالح `DATACENTER_ICT` — وهذا بالضبط مَن يبلغه طلبُ عرضٍ خاطئ. والإشارة تفصل الحالتين
+  اللتين أوجعتا المالك: «زجاجي» تبقى داخل القطاع فتُجاز، و«زجاجية» تعبُر إلى `MEP_WATER`
+  و`CIVIL_CONCRETE` فتبقى مرفوضة. **إشارةٌ واحدة، وجوابان.**
+- **الموضع**: إن استعملت العائلةُ الغريبة الصورةَ **رأساً** فالتنازع مباشر. وإن لم
+  تستعملها إلا **وصفاً** فمصطلحها أطول ويتقدّم على الأساس المجرّد، فلا تنازع أصلاً.
+- **الأساس المجهول**: يُرفض، وبسببٍ يُقال الآن لا بحذر: اختبارُ القطاع يسأل مَن جيران
+  الأساس، ومَن لا تحمله الحِزمة لا جيرانَ له. وبهذا يبقى «أرض» خارج «أرضيات» و«معدن»
+  خارج «معدنية» **بالقاعدة**.
+
+**والخطر الموروث يُسمّى**: نصفُ الإشارة القطاعيّ بجودة تصنيف القطاعات نفسه. فعائلةٌ
+مُصنَّفةٌ في غير قطاعها تصبح صامتةً جارَ مهنةٍ لمهنةٍ ليست لها.
+
+## 3) الإعفاء الطوري — صوابٌ بسببٍ خاطئ، والسبب صُحِّح
+
+«الرأس قد ثبّت المهنة» **باطلٌ بالبناء** في 142 مصطلحاً رأسُها مملوكٌ لثلاث عائلاتٍ أو
+أكثر، و«لوح» لسبع. والذي يحمي فعلاً هو **حدُّ الطول في التقييم**:
+
+```
+score = (inHead ? 1000 : 300) - index * 2 + normalized.length * 3
+```
+
+و`normalized` هو **المصطلح** لا السطر. فعلى «باب زجاجي» يتقدّم «باب زجاج» (٩ محارف) على
+«باب» غريبةً مجرّدة (٤). **والسببُ المُسجَّل الخاطئ يتنبّأ بنمط فشلٍ خاطئ**، فيرقُب المُراقب
+الكمّيةَ الخطأ حين يقع الفشل. والفشلُ الحقيقي: عائلةٌ غريبةٌ تُضيف مصطلحاً **لا يقصر** عن
+الطور المُعفى.
+
+وثلاثةٌ فُعلت لا واحد: تصحيحُ السبب؛ ورفضُ الحالة الوحيدة التي لا يُنجيها الطول صراحةً
+(ملكيةُ الصورة **رأساً**، إذ مكافأةُ الرأس 700 تطغى على أي فرق طول)؛ و**اختبارٌ يُثبت
+علاقة الطول** على كل اشتقاقٍ متنازَعٍ، لأنّ ضماناً يقوم على ثابتٍ في التقييم هو عينُ شكل
+السقّاطة التي كانت تعليقاً.
+
+**ولم يُرفع الإعفاء، والسبب مقيس**: تعميمُ البوّابة على كل كلمة يُفقد **133 من 8,064** صورةً
+مُصرَّفةً لمصطلحاتٍ مركّبة، وبعضها عربيٌّ سائر: «كمرة حديدية»، «درابزين زجاجي».
+
+## 4) الفجوة المُعجميّة — الصنف اللغويّ للمرّة الرابعة
+
+بلّغت الحارةُ أنّ «ألياف معدنية» و«ألياف زجاجية» لا تُحلّان. وبالفحص: **«صوف معدني» —
+الاسمُ العربيّ المباشر لِما تُسمّى به النيّة نفسها — لا يُحلّ كذلك.** والنيّةُ اسمها
+`mineral_wool_insulation` وتحمل خمس صياغاتٍ إنجليزية (`mineral wool`, `stone wool`,
+`rockwool`, `glasswool`, `glass wool`) وعربيّتين («صوف صخري»، «صوف زجاجي») — **وتُعدم اسم
+المنتَج بالعربية.**
+
+فهذه ليست فجوةً جديدة، بل **الظهورُ الرابع للصنف الذي سمّاه المالك ثلاثاً** — «باب
+خشب/خشبي»، «اسمني/اسمنتي»، «امبير» غائبةً و`a` حاضرة — وهذه المرّة في **المعجم لا في
+التصريف**، ولذلك لم يبلغها عملُ التصريف.
+
+| السطر | v10 | v11 |
+|---|---|---|
+| «صوف معدني» | **لا شيء** | `mineral_wool_insulation` A@0.90 |
+| «عزل ألياف معدنية» | لا شيء | `thermal_insulation` B@0.82 |
+| «ألياف معدنية» مجرّدة | لا شيء | **تمتنع — بقرار** |
+| «خزان ألياف زجاجية» | `water_tanks` | كما هي |
+| «سقف مستعار صوف صخري» | `acoustic_ceiling_tile` | كما هي |
+
+«صوف معدني» **مصطلحٌ قويّ**، فصوفُ المعادن منتَجٌ واحد لا مادّةٌ تخدم ثلاث مهن. وأطوارُ
+المادة المجرّدة **مصطلحاتُ سياق**، لأنّ «ألياف معدنية» تخدم حقّاً العزلَ والأسقفَ
+والإضافاتَ الخرسانية — فالامتناعُ **جوابٌ صحيح** لا جوابٌ غائب. والفرق الذي يُحدثه v11 أنّ
+الامتناع صار **مقصوداً**: المفردةُ موجودة، وثلاثُ مهنٍ تملكها، فلا شيء يحكم. وقبلَه كان
+يمتنع لأنّ المحرّك لم يسمع بالمادة قطّ. **والاثنان يتشابهان في تقرير التغطية ولا يتشابهان
+في الحقيقة.**
+
+## 5) الصورتان المُشتركتان — استُثنيتا صراحةً
+
+«درجات» (من «درج») و«حجرات» (من «حجر») مُعلَنتان في
+`morphology_rule.generated_form_exclusions` بمعناهما الحقيقي، والمُحلِّل **يقرأ** القائمة
+لا يحمل نسخةً منها. والخمولُ كان **مقيساً** (0 من 909 صورةً في 184,010 سطراً) لكنّ
+الأمانَ كان يقوم على **غيابها من مُدوَّنةٍ واحدة** وعلى امتناع النظام أن يحكم بمصطلحٍ ضعيفٍ
+مجرّد — لا على استحالة المطابقة. والاستثناءُ لا القاعدة، لأنّ البوّابة تقارن الملكيّة
+والقطاع، والمُشترَكُ اللفظيّ لا يتميّز عن المفردة العاديّة في ذلك المستوى: **واقعةٌ في
+الألفاظ لا علاقةٌ تُرمِّزها الأنطولوجيا**، وهو جوابُ الجمع المُكسَّر نفسه. ويُلاحظ أنّ هذا
+يتّسق مع الدعوى **المُضيَّقة** في (1) وكان يناقض الدعوى الواسعة.
+
+## 6) حكمُ v10، وحدُّ المُدوَّنات
+
+**v10 إصلاحُ سلامةٍ بنيويّة لا تحسينُ دقّةٍ للأسطر القصيرة.** لا يتحرّك 0 من 319 سطراً
+قصيراً في الأرشيف ولا 0 من 68 بنداً في الكرّاسة. فالنفعُ حقيقيٌّ في الميكانيكا و**كامنٌ
+غيرُ مُتحقَّقٍ** في السلوك.
+
+> **ولا مُدوَّنةٌ نملكها تصلح للحكم في تغييرٍ تصريفيّ.** 184,010 سطراً تحمل **2,874 رمزاً
+> مميّزاً فقط**. وتطابقُ المحجوز بايتاً ببايت من v6 إلى v11 دليلُ **عمى الأرشيف** عن بناء
+> الكلمة، لا دليلُ سلامة البناء. والإصدارُ القادم سيُغرى بالاحتجاج بالثبات؛ وهو ليس
+> برهاناً بل **غيابُ قياس**. وهذا مُسجَّلٌ في الحِزمة نفسها لِيُسافر مع الأداة.
+
+## 7) v11 يُنتظر حتى ينزل v10 إلى الإنتاج
+
+**لا يُنقل الهدف.** وأسبابُه في التسلسل لا في جودة v11: الحِزمة تغيّرت فيلزم بناءُ خريطةٍ
+ثانية؛ ومكاسبُ v11 غيرُ قابلةٍ للقياس على ما نملك؛ وv6 ← v10 أكبرُ قفزةٍ سلوكيّةٍ خاضها
+المحرّك فإضافةُ تخفيفِ البوّابة إليها تُصعِّب العزو. والوحدةُ غيرُ القابلة للتقسيم كما هي:
+الحِزمة والمُحلِّل والتثبيت المُضمَّن والمنفذ الإنتاجيّ تتحرّك معاً.
+
+والبندُ الوحيد الذي وراءه مستخدمٌ حقيقيّ هو معجمُ (4): «صوف معدني» سطرٌ قد يكتبه المالك
+غداً، وهو قابلٌ للفصل (ثلاثُ مفرداتٍ بلا تغييرٍ في المُحلِّل). **ولا أنصح به** — فشطرُ
+حِزمةٍ مُجمَّدة هو كيف تبدأ سلاسلُ الإصدارات تعني شيئين.
+
 # جانب العرض — مزامنة `cpo-v7`، وإعادة البناء، وأثر رفع الراية
 
 ## 1) القواعد الثلاث — مُزامَنة، وحُزمة المطابقة 34/34
@@ -2738,3 +2876,146 @@ TAKEN, not computed»). لكن `ontology_resolution` يظهر **في موضع ا
 الاختبارات: **56/56** في طريق القراءة والاتحاد. و22 فشلاً في المجموعة الكاملة،
 **صفر** منها يمسّ هذا الطريق — تحقّقت آلياً: لا أحد من الـ13 ملفاً الفاشلاً يذكر
 `attachBoqDirectoryMatching` أو الخريطة.
+
+---
+
+## cpo-v10 pairing, the three fingerprints, and Gate A (2026-09-17)
+
+### The versioning was over-coupled; it is now three hashes, one of which has authority
+
+`ontology_version` was carrying three unrelated jobs under one name, so a
+change to how a BOQ **line** is read invalidated a supplier map that had
+nothing to do with it. Split:
+
+| fingerprint | what feeds it | may reject a map? |
+|---|---|---|
+| `request_resolver_version` | compiled surface of every term, BOQ clause vocabulary, declared rule generation | no |
+| `intent_contract_hash` | family / category / intent ids and their relations | no |
+| `supplier_mapping_hash` | compiled surface of every term that can earn a row, supplier terms, negative terms, preferred/allowed archetypes, hard & soft conflicts, exceptions, guards, pool-affecting facets, archetype patterns, supplier clause register | **yes, and only this one** |
+
+The invariant is now `supplier_mapping_hash === supplier_map.supplier_mapping_hash`,
+else fail closed. A map built at v9 stays servable while the request resolver
+moves to v10 — *provided the membership rules did not move with it*.
+
+**Morphology is not filed under the request side by category, because that
+would be false.** The builder matches supplier text with the same compiled
+patterns the demand side uses, so a morphology change can move membership.
+It enters `supplier_mapping_hash` through its **effect**: what is hashed is
+the compiled surface of every term that can earn a row.
+
+**Measured for v9 → v10:** 99 of 1,121 multi-word Arabic supplier-side terms
+gained a surface form (8.8%) — «درابزين زجاج» now also reaching «درابزين
+زجاجي», which is `handrail_balustrade`, one of the nine. So **this rebuild
+was required**, by measurement rather than by label. A future rule change
+touching none of them will leave the hash still and require nothing.
+
+`supplier_mapping_hash` also feeds `source_fingerprint`, after rows built
+minutes earlier under different matching were reported `skipped_unchanged`:
+the value that decides whether a row may be **served** must also decide
+whether it needs **recomputing**.
+
+### Line → canonical_intent_id: server re-resolution, not a signed association
+
+The membership check bounded a **forged** intent. It did not bound a **valid**
+intent attached to the wrong line — `socket_outlet` sent for a door passed
+every check. Chosen shape: **the server resolves the line itself.**
+
+Whoever mints a signed association must have resolved the line to know what
+to sign. Mint on the server and the signature is redundant; mint in the
+browser and it proves only that the browser said it. A signature *moves* the
+trust boundary; re-resolution *removes* it. Cost measured at **1.79 ms/line**
+(~110 ms for a 60-line RFQ).
+
+Where it lands: `lib/construction/line-intent-authority.js`. With a paired
+resolver the answer is `SERVER_RESOLVED` and the wire is an observation
+(`claim_disagreed` is recorded, never obeyed). With none it is
+`WIRE_UNVERIFIED` — the claim is still used, because refusing it returns
+coverage to the API's own vocabulary, but it is labelled so nothing can mistake
+"the server worked this out" for "someone told us". **Preview may ship on
+`WIRE_UNVERIFIED`; Suggestions may not be called trustworthy until the
+resolver bundle is vendored.**
+
+### Gate A — every item of the real RFQ (60 items, rfq 225da737)
+
+port `cpo-v10` · rules `cpo-v10` · `supplier_mapping_hash 96046b41d2b96b40`
+
+| figure | value |
+|---|---|
+| total items | 60 |
+| items returning ≥ 1 supplier | 29 |
+| items returning zero | 31 |
+| mean supplier count | 28.4 |
+| median supplier count | 0 |
+| items showing a supplier inappropriate for the material | **0** |
+| items served by the map (union) | 17 |
+
+**The nine, all fixed** — each returns a full page of 100, and the first
+suppliers are visibly right:
+
+| intent | shown | first supplier |
+|---|---|---|
+| `socket_outlet` | 100 | ftc.com.sa — «مخرج سخان» |
+| `ventilation_opening` | 100 | أدوات الفرسان تكييف وتبريد |
+| `stone_slab` | 100 | أفضل مورد للرخام والجرانيت |
+| `wc_sanitaryware` | 100 | أبيات نجد للأدوات الصحية |
+| `mineral_wool_insulation` | 100 | مصنع الخليج للعوازل الزجاجية |
+| `cement_render` | 100 | رمل احمر ورمل لياسه ابيض |
+| `handrail_balustrade` | 100 | القاسم المنيوم حديد دربزين |
+| `car_park_shade` | 100 | مظلات سيارات قماش |
+| `gypsum_board` | 100 | شركة جودة الصناعية |
+
+`ZERO_BECAUSE_MAPPING_BROKEN` = **0**. All 31 zeros are
+`ZERO_BECAUSE_NO_CONFIRMED_SUPPLIER`, every one `FAMILY_ONLY` or `UNRESOLVED`
+— the resolver named the trade but not the product, so there is no canonical
+pool to key, and keyword search finds nothing because it matches the whole
+phrase. They are presented as "no confirmed supplier" and were **not**
+improved by force.
+
+The match reason comes from the row's own `matched_terms`, not from a
+reconstruction: «مظلات سيارات» for car park shade, «حنفيه حريق» for fire
+hydrant, «gypsum board» for gypsum board. One apparent mismatch was checked
+rather than assumed — `socket_outlet` matching «مخرج سخان» is correct, because
+the ontology declares it a `socket_outlet` strong term (a dedicated
+water-heater socket).
+
+### Before the flag vs after, same RFQ, same database
+
+| | before (keyword only) | after (union) |
+|---|---|---|
+| items returning zero | 42 | 31 |
+| total supplier slots | 414 | 1,701 |
+| items that gained | — | 17 |
+| items that **regressed** | — | **0** |
+
+### For the deploy lane: can the map land separately from the four?
+
+**Yes — it fails closed, but it was silent, and that is now fixed.** A v10
+port reading a v10 payload against a v7-built map finds rows carrying no
+`supplier_mapping_hash`, refuses them, and falls through to keyword search:
+the buyer sees exactly today's result, so nothing looks wrong and a map that
+is never consulted is indistinguishable from one that works. The refusal is
+now carried out on the pool as `map_refused`, so the sixth silent state is
+audible. **Landing order is unchanged: the untracked libraries land in the
+same commit as `boq-directory-matching.js`, never after.**
+
+Committed (not pushed) as `44d8acc97` on `wip/full-tree-snapshot-2026-09-16`,
+12 files. **The committed port reads payload `fafa97d20586ca1f` = `cpo-v10`**,
+reconstructed from `13ea40a5` + the inflection patch — *not* `cda1465`.
+
+### Held, not folded in (variables frozen)
+
+1. **The working tree has moved to `cpo-v11` and its resolver throws on
+   import.** `GENERATED_FORM_EXCLUSIONS` is initialized at module level
+   (line 612) from `normalizeTerm`, whose `termMemo` is declared 134 lines
+   later, and the exclusions list is non-empty — so the module fails to load.
+   **The v10 release candidate is clean; this is a v11 regression.** Not fixed
+   here: it is the ontology lane's file, and it is frozen.
+2. **`FAMILY_ONLY` lines could be served from a family-level pool.** 31 of 60
+   items resolve to a family and get nothing. This is an improvement, so it is
+   held rather than folded in.
+3. Two builder attribute-rule tests encode the pre-v9 expectation that
+   supplier prose suppresses vocabulary. v9 made that register empty, so they
+   fail under v9 and v10 alike — pre-existing, not caused here.
+
+No new test failures: all 26 failures in the construction suite fail
+identically under the v9 payload.

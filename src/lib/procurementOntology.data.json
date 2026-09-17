@@ -1,5 +1,5 @@
 {
-  "version": "cpo-v10",
+  "version": "cpo-v11",
   "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
   "learning": { "promote_after_occurrences": 5 },
   "morphology_rule": {
@@ -15,9 +15,35 @@
     },
     "derivation": {
       "definition": "Builds a NEW word from an old one. The nisba does this: «خشب» wood → «خشبي» wooden, «أرض» ground → «أرضية» flooring, «معدن» metal → «معدني», which also means mineral. The result is a different lexeme that may name a different product, so generating it is a guess rather than a transformation.",
-      "gate": "A derived form is generated only where no family already owns it that does not also own the base. Computed from this payload's own ownership — there is no exception list, by the same discipline the guard predicate runs under.",
-      "phrase_exemption": "Inside a MULTI-WORD term the derivation is free, because the neighbouring word has already pinned the trade. «زجاج» alone reaching «زجاجي» is a guess — «صوف زجاجي» is insulation and «ألياف زجاجية» is an admixture. «باب زجاج» reaching «باب زجاجي» is one product written two ways, which is «باب خشب / باب خشبي» exactly. Gating the word in isolation cost «باب زجاجي سحاب» its family on evidence from phrases where the head was doing the work all along."
+      "gate": "A derived form is generated only where every family that owns the form is a TRADE NEIGHBOUR of the base and does not own the form as a HEAD. Computed from this payload's own ownership and sectors — there is no exception list, by the same discipline the guard predicate runs under.",
+    "gate_signals": {
+      "sector": "A foreign owner inside the base's own sector is a neighbour, not a hazard. `glazing` and `thermal_insulation` are both BUILDING_ENVELOPE, so «صوف زجاجي» carrying «زجاجي» costs nothing like `rebar_mesh` losing «شبكي» to DATACENTER_ICT — which is precisely who a wrong RFQ would reach.",
+      "position": "If the foreign family uses the form as its HEAD, the contest is head-to-head and the derivation can take the line. If it only ever uses the form as a MODIFIER, its own term is strictly longer and outscores the bare base, so there was never a contest to lose.",
+      "unknown_base": "Refused outright, and now for a stateable reason rather than caution: the sector test asks who the base's trade neighbours ARE, and a word this payload does not carry has no trade to be adjacent to. This is what keeps «أرض» out of «أرضيات» and «معدن» out of «معدنية»."
     },
+    "narrowed_claim": "v10 recorded that no structural rule could separate a safe derivation from a dangerous one, and rested that on a symmetry between «معدن» → «معدني» correctly refused and «زجاج» → «زجاجي» wrongly refused. THE FIRST HALF DOES NOT HAPPEN. Bare «معدن» is not deciding vocabulary anywhere in this payload — it occurs once, as a context term in `welding_equipment` — so the gate is never asked about it, and the mineral-fibre defect was a collision between two separately LISTED forms rather than a derivation the gate refused. The claim is therefore narrowed to a fact about the gate: THAT gate could not see the difference, because it discarded sector and position. Both signals were already in the index.",
+      "phrase_exemption": "Inside a MULTI-WORD term the derivation is free, except where a foreign family owns the derived form as a HEAD. «باب زجاج» reaching «باب زجاجي» is one product written two ways, which is «باب خشب / باب خشبي» exactly; gating the word in isolation cost «باب زجاجي سحاب» its family.",
+      "phrase_exemption_corrected_reason": "v10 recorded the protection as «the head has already pinned the trade». THAT IS FALSE BY CONSTRUCTION in 142 multi-word terms whose head is owned by three or more families — «لوح» by seven — and the correction matters more than the wording, because a wrong stated mechanism predicts the wrong failure and whoever monitors it watches the wrong quantity while it breaks. What actually protects those terms is the LENGTH TERM IN THE SCORE: `bestHit` ranks by `(inHead ? 1000 : 300) - index * 2 + normalized.length * 3` where `normalized` is the TERM, so on «باب زجاجي» the phrase «باب زجاج» at 9 characters outscores a bare foreign «باب» at 4.",
+      "phrase_exemption_failure_mode": "A foreign family adding a term at least as LONG as the exempted phrase — not a head becoming generic. The one configuration length cannot rescue is a foreign family owning the derived form as a HEAD, because the head bonus is 700 and swamps any length difference, so that case is refused explicitly rather than left to arithmetic. A test asserts the length relationship over every contested derivation, because a guarantee resting on a scoring constant is the same shape as the ratchet that turned out to be a comment.",
+      "phrase_exemption_cost_of_removing": "Measured rather than assumed: dropping the exemption and gating every word uniformly loses 133 of 8,064 multi-word inflected variants, and some are ordinary Arabic — «كمرة حديدية», «درابزين زجاجي». So the exemption stays and its condition is named."
+    },
+    "generated_form_exclusions": [
+      {
+        "form": "درجات",
+        "generated_from": "درج",
+        "the_base_means": "stairs",
+        "the_form_means": "degrees / grades — «درجات الحرارة» is temperature",
+        "reason": "A generated plural that is ALSO an ordinary word of an unrelated lexeme. The gate cannot see this, by the narrowed claim above: it compares ownership and sector, and a homograph of another lexeme looks like ordinary vocabulary from there. So it is listed, for the same reason broken plurals are listed — it is a fact about the words, not a relation the ontology encodes."
+      },
+      {
+        "form": "حجرات",
+        "generated_from": "حجر",
+        "the_base_means": "stone",
+        "the_form_means": "rooms — plural of «حجرة»",
+        "reason": "Same class. «حجرات النوم» and «تكييف حجرات المرضى» are ordinary tender prose and have nothing to do with stone."
+      }
+    ],
+    "exclusion_note": "These are the two known cases out of 909 generated non-vocabulary forms; an independent rebuild found 0 of the 909 occurring in 184,010 real lines, so nothing is broken today. They are excluded anyway, because the measured safety rested on their absence from ONE corpus and on the tier system refusing a bare weak term — not on the forms being unmatchable. A finite list of 909 can afford to have its two known hazards named rather than left to a corpus that happens not to contain them.",
     "out_of_scope": {
       "broken_plural": "NOT REACHABLE, and the limit is stated rather than left to be discovered. «حريق» → «حرائق», «لوح» → «ألواح», «كتاب» → «كتب»: the plural is formed by re-templating the root, not by adding to it, so no affix rule can reach it — not this one and not a longer suffix list. Broken plurals are VOCABULARY. «حرايق» was listed in v9 for this reason. A reader who assumes plurals are handled is half right, and the wrong half is silent, so a test enforces this limit instead of a comment describing it.",
       "also_out_of_scope": "Internal orthographic variation that is not affixal — «اسمني» for «اسمنتي» — which v8 closed as a class by removing adjacency rather than by morphology."
@@ -28,7 +54,10 @@
       "removed": 34,
       "added": 8,
       "added_note": "All eight are sound feminine plurals where base and plural are genuinely one lexeme — «لوحة»→«لوحات إنذار حريق», «بطاقة»→«قارئ بطاقات», «أرضية»→«هاردنر أرضيات». Every one was checked at LINE level and resolves to the correct family, because the head concept decides there. Term-level collision count is an upper bound on risk, not a prediction of behaviour.",
-      "removed_note": "Includes all three glass/mineral-fibre collisions — «زجاج» reaching «ألياف زجاجية», «خزان ألياف زجاجية» and «صوف زجاجي» — which is the case that had bitten three times."
+      "removed_note": "Includes all three glass/mineral-fibre collisions — «زجاج» reaching «ألياف زجاجية», «خزان ألياف زجاجية» and «صوف زجاجي» — which is the case that had bitten three times.",
+    "cross_family_collisions_v11": 42,
+    "v11_note": "The sector and position signals change exactly ONE of the seventeen decisions this gate makes — «زجاج» → «زجاجي», the case v10 declared unfixable — at a cost of one added collision, «زجاج» reaching «صوف زجاجي», which is benign at line level because «صوف زجاجي» still resolves to thermal_insulation/mineral_wool_insulation. Held-out corpora stay byte-identical, and the 68 booklet items do not move.",
+    "corpus_limit": "NO CORPUS WE HOLD CAN ADJUDICATE A MORPHOLOGY CHANGE. 184,010 archive lines contain only 2,874 distinct tokens, and 0 of 319 archive short lines and 0 of 68 booklet items moved between v9, v10 and v11. Archive stability is therefore evidence of BLINDNESS, not of safety, and the next version will be tempted to quote it as the latter. Changes that turn on Arabic word formation have to be judged on fresh real booklets."
     }
   },
   "supplier_clause_rule": {
@@ -3677,9 +3706,9 @@
       "id": "thermal_insulation",
       "sector": "BUILDING_ENVELOPE",
       "label_ar": "العزل الحراري",
-      "strong_terms": ["عزل حراري", "thermal insulation", "xps", "eps", "pir board", "polyisocyanurate", "extruded polystyrene", "expanded polystyrene", "صوف صخري", "rockwool", "mineral wool", "صوف زجاجي", "glasswool", "elastomeric insulation", "nitrile rubber insulation", "phenolic insulation"],
+      "strong_terms": ["عزل حراري", "thermal insulation", "xps", "eps", "pir board", "polyisocyanurate", "extruded polystyrene", "expanded polystyrene", "صوف صخري", "rockwool", "mineral wool", "صوف معدني", "صوف زجاجي", "glasswool", "elastomeric insulation", "nitrile rubber insulation", "phenolic insulation"],
       "weak_terms": ["عزل", "insulation", "فوم", "foam"],
-      "context_terms": ["سماكه", "حراري", "kg/m3", "lambda", "thermal", "مواسير", "مجاري", "سقف", "جدار"],
+      "context_terms": ["سماكه", "حراري", "kg/m3", "lambda", "thermal", "مواسير", "مجاري", "سقف", "جدار", "الياف معدنيه", "الياف زجاجيه", "mineral fibre", "glass fibre"],
       "supplier_terms": ["عزل", "insulation"],
       "preferred_archetypes": ["insulation_supplier"],
       "allowed_archetypes": ["waterproofing_supplier", "general_building_materials", "cladding_supplier", "hvac_supplier"],
@@ -3711,7 +3740,7 @@
         {
           "id": "mineral_wool_insulation",
           "label_ar": "صوف صخري وزجاجي",
-          "strong_terms": ["صوف صخري", "rockwool", "mineral wool", "صوف زجاجي", "glasswool", "glass wool", "stone wool", "لباد صوف"]
+          "strong_terms": ["صوف صخري", "rockwool", "mineral wool", "صوف معدني", "صوف معدنى", "صوف زجاجي", "glasswool", "glass wool", "stone wool", "لباد صوف"]
         }
       ]
     },

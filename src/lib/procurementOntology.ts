@@ -262,6 +262,14 @@ const DATA = ontologyData as unknown as {
   learning: { promote_after_occurrences: number }
   clause_rule: ClauseRule
   supplier_clause_rule: ClauseRule
+  /**
+   * The morphology rule's own record, including the forms it refuses to
+   * generate. Typed because the resolver READS the exclusions rather than
+   * carrying a second copy of them.
+   */
+  morphology_rule?: {
+    generated_form_exclusions?: Array<{ form: string; generated_from: string }>
+  }
   archetypes: Record<string, { label_ar: string; patterns: string[] }>
   facets: Record<string, RawFacet>
   sectors: Record<string, RawSector>
@@ -472,19 +480,38 @@ function nisbaStem(word: string): string {
  * to the families that use it. Two questions are answered from it, and both are
  * computed — the same discipline the guard predicate now runs under.
  */
-type MorphIndex = { owners: Map<string, Set<string>>; hasFeminine: Set<string> }
+type MorphIndex = {
+  owners: Map<string, Set<string>>
+  headOwners: Map<string, Set<string>>
+  sectorOf: Map<string, string>
+  hasFeminine: Set<string>
+}
 let morphIndexCache: MorphIndex | null = null
 function morphIndex(): MorphIndex {
   if (morphIndexCache) return morphIndexCache
   const owners = new Map<string, Set<string>>()
+  /**
+   * Families that use a word as the WHOLE term or as its FIRST word — which in
+   * a head-initial language is the head. The distinction is the one that
+   * decides whether a contest is real: a family that only ever uses the word as
+   * a MODIFIER always has a longer term than the bare base, so it wins on
+   * length and was never at risk from the derivation.
+   */
+  const headOwners = new Map<string, Set<string>>()
+  const sectorOf = new Map<string, string>()
   for (const family of DATA.families) {
+    sectorOf.set(family.id, family.sector)
     const walk = (node: RawFamily | RawCategory | RawIntent) => {
       for (const tier of ['strong_terms', 'weak_terms'] as const) {
         for (const term of node[tier] ?? []) {
-          for (const word of normalizeTerm(term).split(' ')) {
-            if (!word) continue
+          const words = normalizeTerm(term).split(' ').filter(Boolean)
+          for (const [position, word] of words.entries()) {
             if (!owners.has(word)) owners.set(word, new Set())
             owners.get(word)!.add(family.id)
+            if (position === 0) {
+              if (!headOwners.has(word)) headOwners.set(word, new Set())
+              headOwners.get(word)!.add(family.id)
+            }
           }
         }
       }
@@ -506,29 +533,105 @@ function morphIndex(): MorphIndex {
   for (const word of owners.keys()) {
     if (word.endsWith('ه') && owners.has(word.slice(0, -1))) hasFeminine.add(word.slice(0, -1))
   }
-  morphIndexCache = { owners, hasFeminine }
+  morphIndexCache = { owners, headOwners, sectorOf, hasFeminine }
   return morphIndexCache
 }
 
 /**
- * May `base` be derived into `form`? Only if no family already owns the form
- * that does not also own the base.
+ * May `base` be derived into `form`?
  *
- * An unknown base is refused rather than waved through: a word the ontology
- * does not carry has no claim on a form some family does carry. That is what
- * stops «أرض» reaching «أرضيات» and «معدن» reaching «معدنية» — the mineral-
- * fibre collision that has now bitten three times — while leaving «خشب» →
- * «خشبي» alone, because wood owns both.
+ * v10 refused whenever ANY family owned the form that did not own the base, and
+ * justified that by claiming no structural rule could separate a safe
+ * derivation from a dangerous one. **That claim was wrong, and the way it was
+ * wrong is worth keeping written down.** It rested on a symmetry between «معدن»
+ * → «معدني», said to be correctly refused, and «زجاج» → «زجاجي», said to be
+ * wrongly refused. But bare «معدن» is not deciding vocabulary anywhere in the
+ * payload — it appears once, as a context term — so the gate is never asked
+ * about it. The refusal it was compared against does not occur. Two signals
+ * separate the cases, and both were sitting unused in the index:
+ *
+ *   SECTOR — a foreign owner inside the base's own sector is a trade
+ *     NEIGHBOUR. `glazing` and `thermal_insulation` are both BUILDING_ENVELOPE,
+ *     so «صوف زجاجي» taking «زجاجي» costs a mis-sent RFQ nothing like what
+ *     `rebar_mesh` losing «شبكي» to DATACENTER_ICT costs.
+ *
+ *   POSITION — if the foreign family uses the form as its HEAD, the contest is
+ *     head-to-head and the derivation can take the line. If it only ever uses
+ *     the form as a MODIFIER, its own term is strictly longer and outscores the
+ *     bare base anyway, so there was never a contest to lose.
+ *
+ * Together these change exactly one decision of the seventeen this gate makes —
+ * «زجاج» → «زجاجي» — and that one was the counter-example the impossibility
+ * claim was built on.
+ *
+ * An unknown base is still refused outright, and now for a stateable reason
+ * rather than caution: the sector test asks who the base's trade NEIGHBOURS
+ * are, and a word the ontology does not carry has no trade to be adjacent to.
+ * That is what keeps «أرض» out of «أرضيات» and «معدن» out of «معدنية».
  */
 function derivationAllowed(base: string, form: string): boolean {
-  const { owners } = morphIndex()
+  const { owners, headOwners, sectorOf } = morphIndex()
   const ownersOfForm = owners.get(form)
   if (!ownersOfForm) return true
+
   const ownersOfBase = owners.get(base)
-  for (const family of ownersOfForm) {
-    if (!ownersOfBase?.has(family)) return false
+  const foreign = [...ownersOfForm].filter((family) => !ownersOfBase?.has(family))
+  if (!foreign.length) return true
+  if (!ownersOfBase?.size) return false
+
+  const baseSectors = new Set([...ownersOfBase].map((family) => sectorOf.get(family)))
+  for (const family of foreign) {
+    const crossesSector = !baseSectors.has(sectorOf.get(family))
+    const contestsAsHead = headOwners.get(form)?.has(family) === true
+    if (crossesSector || contestsAsHead) return false
   }
   return true
+}
+
+/**
+ * Generated forms that are real words of an UNRELATED lexeme, declared in the
+ * payload and refused here.
+ *
+ * «درجات» (degrees) would be generated from «درج» (stairs), and «حجرات»
+ * (rooms) from «حجر» (stone). The gate cannot catch these: it compares
+ * ownership and sector, and a homograph of another lexeme is indistinguishable
+ * from ordinary vocabulary at that level. So they are listed — the same answer
+ * given to broken plurals and for the same reason. It is a fact about the words
+ * rather than a relation the ontology encodes.
+ *
+ * An independent rebuild found 0 of 909 generated non-vocabulary forms occurring
+ * in 184,010 real lines, so nothing is broken today. They are excluded anyway,
+ * because that safety rested on their absence from ONE corpus and on the tier
+ * system declining to let a bare weak term decide — not on the forms being
+ * unmatchable.
+ */
+let excludedFormsCache: Set<string> | null = null
+function excludedForms(): Set<string> {
+  if (!excludedFormsCache) {
+    excludedFormsCache = new Set(
+      (DATA.morphology_rule?.generated_form_exclusions ?? []).map((entry) => normalizeTerm(entry.form)),
+    )
+  }
+  return excludedFormsCache
+}
+
+/**
+ * Does a family that does not own `base` use `form` as a HEAD?
+ *
+ * This is the only configuration in which a multi-word term's length advantage
+ * can be defeated, because a head match is worth 700 and length is worth 3 per
+ * character. Naming it here makes the phrase exemption's safety a stated
+ * condition instead of an emergent property of the scoring weights.
+ */
+function foreignHeadOwner(base: string, form: string): boolean {
+  const { owners, headOwners } = morphIndex()
+  const heads = headOwners.get(form)
+  if (!heads?.size) return false
+  const ownersOfBase = owners.get(base)
+  for (const family of heads) {
+    if (!ownersOfBase?.has(family)) return true
+  }
+  return false
 }
 
 /** Longest prefix shared by every string, so it is safe to prefilter on. */
@@ -547,20 +650,30 @@ function commonPrefix(values: string[]): string {
 /**
  * Every surface form one Arabic vocabulary word is allowed to match.
  *
- * `constrained` says whether the word sits in a multi-word term. It decides how
- * much freedom derivation gets, and the distinction is not a convenience:
+ * `constrained` says whether the word sits in a multi-word term, and such a
+ * word gets more freedom to derive. **The reason recorded here in v10 was
+ * wrong, and the correction matters more than the wording** — a wrong stated
+ * mechanism predicts the wrong failure, so whoever monitors it watches the
+ * wrong quantity while it breaks.
  *
- *   «زجاج» ALONE deriving to «زجاجي» is a guess, because «زجاجي» is what
- *     «صوف زجاجي» (glass wool, insulation) and «ألياف زجاجية» (glass fibre, an
- *     admixture) are made of. Glass the material belongs to three trades.
+ * v10 claimed the protection was that «باب» had already PINNED THE TRADE. That
+ * is false by construction: 142 multi-word terms have a head owned by three or
+ * more families, «لوح» by seven, and in those the head pins nothing.
  *
- *   «باب زجاج» deriving to «باب زجاجي» is the SAME PRODUCT written two ways,
- *     and «باب» has already pinned which trade is being spoken about. This is
- *     «باب خشب / باب خشبي» exactly — the case the nisba rule was built for.
+ * What actually protects them is the LENGTH TERM IN THE SCORE. `bestHit` ranks
+ * by `(inHead ? 1000 : 300) - index * 2 + normalized.length * 3`, where
+ * `normalized` is the TERM, so on «باب زجاجي» the phrase «باب زجاج» (9 chars)
+ * outscores a bare foreign «باب» (4 chars). The real failure mode is therefore
+ * a foreign family adding a term at least as LONG as the exempted phrase — not
+ * a head becoming generic. A test asserts that length relationship rather than
+ * leaving the guarantee resting on a scoring constant, because a guarantee that
+ * depends on a magic number is the same shape as the ratchet that turned out to
+ * be a comment.
  *
- * Gating the word in isolation is what cost «باب زجاجي سحاب» its family: the
- * derivation was refused on evidence from phrases where the neighbouring word
- * was doing the disambiguating all along.
+ * The one configuration length cannot rescue is a foreign family owning the
+ * derived form AS A HEAD, because the head bonus is 700 and swamps any length
+ * difference. So that case is refused explicitly here rather than left to
+ * arithmetic.
  */
 function arabicSurfaceForms(word: string, constrained = false): string[] {
   const stem = nisbaStem(word)
@@ -571,13 +684,18 @@ function arabicSurfaceForms(word: string, constrained = false): string[] {
     forms.add(`${word.slice(0, -1)}${AR_SOUND_PLURAL}`)
   } else if (!morphIndex().hasFeminine.has(stem)) {
     // Loanwords take the sound plural on the bare noun — «كابل» → «كابلات».
-    forms.add(`${stem}${AR_SOUND_PLURAL}`)
+    const plural = `${stem}${AR_SOUND_PLURAL}`
+    if (!excludedForms().has(plural)) forms.add(plural)
   }
 
-  // DERIVATION — free inside a phrase, gated when the word stands alone.
+  // DERIVATION — gated when the word stands alone; inside a phrase, refused
+  // only where the head bonus could beat the phrase's length advantage.
   for (const suffix of AR_NISBA_FORMS) {
     const derived = `${stem}${suffix}`
-    if (constrained || derivationAllowed(stem, derived)) forms.add(derived)
+    const allowed = constrained
+      ? !foreignHeadOwner(stem, derived)
+      : derivationAllowed(stem, derived)
+    if (allowed) forms.add(derived)
   }
 
   return [...forms].sort((a, b) => b.length - a.length)

@@ -1,0 +1,1002 @@
+[
+ {
+  "tag": "cement",
+  "suppliers": 14564,
+  "verified": 43
+ },
+ {
+  "tag": "furniture",
+  "suppliers": 13495,
+  "verified": 0
+ },
+ {
+  "tag": "transport",
+  "suppliers": 12720,
+  "verified": 0
+ },
+ {
+  "tag": "aggregates",
+  "suppliers": 12546,
+  "verified": 16
+ },
+ {
+  "tag": "uniforms",
+  "suppliers": 12462,
+  "verified": 0
+ },
+ {
+  "tag": "kitchen-equipment",
+  "suppliers": 12070,
+  "verified": 0
+ },
+ {
+  "tag": "marble",
+  "suppliers": 11484,
+  "verified": 0
+ },
+ {
+  "tag": "it",
+  "suppliers": 11099,
+  "verified": 0
+ },
+ {
+  "tag": "maintenance",
+  "suppliers": 10586,
+  "verified": 0
+ },
+ {
+  "tag": "textile",
+  "suppliers": 10559,
+  "verified": 0
+ },
+ {
+  "tag": "networking",
+  "suppliers": 9210,
+  "verified": 0
+ },
+ {
+  "tag": "paper",
+  "suppliers": 9171,
+  "verified": 0
+ },
+ {
+  "tag": "doors",
+  "suppliers": 8892,
+  "verified": 0
+ },
+ {
+  "tag": "tyres",
+  "suppliers": 8548,
+  "verified": 0
+ },
+ {
+  "tag": "safety",
+  "suppliers": 8270,
+  "verified": 210
+ },
+ {
+  "tag": "low-current",
+  "suppliers": 8179,
+  "verified": 0
+ },
+ {
+  "tag": "portable-cabins",
+  "suppliers": 8169,
+  "verified": 0
+ },
+ {
+  "tag": "glass",
+  "suppliers": 8117,
+  "verified": 41
+ },
+ {
+  "tag": "cleaning",
+  "suppliers": 8015,
+  "verified": 0
+ },
+ {
+  "tag": "hand-tools",
+  "suppliers": 7427,
+  "verified": 267
+ },
+ {
+  "tag": "rebar",
+  "suppliers": 7046,
+  "verified": 24
+ },
+ {
+  "tag": "auto-parts",
+  "suppliers": 7036,
+  "verified": 0
+ },
+ {
+  "tag": "cleaning-equipment",
+  "suppliers": 7015,
+  "verified": 0
+ },
+ {
+  "tag": "pipes",
+  "suppliers": 7010,
+  "verified": 0
+ },
+ {
+  "tag": "ready-mix",
+  "suppliers": 6876,
+  "verified": 26
+ },
+ {
+  "tag": "gases",
+  "suppliers": 6701,
+  "verified": 0
+ },
+ {
+  "tag": "siteworks",
+  "suppliers": 6577,
+  "verified": 0
+ },
+ {
+  "tag": "heavy-equipment",
+  "suppliers": 6559,
+  "verified": 0
+ },
+ {
+  "tag": "paint",
+  "suppliers": 6504,
+  "verified": 0
+ },
+ {
+  "tag": "signage",
+  "suppliers": 6261,
+  "verified": 0
+ },
+ {
+  "tag": "electrical",
+  "suppliers": 6127,
+  "verified": 0
+ },
+ {
+  "tag": "manpower",
+  "suppliers": 6064,
+  "verified": 0
+ },
+ {
+  "tag": "landscaping",
+  "suppliers": 5925,
+  "verified": 0
+ },
+ {
+  "tag": "waste-management",
+  "suppliers": 5593,
+  "verified": 0
+ },
+ {
+  "tag": "medical",
+  "suppliers": 5461,
+  "verified": 0
+ },
+ {
+  "tag": "electronics",
+  "suppliers": 5453,
+  "verified": 0
+ },
+ {
+  "tag": "hvac",
+  "suppliers": 5260,
+  "verified": 0
+ },
+ {
+  "tag": "stationery",
+  "suppliers": 5127,
+  "verified": 0
+ },
+ {
+  "tag": "lighting",
+  "suppliers": 5034,
+  "verified": 225
+ },
+ {
+  "tag": "structural-steel",
+  "suppliers": 4988,
+  "verified": 0
+ },
+ {
+  "tag": "plastic",
+  "suppliers": 4931,
+  "verified": 0
+ },
+ {
+  "tag": "lubricants",
+  "suppliers": 4886,
+  "verified": 0
+ },
+ {
+  "tag": "pools",
+  "suppliers": 4633,
+  "verified": 0
+ },
+ {
+  "tag": "chemicals",
+  "suppliers": 4616,
+  "verified": 6
+ },
+ {
+  "tag": "power-tools",
+  "suppliers": 4496,
+  "verified": 19
+ },
+ {
+  "tag": "food",
+  "suppliers": 4465,
+  "verified": 0
+ },
+ {
+  "tag": "tents",
+  "suppliers": 4404,
+  "verified": 0
+ },
+ {
+  "tag": "printing",
+  "suppliers": 4349,
+  "verified": 0
+ },
+ {
+  "tag": "packaging",
+  "suppliers": 4187,
+  "verified": 0
+ },
+ {
+  "tag": "generators",
+  "suppliers": 4124,
+  "verified": 22
+ },
+ {
+  "tag": "advertising",
+  "suppliers": 4074,
+  "verified": 0
+ },
+ {
+  "tag": "carpets",
+  "suppliers": 4043,
+  "verified": 0
+ },
+ {
+  "tag": "scaffolding",
+  "suppliers": 3913,
+  "verified": 0
+ },
+ {
+  "tag": "waterproofing",
+  "suppliers": 3847,
+  "verified": 45
+ },
+ {
+  "tag": "irrigation",
+  "suppliers": 3723,
+  "verified": 2
+ },
+ {
+  "tag": "curtains",
+  "suppliers": 3582,
+  "verified": 0
+ },
+ {
+  "tag": "solar",
+  "suppliers": 3573,
+  "verified": 32
+ },
+ {
+  "tag": "security",
+  "suppliers": 3549,
+  "verified": 0
+ },
+ {
+  "tag": "facade",
+  "suppliers": 3414,
+  "verified": 0
+ },
+ {
+  "tag": "finishing",
+  "suppliers": 3314,
+  "verified": 0
+ },
+ {
+  "tag": "fire-safety",
+  "suppliers": 3214,
+  "verified": 0
+ },
+ {
+  "tag": "concrete",
+  "suppliers": 3197,
+  "verified": 0
+ },
+ {
+  "tag": "welding",
+  "suppliers": 3193,
+  "verified": 0
+ },
+ {
+  "tag": "water",
+  "suppliers": 3168,
+  "verified": 0
+ },
+ {
+  "tag": "agriculture",
+  "suppliers": 3092,
+  "verified": 0
+ },
+ {
+  "tag": "pumps",
+  "suppliers": 2984,
+  "verified": 0
+ },
+ {
+  "tag": "pest-control",
+  "suppliers": 2978,
+  "verified": 0
+ },
+ {
+  "tag": "insulation",
+  "suppliers": 2910,
+  "verified": 0
+ },
+ {
+  "tag": "office-furniture",
+  "suppliers": 2696,
+  "verified": 0
+ },
+ {
+  "tag": "cables",
+  "suppliers": 2580,
+  "verified": 253
+ },
+ {
+  "tag": "block",
+  "suppliers": 2576,
+  "verified": 0
+ },
+ {
+  "tag": "windows",
+  "suppliers": 2510,
+  "verified": 0
+ },
+ {
+  "tag": "hotel-supplies",
+  "suppliers": 2504,
+  "verified": 0
+ },
+ {
+  "tag": "fasteners",
+  "suppliers": 2427,
+  "verified": 3
+ },
+ {
+  "tag": "hvac-units",
+  "suppliers": 1930,
+  "verified": 56
+ },
+ {
+  "tag": "mechanical",
+  "suppliers": 1761,
+  "verified": 0
+ },
+ {
+  "tag": "hardware-general",
+  "suppliers": 1625,
+  "verified": 667
+ },
+ {
+  "tag": "general-supply",
+  "suppliers": 1572,
+  "verified": 576
+ },
+ {
+  "tag": "steel",
+  "suppliers": 1547,
+  "verified": 0
+ },
+ {
+  "tag": "elevators",
+  "suppliers": 1541,
+  "verified": 23
+ },
+ {
+  "tag": "catering",
+  "suppliers": 1521,
+  "verified": 0
+ },
+ {
+  "tag": "pharma",
+  "suppliers": 1261,
+  "verified": 0
+ },
+ {
+  "tag": "electrical-general",
+  "suppliers": 1243,
+  "verified": 366
+ },
+ {
+  "tag": "ducting",
+  "suppliers": 971,
+  "verified": 26
+ },
+ {
+  "tag": "paints",
+  "suppliers": 861,
+  "verified": 102
+ },
+ {
+  "tag": "wiring-devices",
+  "suppliers": 846,
+  "verified": 251
+ },
+ {
+  "tag": "switchgear",
+  "suppliers": 818,
+  "verified": 219
+ },
+ {
+  "tag": "equipment",
+  "suppliers": 803,
+  "verified": 126
+ },
+ {
+  "tag": "site-consumables",
+  "suppliers": 674,
+  "verified": 18
+ },
+ {
+  "tag": "doors-windows",
+  "suppliers": 592,
+  "verified": 91
+ },
+ {
+  "tag": "nonferrous",
+  "suppliers": 590,
+  "verified": 57
+ },
+ {
+  "tag": "facades",
+  "suppliers": 590,
+  "verified": 109
+ },
+ {
+  "tag": "stone-marble",
+  "suppliers": 578,
+  "verified": 41
+ },
+ {
+  "tag": "steel-sections",
+  "suppliers": 501,
+  "verified": 45
+ },
+ {
+  "tag": "kitchens",
+  "suppliers": 435,
+  "verified": 40
+ },
+ {
+  "tag": "timber",
+  "suppliers": 428,
+  "verified": 67
+ },
+ {
+  "tag": "pumps-tanks",
+  "suppliers": 383,
+  "verified": 64
+ },
+ {
+  "tag": "aluminium",
+  "suppliers": 377,
+  "verified": 70
+ },
+ {
+  "tag": "sanitary",
+  "suppliers": 376,
+  "verified": 78
+ },
+ {
+  "tag": "plumbing-general",
+  "suppliers": 366,
+  "verified": 70
+ },
+ {
+  "tag": "block-brick",
+  "suppliers": 294,
+  "verified": 16
+ },
+ {
+  "tag": "tiles",
+  "suppliers": 291,
+  "verified": 59
+ },
+ {
+  "tag": "valves",
+  "suppliers": 286,
+  "verified": 53
+ },
+ {
+  "tag": "networks",
+  "suppliers": 282,
+  "verified": 49
+ },
+ {
+  "tag": "bms-av",
+  "suppliers": 272,
+  "verified": 216
+ },
+ {
+  "tag": "landscape",
+  "suppliers": 263,
+  "verified": 47
+ },
+ {
+  "tag": "metal-fab",
+  "suppliers": 226,
+  "verified": 16
+ },
+ {
+  "tag": "rental-parts",
+  "suppliers": 223,
+  "verified": 43
+ },
+ {
+  "tag": "steel-sheets",
+  "suppliers": 180,
+  "verified": 26
+ },
+ {
+  "tag": "access-intercom",
+  "suppliers": 180,
+  "verified": 4
+ },
+ {
+  "tag": "gypsum-plaster",
+  "suppliers": 170,
+  "verified": 15
+ },
+ {
+  "tag": "pipes-fittings",
+  "suppliers": 165,
+  "verified": 67
+ },
+ {
+  "tag": "cctv",
+  "suppliers": 150,
+  "verified": 70
+ },
+ {
+  "tag": "thermal",
+  "suppliers": 136,
+  "verified": 33
+ },
+ {
+  "tag": "Electrical",
+  "suppliers": 126,
+  "verified": 0
+ },
+ {
+  "tag": "flooring",
+  "suppliers": 112,
+  "verified": 16
+ },
+ {
+  "tag": "firefighting",
+  "suppliers": 104,
+  "verified": 58
+ },
+ {
+  "tag": "storage-ups",
+  "suppliers": 86,
+  "verified": 11
+ },
+ {
+  "tag": "survey",
+  "suppliers": 81,
+  "verified": 9
+ },
+ {
+  "tag": "cranes",
+  "suppliers": 75,
+  "verified": 12
+ },
+ {
+  "tag": "hvac-parts",
+  "suppliers": 70,
+  "verified": 17
+ },
+ {
+  "tag": "acoustic",
+  "suppliers": 59,
+  "verified": 9
+ },
+ {
+  "tag": "formwork",
+  "suppliers": 54,
+  "verified": 14
+ },
+ {
+  "tag": "fire-alarm",
+  "suppliers": 53,
+  "verified": 28
+ },
+ {
+  "tag": "panels",
+  "suppliers": 53,
+  "verified": 15
+ },
+ {
+  "tag": "locks-hardware",
+  "suppliers": 37,
+  "verified": 10
+ },
+ {
+  "tag": "putty-render",
+  "suppliers": 36,
+  "verified": 15
+ },
+ {
+  "tag": "drainage",
+  "suppliers": 30,
+  "verified": 23
+ },
+ {
+  "tag": "gypsum-board",
+  "suppliers": 23,
+  "verified": 3
+ },
+ {
+  "tag": "sealants-joints",
+  "suppliers": 22,
+  "verified": 0
+ },
+ {
+  "tag": "marble;natural stone;flooring;supply only",
+  "suppliers": 21,
+  "verified": 0
+ },
+ {
+  "tag": "earthing",
+  "suppliers": 20,
+  "verified": 3
+ },
+ {
+  "tag": "testing",
+  "suppliers": 19,
+  "verified": 4
+ },
+ {
+  "tag": "roads",
+  "suppliers": 18,
+  "verified": 7
+ },
+ {
+  "tag": "abrasives",
+  "suppliers": 14,
+  "verified": 4
+ },
+ {
+  "tag": "partitions",
+  "suppliers": 11,
+  "verified": 1
+ },
+ {
+  "tag": "admixtures",
+  "suppliers": 5,
+  "verified": 1
+ },
+ {
+  "tag": "ceilings",
+  "suppliers": 5,
+  "verified": 2
+ },
+ {
+  "tag": "fiber-cement-boards",
+  "suppliers": 5,
+  "verified": 3
+ },
+ {
+  "tag": "stone-tiles",
+  "suppliers": 4,
+  "verified": 0
+ },
+ {
+  "tag": "construction-sealants",
+  "suppliers": 4,
+  "verified": 0
+ },
+ {
+  "tag": "natural-stone",
+  "suppliers": 4,
+  "verified": 0
+ },
+ {
+  "tag": "welding-consumables",
+  "suppliers": 3,
+  "verified": 0
+ },
+ {
+  "tag": "portable-generators",
+  "suppliers": 3,
+  "verified": 0
+ },
+ {
+  "tag": "core-drilling",
+  "suppliers": 3,
+  "verified": 0
+ },
+ {
+  "tag": "pvc-pipe",
+  "suppliers": 3,
+  "verified": 1
+ },
+ {
+  "tag": "concrete-cutting",
+  "suppliers": 3,
+  "verified": 0
+ },
+ {
+  "tag": "mortar-mixers",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "travertine",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "tool-storage",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "neutral-cure-silicone",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "tile-install",
+  "suppliers": 2,
+  "verified": 1
+ },
+ {
+  "tag": "oilfield-supplies",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "osb-boards",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "tig-rods",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "thermal-insulation",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "floors-walls-general",
+  "suppliers": 2,
+  "verified": 2
+ },
+ {
+  "tag": "paint-mixers",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "paintable-acrylic",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "pallet-trucks",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "acrylic-sealants",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "temperature-calibration",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "telecommunications",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "industrial-cleaning",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "steel-angles",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "stainless-steel",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "adhesives",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "dishwashing",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "soudal",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "distance-meters",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "soil-compaction",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "fixed-wireless-phone",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "drilling-accessories",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "firefighting-equipment",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "site-lighting",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "site-equipment",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "portable-fire-extinguishers",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "shower-arms",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "shower-accessories",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "security-equipment",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "safes",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "pu-foam",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "rescue-cans",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "refrigeration",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "industrial-tools",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "structural-wood-panels",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "lifeguard-equipment",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "lifting-equipment",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "light-towers",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "hydraulic-jacks",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "gsm-desktop-phone",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "ceiling-systems",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "concrete-finishing",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "granite",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "glass-wool",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "ceiling-panels",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "air-o-unions",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "masonry-cutting",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "material-handling",
+  "suppliers": 2,
+  "verified": 0
+ },
+ {
+  "tag": "construction-site-equipment",
+  "suppliers": 2,
+  "verified": 0
+ }
+]

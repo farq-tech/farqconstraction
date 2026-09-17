@@ -1,0 +1,386 @@
+{
+ "note": "Real archive lines cpo-v10 resolved at Level A by a strong term. Booklet and second-corpus lines are excluded by construction — they are the measurement.",
+ "ontology_version": "cpo-v10",
+ "sources": [
+  "fixtures/boq/heldout-b3-10-v10.cpo-v10.rows.jsonl",
+  "fixtures/boq/heldout-b11-20-v10.cpo-v10.rows.jsonl"
+ ],
+ "rows_read": 183942,
+ "examples_taken": 285,
+ "intents_with_examples": 44,
+ "examples": {
+  "acb": [
+   "ACB 3P 630A Icu 50kA Trip LSI",
+   "ACB 3P 630A Icu 50kA Trip LSIG"
+  ],
+  "air_damper": [
+   "Backdraft Damper مقاس 150×150 مم مادة GI",
+   "Backdraft Damper مقاس 150×150 مم مادة Aluminium",
+   "Smoke Damper مقاس 150×150 مم مادة GI",
+   "Smoke Damper مقاس 150×150 مم مادة Aluminium",
+   "Fire Damper 120min مقاس 150×150 مم مادة GI",
+   "Fire Damper 120min مقاس 150×150 مم مادة Aluminium",
+   "Motorized Damper مقاس 150×150 مم مادة GI",
+   "Motorized Damper مقاس 150×150 مم مادة Aluminium"
+  ],
+  "air_terminal_device": [
+   "Egg Crate Grille مقاس 100×100 مم تشطيب RAL9010",
+   "Egg Crate Grille مقاس 100×100 مم تشطيب Anodized Silver",
+   "Egg Crate Grille مقاس 100×100 مم تشطيب Wood Effect",
+   "Return Air Grille مقاس 100×100 مم تشطيب RAL9010",
+   "Return Air Grille مقاس 100×100 مم تشطيب Anodized Silver",
+   "Return Air Grille مقاس 100×100 مم تشطيب Wood Effect",
+   "Fresh Air Louver مقاس 100×100 مم تشطيب RAL9010",
+   "Fresh Air Louver مقاس 100×100 مم تشطيب Anodized Silver"
+  ],
+  "backflow_preventer": [
+   "Backflow Preventer DN15 PN10 جسم Brass",
+   "Backflow Preventer DN15 PN10 جسم Ductile Iron",
+   "Backflow Preventer DN15 PN10 جسم Carbon Steel",
+   "Backflow Preventer DN15 PN10 جسم SS316",
+   "Vacuum Breaker DN15 PN10 جسم Brass",
+   "Vacuum Breaker DN15 PN10 جسم Ductile Iron",
+   "Vacuum Breaker DN15 PN10 جسم Carbon Steel",
+   "Vacuum Breaker DN15 PN10 جسم SS316"
+  ],
+  "bolt_screw": [
+   "Heavy Hex Nut M6 تشطيب Zinc",
+   "Hex Bolt M5×20 مم Grade 8.8 HDG",
+   "Heavy Hex Nut M6 تشطيب HDG",
+   "Hex Bolt M5×20 مم Grade 12.9 Black",
+   "Heavy Hex Nut M6 تشطيب A4 Stainless",
+   "Hex Bolt M5×20 مم Grade A4-80 Stainless",
+   "Hex Bolt M5×55 مم Grade 8.8 Zinc"
+  ],
+  "buried_drainage_pipe": [
+   "ماسورة HDPE Corrugated قطر 100 مم SN4 وصلة Socket Rubber Ring",
+   "ماسورة HDPE Corrugated قطر 100 مم SN4 وصلة Welded Coupler"
+  ],
+  "cable_ladder": [
+   "Cable Ladder عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة Pre-Galvanized",
+   "Cable Ladder عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة HDG",
+   "Cable Ladder عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة SS304",
+   "Cable Ladder Elbow 90 عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Ladder Tee عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Ladder Cross عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Ladder Reducer عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Ladder Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized"
+  ],
+  "cable_tray": [
+   "Cable Tray عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة Pre-Galvanized",
+   "Cable Tray Elbow 90 عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Tray عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة HDG",
+   "Cable Tray عرض 50 مم ارتفاع 25 مم سماكة 1 مم مادة SS304",
+   "Cable Tray Tee عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Tray Cross عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Tray Reducer عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized",
+   "Cable Tray Vertical Inside Bend عرض 50 مم ارتفاع 25 مم مادة Pre-Galvanized"
+  ],
+  "cold_formed_section": [
+   "قطاع C Purlin عمق 80 مم جناح 40 مم سماكة 1.2 مم Grade G350"
+  ],
+  "comms_cabinet": [
+   "Rack Cabinet Wall Mount 4U عمق 350 مم باب Glass Door",
+   "Rack Cabinet Wall Mount 4U عمق 350 مم باب Perforated Door",
+   "Rack Cabinet Wall Mount 4U عمق 350 مم باب Solid Door",
+   "Rack Cabinet Floor Standing 4U عمق 350 مم باب Glass Door",
+   "Rack Cabinet Floor Standing 4U عمق 350 مم باب Perforated Door",
+   "Rack Cabinet Floor Standing 4U عمق 350 مم باب Solid Door"
+  ],
+  "control_valve": [
+   "Balancing Valve DN15 PN10 جسم Brass",
+   "Balancing Valve DN15 PN10 جسم Ductile Iron",
+   "Balancing Valve DN15 PN10 جسم Carbon Steel",
+   "Balancing Valve DN15 PN10 جسم SS316",
+   "PICV DN15 PN10 جسم Brass",
+   "PICV DN15 PN10 جسم Ductile Iron",
+   "PICV DN15 PN10 جسم Carbon Steel",
+   "PICV DN15 PN10 جسم SS316"
+  ],
+  "copper_patch_cord": [
+   "Patch Cord Cat6 طول 0.25 م لون Blue غلاف LSZH",
+   "Patch Cord Cat6 طول 0.25 م لون Blue غلاف PVC",
+   "Patch Cord Cat6 طول 0.25 م لون Black غلاف LSZH",
+   "Patch Cord Cat6 طول 0.25 م لون Black غلاف PVC",
+   "Patch Cord Cat6 طول 0.25 م لون Grey غلاف LSZH",
+   "Patch Cord Cat6 طول 0.25 م لون Grey غلاف PVC",
+   "Patch Cord Cat6 طول 0.25 م لون Red غلاف LSZH",
+   "Patch Cord Cat6 طول 0.25 م لون Red غلاف PVC"
+  ],
+  "duct_accessories": [
+   "Flexible Duct Uninsulated قطر 80 مم تصنيف Class0",
+   "Flexible Duct Insulated 25mm قطر 80 مم تصنيف Class0",
+   "Duct Access Door مقاس 150×150 مم مادة GI",
+   "Duct Access Door مقاس 150×150 مم مادة Aluminium",
+   "Flexible Duct Uninsulated قطر 80 مم تصنيف Class1 طول لفة 5 م",
+   "Flexible Duct Insulated 25mm قطر 80 مم تصنيف Class1 طول لفة 7.5 م",
+   "Duct Access Door مقاس 150×150 مم مادة GI تشغيل 24V Actuator",
+   "Duct Access Door مقاس 300×200 مم مادة Aluminium تشغيل 230V Actuator"
+  ],
+  "electrical_conduit": [
+   "ماسورة كهرباء EMT قطر 16 مم",
+   "وصلة EMT Coupling قطر 16 مم",
+   "وصلة EMT Connector قطر 16 مم",
+   "وصلة EMT Elbow 90 قطر 16 مم",
+   "وصلة EMT Locknut قطر 16 مم",
+   "وصلة EMT Bushing قطر 16 مم",
+   "وصلة EMT Inspection Tee قطر 16 مم",
+   "وصلة EMT Adaptor قطر 16 مم"
+  ],
+  "empty_enclosure": [
+   "Electrical Enclosure Sheet Steel مقاس 200×300×150 مم IP54",
+   "Electrical Enclosure SS304 مقاس 200×300×150 مم IP54",
+   "Electrical Enclosure GRP مقاس 200×300×150 مم IP54"
+  ],
+  "expansion_joint_cover": [
+   "Expansion Joint Cover Floor-to-Floor عرض 75 مم حركة ±25 مم Non-Fire Rated",
+   "Expansion Joint Cover Floor-to-Floor عرض 75 مم حركة ±25 مم 1h Fire Rated",
+   "Expansion Joint Cover Wall-to-Wall عرض 75 مم حركة ±25 مم Non-Fire Rated",
+   "Expansion Joint Cover Wall-to-Wall عرض 75 مم حركة ±25 مم 1h Fire Rated",
+   "Expansion Joint Cover Floor-to-Wall عرض 75 مم حركة ±25 مم Non-Fire Rated",
+   "Expansion Joint Cover Floor-to-Wall عرض 75 مم حركة ±25 مم 1h Fire Rated",
+   "Expansion Joint Cover Ceiling Joint عرض 75 مم حركة ±25 مم Non-Fire Rated",
+   "Expansion Joint Cover Ceiling Joint عرض 75 مم حركة ±25 مم 1h Fire Rated"
+  ],
+  "fiber_patch_cord": [
+   "Fiber Patch Cord OS2 LC-LC Duplex طول 1 م غلاف LSZH",
+   "Fiber Patch Cord OS2 LC-LC Duplex طول 1 م غلاف OFNR",
+   "Fiber Patch Cord OS2 LC-LC Simplex طول 1 م غلاف LSZH",
+   "Fiber Patch Cord OS2 LC-LC Simplex طول 1 م غلاف OFNR",
+   "Fiber Patch Cord OS2 MPO-MPO 12F طول 1 م غلاف LSZH",
+   "Fiber Patch Cord OS2 MPO-MPO 12F طول 1 م غلاف OFNR",
+   "Fiber Patch Cord OS2 LC-LC Duplex طول 1 م غلاف OFNR Polish UPC",
+   "Fiber Patch Cord OS2 LC-LC Duplex طول 5 م غلاف LSZH Polish UPC"
+  ],
+  "fire_resistant_cable": [
+   "كابل Fire Resistant LSZH PH30 2C×1.5 مم² Unarmored",
+   "كابل Fire Resistant LSZH PH30 2C×1.5 مم² SWA"
+  ],
+  "fire_sprinkler": [
+   "رشاش Pendent K2.8 درجة 57°C تشطيب Chrome",
+   "رشاش Pendent K2.8 درجة 57°C تشطيب White",
+   "رشاش Pendent K2.8 درجة 57°C تشطيب Black",
+   "رشاش Pendent K2.8 درجة 57°C تشطيب Brass",
+   "رشاش Upright K2.8 درجة 57°C تشطيب Chrome",
+   "رشاش Upright K2.8 درجة 57°C تشطيب White",
+   "رشاش Upright K2.8 درجة 57°C تشطيب Black",
+   "رشاش Upright K2.8 درجة 57°C تشطيب Brass"
+  ],
+  "insulated_glass_unit": [
+   "وحدة زجاج IGU 6+12+6 مم طلاء Clear Warm Edge Spacer",
+   "وحدة زجاج IGU 6+12+8 مم طلاء Solar Control Warm Edge Spacer",
+   "وحدة زجاج IGU 6+12+12 مم طلاء Low-E Warm Edge Spacer",
+   "وحدة زجاج IGU 6+12+6 مم طلاء Low-E Aluminium Spacer",
+   "وحدة زجاج IGU 6+12+10 مم طلاء Clear Aluminium Spacer",
+   "وحدة زجاج IGU 6+12+12 مم طلاء Solar Control Aluminium Spacer"
+  ],
+  "irrigation_emitter": [
+   "Dripper تصريف 1 لتر/ساعة وصلة 4mm Barb نوع Standard",
+   "Pop-Up Sprinkler مدى 2 م زاوية 90° ضغط 2bar",
+   "Dripper تصريف 1 لتر/ساعة وصلة 4mm Barb نوع Pressure Compensating",
+   "Dripper تصريف 1 لتر/ساعة وصلة 4mm Barb نوع Self-Flushing",
+   "Dripper تصريف 1 لتر/ساعة وصلة 1/8in Thread نوع Standard",
+   "Dripper تصريف 1 لتر/ساعة وصلة 1/8in Thread نوع Pressure Compensating",
+   "Dripper تصريف 1 لتر/ساعة وصلة 1/8in Thread نوع Self-Flushing",
+   "Pop-Up Sprinkler مدى 2 م زاوية Adjustable° ضغط 2bar"
+  ],
+  "junction_box": [
+   "Junction Box PVC مقاس 75×75×50 مم IP44",
+   "Junction Box GI مقاس 75×75×50 مم IP44",
+   "Junction Box Aluminium مقاس 75×75×50 مم IP44"
+  ],
+  "linear_drainage": [
+   "قناة تصريف Polymer Concrete عرض 100 مم عمق 100 مم فئة A15",
+   "قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة A15",
+   "قناة تصريف Precast Concrete عرض 100 مم عمق 100 مم فئة A15",
+   "قناة تصريف Polymer Concrete عرض 100 مم عمق 100 مم فئة C250 شبك Ductile Grating",
+   "قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة A15 شبك Galvanized Grating",
+   "قناة تصريف HDPE عرض 100 مم عمق 100 مم فئة D400 شبك Stainless Grating",
+   "قناة تصريف Precast Concrete عرض 100 مم عمق 100 مم فئة C250 شبك Ductile Grating",
+   "قناة تصريف Polymer Concrete عرض 100 مم عمق 150 مم فئة A15 شبك Galvanized Grating"
+  ],
+  "linear_light": [
+   "Linear LED طول 300 مم قدرة 8W تركيب Recessed",
+   "Linear LED طول 300 مم قدرة 8W تركيب Surface",
+   "Linear LED طول 300 مم قدرة 8W تركيب Suspended",
+   "Linear LED طول 300 مم قدرة 8W تركيب Suspended CCT 3000K",
+   "Linear LED طول 300 مم قدرة 10W تركيب Surface CCT 4000K",
+   "Linear LED طول 300 مم قدرة 15W تركيب Recessed CCT 4000K"
+  ],
+  "lv_power_cable": [
+   "كابل Cu/XLPE/Unarmored/PVC 1C×1.5 مم² 0.6/1kV",
+   "كابل Cu/XLPE/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV",
+   "كابل Cu/XLPE/STA/PVC 1C×1.5 مم² 0.6/1kV",
+   "كابل Cu/XLPE/STA/LSZH 1C×1.5 مم² 0.6/1kV",
+   "كابل Cu/PVC/Unarmored/PVC 1C×1.5 مم² 0.6/1kV",
+   "كابل Cu/PVC/Unarmored/LSZH 1C×1.5 مم² 0.6/1kV",
+   "كابل Cu/PVC/SWA/PVC 1C×1.5 مم² 0.6/1kV",
+   "كابل Cu/PVC/SWA/LSZH 1C×1.5 مم² 0.6/1kV"
+  ],
+  "mcb": [
+   "MCB 1P 2A Curve B Icn 6kA"
+  ],
+  "mccb": [
+   "MCCB 3P 80A Icu 25kA Trip Thermal-Magnetic",
+   "MCCB 3P 80A Icu 25kA Trip Electronic LSI",
+   "MCCB 3P 80A Icu 25kA Trip Electronic LSIG",
+   "MCCB 3P 80A Icu 25kA Trip Thermal-Magnetic Fixed Frame",
+   "MCCB 3P 80A Icu 36kA Trip Electronic LSIG Fixed Frame",
+   "MCCB 3P 80A Icu 65kA Trip Electronic LSI Fixed Frame",
+   "MCCB 3P 80A Icu 25kA Trip Thermal-Magnetic Adjustable Frame",
+   "MCCB 3P 80A Icu 36kA Trip Electronic LSIG Adjustable Frame"
+  ],
+  "mechanical_anchor": [
+   "Wedge Anchor M5×20 مم تشطيب Zinc",
+   "Wedge Anchor M5×20 مم تشطيب HDG",
+   "Wedge Anchor M5×20 مم تشطيب A4 Stainless",
+   "Sleeve Anchor M5×20 مم تشطيب Zinc",
+   "Sleeve Anchor M5×20 مم تشطيب HDG",
+   "Sleeve Anchor M5×20 مم تشطيب A4 Stainless",
+   "Chemical Anchor Stud M5×20 مم تشطيب Zinc",
+   "Chemical Anchor Stud M5×20 مم تشطيب HDG"
+  ],
+  "metal_ceiling": [
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون White",
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Black",
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Grey",
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Wood Effect",
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Plain لون Bronze",
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون White",
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون Black",
+   "بلاطة سقف معدني 300×300 مم سماكة 0.5 مم نمط Perforated 1.5mm لون Grey"
+  ],
+  "mineral_wool_insulation": [
+   "Glasswool Board سماكة 20 مم كثافة 30 كجم/م³ وجه Black Tissue",
+   "Glasswool Board سماكة 20 مم كثافة 35 كجم/م³ وجه Unfaced",
+   "Rockwool Board سماكة 20 مم كثافة 40 كجم/م³ وجه Aluminium Foil",
+   "Glasswool Board سماكة 20 مم كثافة 35 كجم/م³ وجه Aluminium Foil",
+   "Rockwool Board سماكة 20 مم كثافة 40 كجم/م³ وجه Black Tissue",
+   "Rockwool Board سماكة 20 مم كثافة 45 كجم/م³ وجه Unfaced"
+  ],
+  "mv_power_cable": [
+   "كابل MV Cu/XLPE/SWA/PVC 1C×35 مم² جهد 6.6kV",
+   "كابل MV Cu/XLPE/SWA/LSZH 1C×35 مم² جهد 6.6kV",
+   "كابل MV Cu/XLPE/AWA/PVC 1C×35 مم² جهد 6.6kV",
+   "كابل MV Cu/XLPE/AWA/LSZH 1C×35 مم² جهد 6.6kV",
+   "كابل MV Cu/XLPE/Unarmored/PVC 1C×35 مم² جهد 6.6kV",
+   "كابل MV Cu/XLPE/Unarmored/LSZH 1C×35 مم² جهد 6.6kV",
+   "كابل MV Cu/XLPE/SWA/LSZH 1C×120 مم² 6.6kV Screened",
+   "كابل MV Cu/XLPE/AWA/LSZH 1C×70 مم² 6.6kV Screened"
+  ],
+  "network_switch": [
+   "Managed Switch 5 Port Non-PoE Uplink 1G SFP L2",
+   "Managed Switch 5 Port Non-PoE Uplink 10G SFP+ L2",
+   "Managed Switch 5 Port Non-PoE Uplink 25G SFP28 L2",
+   "Managed Switch 5 Port PoE+ Uplink 1G SFP L2",
+   "Managed Switch 5 Port PoE+ Uplink 10G SFP+ L2",
+   "Managed Switch 5 Port PoE+ Uplink 25G SFP28 L2",
+   "Managed Switch 5 Port Non-PoE Uplink 1G SFP L2 Dual PSU",
+   "Managed Switch 5 Port Non-PoE Uplink 25G SFP28 L3 Dual PSU"
+  ],
+  "paving_block": [
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Grey مقاومة 40MPa",
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Red مقاومة 40MPa",
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Yellow مقاومة 40MPa",
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Charcoal مقاومة 40MPa",
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Beige مقاومة 40MPa",
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Shot Blasted لون Brown مقاومة 40MPa",
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Grey مقاومة 40MPa",
+   "Concrete Paver مقاس 200×100×50 مم تشطيب Smooth لون Red مقاومة 40MPa"
+  ],
+  "pipe_fitting": [
+   "وصلة PPR Elbow 90 مقاس 16 مم PN6",
+   "وصلة Carbon Steel Elbow 90 DN15 SCH160",
+   "وصلة Carbon Steel Tee Equal DN15 SCH160",
+   "وصلة Carbon Steel Tee Reducing DN15 SCH10",
+   "وصلة Carbon Steel Reducer Concentric DN15 SCH160",
+   "وصلة Carbon Steel Reducer Eccentric DN15 SCH160",
+   "Flexible Coupling لشبكة الحريق DN25 ضغط 300psi",
+   "وصلة PPR Tee Equal مقاس 16 مم PN6"
+  ],
+  "pipe_hanger": [
+   "Strut Channel 41×21 مم سماكة 1.5 مم طول 2 م مادة Pre-Galvanized",
+   "Clevis Hanger DN15 تشطيب Zinc Plated قضيب تعليق M8",
+   "Strut Channel 41×21 مم سماكة 1.5 مم طول 2 م مادة HDG",
+   "Strut Channel 41×21 مم سماكة 1.5 مم طول 2 م مادة SS304",
+   "Clevis Hanger DN15 تشطيب HDG قضيب تعليق M8",
+   "Clevis Hanger DN15 تشطيب SS304 قضيب تعليق M8",
+   "Split Ring Hanger DN15 تشطيب Zinc Plated قضيب تعليق M8",
+   "Split Ring Hanger DN15 تشطيب HDG قضيب تعليق M8"
+  ],
+  "residual_current_device": [
+   "RCCB 2P 16A 10mA Type AC"
+  ],
+  "resilient_flooring": [
+   "Homogeneous Vinyl سماكة 2 مم لون Grey",
+   "Heterogeneous Vinyl سماكة 2 مم لون Grey",
+   "Static Dissipative Vinyl سماكة 2 مم لون Grey",
+   "Safety Vinyl سماكة 2 مم لون Grey",
+   "Homogeneous Vinyl سماكة 2 مم لون Blue",
+   "Heterogeneous Vinyl سماكة 2 مم لون Blue",
+   "Static Dissipative Vinyl سماكة 2 مم لون Blue",
+   "Safety Vinyl سماكة 2 مم لون Blue"
+  ],
+  "rigid_board_insulation": [
+   "XPS Board سماكة 20 مم كثافة 40 كجم/م³ وجه Black Tissue",
+   "XPS Board سماكة 20 مم كثافة 45 كجم/م³ وجه Unfaced",
+   "PIR Board سماكة 20 مم كثافة 50 كجم/م³ وجه Aluminium Foil",
+   "PIR Board سماكة 20 مم كثافة 30 كجم/م³ وجه Unfaced",
+   "XPS Board سماكة 20 مم كثافة 45 كجم/م³ وجه Aluminium Foil",
+   "PIR Board سماكة 20 مم كثافة 50 كجم/م³ وجه Black Tissue"
+  ],
+  "strut_channel_accessory": [
+   "90° Angle Bracket لنظام Strut 41×21 مم تشطيب Zinc",
+   "90° Angle Bracket لنظام Strut 41×21 مم تشطيب HDG",
+   "90° Angle Bracket لنظام Strut 41×21 مم تشطيب SS304",
+   "Flat Plate 2-Hole لنظام Strut 41×21 مم تشطيب Zinc",
+   "Flat Plate 2-Hole لنظام Strut 41×21 مم تشطيب HDG",
+   "Flat Plate 2-Hole لنظام Strut 41×21 مم تشطيب SS304",
+   "Beam Clamp لنظام Strut 41×21 مم تشطيب Zinc",
+   "Beam Clamp لنظام Strut 41×21 مم تشطيب HDG"
+  ],
+  "track_light": [
+   "Track Spotlight LED 3W زاوية 10° CCT 2700K جسم White",
+   "Track Spotlight LED 3W زاوية 10° CCT 2700K جسم Black",
+   "Track Spotlight LED 3W زاوية 10° CCT 2700K جسم Grey"
+  ],
+  "traffic_sign": [
+   "لوحة مرورية Regulatory مقاس 300×500 مم Reflective Type IV",
+   "لوحة مرورية Warning مقاس 300×500 مم Reflective Type IV",
+   "لوحة مرورية Directional مقاس 300×500 مم Reflective Type IV",
+   "لوحة مرورية Information مقاس 300×500 مم Reflective Type IV",
+   "لوحة مرورية Warning مقاس 300×500 مم Reflective Type XI Without Frame",
+   "لوحة مرورية Regulatory مقاس 450×500 مم Reflective Type IV Without Frame",
+   "لوحة مرورية Directional مقاس 450×500 مم Reflective Type XI Without Frame",
+   "لوحة مرورية Information مقاس 600×500 مم Reflective Type XI Without Frame"
+  ],
+  "ventilation_opening": [
+   "Square Diffuser 4-Way مقاس 100×100 مم تشطيب RAL9010",
+   "Square Diffuser 4-Way مقاس 100×100 مم تشطيب Anodized Silver",
+   "Square Diffuser 4-Way مقاس 100×100 مم تشطيب Wood Effect",
+   "Square Diffuser 4-Way مقاس 100×100 مم تشطيب Anodized Silver With OBD",
+   "Square Diffuser 4-Way مقاس 150×150 مم تشطيب RAL9010 With OBD",
+   "Square Diffuser 4-Way مقاس 200×200 مم تشطيب Wood Effect With OBD",
+   "Square Diffuser 4-Way مقاس 100×100 مم تشطيب Wood Effect Without Damper",
+   "Square Diffuser 4-Way مقاس 150×150 مم تشطيب RAL9005 Without Damper"
+  ],
+  "vibration_isolator": [
+   "Spring Hanger DN15 تشطيب Zinc Plated قضيب تعليق M8",
+   "Spring Hanger DN15 تشطيب HDG قضيب تعليق M8",
+   "Spring Hanger DN15 تشطيب SS304 قضيب تعليق M8",
+   "Spring Hanger DN15 تشطيب HDG مقاس قضيب M8",
+   "Spring Hanger DN15 تشطيب SS316 مقاس قضيب M8",
+   "Spring Hanger DN15 تشطيب Zinc Plated مقاس قضيب M8"
+  ],
+  "volume_control_damper": [
+   "VCD Opposed Blade مقاس 150×150 مم مادة GI",
+   "VCD Opposed Blade مقاس 150×150 مم مادة Aluminium",
+   "VCD Parallel Blade مقاس 150×150 مم مادة GI",
+   "VCD Parallel Blade مقاس 150×150 مم مادة Aluminium",
+   "VCD Opposed Blade مقاس 150×150 مم مادة Aluminium تشغيل 24V Actuator",
+   "VCD Parallel Blade مقاس 150×150 مم مادة Aluminium تشغيل 230V Actuator",
+   "VCD Opposed Blade مقاس 200×200 مم مادة GI تشغيل 230V Actuator",
+   "VCD Parallel Blade مقاس 200×200 مم مادة Aluminium تشغيل Manual"
+  ]
+ }
+}

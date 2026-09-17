@@ -1,6 +1,6 @@
 {
   "note": "Generated from src/lib/procurementOntology.ts by attributeRuleConformance.test.ts. The line resolver owns the attribute-clause rule; the API map builder must reproduce these answers.",
-  "ontology_version": "cpo-v10",
+  "ontology_version": "cpo-v11",
   "reader_contract": "Compare ontology_version FIRST. If it differs from the payload you resolve against, these answers are from a different generation and any mismatch below is expected — resync, do not investigate. Only once the versions agree does a mismatch in `cases` mean the two implementations disagree about behaviour.",
   "cases": [
     {
@@ -301,8 +301,8 @@
       "term": "زجاج",
       "note": "the same derivation, bare: three trades own glass",
       "normalized": "صوف زجاجي",
-      "term_index": -1,
-      "decides": false
+      "term_index": 4,
+      "decides": true
     },
     {
       "text": "قارئ بطاقات",

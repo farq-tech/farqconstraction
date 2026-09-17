@@ -175,7 +175,7 @@ console.log(`payload ${ONTOLOGY_VERSION} Â· ${lines.length} real booklet items Â
  * from an adjudication table that is theirs rather than shared, so the
  * difference is recorded here instead of reverse-engineered away.
  */
-console.log('                            cpo-v5      cpo-v6      cpo-v7      cpo-v9')
+console.log('                            cpo-v5      cpo-v6      cpo-v7      cpo-v11')
 console.log(`  Level A                    16.18%      33.82%      50.00%      ${pct(levels.A).padStart(6)}  (${levels.A})`)
 console.log(`  Level B                         -      66.18%      50.00%      ${pct(levels.B).padStart(6)}  (${levels.B})`)
 console.log(`  true unknown (C)           14.71%       0.00%       0.00%      ${pct(levels.C).padStart(6)}  (${levels.C})`)
