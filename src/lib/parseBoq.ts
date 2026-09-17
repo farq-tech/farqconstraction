@@ -937,6 +937,11 @@ const CODED_ITEMS_READ_SHARE = 0.5
 export function isTotalLine(name: string | null | undefined): boolean {
   const n = String(name || '')
     .normalize('NFKC')
+    // A PDF that cannot map a glyph emits U+0000 (and friends) in its place.
+    // Measured on the MasterFormat site booklets: «إجما\u0000» — the ي is a
+    // NUL — so the total word was followed by a character that is neither a
+    // letter nor whitespace, and the line slipped through as an item.
+    .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF\uFFFD]/g, ' ')
     .replace(/[\u064B-\u065F\u0640]/g, '')
     .replace(/[إأآ]/g, 'ا')
     .replace(/\s+/g, ' ')

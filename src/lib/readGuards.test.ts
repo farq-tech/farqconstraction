@@ -7,6 +7,13 @@ describe('a section total is not an item', () => {
       expect(`${name}: ${isTotalLine(name)}`).toBe(`${name}: true`)
     }
   })
+  it('sees the total word through the NUL a PDF leaves where it could not map a glyph', () => {
+    // Verbatim from the deployed link, 2026-09-17: the ي of «إجمالي» arrived as U+0000.
+    for (const name of ['أعمال الموقع \u0000 اجما\u0000', '\u0000 اعمال الم\u0000ا\u0000 \u0000 إجما\u0000', 'العام لأعمال المعدن\u0000ة \u0000 إجما\u0000', 'اعمال خرسانة\u200f إجمالي\ufeff']) {
+      expect(isTotalLine(name)).toBe(true)
+    }
+  })
+
   it('never drops a product whose name merely contains those letters', () => {
     for (const name of ['مجموعة أدوات يدوية', 'طقم مجموعة مفاتيح', 'درابزين حديدي', 'خزان مياه إجمالي السعة 5000 لتر', 'Totalizer flow meter', 'لوحة توزيع رئيسية', '']) {
       expect(`${name}: ${isTotalLine(name)}`).toBe(`${name}: false`)
