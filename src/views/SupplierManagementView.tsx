@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { NavProps, SupplierEntry } from '../types'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
+import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
 import {
   constructionRateLimitSec,
   listSupplierImportBatches,
@@ -302,7 +303,9 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
             /* The flag checklist is a real diagnosis for a real outage. Printing
                it for a rate limit is what sends him chasing correct settings. */
             <div className="text-xs mt-2 text-red-600/80">
-              شغّل Farq API محلياً (أو عيّن VITE_API_PROXY_TARGET)، ضع CONSTRUCTION_DB_URL في api/.env، وللوضع بدون تسجيل دخول أضف CONSTRUCTION_DEMO_MODE=1 ثم أعد تشغيل الـ API — ليس Vite.
+              {isProductionBuild()
+                ? apiUnreachableAdvice()
+                : 'شغّل Farq API محلياً (أو عيّن VITE_API_PROXY_TARGET)، ضع CONSTRUCTION_DB_URL في api/.env، وللوضع بدون تسجيل دخول أضف CONSTRUCTION_DEMO_MODE=1 ثم أعد تشغيل الـ API — ليس Vite.'}
             </div>
           )}
         </div>

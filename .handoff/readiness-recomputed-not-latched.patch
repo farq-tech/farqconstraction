@@ -1,0 +1,636 @@
+diff --git a/api/lib/search/warmBiggestSavings.js b/api/lib/search/warmBiggestSavings.js
+index 14ec9bd7f..e790293a7 100644
+--- a/api/lib/search/warmBiggestSavings.js
++++ b/api/lib/search/warmBiggestSavings.js
+@@ -13,7 +13,7 @@ const logger = require('../logger');
+ /** Matches FE Delivery rail default limit. */
+ const WARM_LIMIT = 32;
+ const WARM_CITY = 'riyadh';
+-const MAX_TRANSIENT_ATTEMPTS = 2;
++const MAX_TRANSIENT_ATTEMPTS = 3;
+ const WARM_RETRY_BASE_MS = 1_200;
+ const DEFAULT_BACKGROUND_QUERY_TIMEOUT_MS = 45_000;
+ 
+@@ -60,6 +60,69 @@ function biggestSavingsHttpCacheKey({ limit, city, sort, slug = null, shape = nu
+   return `cmp:http:e1:${contract}:/api/comparison/biggest-savings?${params.toString()}`;
+ }
+ 
++/*
++ * The keys the first Delivery paint reads, and therefore the only ones whose
++ * coldness is worth holding traffic for. The four PRIMARY_OFFERS_CATEGORY_SHAPES
++ * below are deliberately excluded: their own comment calls them startup-only
++ * seeds refreshed by the demand round robin, so gating on them would make
++ * readiness hostage to an aisle nobody has opened yet.
++ */
++function criticalOffersGatedShapes() {
++  return SYNTHETIC_MONITOR_SHAPES;
++}
++
++/**
++ * Is the gated key reusable right now — i.e. will the next request be served
++ * from cache instead of paying the cold SQL path?
++ *
++ * This deliberately does NOT require rows. `sort=percent` legitimately answers
++ * `{ok:true, items:[]}` in production, and readFreshWarmCache treats empty as
++ * unwarmed because for *warming* purposes an empty body is not worth trusting.
++ * Reusing that predicate for readiness would hold the gate closed forever on a
++ * correct, fully warm cache — the same defect as the boot latch, rebuilt. How
++ * many rows exist is a data question, and serving-freshness already answers it.
++ */
++async function readReusableCacheEnvelope(cacheStore, key) {
++  try {
++    const raw = await cacheStore.get(key);
++    if (!raw) return { ok: false, reason: 'missing' };
++    const { unwrapEnvelope, classifyAge } = require('../comparison-http-cache');
++    const envelope = unwrapEnvelope(raw);
++    if (!envelope.enveloped) return { ok: false, reason: 'unenveloped' };
++    const age = classifyAge(envelope.fetchedAt);
++    /*
++     * `stale` counts as reusable, and the distinction is the whole point of the
++     * gate. Past the soft TTL the route still returns this body immediately and
++     * revalidates behind the request, so the reader does not pay the 11.6s cold
++     * query. Only `miss` — past the six-hour hard TTL — is actually cold.
++     *
++     * Requiring `hit` would also make the gate flap: the soft TTL is 600s and
++     * the rewarm cycle is 480s, so one missed cycle would tip a key to stale and
++     * flip readiness red while users were still being served instantly. Against
++     * the hard TTL the margin is hours, so a red here means genuinely cold.
++     */
++    if (age === 'miss') return { ok: false, reason: 'age_miss' };
++    return { ok: true, age, degraded: age === 'stale' };
++  } catch (error) {
++    return { ok: false, reason: 'probe_failed', error: error?.message || String(error) };
++  }
++}
++
++/**
++ * Probe every gated Offers key. Redis reads only — no SQL, no provider calls —
++ * so this is cheap enough to answer a health probe.
++ */
++async function readGatedOffersCacheState(opts = {}) {
++  const cacheStore = opts.cacheStore || require('../cacheStore');
++  const keys = [];
++  for (const shape of criticalOffersGatedShapes()) {
++    const key = biggestSavingsHttpCacheKey(shape);
++    const state = await readReusableCacheEnvelope(cacheStore, key);
++    keys.push({ label: shape.label || key, key, ...state });
++  }
++  return { ok: keys.every((entry) => entry.ok), keys };
++}
++
+ function buildWarmShapes(opts = {}) {
+   const shapes = [];
+   const synthetic = Array.isArray(opts.synthetic)
+@@ -241,11 +304,28 @@ async function warmOneShape(shape, ttlS, cacheStore, opts = {}) {
+   }
+ }
+ 
++/*
++ * Pool exhaustion is transient and was not being treated as such.
++ *
++ * On the 2026-09-16 17:34 deploy the pooler refused four shapes with
++ * "(EMAXCONNSESSION) max clients reached in session mode - max clients are
++ * limited to pool_size: 20". That string contains no "timeout", so the pattern
++ * below skipped it and every failure logged attempts=1. The shortage was not
++ * this warmer's doing — the shapes below run sequentially by design, and the
++ * same 50-second window starved restaurant search and the grocery read layer
++ * too — so it is exactly the kind of failure worth waiting out.
++ *
++ * Retry alone cannot cover a shortage that long; it shortens the tail. What
++ * stops a boot-time refusal from mattering is that readiness no longer latches
++ * on this result — see evaluateCriticalOffersReadiness.
++ */
+ function isTransientWarmFailure(result) {
+   if (!result || result.ok || typeof result.error !== 'string') return false;
+-  return /(?:query|connection|pool).*timeout|timeout.*(?:query|connection|pool)/i.test(
+-    result.error,
+-  );
++  if (/(?:query|connection|pool).*timeout|timeout.*(?:query|connection|pool)/i.test(result.error)) {
++    return true;
++  }
++  return /EMAXCONNSESSION|max clients reached|too many clients|remaining connection slots|connection pool timeout/i
++    .test(result.error);
+ }
+ 
+ function wait(ms) {
+@@ -264,9 +344,11 @@ async function warmShapeWithRetry(shape, ttlS, cacheStore, opts = {}) {
+       return { ...result, attempts: attempt };
+     }
+     const configuredDelay = Number(opts.retryDelayMs);
++    // Back off rather than re-asking a pool that is still full: 1.2s then 2.4s,
++    // jittered so shapes do not resynchronise onto the same free connection.
+     const delayMs = Number.isFinite(configuredDelay)
+       ? Math.max(0, configuredDelay)
+-      : WARM_RETRY_BASE_MS + Math.floor(Math.random() * 600);
++      : WARM_RETRY_BASE_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 600);
+     logger.warn(
+       { q: result.q, attempt, nextAttempt: attempt + 1, delayMs },
+       '[comparison] biggest-savings warm transient retry',
+@@ -649,6 +731,9 @@ module.exports = {
+   isTransientWarmFailure,
+   warmQueryTimeoutMs,
+   readFreshWarmCache,
++  criticalOffersGatedShapes,
++  readReusableCacheEnvelope,
++  readGatedOffersCacheState,
+   seedRailShapeFromTrustedFull,
+   demandedOffersWarmShapes,
+   preserveTrustedSavingsCaches,
+diff --git a/api/lib/search/warmCheapestCategoryMins.js b/api/lib/search/warmCheapestCategoryMins.js
+index 997c07faf..9ef8ecc1e 100644
+--- a/api/lib/search/warmCheapestCategoryMins.js
++++ b/api/lib/search/warmCheapestCategoryMins.js
+@@ -59,6 +59,34 @@ function parseReusableEnvelope(raw) {
+   }
+ }
+ 
++/**
++ * Is the category-mins key reusable right now?
++ *
++ * Presence and soft-TTL freshness only, for the same reason as the Offers gate:
++ * this answers "will the next reader pay the cold path", not "did a warm run
++ * produce data". parseReusableEnvelope additionally demands a non-empty `mins`
++ * map because a warmer should not trust an empty body; a readiness gate that
++ * demanded the same would close over a correct cache.
++ */
++async function readCategoryMinsCacheState(opts = {}) {
++  const cmp = opts.cmp || require('../comparison-read');
++  const cacheStore = opts.cacheStore || require('../cacheStore');
++  const key = categoryMinsHttpCacheKey(cmp);
++  try {
++    const raw = await cacheStore.get(key);
++    if (!raw) return { ok: false, key, reason: 'missing' };
++    const envelope = unwrapEnvelope(raw);
++    if (!envelope.enveloped) return { ok: false, key, reason: 'unenveloped' };
++    const age = classifyAge(envelope.fetchedAt);
++    // Same rule as the Offers gate: stale is still served without a cold query,
++    // only a hard-TTL miss is cold. See readReusableCacheEnvelope.
++    if (age === 'miss') return { ok: false, key, reason: 'age_miss' };
++    return { ok: true, key, age, degraded: age === 'stale' };
++  } catch (error) {
++    return { ok: false, key, reason: 'probe_failed', error: error?.message || String(error) };
++  }
++}
++
+ async function warmCheapestCategoryMins(opts = {}) {
+   const cmp = opts.cmp || require('../comparison-read');
+   const cacheStore = opts.cacheStore || require('../cacheStore');
+@@ -175,5 +203,6 @@ module.exports = {
+   categoryMinsHttpCacheKey,
+   backgroundTimeoutMs,
+   parseReusableEnvelope,
++  readCategoryMinsCacheState,
+   __resetCheapestCategoryMinsWarmForTests,
+ };
+diff --git a/api/lib/server-readiness.js b/api/lib/server-readiness.js
+index f3c868959..36acac126 100644
+--- a/api/lib/server-readiness.js
++++ b/api/lib/server-readiness.js
+@@ -8,11 +8,71 @@ const CRITICAL_SERVING_PLANES = Object.freeze(Object.keys(PLANE_POLICIES));
+  * A best-effort cache warmup must not close readiness in environments where
+  * the production comparison-savings gate is deliberately disabled. Only the
+  * explicit production gate may hold traffic for a failed critical warmup.
++ *
++ * @deprecated Latching this on a one-shot boot result is what kept /health at
++ * 503 for hours on 2026-09-16 over an already-warm cache. Use
++ * evaluateCriticalOffersReadiness, which is recomputed from the cache itself.
++ * Retained only so callers outside the request path keep working.
+  */
+ function criticalOffersWarmupState(readinessRequired, warmupOk) {
+   return !readinessRequired || Boolean(warmupOk);
+ }
+ 
++/**
++ * Turn a probe of the gated Offers cache keys into a traffic-readiness gate.
++ *
++ * Deliberately shaped like evaluateCriticalServingReadiness below, because that
++ * evaluator already had the properties this one was missing: it is recomputed
++ * per request from current evidence, and it can therefore regress. Nothing here
++ * remembers whether a warm attempt once succeeded — the question asked is only
++ * whether the keys the first paint reads are reusable now.
++ *
++ * `offers` and `mins` are the probe results from warmBiggestSavings /
++ * warmCheapestCategoryMins. A probe that could not run at all is not ready:
++ * an unanswerable question must not read as a yes.
++ */
++function evaluateCriticalOffersReadiness(options = {}) {
++  const required = options.required !== false;
++  const offers = options.offers || null;
++  const mins = options.mins || null;
++  if (!required) {
++    return {
++      required: false,
++      ready: true,
++      status: 'not_required',
++      reason: null,
++      reason_codes: [],
++      keys: [],
++    };
++  }
++
++  const offersKeys = Array.isArray(offers?.keys) ? offers.keys : [];
++  const keys = [
++    ...offersKeys,
++    ...(mins ? [{ label: 'cheapest-by-category:mins', ...mins }] : []),
++  ];
++  const cold = keys.filter((entry) => !entry.ok);
++  // Both probes must have actually reported. An Offers probe that returned no
++  // keys at all has told us nothing, and must not be carried to "ready" by the
++  // mins entry sitting beside it in the same array.
++  const probed = offersKeys.length > 0 && Boolean(mins);
++  const reasonCodes = [];
++  // Keep this code first and unchanged: existing uptime monitors and the
++  // Railway/Render runbooks match on it by name.
++  if (!probed || cold.length > 0) reasonCodes.push('critical_offers_warmup_pending');
++  if (!probed) reasonCodes.push('critical_offers_probe_unavailable');
++  if (cold.length > 0) reasonCodes.push('critical_offers_key_cold');
++
++  return {
++    required: true,
++    ready: probed && cold.length === 0,
++    status: probed && cold.length === 0 ? 'warm' : 'cold',
++    reason: reasonCodes[0] || null,
++    reason_codes: unique(reasonCodes),
++    keys,
++  };
++}
++
+ function envEnabled(value) {
+   return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+ }
+@@ -97,6 +157,7 @@ function evaluateCriticalServingReadiness(freshness, options = {}) {
+ module.exports = {
+   CRITICAL_SERVING_PLANES,
+   criticalOffersWarmupState,
++  evaluateCriticalOffersReadiness,
+   envEnabled,
+   readOnlyCanaryEnabled,
+   backgroundStartupEnabled,
+diff --git a/api/server.js b/api/server.js
+index 7d7521a9c..ae61957fd 100644
+--- a/api/server.js
++++ b/api/server.js
+@@ -47,6 +47,7 @@ const { activeSource, isMockMode, hasSupabase, hasPostgres } = require('./lib/da
+ const {
+   backgroundStartupEnabled,
+   criticalOffersWarmupState,
++  evaluateCriticalOffersReadiness,
+   criticalServingReadinessRequired,
+   evaluateCriticalServingReadiness,
+   readOnlyCanaryEnabled,
+@@ -117,14 +118,62 @@ const comparisonSavingsReadinessRequired = isProduction
+   && ['1', 'true'].includes(
+     String(process.env.SUPABASE_BIGGEST_SAVINGS_ENABLED || '').toLowerCase(),
+   );
+-// Railway must keep the previous healthy deployment on traffic until the
+-// latency-sensitive Offers key is reusable on the new process. The warmer
+-// flips this only after every required shape is present; failed warmups leave
+-// readiness closed instead of exposing users to the 10–15s cold SQL path.
+-let criticalOffersWarmupReady = criticalOffersWarmupState(
+-  comparisonSavingsReadinessRequired,
+-  false,
+-);
++/*
++ * Railway must keep the previous healthy deployment on traffic until the
++ * latency-sensitive Offers key is reusable on the new process.
++ *
++ * This used to be a boolean latched by the boot warmer. On 2026-09-16 the
++ * pooler refused four shapes during a 50-second, process-wide connection
++ * shortage; the warmer returned not-ok, the latch closed, and because the boot
++ * queue never retries and nothing else could reach the variable, /health served
++ * 503 critical_offers_warmup_pending for hours — over a cache that was already
++ * warm and answering in 3–8ms, inherited through Redis from the previous
++ * deployment. The signal described a past attempt, not the present world.
++ *
++ * So: recomputed per probe from the keys themselves, briefly memoised so a
++ * monitor cannot turn a health check into Redis load. It can go green without a
++ * restart, and it can go red again if the cache genuinely decays.
++ */
++const CRITICAL_OFFERS_READINESS_TTL_MS = 5_000;
++let criticalOffersReadinessCache = { at: 0, value: null };
++
++async function loadCriticalOffersReadiness() {
++  // The read-only canary's /health contract is credential-free and explicitly
++  // forbids touching Redis, so it cannot answer this question and must not
++  // pretend to. Readiness there is decided by the branch below it.
++  if (readOnlyCanary) {
++    return evaluateCriticalOffersReadiness({ required: false });
++  }
++  if (!comparisonSavingsReadinessRequired) {
++    return evaluateCriticalOffersReadiness({ required: false });
++  }
++  const now = Date.now();
++  if (
++    criticalOffersReadinessCache.value
++    && now - criticalOffersReadinessCache.at < CRITICAL_OFFERS_READINESS_TTL_MS
++  ) {
++    return criticalOffersReadinessCache.value;
++  }
++  let offers = null;
++  let mins = null;
++  try {
++    const { readGatedOffersCacheState } = require('./lib/search/warmBiggestSavings');
++    const { readCategoryMinsCacheState } = require('./lib/search/warmCheapestCategoryMins');
++    [offers, mins] = await Promise.all([
++      readGatedOffersCacheState(),
++      readCategoryMinsCacheState(),
++    ]);
++  } catch (error) {
++    logger.warn({ err: error.message }, '[readiness] critical offers probe failed');
++  }
++  const value = evaluateCriticalOffersReadiness({
++    required: comparisonSavingsReadinessRequired,
++    offers,
++    mins,
++  });
++  criticalOffersReadinessCache = { at: now, value };
++  return value;
++}
+ const { isFarqVercelOrigin } = require('./lib/corsOrigins');
+ const allowVercelPreviews = process.env.CORS_ALLOW_VERCEL === '1';
+ const defaultOriginsDev = [
+@@ -744,26 +793,28 @@ app.get('/live', (_req, res) => res.status(200).json({
+ // plane therefore removes a canary from promotion without causing a restart
+ // loop; /live remains process-only.
+ app.get('/ready', async (_req, res) => {
+-  const [dbStatus, servingFreshness] = await Promise.all([
++  const [dbStatus, servingFreshness, offersReadiness] = await Promise.all([
+     checkDbStatus(),
+     productionServingReadinessRequired ? loadServingFreshnessDirect() : Promise.resolve(null),
++    loadCriticalOffersReadiness(),
+   ]);
+   const dbReady = dbStatus !== 'unreachable' || isMockMode();
+   const businessReadiness = evaluateCriticalServingReadiness(servingFreshness, {
+     required: productionServingReadinessRequired,
+   });
+   const reasonCodes = [
+-    ...(!criticalOffersWarmupReady ? ['critical_offers_warmup_pending'] : []),
++    ...offersReadiness.reason_codes,
+     ...(!dbReady ? ['database_unreachable'] : []),
+     ...businessReadiness.reason_codes,
+   ];
+-  const ready = criticalOffersWarmupReady && dbReady && businessReadiness.ready;
++  const ready = offersReadiness.ready && dbReady && businessReadiness.ready;
+   return res.status(ready ? 200 : 503).json({
+     status: ready ? 'ready' : 'not_ready',
+     ready,
+     db: dbStatus,
+     reason: reasonCodes[0] || null,
+     reason_codes: reasonCodes,
++    critical_offers_readiness: offersReadiness,
+     business_readiness: businessReadiness,
+     serving_data_freshness: servingFreshness,
+     readOnlyCanary,
+@@ -772,11 +823,16 @@ app.get('/ready', async (_req, res) => {
+ });
+ 
+ app.get('/health', async (_req, res) => {
+-  if (!criticalOffersWarmupReady) {
++  const offersReadiness = await loadCriticalOffersReadiness();
++  if (!offersReadiness.ready) {
+     return res.status(503).json({
+       status: 'starting',
+       ready: false,
+-      reason: 'critical_offers_warmup_pending',
++      reason: offersReadiness.reason || 'critical_offers_warmup_pending',
++      reason_codes: offersReadiness.reason_codes,
++      // Name the cold keys. The old 503 said only that something was pending,
++      // which is why it took an unrelated deploy check to notice it was stuck.
++      critical_offers_readiness: offersReadiness,
+     });
+   }
+   if (readOnlyCanary) {
+@@ -1329,11 +1385,9 @@ function listenWithFallback(startPort, maxTries = 15) {
+             } = require('./lib/search/warmCheapestCategoryMins');
+             scheduleCheapestCategoryMinsRewarm();
+             const mins = await warmCheapestCategoryMins();
+-            criticalOffersWarmupReady = Boolean(r?.ok && mins?.ok);
+-            criticalOffersWarmupReady = criticalOffersWarmupState(
+-              comparisonSavingsReadinessRequired,
+-              criticalOffersWarmupReady,
+-            );
++            // Readiness is no longer latched here. This task warms and reports;
++            // /ready and /health ask the cache directly, so a refusal now costs
++            // one cold first request instead of closing the gate until restart.
+             if (r?.ok) {
+               logger.info(
+                 { results: r.results },
+diff --git a/api/tests/critical-offers-readiness.test.js b/api/tests/critical-offers-readiness.test.js
+new file mode 100644
+index 000000000..83689055b
+--- /dev/null
++++ b/api/tests/critical-offers-readiness.test.js
+@@ -0,0 +1,134 @@
++'use strict';
++
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const {
++  evaluateCriticalOffersReadiness,
++} = require('../lib/server-readiness');
++const {
++  criticalOffersGatedShapes,
++  readReusableCacheEnvelope,
++  readGatedOffersCacheState,
++} = require('../lib/search/warmBiggestSavings');
++// Build fixtures with the real writer so this cannot drift from the envelope.
++const { wrapEnvelope, hardTtlSec, softTtlSec } = require('../lib/comparison-http-cache');
++
++const warmKey = (label) => ({ label, key: `k:${label}`, ok: true, age: 'hit' });
++const coldKey = (label) => ({ label, key: `k:${label}`, ok: false, reason: 'missing' });
++const warmMins = { ok: true, key: 'mins', age: 'hit' };
++
++test('readiness is warm only when every gated key is reusable', () => {
++  const state = evaluateCriticalOffersReadiness({
++    required: true,
++    offers: { ok: true, keys: [warmKey('a'), warmKey('b')] },
++    mins: warmMins,
++  });
++  assert.equal(state.ready, true);
++  assert.equal(state.status, 'warm');
++  assert.deepEqual(state.reason_codes, []);
++  assert.equal(state.keys.length, 3);
++});
++
++test('readiness can regress — the defect the latch could not express', () => {
++  // Same process, later probe, one key expired. A latched boolean physically
++  // could not report this; that is why it is asserted here.
++  const state = evaluateCriticalOffersReadiness({
++    required: true,
++    offers: { ok: false, keys: [warmKey('a'), coldKey('b')] },
++    mins: warmMins,
++  });
++  assert.equal(state.ready, false);
++  assert.equal(state.status, 'cold');
++  // The historical code stays first so uptime monitors keep matching.
++  assert.equal(state.reason_codes[0], 'critical_offers_warmup_pending');
++  assert.ok(state.reason_codes.includes('critical_offers_key_cold'));
++  // And it names which key, which the old 503 never did.
++  assert.deepEqual(
++    state.keys.filter((entry) => !entry.ok).map((entry) => entry.label),
++    ['b'],
++  );
++});
++
++test('an unanswerable probe is not ready', () => {
++  // A failed Redis probe must not read as a yes. Gmail reported CURRENT while
++  // syncing nothing by making exactly this substitution.
++  for (const args of [
++    { required: true, offers: null, mins: warmMins },
++    { required: true, offers: { ok: true, keys: [warmKey('a')] }, mins: null },
++    { required: true, offers: { ok: true, keys: [] }, mins: warmMins },
++  ]) {
++    const state = evaluateCriticalOffersReadiness(args);
++    assert.equal(state.ready, false);
++    assert.ok(state.reason_codes.includes('critical_offers_probe_unavailable'));
++  }
++});
++
++test('the gate is not required when the production flag is off', () => {
++  const state = evaluateCriticalOffersReadiness({ required: false });
++  assert.equal(state.ready, true);
++  assert.equal(state.status, 'not_required');
++  assert.deepEqual(state.reason_codes, []);
++});
++
++test('a warm key with zero rows is ready — rows are a data question', async () => {
++  // sort=percent answers {ok:true, items:[]} in production while being fully
++  // cached. Requiring rows here would hold the gate closed over a correct
++  // cache, which is the boot latch rebuilt with a new mechanism.
++  const body = JSON.stringify({ ok: true, items: [] });
++  const cacheStore = { get: async () => wrapEnvelope(body, Date.now()) };
++  const probe = await readReusableCacheEnvelope(cacheStore, 'any');
++  assert.equal(probe.ok, true, 'an empty but fresh envelope is reusable');
++
++  const state = await readGatedOffersCacheState({ cacheStore });
++  assert.equal(state.ok, true);
++  assert.equal(state.keys.length, criticalOffersGatedShapes().length);
++});
++
++test('a missing or stale envelope is not reusable', async () => {
++  const missing = await readReusableCacheEnvelope({ get: async () => null }, 'k');
++  assert.equal(missing.ok, false);
++  assert.equal(missing.reason, 'missing');
++
++  const dead = Date.now() - (hardTtlSec() + 60) * 1000;
++  const missed = await readReusableCacheEnvelope(
++    { get: async () => wrapEnvelope('{"ok":true,"items":[]}', dead) },
++    'k',
++  );
++  assert.equal(missed.ok, false);
++  assert.equal(missed.reason, 'age_miss');
++
++  // A probe that throws is a failure, not a pass.
++  const broken = await readReusableCacheEnvelope(
++    { get: async () => { throw new Error('redis down'); } },
++    'k',
++  );
++  assert.equal(broken.ok, false);
++  assert.equal(broken.reason, 'probe_failed');
++});
++
++test('a stale-but-serveable key is ready, and does not flap the gate', async () => {
++  // The soft TTL is 600s and the rewarm cycle 480s, so one missed cycle tips a
++  // key stale. The route still serves it instantly and revalidates behind the
++  // request, so the reader pays nothing and readiness must not go red.
++  const justStale = Date.now() - (softTtlSec() + 60) * 1000;
++  const probe = await readReusableCacheEnvelope(
++    { get: async () => wrapEnvelope('{"ok":true,"items":[]}', justStale) },
++    'k',
++  );
++  assert.equal(probe.ok, true);
++  assert.equal(probe.age, 'stale');
++  assert.equal(probe.degraded, true, 'reported, but not a reason to hold traffic');
++});
++
++test('pool exhaustion is treated as transient so boot retries it', () => {
++  const { isTransientWarmFailure } = require('../lib/search/warmBiggestSavings');
++  const poolFull = {
++    ok: false,
++    error: '(EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 20',
++  };
++  assert.equal(isTransientWarmFailure(poolFull), true, 'the 2026-09-16 boot failure');
++  assert.equal(isTransientWarmFailure({ ok: false, error: 'query timeout' }), true);
++  // Not everything is worth retrying.
++  assert.equal(isTransientWarmFailure({ ok: false, error: 'syntax error at or near' }), false);
++  assert.equal(isTransientWarmFailure({ ok: true }), false);
++});
+diff --git a/api/tests/startup-warmup-queue.test.js b/api/tests/startup-warmup-queue.test.js
+index ee693bfdf..30514c954 100644
+--- a/api/tests/startup-warmup-queue.test.js
++++ b/api/tests/startup-warmup-queue.test.js
+@@ -22,8 +22,18 @@ test('server places every database-heavy boot warmer on the shared lane', () =>
+   // Blue/green traffic must stay on the previous healthy deployment until
+   // the new process can serve Offers without a cold comparison query.
+   assert.match(source, /comparisonSavingsReadinessRequired/);
+-  assert.match(source, /reason: 'critical_offers_warmup_pending'/);
+-  assert.match(source, /criticalOffersWarmupReady = Boolean\(r\?\.ok && mins\?\.ok\)/);
++  // ...but readiness must be recomputed, never latched on the boot result. The
++  // previous version of this test asserted the latch, and the latch is what
++  // held /health at 503 for hours on 2026-09-16 over an already-warm cache.
++  assert.doesNotMatch(source, /criticalOffersWarmupReady/);
++  assert.doesNotMatch(source, /let criticalOffersWarmupReady/);
++  assert.match(source, /loadCriticalOffersReadiness/);
++  assert.match(source, /evaluateCriticalOffersReadiness/);
++  // Both probes must consult it rather than a remembered boolean.
++  const healthHandler = source.slice(source.indexOf("app.get('/health'"));
++  assert.match(healthHandler.slice(0, 400), /await loadCriticalOffersReadiness\(\)/);
++  const readyHandler = source.slice(source.indexOf("app.get('/ready'"));
++  assert.match(readyHandler.slice(0, 600), /loadCriticalOffersReadiness\(\)/);
+ });
+ 
+ test('startup warmups run sequentially in priority order', async () => {
+diff --git a/api/tests/warm-cheapest-category-mins.test.js b/api/tests/warm-cheapest-category-mins.test.js
+index 4910c0047..db11b5445 100644
+--- a/api/tests/warm-cheapest-category-mins.test.js
++++ b/api/tests/warm-cheapest-category-mins.test.js
+@@ -121,5 +121,9 @@ test('production readiness waits for both Offers and category-mins cache seeds',
+   const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+   assert.match(server, /warmCheapestCategoryMins/);
+   assert.match(server, /scheduleCheapestCategoryMinsRewarm/);
+-  assert.match(server, /Boolean\(r\?\.ok && mins\?\.ok\)/);
++  // Readiness still covers both keys, but by probing them rather than by
++  // remembering whether the boot warm of each returned ok. The old assertion
++  // here pinned `Boolean(r?.ok && mins?.ok)`, which was the latch.
++  assert.match(server, /readCategoryMinsCacheState/);
++  assert.match(server, /readGatedOffersCacheState/);
+ });
+diff --git a/render.yaml b/render.yaml
+index cb0bed78b..8cfa6d030 100644
+--- a/render.yaml
++++ b/render.yaml
+@@ -7,8 +7,17 @@
+ # docs/RAILWAY_CRONS.md. Full evidence + decommission checklist:
+ # docs/DEPLOYMENT_TRUTH_CHECKLIST.md.
+ #
+-# Kept as reference until the Render dashboard teardown is confirmed. Original
+-# header follows.
++# Kept as reference until the Render dashboard teardown is confirmed: it is the
++# inventory the Railway env vars and crons are reconciled against.
++#
++# Residual risk NOT fixed here, because it needs someone with Render access to
++# decide: the web service below is `autoDeploy: true` on `branch: main`, and the
++# two crons duplicate jobs Railway already runs. If service
++# srv-d77f1bh4tr6s73cumdu0 is suspended rather than deleted, applying this
++# blueprint would start a second production API and a second set of price-refresh
++# crons against the same secrets. Confirm teardown, or set autoDeploy: false.
++#
++# Original header follows.
+ #
+ # Render Blueprint — Farq API (Node/Express). See docs/DEPLOYMENT.md and api/.env.example.
+ # Connect the Render Cursor plugin + MCP (https://render.com/docs/mcp-server) to list
+@@ -27,7 +36,13 @@ services:
+     autoDeploy: true
+     buildCommand: npm install
+     startCommand: npm start
+-    healthCheckPath: /health
++    # /live, not /health. /health additionally gates on comparison cache warmth
++    # and answers 503 while any gated key is cold — on 2026-09-16 it did so for
++    # hours while the API served normally. Render treats a failing health check
++    # as a failed deploy, so if this blueprint is ever applied to a service that
++    # still exists, /health could refuse a healthy release. /live is the
++    # process-liveness probe Railway already uses in production (railway.json).
++    healthCheckPath: /live
+     # Custom domain api.farq.sa is bound to this service in the Render dashboard.
+     # Service ID: srv-d77f1bh4tr6s73cumdu0
+     envVars:

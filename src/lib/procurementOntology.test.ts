@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v9')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v10')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -2441,5 +2441,114 @@ describe('cpo-v9: supplier prose is its own register', () => {
     for (const s of ['شركة مكافحة حريق ورشاشات', 'مؤسسة انظمة مكافحة الحريق', 'fire fighting sprinkler contractor']) {
       expect(evaluateSupplier(s, sprinkler).verdict).toBe('PREFERRED')
     }
+  })
+})
+
+/**
+ * ARABIC INFLECTION, AS A CLASS RATHER THAN AS THREE MORE FIXES.
+ *
+ * Three rounds in a row lost an intent to Arabic morphology and each was closed
+ * on its own: «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was
+ * present. The distinction that closes them together is the one the language
+ * makes — inflection changes a word's form and keeps its meaning, derivation
+ * builds a new word that may name a different product. So inflection is
+ * generated freely and derivation is generated only where it provably cannot
+ * cross a trade.
+ */
+describe('cpo-v10: inflection is generated, derivation is gated', () => {
+  const matches = (haystack: string, term: string) => termIndex(haystack, term) >= 0
+
+  describe('INFLECTION — the sound feminine plural, which was missing', () => {
+    // The most common plural formation in Arabic. It REPLACES the taa marbuta
+    // rather than following it, which is why a rule that only appended could
+    // never reach it, however many suffixes it listed.
+    it('matches a taa-marbuta singular against its plural', () => {
+      expect(matches('لوحات توزيع كهربائية', 'لوحة')).toBe(true)
+      expect(matches('بلاطات سقف', 'بلاطة')).toBe(true)
+      expect(matches('بطاقات RFID', 'بطاقة')).toBe(true)
+    })
+
+    it('keeps the loanword plural, which attaches to the bare noun', () => {
+      expect(matches('كابلات نحاس معزولة', 'كابل')).toBe(true)
+      expect(matches('محولات تيار', 'محول')).toBe(true)
+    })
+
+    /**
+     * «لوح» sheet and «لوحة» board are different words. «لوحات» is the plural
+     * of the second; the first pluralises to «ألواح», which is broken. So when
+     * both are vocabulary the sound plural is attributed to the feminine and
+     * withheld from the base — one attribution that both GAINED «لوحة» its
+     * plural and TOOK «لوحات توزيع» away from «لوح». They were two entries on
+     * the collision list pointing at each other.
+     */
+    it('attributes a plural to the feminine singular, not to the bare noun', () => {
+      expect(matches('لوحات توزيع', 'لوح')).toBe(false)
+      expect(matches('مبدلات شبكات', 'شبك')).toBe(false)
+      expect(matches('بلاطات سقف معدنية', 'بلاط')).toBe(false)
+    })
+  })
+
+  describe('DERIVATION — the nisba, which is a new word and not a new form', () => {
+    it('refuses a bare material noun the adjective another trade owns', () => {
+      // «معدني» is metallic AND mineral; «أرضية» is flooring, not ground.
+      expect(matches('ألواح جبس معدنية', 'معدن')).toBe(false)
+      expect(matches('بلاط سقف مستعار ألياف معدنية 600x600', 'معدن')).toBe(false)
+      expect(matches('أرضيات إيبوكسي صناعية', 'ارض')).toBe(false)
+      expect(matches('صوف زجاجي', 'زجاج')).toBe(false)
+    })
+
+    it('allows the nisba where one family owns both forms', () => {
+      // Wood owns «خشب» and «خشبي», so nothing is being crossed.
+      expect(matches('باب خشب زان', 'باب خشبي')).toBe(true)
+      expect(matches('باب خشبي زان', 'باب خشب')).toBe(true)
+    })
+
+    /**
+     * Gating the word in ISOLATION cost «باب زجاجي سحاب» its family: the
+     * derivation was refused on evidence from «صوف زجاجي» and «ألياف زجاجية»,
+     * where the neighbouring word was doing the disambiguating all along. In a
+     * phrase the head has already pinned the trade.
+     */
+    it('allows the nisba inside a phrase, where the head pins the trade', () => {
+      expect(matches('باب زجاجي سحاب', 'باب زجاج')).toBe(true)
+      expect(resolveOntology('باب زجاجي سحاب (منزلق)').family).toBe('glazing')
+      // And the bare material still does not reach another trade's product.
+      expect(resolveOntology('صوف زجاجي').family).toBe('thermal_insulation')
+      expect(resolveOntology('خزان ألياف زجاجية').family).toBe('water_tanks')
+    })
+  })
+
+  describe('BROKEN PLURALS — out of scope, and the limit is the point', () => {
+    /**
+     * «حريق» → «حرائق», «لوح» → «ألواح», «كتاب» → «كتب». The plural is formed
+     * by re-templating the root, not by adding to it, so NO affix rule can
+     * reach it — not this one, and not a longer suffix list. These are
+     * vocabulary, and «حرايق» was listed in v9 for exactly this reason.
+     *
+     * This test exists so the limit is enforced rather than merely written
+     * down: a reader who assumes «plurals are handled» is half right, and the
+     * half that is wrong is silent.
+     */
+    it('does not reach a broken plural by suffixing', () => {
+      expect(matches('شركة مكافحة الحرائق', 'حريق')).toBe(false)
+      expect(matches('ألواح جبس', 'لوح')).toBe(false)
+    })
+
+    it('reaches it as vocabulary instead', () => {
+      expect(classifySupplierArchetypes('مكافحة الحرائق')).toContain('fire_fighting_supplier')
+      // «ألواح جبس» is carried explicitly, so the family still answers.
+      expect(resolveOntology('ألواح جبس').family).toBe('interior_systems')
+    })
+  })
+
+  /**
+   * THE GATE IS COMPUTED, NOT LISTED. Same discipline as the guard predicate:
+   * no human decides which derivations are permitted, the ontology's own
+   * ownership does.
+   */
+  it('derives the gate from ownership rather than from an exception list', () => {
+    const source = readFileSync(new URL('./procurementOntology.ts', import.meta.url), 'utf8')
+    const gate = source.slice(source.indexOf('function derivationAllowed'))
+    expect(gate.slice(0, gate.indexOf('\n}'))).not.toMatch(/['"][\u0621-\u064A]/)
   })
 })

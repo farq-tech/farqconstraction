@@ -1,5 +1,7 @@
 {
-  "description": "Enables users to create and manage team identities on farq.sa, streamlining collaboration and enhancing group organization.",
+  "title": "فرق بناء — Farq Construction",
+  "language": "ar",
+  "description": "ارفع كراسة الشروط والمواصفات، واقرأ بنودها بكمياتها ووحداتها، واعثر على موردين لكل بند.",
   "robots": {
     "index": false
   },

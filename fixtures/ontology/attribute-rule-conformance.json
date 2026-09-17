@@ -1,5 +1,7 @@
 {
   "note": "Generated from src/lib/procurementOntology.ts by attributeRuleConformance.test.ts. The line resolver owns the attribute-clause rule; the API map builder must reproduce these answers.",
+  "ontology_version": "cpo-v10",
+  "reader_contract": "Compare ontology_version FIRST. If it differs from the payload you resolve against, these answers are from a different generation and any mismatch below is expected — resync, do not investigate. Only once the versions agree does a mismatch in `cases` mean the two implementations disagree about behaviour.",
   "cases": [
     {
       "text": "وصلة PPR Elbow مقاس 50 مم ربط Solvent Cement",
@@ -70,8 +72,8 @@
       "term": "معدن",
       "note": "mineral fibre must not read as metal",
       "normalized": "بلاط سقف مستعار الياف معدنيه 600x600",
-      "term_index": 22,
-      "decides": true
+      "term_index": -1,
+      "decides": false
     },
     {
       "text": "بلاط سقف مستعار مادة ألياف معدنية",
@@ -214,24 +216,24 @@
       "term": "لوحة",
       "note": "plural of a taa-marbuta singular",
       "normalized": "لوحات توزيع كهرباييه",
-      "term_index": -1,
-      "decides": false
+      "term_index": 0,
+      "decides": true
     },
     {
       "text": "ألواح جبس معدنية",
       "term": "معدن",
       "note": "nisba on a material noun",
       "normalized": "الواح جبس معدنيه",
-      "term_index": 10,
-      "decides": true
+      "term_index": -1,
+      "decides": false
     },
     {
       "text": "أرضيات إيبوكسي صناعية",
       "term": "ارض",
       "note": "floors are not ground — shortening stays reverted",
       "normalized": "ارضيات ايبوكسي صناعيه",
-      "term_index": 0,
-      "decides": true
+      "term_index": -1,
+      "decides": false
     },
     {
       "text": "شبكة ري بالتنقيط",
@@ -285,6 +287,38 @@
       "normalized": "شركه مكافحه الحرايق بالرياض",
       "term_index": 5,
       "decides": true
+    },
+    {
+      "text": "باب زجاجي سحاب منزلق",
+      "term": "باب زجاج",
+      "note": "nisba inside a phrase: the head has pinned the trade",
+      "normalized": "باب زجاجي سحاب منزلق",
+      "term_index": 0,
+      "decides": true
+    },
+    {
+      "text": "صوف زجاجي",
+      "term": "زجاج",
+      "note": "the same derivation, bare: three trades own glass",
+      "normalized": "صوف زجاجي",
+      "term_index": -1,
+      "decides": false
+    },
+    {
+      "text": "قارئ بطاقات",
+      "term": "بطاقه",
+      "note": "sound feminine plural, gained",
+      "normalized": "قاري بطاقات",
+      "term_index": 5,
+      "decides": true
+    },
+    {
+      "text": "مبدلات شبكات",
+      "term": "شبك",
+      "note": "plural belongs to «شبكة», not to rebar «شبك»",
+      "normalized": "مبدلات شبكات",
+      "term_index": -1,
+      "decides": false
     },
     {
       "text": "وصلة PPR مقاس 50 مم مادة رشاش حريق",

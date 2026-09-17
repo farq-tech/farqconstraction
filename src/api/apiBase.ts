@@ -15,6 +15,28 @@ export function apiBase(): string {
   return raw.replace(/\/$/, '') || '/_api'
 }
 
+/** True in any `vite build` output; false under `vite dev` and in tests. */
+export function isProductionBuild(): boolean {
+  const env = (import.meta as { env?: Record<string, unknown> }).env
+  return env?.PROD === true
+}
+
+/**
+ * What to tell someone when the API could not be reached.
+ *
+ * The local answer and the deployed answer are different facts. `VITE_API_PROXY_TARGET`
+ * is a dev-server setting that does not exist in a built site, so printing that
+ * advice on a real domain sends the reader to look for something that isn't there.
+ * On a deployed build the honest first suspect is the session: without one the
+ * app sends `x-construction-demo-user`, which the API's CORS does not allow, so
+ * the request never leaves the browser.
+ */
+export function apiUnreachableAdvice(): string {
+  return isProductionBuild()
+    ? 'إن لم تكن مسجّل الدخول فسجّل الدخول ثم أعد المحاولة؛ وإن كنت مسجّلًا فالـ API لا يستجيب حاليًا.'
+    : 'شغّل Farq API محليًا واضبط VITE_API_PROXY_TARGET عليه، ثم أعد المحاولة.'
+}
+
 /**
  * A build-time bearer token for the whole deployment.
  *

@@ -412,13 +412,39 @@ const termCache = new Map<string, CompiledTerm>()
  * this is the matching enclitic.
  */
 /**
- * What may be APPENDED to a stem: the nisba in its forms, and the sound plural
- * «ات» that turns «كابل» into «كابلات» and «لوحه» into «لوحات». Appending is
- * the safe direction of this rule — it can only ever make a term match a
- * LONGER word, so no term becomes shorter and no stem becomes a near-wildcard.
- * Shortening is what broke «ارضيات», and only «ي» is ever stripped.
+ * INFLECTION IS NOT DERIVATION, AND CONFLATING THEM IS WHAT KEPT BREAKING.
+ *
+ * Three separate rounds lost an intent to Arabic morphology — «باب خشب /
+ * خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present — and each was
+ * closed on its own. The class-level distinction that closes them together is
+ * the one Arabic itself makes:
+ *
+ *   INFLECTION changes the FORM of a word and keeps its meaning. The definite
+ *     article, the conjunctions, the dual, the sound plural. «لوحة» and
+ *     «لوحات» are one lexeme, so matching across them is always right, and the
+ *     rule may generate them freely.
+ *
+ *   DERIVATION builds a NEW word from an old one. The nisba does this: «خشب»
+ *     wood becomes «خشبي» wooden, «أرض» ground becomes «أرضية» flooring,
+ *     «معدن» metal becomes «معدني» — which also means mineral. The result is a
+ *     different lexeme that MAY mean a different product, so generating it is
+ *     a guess, not a transformation.
+ *
+ * v7 added the nisba as though it were inflection, because «خشب / خشبي» happen
+ * to be procurement-synonymous. «أرض / أرضية» and «معدن / معدني» are not, and
+ * those are two of the three defects measured against this rule. So the two
+ * kinds get different treatment: inflection is generated, derivation is
+ * generated only where the ontology shows it cannot collide.
  */
-const AR_NISBA = '(?:يات|يين|يه|ي|ات)?'
+const AR_NISBA_FORMS = ['يات', 'يين', 'يه', 'ي'] as const
+
+/**
+ * The sound feminine plural, which is the most common plural formation in the
+ * language and was missing: «لوحة» → «لوحات», «بلاطة» → «بلاطات». It replaces
+ * the taa marbuta rather than following it, which is why a rule that only ever
+ * APPENDED could not reach it however many suffixes it listed.
+ */
+const AR_SOUND_PLURAL = 'ات'
 
 /**
  * The stem a nisba adjective is built on, or the word unchanged.
@@ -438,25 +464,151 @@ function nisbaStem(word: string): string {
   return stem.length >= 3 ? stem : word
 }
 
+/**
+ * WHO OWNS A WORD, so that derivation can be gated by measurement instead of
+ * by a hand-kept exception list.
+ *
+ * Built once from the payload: every word appearing in a deciding term, mapped
+ * to the families that use it. Two questions are answered from it, and both are
+ * computed — the same discipline the guard predicate now runs under.
+ */
+type MorphIndex = { owners: Map<string, Set<string>>; hasFeminine: Set<string> }
+let morphIndexCache: MorphIndex | null = null
+function morphIndex(): MorphIndex {
+  if (morphIndexCache) return morphIndexCache
+  const owners = new Map<string, Set<string>>()
+  for (const family of DATA.families) {
+    const walk = (node: RawFamily | RawCategory | RawIntent) => {
+      for (const tier of ['strong_terms', 'weak_terms'] as const) {
+        for (const term of node[tier] ?? []) {
+          for (const word of normalizeTerm(term).split(' ')) {
+            if (!word) continue
+            if (!owners.has(word)) owners.set(word, new Set())
+            owners.get(word)!.add(family.id)
+          }
+        }
+      }
+      for (const category of ('categories' in node ? node.categories : undefined) ?? []) walk(category)
+      for (const intent of ('intents' in node ? node.intents : undefined) ?? []) walk(intent)
+    }
+    walk(family)
+  }
+  /**
+   * Bases whose FEMININE singular is also vocabulary. «لوح» sheet and «لوحة»
+   * board are different words, and «لوحات» is the plural of the second, not
+   * the first — «لوح» pluralises to «ألواح», which is broken and unreachable.
+   * So when both exist, the sound plural is attributed to the feminine and
+   * withheld from the base. That single attribution both gains «لوحة» its
+   * plural and takes «لوحات توزيع» away from «لوح», which were two entries on
+   * the collision list pointing at each other.
+   */
+  const hasFeminine = new Set<string>()
+  for (const word of owners.keys()) {
+    if (word.endsWith('ه') && owners.has(word.slice(0, -1))) hasFeminine.add(word.slice(0, -1))
+  }
+  morphIndexCache = { owners, hasFeminine }
+  return morphIndexCache
+}
+
+/**
+ * May `base` be derived into `form`? Only if no family already owns the form
+ * that does not also own the base.
+ *
+ * An unknown base is refused rather than waved through: a word the ontology
+ * does not carry has no claim on a form some family does carry. That is what
+ * stops «أرض» reaching «أرضيات» and «معدن» reaching «معدنية» — the mineral-
+ * fibre collision that has now bitten three times — while leaving «خشب» →
+ * «خشبي» alone, because wood owns both.
+ */
+function derivationAllowed(base: string, form: string): boolean {
+  const { owners } = morphIndex()
+  const ownersOfForm = owners.get(form)
+  if (!ownersOfForm) return true
+  const ownersOfBase = owners.get(base)
+  for (const family of ownersOfForm) {
+    if (!ownersOfBase?.has(family)) return false
+  }
+  return true
+}
+
+/** Longest prefix shared by every string, so it is safe to prefilter on. */
+function commonPrefix(values: string[]): string {
+  if (!values.length) return ''
+  let prefix = values[0]!
+  for (const value of values.slice(1)) {
+    let i = 0
+    while (i < prefix.length && i < value.length && prefix[i] === value[i]) i++
+    prefix = prefix.slice(0, i)
+    if (!prefix) break
+  }
+  return prefix
+}
+
+/**
+ * Every surface form one Arabic vocabulary word is allowed to match.
+ *
+ * `constrained` says whether the word sits in a multi-word term. It decides how
+ * much freedom derivation gets, and the distinction is not a convenience:
+ *
+ *   «زجاج» ALONE deriving to «زجاجي» is a guess, because «زجاجي» is what
+ *     «صوف زجاجي» (glass wool, insulation) and «ألياف زجاجية» (glass fibre, an
+ *     admixture) are made of. Glass the material belongs to three trades.
+ *
+ *   «باب زجاج» deriving to «باب زجاجي» is the SAME PRODUCT written two ways,
+ *     and «باب» has already pinned which trade is being spoken about. This is
+ *     «باب خشب / باب خشبي» exactly — the case the nisba rule was built for.
+ *
+ * Gating the word in isolation is what cost «باب زجاجي سحاب» its family: the
+ * derivation was refused on evidence from phrases where the neighbouring word
+ * was doing the disambiguating all along.
+ */
+function arabicSurfaceForms(word: string, constrained = false): string[] {
+  const stem = nisbaStem(word)
+  const forms = new Set<string>([word, stem])
+
+  // INFLECTION — generated freely, because the meaning does not move.
+  if (word.endsWith('ه')) {
+    forms.add(`${word.slice(0, -1)}${AR_SOUND_PLURAL}`)
+  } else if (!morphIndex().hasFeminine.has(stem)) {
+    // Loanwords take the sound plural on the bare noun — «كابل» → «كابلات».
+    forms.add(`${stem}${AR_SOUND_PLURAL}`)
+  }
+
+  // DERIVATION — free inside a phrase, gated when the word stands alone.
+  for (const suffix of AR_NISBA_FORMS) {
+    const derived = `${stem}${suffix}`
+    if (constrained || derivationAllowed(stem, derived)) forms.add(derived)
+  }
+
+  return [...forms].sort((a, b) => b.length - a.length)
+}
+
 function compileTerm(term: string): CompiledTerm {
   const cached = termCache.get(term)
   if (cached) return cached
   const words = term.split(' ').filter(Boolean)
+  const constrained = words.length > 1
   const body = words
     .map((word) =>
       ARABIC_LETTER.test(word[0] || '')
-        ? `${AR_PROCLITIC}${escapeRegex(nisbaStem(word))}${AR_NISBA}`
+        ? `${AR_PROCLITIC}(?:${arabicSurfaceForms(word, constrained).map(escapeRegex).join('|')})`
         : escapeRegex(word),
     )
     .join('\\s+')
-  // Proclitics only ever prepend characters and the nisba only ever appends
-  // them, so every STEM remains a substring — the longest is a cheap necessary
-  // condition. Probing the unstemmed word would reject «باب خشب» against the
-  // term «باب خشبي» before the pattern ever ran, silently defeating the rule
-  // above.
+  /**
+   * A cheap NECESSARY condition, used to skip the regex entirely.
+   *
+   * It has to hold for every form the word is allowed to match, so it is the
+   * longest common PREFIX of those forms, not the stem. The stem was wrong as
+   * soon as the sound feminine plural arrived: «لوحه» is not a substring of
+   * «لوحات», so probing the stem rejected the line before the pattern ran and
+   * the plural could never have matched however correct the pattern was.
+   */
   const probe = words.reduce((longest, word) => {
-    const stem = ARABIC_LETTER.test(word[0] || '') ? nisbaStem(word) : word
-    return stem.length > longest.length ? stem : longest
+    const candidate = ARABIC_LETTER.test(word[0] || '')
+      ? commonPrefix(arabicSurfaceForms(word, constrained))
+      : word
+    return candidate.length > longest.length ? candidate : longest
   }, '')
   const compiled: CompiledTerm = {
     re: new RegExp(`${LEAD_GUARD}(${body})${TRAIL_GUARD}`, 'u'),

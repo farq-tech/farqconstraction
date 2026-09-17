@@ -1,0 +1,56 @@
+{
+  "label": "probe-v7ceil",
+  "measured_at": "2026-09-16T16:30:08.149Z",
+  "provenance": {
+    "ontology_payload": "/Volumes/Extreme SSD/cunstraction/farqconstraction/src/lib/procurementOntology.data.json",
+    "ontology_version": "cpo-v7",
+    "ontology_payload_sha256_16": "1c0a340ec23a58fb",
+    "ontology_fingerprint": null,
+    "repo_payload_sha256_16": "1c0a340ec23a58fb",
+    "repo_payload_version_note": "repo tree is cpo-v4 in progress; NOT used for these numbers",
+    "resolver_code_rev": null,
+    "api_code_rev": null,
+    "ai_calls": 0
+  },
+  "set": {
+    "path": "/tmp/probe-v7ceil.txt",
+    "lines": 9
+  },
+  "three_levels": {
+    "A_specific_intent": {
+      "n": 5,
+      "pct": 55.56
+    },
+    "B_family_resolved": {
+      "n": 4,
+      "pct": 44.44,
+      "method": {
+        "ontology": 3,
+        "semantic_recovery": 1
+      }
+    },
+    "C_true_unknown": {
+      "n": 0,
+      "pct": 0,
+      "metadata": {
+        "ai_eligible": 0,
+        "rejected": 0
+      }
+    }
+  },
+  "A_confidence_distribution": {
+    "A>=0.9": 5,
+    "A0.8-0.9": 0,
+    "A<0.8": 0
+  },
+  "top_families_A": [
+    [
+      "masonry_blocks",
+      3
+    ],
+    [
+      "switchgear_panels",
+      2
+    ]
+  ]
+}

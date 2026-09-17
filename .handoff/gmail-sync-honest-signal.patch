@@ -1,0 +1,696 @@
+diff --git a/Frontend/src/components/construction/GmailConnection.tsx b/Frontend/src/components/construction/GmailConnection.tsx
+index 8fb68ae70..d988ebae0 100644
+--- a/Frontend/src/components/construction/GmailConnection.tsx
++++ b/Frontend/src/components/construction/GmailConnection.tsx
+@@ -113,11 +113,17 @@ export function GmailConnection({ token }: { token: string }) {
+ 			{/* Only what changes. "Attachments open in Gmail" and "no mail is sent
+ 			automatically" are standing facts, not news; repeating them every visit
+ 			buried the line that does change. */}
++			{/*
++			 * `captured_count` is a lifetime total that only ever rises, so on its own
++			 * it reads as current health while being unable to report a break: if
++			 * capture stopped today it would still show the same number tomorrow. Say
++			 * what it is. The live answer is the sync signal, shown by InboxSyncStatus.
++			 */}
+ 			{status.synchronization_enabled && (
+ 				<p>
+ 					{ar
+-						? `رسائل مستوردة: ${status.sync?.captured_count ?? 0}.`
+-						: `Imported messages: ${status.sync?.captured_count ?? 0}.`}
++						? `إجمالي الرسائل المستوردة منذ الربط: ${status.sync?.captured_count ?? 0}.`
++						: `Total imported since connecting: ${status.sync?.captured_count ?? 0}.`}
+ 					{!!status.sync?.ambiguous_count &&
+ 						(ar
+ 							? ` ${status.sync?.ambiguous_count} بلا طلب محدد.`
+diff --git a/Frontend/src/components/construction/InboxSyncStatus.test.tsx b/Frontend/src/components/construction/InboxSyncStatus.test.tsx
+index 68c732c82..7846b6c96 100644
+--- a/Frontend/src/components/construction/InboxSyncStatus.test.tsx
++++ b/Frontend/src/components/construction/InboxSyncStatus.test.tsx
+@@ -63,3 +63,86 @@ it("explains that Google authorization is required rather than reporting a pendi
+ 	expect(screen.getByText(/يلزم ربط بريد الشركة/)).toBeTruthy();
+ 	expect(screen.queryByText(/لم تبدأ بعد/)).toBeNull();
+ });
++
++/*
++ * The sentence the owner was owed on 2026-09-16. The row said CURRENT and the
++ * screen said «اكتمل آخر فحص» while twelve examined messages had failed to
++ * route — a true statement about the procedure that answered nothing about the
++ * outcome he was asking about.
++ */
++const signal = (over: Record<string, unknown> = {}) => ({
++	looking: "RECENT",
++	outcome: "NOTHING_ARRIVED",
++	healthy: true,
++	last_look_age_seconds: 20,
++	window_hours: 24,
++	arrived: 0,
++	captured: 0,
++	unrouted: 0,
++	unexplained: 0,
++	unrelated: 0,
++	needs_attention: 0,
++	reasons: [],
++	...over,
++});
++
++it("names the mail it examined and could not route, with why", () => {
++	render(
++		<InboxSyncStatus
++			ar
++			sync={{
++				state: "CURRENT",
++				checked_at: "2026-09-09T09:59:40Z",
++				signal: signal({
++					// The real production numbers, 2026-09-16.
++					outcome: "ARRIVED_UNROUTED",
++					healthy: false,
++					arrived: 13,
++					captured: 1,
++					unrouted: 12,
++					unexplained: 4,
++					unrelated: 8,
++					reasons: [{ reason: "NO_EXPLICIT_CONTEXT", n: 4 }],
++				}),
++			}}
++		/>,
++	);
++	const line = screen.getByText(/الفحص يعمل/).textContent || "";
++	// Every number the owner needs, and none of them flattering by omission.
++	expect(line).toContain("وصلت 13 رسالة");
++	expect(line).toContain("التُقطت 1");
++	expect(line).toContain("و4 لم تُربط بأي طلب");
++	expect(line).toContain("لا رابط صريح بطلب");
++	expect(line).toContain("و8 غير متعلقة بطلباتنا");
++	// The old sentence must not be what he reads for this state.
++	expect(screen.queryByText(/اكتمل آخر فحص/)).toBeNull();
++});
++
++it("reports a quiet mailbox as quiet, not as a fault", () => {
++	render(
++		<InboxSyncStatus
++			ar
++			sync={{ state: "CURRENT", checked_at: "2026-09-09T09:59:40Z", signal: signal() }}
++		/>,
++	);
++	expect(screen.getByText(/لم يصل بريد جديد خلال 24 ساعة/)).toBeTruthy();
++});
++
++it("does not imply success when the outcome could not be computed", () => {
++	render(
++		<InboxSyncStatus
++			ar
++			sync={{
++				state: "CURRENT",
++				checked_at: "2026-09-09T09:59:40Z",
++				signal: signal({ outcome: "UNKNOWN", healthy: false, arrived: null, captured: null }),
++			}}
++		/>,
++	);
++	expect(screen.getByText(/تعذّر حساب النتيجة/)).toBeTruthy();
++});
++
++it("still renders the old state words when the API has not shipped the signal", () => {
++	render(<InboxSyncStatus ar sync={{ state: "SYNCING", checked_at: "2026-09-09T09:59:40Z" }} />);
++	expect(screen.getByText(/جارٍ استكمال الاستيراد/)).toBeTruthy();
++});
+diff --git a/Frontend/src/components/construction/InboxSyncStatus.tsx b/Frontend/src/components/construction/InboxSyncStatus.tsx
+index 1dc180230..ccdb24a36 100644
+--- a/Frontend/src/components/construction/InboxSyncStatus.tsx
++++ b/Frontend/src/components/construction/InboxSyncStatus.tsx
+@@ -1,10 +1,114 @@
+ import { useEffect, useState } from "react";
+ 
++export type InboxSyncSignal = {
++	looking: string;
++	outcome: string;
++	healthy: boolean;
++	last_look_age_seconds: number | null;
++	failure_code?: string | null;
++	window_hours: number;
++	arrived: number | null;
++	captured: number | null;
++	unrouted: number | null;
++	unexplained: number | null;
++	unrelated: number | null;
++	needs_attention: number | null;
++	reasons: { reason: string; n: number }[];
++};
+ export type InboxSync = {
+ 	state: string;
+ 	checked_at?: string | null;
+ 	completed_at?: string | null;
++	/*
++	 * Derived server-side. `state` says a pass finished, which is what let the
++	 * inbox report «اكتمل آخر فحص» while capturing nothing for a morning; the
++	 * signal says what looking actually found. Optional so the component keeps
++	 * working against an API that has not shipped it yet.
++	 */
++	signal?: InboxSyncSignal | null;
+ };
++
++/** Why a message could not be tied to an RFQ, in the owner's words. */
++function reasonText(reason: string, ar: boolean) {
++	const map: Record<string, [string, string]> = {
++		NO_ELIGIBLE_INVITE: ["وصلت قبل إرسال أي طلب", "arrived before any RFQ was sent"],
++		REPLY_TO_UNKNOWN_RFQ: ["ردّ على طلب غير معروف", "reply to an unknown RFQ"],
++		NO_EXPLICIT_CONTEXT: ["لا رابط صريح بطلب", "no explicit link to an RFQ"],
++		NO_MATCHING_CONTEXT: ["لا طلب مطابق", "no matching RFQ"],
++		SOURCE_DELETED: ["حُذفت من Gmail", "deleted in Gmail"],
++		SELF_SENDER: ["مُرسلة منّا", "sent by us"],
++		EXCLUDED_LABEL: ["مستبعدة بالتصنيف", "excluded by label"],
++		NO_SENDER: ["بلا مُرسل", "no sender"],
++		INVALID_TIMESTAMP: ["بتاريخ غير صالح", "invalid date"],
++	};
++	const entry = map[reason];
++	return entry ? (ar ? entry[0] : entry[1]) : reason;
++}
++
++/**
++ * The sentence the owner gets. It answers two questions the old one collapsed:
++ * are we looking, and what did looking find. A quiet mailbox is reported as
++ * quiet, not as a fault — but mail we examined and could not route is named,
++ * with the reasons, because that is the case he had no way to see.
++ */
++function signalText(signal: InboxSyncSignal, ar: boolean) {
++	const c = (a: string, e: string) => (ar ? a : e);
++	if (signal.looking === "FAILING") {
++		return c(
++			`تعذّر الفحص${signal.failure_code ? ` (${signal.failure_code})` : ""}`,
++			`Checking failed${signal.failure_code ? ` (${signal.failure_code})` : ""}`,
++		);
++	}
++	if (signal.looking === "NEVER") return c("لم يبدأ الفحص بعد", "Checking has not started");
++	if (signal.looking === "STALE") {
++		return c(
++			"آخر فحص غير حديث — قد تتأخر الرسائل",
++			"Last check is not recent — messages may be delayed",
++		);
++	}
++	if (signal.looking === "IN_FLIGHT") return c("جارٍ استكمال الاستيراد", "Importing");
++	const hours = signal.window_hours;
++	if (signal.outcome === "NEEDS_ATTENTION") {
++		return c(
++			`الفحص يعمل — ${signal.needs_attention} رسالة تحتاج مطابقة يدوية`,
++			`Checking works — ${signal.needs_attention} message(s) need manual matching`,
++		);
++	}
++	if (signal.outcome === "CAPTURING") {
++		return c(
++			`الفحص يعمل — التُقطت ${signal.captured} من ${signal.arrived} رسالة خلال ${hours} ساعة`,
++			`Checking works — captured ${signal.captured} of ${signal.arrived} message(s) in ${hours}h`,
++		);
++	}
++	if (signal.outcome === "ARRIVED_UNROUTED") {
++		/*
++		 * Report the whole accounting, not the most flattering part of it. With
++		 * production's numbers a precedence that let one capture win would say
++		 * «التُقطت 1 رسالة» and bury the twelve that did not arrive anywhere —
++		 * which is the non-answer the owner already had.
++		 */
++		const why = signal.reasons
++			.map((r) => reasonText(r.reason, ar))
++			.join(ar ? "، " : ", ");
++		const unrelated = signal.unrelated ?? 0;
++		return c(
++			`الفحص يعمل — وصلت ${signal.arrived} رسالة خلال ${hours} ساعة: التُقطت ${signal.captured}`
++				+ `، و${signal.unexplained} لم تُربط بأي طلب${why ? ` (${why})` : ""}`
++				+ (unrelated ? `، و${unrelated} غير متعلقة بطلباتنا` : ""),
++			`Checking works — ${signal.arrived} message(s) in ${hours}h: ${signal.captured} captured`
++				+ `, ${signal.unexplained} could not be linked to any RFQ${why ? ` (${why})` : ""}`
++				+ (unrelated ? `, ${unrelated} unrelated to our RFQs` : ""),
++		);
++	}
++	if (signal.outcome === "NOTHING_ARRIVED") {
++		return c(
++			`الفحص يعمل — لم يصل بريد جديد خلال ${hours} ساعة`,
++			`Checking works — no new mail in the last ${hours}h`,
++		);
++	}
++	// Outcome could not be computed. Say so; do not imply everything is fine.
++	return c("الفحص يعمل — تعذّر حساب النتيجة", "Checking works — outcome unavailable");
++}
+ // The worker normally checks every minute. Five missed intervals are stale,
+ // not proof of lost mail. This affects display only; never triggers a provider call.
+ export function InboxSyncStatus({
+@@ -60,7 +164,9 @@ export function InboxSyncStatus({
+ 		<div className="px-4 py-2 text-xs text-ink-subtle" role="status">
+ 			<p>
+ 				{c("مزامنة البريد: ", "Email sync: ")}
+-				{states[sync.state] || c("لم يُتحقق منها", "Not verified")}
++				{sync.signal
++					? signalText(sync.signal, ar)
++					: states[sync.state] || c("لم يُتحقق منها", "Not verified")}
+ 			</p>
+ 			{/*
+ 			 * When the last attempt is also the last success — the normal case —
+diff --git a/api/lib/construction/company-inbox.js b/api/lib/construction/company-inbox.js
+index ebb6cc945..5713b91d9 100644
+--- a/api/lib/construction/company-inbox.js
++++ b/api/lib/construction/company-inbox.js
+@@ -7,6 +7,7 @@ const { createCorrespondence } = require('./correspondence');
+ const { held, mailbox, messageIds } = require('./inbox-mail');
+ const { saveArrival,resolveEvidence,canonicalEmail } = require('./inbox-arrivals');
+ const { createWhatsAppConversationReceiver } = require('./conversation-capture');
++const { evaluateGmailSyncSignal, readGmailSyncAccounting } = require('./gmail-sync-signal');
+ 
+ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ const ROLES = ['ADMIN', 'PROCUREMENT', 'APPROVER', 'MANAGEMENT'];
+@@ -160,7 +161,14 @@ function createCompanyInbox({ pool, env = process.env, fetchImpl = fetch } = {})
+           and a.active and a.role='ADMIN' and coalesce(a.scope_owner_user_id,a.user_id)=g.owner_id)`,[actor.actorId])).rows.length>0;
+       const unresolved=(await pool.query("select count(*)::int count,min(ingested_at) oldest_at from construction.inbox_arrivals where owner_id=$1 and state<>'RESOLVED'",[actor.actorId])).rows[0];
+       const configured=env.CONSTRUCTION_GMAIL_ENABLED==='1' && env.CONSTRUCTION_GMAIL_SYNC_ENABLED==='1' && env.CONSTRUCTION_GMAIL_OWNER_ACTOR_ID===actor.actorId;
+-      return {enabled:true,gmail:!configured?{state:'NOT_CONFIGURED'}:!connected?{state:'AUTHORIZATION_REQUIRED'}:gmail?{state:gmail.failure_code==='HISTORY_GAP'?'RECOVERING':gmail.state,checked_at:gmail.checked_at,completed_at:gmail.completed_at}: {state:'NOT_STARTED'},unresolved};
++      // The state word stays as it was so existing readers are unaffected; the
++      // signal beside it is what says whether mail is actually being captured.
++      // Only derived once we know sync is configured and connected — otherwise
++      // the honest answer is already the state word.
++      const signal=configured&&connected&&gmail
++        ?evaluateGmailSyncSignal({row:gmail,accounting:await readGmailSyncAccounting(pool,actor.actorId)})
++        :null;
++      return {enabled:true,gmail:!configured?{state:'NOT_CONFIGURED'}:!connected?{state:'AUTHORIZATION_REQUIRED'}:gmail?{state:gmail.failure_code==='HISTORY_GAP'?'RECOVERING':gmail.state,checked_at:gmail.checked_at,completed_at:gmail.completed_at,signal}: {state:'NOT_STARTED'},unresolved};
+     },
+     receiveWhatsApp: createWhatsAppConversationReceiver({ pool, env }),
+     status(actor) {
+diff --git a/api/lib/construction/gmail-store.js b/api/lib/construction/gmail-store.js
+index 17700ce08..75af20a82 100644
+--- a/api/lib/construction/gmail-store.js
++++ b/api/lib/construction/gmail-store.js
+@@ -1,5 +1,7 @@
+ 'use strict';
+ 
++const { evaluateGmailSyncSignal, readGmailSyncAccounting } = require('./gmail-sync-signal');
++
+ function createGmailStore(pool, env = process.env) {
+   return {
+     async createState({ hash, browserHash, owner, userId, ttlSeconds }) {
+@@ -31,7 +33,19 @@ function createGmailStore(pool, env = process.env) {
+       const result = await pool.query('select mailbox,updated_at from construction.gmail_connections where owner_id=$1', [owner]);
+       const enabled = env.CONSTRUCTION_GMAIL_SYNC_ENABLED === '1';
+       const progress = enabled ? (await pool.query('select state,checked_at,completed_at,captured_count,ambiguous_count,failure_code from construction.gmail_sync_state where owner_id=$1',[owner])).rows[0] : null;
+-      return { connected: result.rows.length > 0, mailbox: result.rows[0]?.mailbox || null, synchronization_enabled: enabled, sync: progress || null };
++      /*
++       * `sync` is the row, unchanged, so every existing reader keeps working.
++       * `signal` is the derived answer to the question the row cannot answer:
++       * the row says a pass finished, the signal says whether mail is being
++       * captured and, when it is not, what looking actually found.
++       */
++      const signal = enabled
++        ? evaluateGmailSyncSignal({
++          row: progress || null,
++          accounting: progress ? await readGmailSyncAccounting(pool, owner) : null,
++        })
++        : null;
++      return { connected: result.rows.length > 0, mailbox: result.rows[0]?.mailbox || null, synchronization_enabled: enabled, sync: progress || null, signal };
+     },
+   };
+ }
+diff --git a/api/lib/construction/gmail-sync-signal.js b/api/lib/construction/gmail-sync-signal.js
+new file mode 100644
+index 000000000..8a549db20
+--- /dev/null
++++ b/api/lib/construction/gmail-sync-signal.js
+@@ -0,0 +1,201 @@
++'use strict';
++
++/*
++ * Reasons recorded for the audit trail that are not a person's problem: mail
++ * that arrived before any invite existed is ordinary traffic to info@farq.sa,
++ * and production shows eight such against four of anything else. Counting it as
++ * a fault would pin this signal permanently red on a healthy mailbox.
++ *
++ * The inbox lane's unlanded `inbox-routing.js` defines the same list as
++ * NON_ACTIONABLE_REASONS; when that lands, import it from there instead of
++ * keeping a second copy. It is duplicated here only because this patch targets
++ * the deployed revision, where that module does not yet exist.
++ */
++const NON_ACTIONABLE_REASONS = ['NO_ELIGIBLE_INVITE', 'SELF_SENDER', 'EXCLUDED_LABEL', 'NO_SENDER', 'INVALID_TIMESTAMP'];
++
++/*
++ * An honest answer to "is company mail being captured?".
++ *
++ * `construction.gmail_sync_state.state` is a record of the last pass, and as a
++ * record it is fine. What was wrong was reporting it as the signal: 'CURRENT'
++ * means "page-walking reached the end of the window", which is an attempt, not
++ * a property. On 2026-09-16 the owner asked why nothing was being captured and
++ * the inbox answered «اكتمل آخر فحص» — true, and silent about the outcome. The
++ * real answer was already in `inbox_arrivals`: twelve messages had been examined
++ * and none could be tied to an RFQ (eight arrived before any invite existed).
++ *
++ * So the signal is derived here, at read time, from the row plus what the
++ * looking actually found. Three consequences, matching the readiness contract
++ * in .handoff/READINESS_SIGNAL_DISCIPLINE_2026_09_16.md:
++ *
++ *   - Recomputed. Nothing new is persisted; no writer has to remember.
++ *   - Can regress. Every count is windowed, so `CAPTURING` decays back to
++ *     `NOTHING_ARRIVED`, and `RECENT` decays to `STALE`, with no event needed.
++ *   - Measures the property. Two independent questions are kept apart instead
++ *     of collapsed into one word: did we look, and what did looking find.
++ *
++ * The distinction that matters most: a quiet mailbox captures nothing and is
++ * perfectly healthy. `NOTHING_ARRIVED` is therefore not a fault, and treating
++ * zero captures as a fault would only move the lie. What is a fault is mail
++ * arriving that we cannot account for, and that is `ARRIVED_UNROUTED` and
++ * `NEEDS_ATTENTION` — states the row could not express at all.
++ */
++
++/**
++ * The worker checks about once a minute; five missed intervals is stale. Owned
++ * here rather than in the component so the API and the UI cannot drift on what
++ * "recent" means — the client used to hold this number alone.
++ */
++const LOOK_STALE_MS = 300_000;
++
++/** How far back the outcome counts look. Windowed so they can go back down. */
++const WINDOW_HOURS = 24;
++
++/**
++ * What looking found, scoped to Gmail. `inbox_arrivals` is the right source
++ * because it is the table that records every examined message — captured or
++ * not — which is exactly what an outcome signal needs and what the row lacks.
++ *
++ * Requires CONSTRUCTION_INBOX_ROUTING_V1: under strict routing every examined
++ * message becomes a capture or an arrival, so these counts are complete. With
++ * strict routing off, excluded messages leave no arrival and `arrived` would
++ * undercount — see the handoff for why that is a behavioural fix, not this one.
++ */
++/*
++ * `unexplained` is the count that decides whether a person is needed, and it is
++ * deliberately narrower than `unrouted`.
++ *
++ * Most unrouted mail is ordinary traffic to info@farq.sa that predates every
++ * invite — production shows eight such against four of anything else. The
++ * routing engine already classes that as non-actionable, so counting it as a
++ * fault would pin the signal permanently red on a healthy mailbox: the same
++ * error as calling zero captures a failure, in the other direction.
++ */
++const ACCOUNTING_SQL = `
++  select
++    count(*) filter (where recent)::int arrived,
++    count(*) filter (where recent and state = 'RESOLVED')::int captured,
++    count(*) filter (where recent and state = 'NO_MATCH')::int unrouted,
++    count(*) filter (where recent and state = 'NO_MATCH'
++      and coalesce(evidence->>'reason','') <> all($3::text[]))::int unexplained,
++    count(*) filter (where state in ('AMBIGUOUS','CONFLICT'))::int needs_attention,
++    max(ingested_at) newest_arrival_at
++  from (
++    select state, evidence, ingested_at,
++           ingested_at > now() - ($2 || ' hours')::interval recent
++    from construction.inbox_arrivals
++    where owner_id = $1 and provider = 'GMAIL'
++  ) arrivals`;
++
++/*
++ * Why the *unexplained* messages could not be routed. Scoped to the same set as
++ * the `unexplained` count so the sentence's total and its reasons agree: the
++ * non-actionable bulk is reported as a count, not itemised as if it were a
++ * problem to solve.
++ */
++const REASONS_SQL = `
++  select evidence->>'reason' reason, count(*)::int n
++  from construction.inbox_arrivals
++  where owner_id = $1 and provider = 'GMAIL' and state = 'NO_MATCH'
++    and ingested_at > now() - ($2 || ' hours')::interval
++    and coalesce(evidence->>'reason','') <> all($3::text[])
++  group by 1 order by n desc, 1 limit 4`;
++
++/**
++ * Read the outcome evidence. Never throws: a reporting path must not be able to
++ * break the screen it reports on, and an unavailable probe is reported as
++ * unavailable rather than silently as zero — zero would read as "nothing
++ * arrived", which is the false green this module exists to remove.
++ */
++async function readGmailSyncAccounting(db, ownerId, { windowHours = WINDOW_HOURS } = {}) {
++  try {
++    const [totals, reasons] = await Promise.all([
++      db.query(ACCOUNTING_SQL, [ownerId, String(windowHours), NON_ACTIONABLE_REASONS]),
++      db.query(REASONS_SQL, [ownerId, String(windowHours), NON_ACTIONABLE_REASONS]),
++    ]);
++    return {
++      available: true,
++      window_hours: windowHours,
++      ...totals.rows[0],
++      reasons: reasons.rows.filter((row) => row.reason),
++    };
++  } catch {
++    return { available: false, window_hours: windowHours, reasons: [] };
++  }
++}
++
++/**
++ * Did we look, and recently? Separate from what looking found, because the two
++ * fail independently: a healthy pipe over a quiet mailbox and a dead pipe over
++ * a busy one both produce zero captures, and the owner needs to tell them apart.
++ */
++function evaluateLooking(row, now) {
++  if (!row) return { looking: 'NEVER', last_look_age_seconds: null };
++  const checkedAt = row.checked_at ? Date.parse(row.checked_at) : NaN;
++  const ageMs = Number.isFinite(checkedAt) ? Math.max(0, now - checkedAt) : null;
++  const age = ageMs === null ? null : Math.round(ageMs / 1000);
++  if (row.state === 'UNAVAILABLE') return { looking: 'FAILING', last_look_age_seconds: age };
++  if (row.state === 'NOT_STARTED' || !row.checked_at) return { looking: 'NEVER', last_look_age_seconds: age };
++  // A pass in flight is the one state where the row is already honest.
++  if (row.state === 'SYNCING') return { looking: 'IN_FLIGHT', last_look_age_seconds: age };
++  if (ageMs === null || ageMs > LOOK_STALE_MS) return { looking: 'STALE', last_look_age_seconds: age };
++  return { looking: 'RECENT', last_look_age_seconds: age };
++}
++
++/**
++ * What did looking find? Ordered by what the owner must act on first.
++ * `UNKNOWN` when the evidence could not be read — an unanswerable question is
++ * not a yes.
++ */
++function evaluateOutcome(accounting) {
++  if (!accounting || accounting.available !== true) return 'UNKNOWN';
++  if (Number(accounting.needs_attention) > 0) return 'NEEDS_ATTENTION';
++  // Unexplained mail outranks captures. Measured against production this is the
++  // difference between an answer and a non-answer: one capture beside twelve
++  // unrouted messages would otherwise report 'CAPTURING', which is what the
++  // owner was already being told when he asked why capture was near zero.
++  if (Number(accounting.unexplained) > 0) return 'ARRIVED_UNROUTED';
++  if (Number(accounting.captured) > 0) return 'CAPTURING';
++  return 'NOTHING_ARRIVED';
++}
++
++/**
++ * `healthy` answers only "is anything wrong that a person should act on".
++ * A quiet mailbox is healthy. Mail we examined and could not route is not,
++ * even though the old row called that CURRENT.
++ */
++function evaluateGmailSyncSignal({ row = null, accounting = null, now = Date.now() } = {}) {
++  const { looking, last_look_age_seconds } = evaluateLooking(row, now);
++  const outcome = evaluateOutcome(accounting);
++  const looked = looking === 'RECENT' || looking === 'IN_FLIGHT';
++  return {
++    looking,
++    outcome: looked ? outcome : 'UNKNOWN',
++    healthy: looked && (outcome === 'CAPTURING' || outcome === 'NOTHING_ARRIVED'),
++    last_look_age_seconds,
++    failure_code: row?.failure_code || null,
++    stale_after_seconds: LOOK_STALE_MS / 1000,
++    window_hours: accounting?.window_hours ?? WINDOW_HOURS,
++    arrived: accounting?.available ? Number(accounting.arrived) : null,
++    captured: accounting?.available ? Number(accounting.captured) : null,
++    unrouted: accounting?.available ? Number(accounting.unrouted) : null,
++    unexplained: accounting?.available ? Number(accounting.unexplained) : null,
++    // Unrouted mail that is nobody's problem, reported so the numbers in the
++    // owner's sentence add up without him needing the reason taxonomy.
++    unrelated: accounting?.available
++      ? Number(accounting.unrouted) - Number(accounting.unexplained)
++      : null,
++    needs_attention: accounting?.available ? Number(accounting.needs_attention) : null,
++    reasons: accounting?.reasons || [],
++  };
++}
++
++module.exports = {
++  NON_ACTIONABLE_REASONS,
++  LOOK_STALE_MS,
++  WINDOW_HOURS,
++  ACCOUNTING_SQL,
++  REASONS_SQL,
++  readGmailSyncAccounting,
++  evaluateGmailSyncSignal,
++};
+diff --git a/api/tests/construction-gmail-sync-signal.test.js b/api/tests/construction-gmail-sync-signal.test.js
+new file mode 100644
+index 000000000..3ce9e8fae
+--- /dev/null
++++ b/api/tests/construction-gmail-sync-signal.test.js
+@@ -0,0 +1,177 @@
++'use strict';
++
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const {
++  LOOK_STALE_MS,
++  readGmailSyncAccounting,
++  evaluateGmailSyncSignal,
++} = require('../lib/construction/gmail-sync-signal');
++
++const NOW = Date.parse('2026-09-16T17:28:56.000Z');
++const at = (msAgo) => new Date(NOW - msAgo).toISOString();
++const accounting = (over = {}) => ({
++  available: true,
++  window_hours: 24,
++  arrived: 0,
++  captured: 0,
++  unrouted: 0,
++  unexplained: 0,
++  needs_attention: 0,
++  reasons: [],
++  ...over,
++});
++
++test('the exact production row that lied: CURRENT while nothing was captured', () => {
++  // Real values read from production on 2026-09-16: the pass had completed 20s
++  // earlier, so the row said CURRENT and the screen said «اكتمل آخر فحص», while
++  // twelve examined messages had failed to route.
++  const signal = evaluateGmailSyncSignal({
++    row: { state: 'CURRENT', checked_at: at(20_000), completed_at: at(20_000), failure_code: null },
++    accounting: accounting({
++      arrived: 13, captured: 1, unrouted: 12, unexplained: 4,
++      reasons: [{ reason: 'NO_EXPLICIT_CONTEXT', n: 4 }],
++    }),
++    now: NOW,
++  });
++  assert.equal(signal.looking, 'RECENT', 'the pipe genuinely was working');
++  assert.equal(signal.outcome, 'ARRIVED_UNROUTED', 'and that is what the row could not say');
++  assert.equal(signal.healthy, false);
++  assert.equal(signal.unrouted, 12);
++  // One capture must not outrank twelve unrouted messages: that precedence is
++  // what would have repeated the original non-answer.
++  assert.equal(signal.captured, 1);
++  assert.equal(signal.unexplained, 4);
++  assert.equal(signal.unrelated, 8, 'ordinary mail, counted but not blamed');
++  assert.deepEqual(signal.reasons.map((r) => r.reason), ['NO_EXPLICIT_CONTEXT']);
++});
++
++test('a quiet mailbox is healthy — the false red a naive fix would create', () => {
++  // Zero captures must not read as a fault, or we would have moved the lie
++  // rather than removed it.
++  const signal = evaluateGmailSyncSignal({
++    row: { state: 'CURRENT', checked_at: at(20_000), failure_code: null },
++    accounting: accounting(),
++    now: NOW,
++  });
++  assert.equal(signal.outcome, 'NOTHING_ARRIVED');
++  assert.equal(signal.healthy, true);
++  assert.equal(signal.arrived, 0);
++});
++
++test('"we looked and found nothing" and "we did not look" are different states', () => {
++  const base = accounting();
++  const looked = evaluateGmailSyncSignal({
++    row: { state: 'CURRENT', checked_at: at(20_000) }, accounting: base, now: NOW,
++  });
++  const didNotLook = evaluateGmailSyncSignal({
++    row: { state: 'CURRENT', checked_at: at(LOOK_STALE_MS + 60_000) }, accounting: base, now: NOW,
++  });
++  assert.equal(looked.looking, 'RECENT');
++  assert.equal(didNotLook.looking, 'STALE');
++  // Same row state, same counts, opposite meaning for the owner.
++  assert.equal(looked.healthy, true);
++  assert.equal(didNotLook.healthy, false);
++  assert.equal(didNotLook.outcome, 'UNKNOWN', 'counts say nothing if we stopped looking');
++});
++
++test('the signal regresses with no writer and no restart', () => {
++  // Identical row, only the clock moved. A DB-persisted status could not do
++  // this: nothing ever writes CURRENT back to a worse value.
++  const row = { state: 'CURRENT', checked_at: at(20_000), failure_code: null };
++  const fresh = evaluateGmailSyncSignal({ row, accounting: accounting({ arrived: 3, captured: 3 }), now: NOW });
++  assert.equal(fresh.outcome, 'CAPTURING');
++  assert.equal(fresh.healthy, true);
++
++  const later = evaluateGmailSyncSignal({ row, accounting: accounting({ arrived: 3, captured: 3 }), now: NOW + LOOK_STALE_MS + 1_000 });
++  assert.equal(later.looking, 'STALE', 'goes red on the age of the same row');
++  assert.equal(later.healthy, false);
++
++  // And the outcome decays on its own as the window slides past the captures.
++  const quiet = evaluateGmailSyncSignal({ row, accounting: accounting(), now: NOW });
++  assert.equal(quiet.outcome, 'NOTHING_ARRIVED');
++});
++
++test('ordinary unrelated mail alone stays healthy', () => {
++  // Eight messages that predate every invite is what info@farq.sa looks like on
++  // a normal day. Blaming the pipe for them would pin the signal red forever —
++  // the same error as calling a quiet mailbox broken, in the other direction.
++  const signal = evaluateGmailSyncSignal({
++    row: { state: 'CURRENT', checked_at: at(20_000) },
++    accounting: accounting({ arrived: 8, unrouted: 8, unexplained: 0 }),
++    now: NOW,
++  });
++  assert.equal(signal.outcome, 'NOTHING_ARRIVED');
++  assert.equal(signal.healthy, true);
++  assert.equal(signal.unrelated, 8);
++});
++
++test('unresolved arrivals outrank everything else', () => {
++  const signal = evaluateGmailSyncSignal({
++    row: { state: 'CURRENT', checked_at: at(1_000) },
++    accounting: accounting({ arrived: 5, captured: 4, needs_attention: 1 }),
++    now: NOW,
++  });
++  assert.equal(signal.outcome, 'NEEDS_ATTENTION');
++  assert.equal(signal.healthy, false, 'work is waiting on a person');
++});
++
++test('a failing pass is reported as failing, with its code', () => {
++  const signal = evaluateGmailSyncSignal({
++    row: { state: 'UNAVAILABLE', checked_at: at(30_000), failure_code: 'HTTP_429' },
++    accounting: accounting({ arrived: 2, captured: 2 }),
++    now: NOW,
++  });
++  assert.equal(signal.looking, 'FAILING');
++  assert.equal(signal.failure_code, 'HTTP_429');
++  assert.equal(signal.healthy, false, 'past captures do not excuse a failing pipe');
++});
++
++test('unreadable evidence is not a green', () => {
++  // The Gmail lie was a green over an unknown; do not rebuild it.
++  const signal = evaluateGmailSyncSignal({
++    row: { state: 'CURRENT', checked_at: at(1_000) },
++    accounting: { available: false, window_hours: 24, reasons: [] },
++    now: NOW,
++  });
++  assert.equal(signal.outcome, 'UNKNOWN');
++  assert.equal(signal.healthy, false);
++  assert.equal(signal.arrived, null, 'null, not 0 — 0 would read as "nothing arrived"');
++});
++
++test('a missing row, and a row that never ran, are not healthy', () => {
++  for (const row of [null, { state: 'NOT_STARTED', checked_at: null }]) {
++    const signal = evaluateGmailSyncSignal({ row, accounting: accounting(), now: NOW });
++    assert.equal(signal.looking, 'NEVER');
++    assert.equal(signal.healthy, false);
++  }
++});
++
++test('a mid-pass row is trusted, since SYNCING already meant what it said', () => {
++  const signal = evaluateGmailSyncSignal({
++    row: { state: 'SYNCING', checked_at: at(3_000) },
++    accounting: accounting({ arrived: 1, captured: 1 }),
++    now: NOW,
++  });
++  assert.equal(signal.looking, 'IN_FLIGHT');
++  assert.equal(signal.outcome, 'CAPTURING');
++});
++
++test('the accounting probe reports unavailable instead of throwing', async () => {
++  // A reporting path must not be able to break the screen it reports on.
++  const broken = await readGmailSyncAccounting(
++    { query: async () => { throw new Error('relation does not exist'); } },
++    'owner',
++  );
++  assert.equal(broken.available, false);
++  assert.deepEqual(broken.reasons, []);
++
++  const ok = await readGmailSyncAccounting({
++    query: async (sql) => (/group by/i.test(sql)
++      ? { rows: [{ reason: 'NO_ELIGIBLE_INVITE', n: 8 }, { reason: null, n: 1 }] }
++      : { rows: [{ arrived: 9, captured: 0, unrouted: 9, unexplained: 9, needs_attention: 0, newest_arrival_at: at(0) }] }),
++  }, 'owner');
++  assert.equal(ok.available, true);
++  assert.equal(ok.arrived, 9);
++  assert.deepEqual(ok.reasons, [{ reason: 'NO_ELIGIBLE_INVITE', n: 8 }], 'null reasons dropped');
++});

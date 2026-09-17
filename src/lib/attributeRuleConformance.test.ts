@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { normalizeProcurementText, termDecidesIn, termIndex } from './procurementOntology'
+import { ONTOLOGY_VERSION, normalizeProcurementText, termDecidesIn, termIndex } from './procurementOntology'
 
 /**
  * THE ATTRIBUTE-CLAUSE RULE HAS ONE OWNER AND TWO READERS.
@@ -144,6 +144,18 @@ const CASES: Array<{ text: string; term: string; note: string; register?: 'suppl
   { text: 'شركة مكافحة حريق ورشاشات', term: 'رشاش', note: 'a genuine fire contractor still claims it', register: 'supplier_prose' },
   { text: 'مؤسسه الحمايه من الحريق رشاشات حريق ومضخات', term: 'رشاش حريق', note: 'THE REGRESSION: «من» must not zero a qualified supplier', register: 'supplier_prose' },
   { text: 'شركه مكافحه الحرايق بالرياض', term: 'مكافحه الحرايق', note: 'THE REGRESSION: «بال» is locational in prose', register: 'supplier_prose' },
+  /*
+   * RULE FIVE: INFLECTION IS GENERATED, DERIVATION IS GATED.
+   *
+   * The port kept these cases so the arrival of the morphology fix would be
+   * observable rather than asserted. Four of them flip here, and the direction
+   * is the point: the sound feminine plural is gained, and the nisba on a bare
+   * material noun is withheld.
+   */
+  { text: 'باب زجاجي سحاب منزلق', term: 'باب زجاج', note: 'nisba inside a phrase: the head has pinned the trade' },
+  { text: 'صوف زجاجي', term: 'زجاج', note: 'the same derivation, bare: three trades own glass' },
+  { text: 'قارئ بطاقات', term: 'بطاقه', note: 'sound feminine plural, gained' },
+  { text: 'مبدلات شبكات', term: 'شبك', note: 'plural belongs to «شبكة», not to rebar «شبك»' },
   // The same two strings under the BOQ register, where the rule DOES hold.
   { text: 'وصلة PPR مقاس 50 مم مادة رشاش حريق', term: 'رشاش حريق', note: 'boq: the clause rule still applies here' },
 ]
@@ -174,7 +186,22 @@ describe('attribute-clause rule conformance', () => {
             note:
               'Generated from src/lib/procurementOntology.ts by attributeRuleConformance.test.ts. ' +
               'The line resolver owns the attribute-clause rule; the API map builder must reproduce these answers.',
-            ontology_version: normalizeProcurementText('') === '' ? undefined : undefined,
+            /**
+             * WHICH GENERATION THESE ANSWERS BELONG TO.
+             *
+             * This was emitted as `undefined` and it cost the supply lane a
+             * false alarm: a v10 fixture checked against a v9 port reported a
+             * DIVERGENCE when what it had found was a VERSION GAP. The two need
+             * opposite reactions — a gap means resync, a divergence means one
+             * side has a bug — and a detector that can cry wolf is one that
+             * gets disbelieved, at which point it has stopped detecting.
+             */
+            ontology_version: ONTOLOGY_VERSION,
+            reader_contract:
+              'Compare ontology_version FIRST. If it differs from the payload you resolve against, ' +
+              'these answers are from a different generation and any mismatch below is expected — resync, ' +
+              'do not investigate. Only once the versions agree does a mismatch in `cases` mean the two ' +
+              'implementations disagree about behaviour.',
             cases: produced,
           },
           null,
@@ -184,7 +211,31 @@ describe('attribute-clause rule conformance', () => {
     }
     expect(fs.existsSync(FIXTURE), `${FIXTURE} missing — regenerate with UPDATE_CONFORMANCE=1`).toBe(true)
     const recorded = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'))
+
+    /**
+     * The generation is checked BEFORE the answers, so the two failure modes
+     * are never confused for each other. A stale stamp is a bookkeeping error
+     * on this side; a behaviour change with a current stamp is a real move that
+     * the supply side has to be told about.
+     */
+    expect(
+      recorded.ontology_version,
+      `fixture was recorded under ${recorded.ontology_version} and the resolver is ${ONTOLOGY_VERSION} — ` +
+        'a GENERATION GAP, not a behaviour divergence. Regenerate with UPDATE_CONFORMANCE=1.',
+    ).toBe(ONTOLOGY_VERSION)
     expect(recorded.cases).toEqual(produced)
+  })
+
+  /**
+   * The stamp is the mechanism, so it is tested rather than assumed. An
+   * unstamped fixture reads as current to anyone who consumes it, which is
+   * exactly how a version gap gets reported as a divergence.
+   */
+  it('stamps the generation it was recorded under', () => {
+    const recorded = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'))
+    expect(recorded.ontology_version).toBeTypeOf('string')
+    expect(recorded.ontology_version).toMatch(/^cpo-v\d+$/)
+    expect(recorded.reader_contract).toContain('different generation')
   })
 
   it('suppresses a term that starts inside an attribute clause', () => {

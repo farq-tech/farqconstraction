@@ -75,6 +75,14 @@ const VERSIONS = [
     resolver_sha16: 'f1e4a97a2049b1a1',
     note: 'base commit + one patch rebuilds payload and resolver exactly',
   },
+  {
+    version: 'cpo-v10',
+    base: '13ea40a5fe6ba1055c2da3fb90dff16336424cf1',
+    patch: '.handoff/cpo-v10-arabic-inflection-class.patch',
+    payload_sha16: 'fafa97d20586ca1f',
+    resolver_sha16: 'd6a2d876af6757a6',
+    note: 'base commit + one patch rebuilds payload and resolver exactly',
+  },
 ]
 
 const sha16 = (buf) => createHash('sha256').update(buf).digest('hex').slice(0, 16)

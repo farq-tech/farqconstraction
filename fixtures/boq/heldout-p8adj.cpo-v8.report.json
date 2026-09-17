@@ -1,0 +1,52 @@
+{
+  "label": "p8adj",
+  "measured_at": "2026-09-16T17:09:52.351Z",
+  "provenance": {
+    "ontology_payload": "/Volumes/Extreme SSD/cunstraction/farqconstraction/src/lib/procurementOntology.data.json",
+    "ontology_version": "cpo-v8",
+    "ontology_payload_sha256_16": "03fc7b2251bd6762",
+    "ontology_fingerprint": null,
+    "repo_payload_sha256_16": "03fc7b2251bd6762",
+    "repo_payload_version_note": "repo tree is cpo-v4 in progress; NOT used for these numbers",
+    "resolver_code_rev": null,
+    "api_code_rev": null,
+    "ai_calls": 0
+  },
+  "set": {
+    "path": "/tmp/p8-adj.txt",
+    "lines": 10
+  },
+  "three_levels": {
+    "A_specific_intent": {
+      "n": 8,
+      "pct": 80
+    },
+    "B_family_resolved": {
+      "n": 2,
+      "pct": 20,
+      "method": {
+        "ontology": 0,
+        "semantic_recovery": 2
+      }
+    },
+    "C_true_unknown": {
+      "n": 0,
+      "pct": 0,
+      "metadata": {
+        "ai_eligible": 0,
+        "rejected": 0
+      }
+    }
+  },
+  "A_confidence_distribution": {
+    "A>=0.9": 8,
+    "A0.8-0.9": 0,
+    "A<0.8": 0
+  },
+  "top_families_A": [
+    [
+      "masonry_blocks",
+      8
+    ]
+  ]
+}

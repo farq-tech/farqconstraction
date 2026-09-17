@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { NavProps } from '../types'
+import { apiUnreachableAdvice } from '../api/apiBase'
 import {
   buildConstructionGmailReturnTo,
   constructionRateLimitSec,
@@ -330,7 +331,7 @@ export function InboxView({ navigate }: NavProps) {
         return {
           tone: 'warn',
           title: 'الـ API غير قابل للوصول من هذا التطبيق.',
-          action: 'شغّل Farq API واضبط VITE_API_PROXY_TARGET عليه، ثم أعد تحميل الصفحة.',
+          action: apiUnreachableAdvice(),
         }
       }
       if (gmailError.includes('401') || gmailError.includes('AUTH')) {
