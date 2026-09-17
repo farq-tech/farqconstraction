@@ -13,6 +13,12 @@ interface ImportMetaEnv {
    * Local no-login uses x-construction-demo-user when Farq API has CONSTRUCTION_DEMO_MODE=1.
    */
   readonly VITE_FARQ_ACCESS_TOKEN?: string
+  /**
+   * `1` refuses every state-changing API call at the network choke point.
+   * See `src/api/readOnlyMode.ts`. Absent means writes are ALLOWED, so a
+   * testing deployment has to set it deliberately.
+   */
+  readonly VITE_READ_ONLY?: string
 }
 
 interface ImportMeta {

@@ -110,6 +110,34 @@ Vercel project is separate, has no custom domain and no DNS record. `www.farq.sa
 `www.farq.sa/construction` both returned 200 after the deploy; `origin/main` of both repos is
 unmoved.
 
+## Runtime completeness — the feared crash is not there
+
+Audited with `/tmp/require-audit.mjs` against the API repo. The correction matters: **a deploy from
+`origin/main` would boot and serve normally.** `origin/main`'s copies of all eleven requirer files
+are older revisions containing zero references to the missing modules, proven by checking
+`origin/main` into a throwaway worktree and successfully requiring all nine load-time entry modules.
+The live API agrees — it runs `3d4ceab3`, which contains none of the files, and both journey
+endpoints answer `401` in under 350 ms rather than `500`.
+
+So the twelve findings describe the *working tree's* needs, not a broken `origin/main`. The honest
+total is 12 JS modules plus one runtime-read ontology JSON the checker structurally cannot see;
+`procurement-intent-pool-cache.js` was missing from the original list. Real requirer edges are 92,
+not 12 — the checker de-dups by roughly 7.7×. `boq-directory-matching.js` does lazily require the
+intent engine at lines 48, 108, 154 and 241, as described.
+
+**The actual risk is the next API push**: committing the 11 modified requirer files without the 12
+new modules crashes before `listen()` (`server.js:105`, `:303`, `:550`) and even earlier at the
+`prestart` migration. All 13 files are already committed on `wip/full-tree-snapshot-2026-09-16`, so
+nothing is at risk of being lost. None of this affects the frontend deployed here.
+
+Two silent degradations worth knowing: a missing ontology JSON makes the port fall back to the flat
+dictionary with `degraded: true`, and a missing `private/electrical-suppliers.json` quietly swaps the
+supplier directory for `BUILTIN_SUPPLIERS` rather than failing loudly.
+
+**Case sensitivity: clean.** Zero mismatches across 5,240 API specifiers and 181 frontend ones.
+**Node:** both packages declare `>=20 <25`; the API image is `node:20-bookworm-slim`. The only
+Node-22+ API in the tree (`node:sqlite`) sits in two offline scripts the server never loads.
+
 ## Known, not fixed
 
 - On a deployed build the API-unreachable message still names `VITE_API_PROXY_TARGET` and port 3000,
