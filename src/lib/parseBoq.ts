@@ -1520,6 +1520,10 @@ export async function parseBoqFile(
     // (20 rows of «ما بند» for 387 printed codes), so it is not shown at all:
     // the buyer gets one sentence and «إعادة المحاولة».
     if (codedBoq && apiLines.length === 0) {
+      // The server names an outage in words meant for the buyer («ملفك سليم»);
+      // wrapping it in «انقطعت القراءة» would hide that nothing is wrong with
+      // his file.
+      if (/ملفك سليم/.test(serverReadError)) throw new Error(serverReadError)
       throw new Error(
         `انقطعت قراءة الكراسة على الخادم قبل أن تكتمل${serverReadError ? ` (${serverReadError})` : ''}. لم يُفقد شيء: اضغط «إعادة المحاولة».`,
       )
