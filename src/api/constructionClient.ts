@@ -930,6 +930,14 @@ export async function markConstructionInboxMessageRead(messageId: string) {
   )
 }
 
+/** Back to unread for the signed-in member only; colleagues keep their own state. */
+export async function markConstructionInboxMessageUnread(messageId: string) {
+  return request<{ read: boolean }>(
+    `/api/construction/inbox/messages/${encodeURIComponent(messageId)}/unread`,
+    { method: 'POST' },
+  )
+}
+
 export async function listConstructionInboxThreads(query: {
   /** API only accepts needs_reply | all. Use client helpers for inbound vs مرسل. */
   filter?: 'needs_reply' | 'all'

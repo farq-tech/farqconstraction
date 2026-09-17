@@ -6,6 +6,7 @@ import {
   getConstructionInboxThread,
   inboxThreadSupplierLabel,
   markConstructionInboxMessageRead,
+  markConstructionInboxMessageUnread,
   readConstructionInboxAttachments,
   replyToConstructionInboxThread,
   retryConstructionInboxReply,
@@ -95,6 +96,10 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
   const [sending, setSending] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  // Selection: pick supplier messages, then mark them read or unread.
+  const [selecting, setSelecting] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [marking, setMarking] = useState(false)
   const fileInput = useRef<HTMLInputElement | null>(null)
   const scroller = useRef<HTMLDivElement | null>(null)
   const markedRef = useRef<Set<string>>(new Set())
@@ -164,6 +169,51 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
   useEffect(() => {
     void load(true)
   }, [load])
+
+  useEffect(() => {
+    setSelecting(false)
+    setPicked(new Set())
+  }, [inviteId])
+
+  const togglePicked = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const markPicked = async (asRead: boolean) => {
+    if (!picked.size || marking) return
+    setMarking(true)
+    setError(null)
+    setNotice(null)
+    const ids = [...picked]
+    const results = await Promise.allSettled(
+      ids.map((id) => (asRead ? markConstructionInboxMessageRead(id) : markConstructionInboxMessageUnread(id))),
+    )
+    const failed = results.filter((r) => r.status === 'rejected').length
+    ids.forEach((id, i) => {
+      if (results[i]!.status !== 'fulfilled') return
+      if (asRead) markedRef.current.add(id)
+      else markedRef.current.delete(id)
+    })
+    try {
+      publish(await getConstructionInboxThread(inviteId))
+    } catch {
+      /* the counts below still say what was done */
+    }
+    if (!alive.current) return
+    setMarking(false)
+    if (failed) {
+      const first = results.find((r) => r.status === 'rejected') as PromiseRejectedResult
+      setError(`تعذّر تعليم ${failed} من ${ids.length}: ${first.reason instanceof Error ? first.reason.message : 'سبب غير معروف'}`)
+    } else {
+      setNotice(asRead ? `عُلّمت ${ids.length} رسالة كمقروءة.` : `عُلّمت ${ids.length} رسالة كغير مقروءة، وستبقى كذلك حتى تفتح المحادثة من جديد.`)
+      setSelecting(false)
+      setPicked(new Set())
+    }
+  }
 
   // Newest message in view on open, like any chat app. The pane's own scroller
   // is moved — `scrollIntoView` would also drag the page, which must not scroll.
@@ -304,6 +354,20 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
             {thread?.owner_name && <span>المسؤول: {thread.owner_name}</span>}
           </div>
         </div>
+        {thread && !thread.locked && thread.messages.some((m) => m.direction === 'INBOUND') && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelecting((v) => !v)
+              setPicked(new Set())
+            }}
+            className={`flex-shrink-0 text-[11px] font-bold border rounded-xl px-3 py-1.5 ${
+              selecting ? 'bg-[#123F3A] text-white border-[#123F3A]' : 'text-[#123F3A] border-neutral-200 hover:border-[#123F3A]/40'
+            }`}
+          >
+            {selecting ? 'إنهاء التحديد' : 'تحديد'}
+          </button>
+        )}
         {rfqId && (
           <button
             type="button"
@@ -314,6 +378,36 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
           </button>
         )}
       </div>
+
+      {selecting && thread && (
+        <div className="flex-shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 bg-[#f0faf7] border-b border-[#d7efe6] text-xs">
+          <span className="font-bold text-[#0D1F1D]">{picked.size} محددة</span>
+          <button
+            type="button"
+            onClick={() => setPicked(new Set(thread.messages.filter((m) => m.direction === 'INBOUND').map((m) => m.id)))}
+            className="text-[#123F3A] font-semibold hover:underline"
+          >
+            تحديد كل رسائل المورد
+          </button>
+          <span className="flex-1" />
+          <button
+            type="button"
+            disabled={!picked.size || marking || readOnly}
+            onClick={() => void markPicked(true)}
+            className="px-3 py-1.5 rounded-lg bg-white border border-neutral-200 font-bold text-[#123F3A] disabled:opacity-40"
+          >
+            مقروءة
+          </button>
+          <button
+            type="button"
+            disabled={!picked.size || marking || readOnly}
+            onClick={() => void markPicked(false)}
+            className="px-3 py-1.5 rounded-lg bg-[#123F3A] text-white font-bold disabled:opacity-40"
+          >
+            غير مقروءة
+          </button>
+        </div>
+      )}
 
       {(error || notice) && (
         <div className="flex-shrink-0 px-3 sm:px-4 pt-2 bg-white border-b border-neutral-100 pb-2 space-y-2">
@@ -383,6 +477,17 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
                     <div className="self-center my-3 rounded-full bg-white/90 shadow-[0_1px_1px_rgba(13,31,29,0.06)] text-neutral-600 text-[10px] font-bold px-3 py-1">
                       {day}
                     </div>
+                  )}
+                  {selecting && message.direction === 'INBOUND' && (
+                    <label className="self-start flex items-center gap-2 mt-2 mb-0.5 text-[11px] text-neutral-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="accent-[#123F3A] w-4 h-4"
+                        checked={picked.has(message.id)}
+                        onChange={() => togglePicked(message.id)}
+                      />
+                      {message.unread ? 'غير مقروءة' : 'مقروءة'} — حدّد هذه الرسالة
+                    </label>
                   )}
                   <MessageBubble
                     message={message}
