@@ -65,11 +65,35 @@ export type OntologyResolutionWire = {
  * legitimate state the receiver handles as ABSENT — an explicit "I looked and
  * found nothing" is a different claim and must not be manufactured here.
  */
+/**
+ * WHAT THE LINE IS, NOT WHAT IS BEING DONE TO IT.
+ *
+ * Saudi booklets open almost every line with «توريد وتركيب واختبار وتشغيل».
+ * Those four words say nothing about the material and they are a third of the
+ * sentence, so they drag the match score below its floor: «مغسلة جراحية ستانلس
+ * بدون لمس» resolves on its own and resolves to NOTHING with the prefix in
+ * front of it. Measured on the owner's hospital booklet, that alone accounted
+ * for most of the 56 unrecognised lines out of 66.
+ *
+ * The prefix is removed for RESOLUTION only. The buyer still sees the line as
+ * his booklet printed it.
+ */
+const SUPPLY_PREFIX =
+  /^(?:\s*(?:و?توريد|و?تركيب|و?تنفيذ|و?اختبار|و?إختبار|و?تشغيل|و?ضمان|و?فحص|و?صيانة|و?صيانه|و?تجهيز|أعمال|اعمال|عمل)[\s،:.-]*)+/
+
+export function forMatching(lineName: string | null | undefined): string {
+  const name = String(lineName || '').trim()
+  const stripped = name.replace(SUPPLY_PREFIX, '').trim()
+  // Never strip a line down to nothing: «أعمال الخرسانة» is all prefix and is
+  // still the only thing the line says.
+  return stripped.length >= 4 ? stripped : name
+}
+
 export function buildOntologyResolution(lineName: string | null | undefined): OntologyResolutionWire | null {
   const name = String(lineName || '').trim()
   if (!name) return null
 
-  const resolution = resolveOntology(name)
+  const resolution = resolveOntology(forMatching(name))
 
   /*
    * THREE DISTINCT OUTCOMES, AND THEY MUST STAY DISTINCT.
