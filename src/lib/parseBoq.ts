@@ -9,6 +9,7 @@ import {
   type BoqTableResult,
   type PdfGlyph,
 } from './boqPdfTable'
+import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
 
 function normalizeAr(text: string): string {
   // NFKC first: printed Etimad booklets arrive as Arabic Presentation Forms-B
@@ -1563,12 +1564,16 @@ export async function parseBoqFile(
       matchApiError: matched.matchApiError,
       matchWarning:
         [
+          // Same class as the two strings already corrected: on a deployed
+          // build «:3000» and «CONSTRUCTION_READ_ENABLED» are a local dev
+          // setting and a server variable, neither of which the reader can
+          // act on from a browser. Say what he can actually do.
           !matched.catalogLoaded
-            ? 'تعذر الاتصال بـ Farq API (:3000). شغّل الـ API ثم أعد رفع الكراسة.'
+            ? `تعذر الاتصال بـ Farq API. ${apiUnreachableAdvice()}`
             : matched.matchApiError
               ? `فشلت مطابقة الموردين على الـ API (${matched.matchApiError}). الاقتراحات أدناه من مطابقة محلية بالكلمات فقط.`
               : ready === 0
-                ? 'قُرئت البنود لكن لم يُعثر على موردين مطابقين. تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'
+                ? `قُرئت البنود بالكامل لكن لم يُعثر على أي مورد مطابق.${isProductionBuild() ? '' : ' تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'}`
                 : '',
           shelvedTableNote,
           specNote,
