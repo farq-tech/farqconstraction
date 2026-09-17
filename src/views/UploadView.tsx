@@ -177,6 +177,10 @@ type ReadReport = {
   unreadable: number
   issues: string[]
   skippedTables: string[]
+  /** Rows the read refused to serve as items — counted, never dropped silently. */
+  setAsideCount?: number
+  setAsideNote?: string
+  setAsideRows?: Array<{ page?: number; quantity?: number | string | null; unit?: string | null; description?: string; reason?: string }>
   matchApiFailed: boolean
   /** The served descriptions repeat too heavily to be item names. */
   descriptionColumnSuspect?: boolean
@@ -230,6 +234,51 @@ function PartialReadPanel({ report }: { report: ReadReport }) {
  * because the count is exactly what made this failure invisible: 180 of 180
  * items, every quantity correct, and the material absent from every line.
  */
+/**
+ * WHAT THE READ REFUSED, WHERE THE BUYER CAN SEE IT.
+ *
+ * «لا أريد أي بند يختفي بصمت». A row with no quantity, no readable text, or a
+ * number sitting off the quantity column is not shown as an item. Those are
+ * almost always totals and section headings — and «almost always» is why they
+ * are listed rather than deleted in silence.
+ */
+function SetAsidePanel({ report }: { report: ReadReport }) {
+  const [open, setOpen] = useState(false)
+  const rows = report.setAsideRows || []
+  return (
+    <div className="mb-4 rounded-xl bg-neutral-50 border border-neutral-200 px-4 py-3 text-right" dir="rtl">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-bold text-[#0D1F1D]">
+          سطور لم تُعرض كبنود: {report.setAsideCount}
+        </div>
+        {rows.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="text-xs font-bold text-[#123F3A] hover:underline flex-shrink-0"
+          >
+            {open ? 'إخفاء' : 'اعرضها'}
+          </button>
+        )}
+      </div>
+      <div className="text-xs text-neutral-600 mt-1 leading-relaxed">{report.setAsideNote}</div>
+      {open && (
+        <div className="mt-3 max-h-64 overflow-auto space-y-1.5">
+          {rows.map((row, i) => (
+            <div key={i} className="bg-white border border-neutral-100 rounded-lg px-3 py-2">
+              <div className="text-[11px] text-neutral-400">
+                صفحة {row.page ?? '؟'} · {row.reason === 'NO_QUANTITY' ? 'بلا كمية' : row.reason === 'NO_TEXT' ? 'بلا نص مقروء' : 'خارج عمود الكميات'}
+                {row.quantity ? ` · ${row.quantity} ${row.unit || ''}` : ''}
+              </div>
+              <div className="text-xs text-[#0D1F1D] leading-relaxed">{String(row.description || '').slice(0, 160)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CodedItemsPanel({ report }: { report: ReadReport }) {
   return (
     <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-right" dir="rtl">
@@ -360,6 +409,9 @@ export function UploadView({ navigate }: NavProps) {
             unreadable: facts.unreadableLineCount,
             issues: facts.readIssues ?? [],
             skippedTables: facts.skippedTables ?? [],
+            setAsideCount: facts.setAsideCount,
+            setAsideNote: facts.setAsideNote,
+            setAsideRows: facts.setAsideRows,
             matchApiFailed: false,
             source: 'pdf-table',
             descriptionColumnSuspect: facts.descriptionColumnSuspect,
@@ -411,6 +463,9 @@ export function UploadView({ navigate }: NavProps) {
         unreadable: result.unreadableLineCount ?? 0,
         issues: result.readIssues ?? [],
         skippedTables: result.skippedTables ?? [],
+        setAsideCount: result.setAsideCount,
+        setAsideNote: result.setAsideNote,
+        setAsideRows: result.setAsideRows,
         matchApiFailed: Boolean(result.matchApiFailed),
         matchApiError: result.matchApiError,
         source: result.source,
@@ -776,6 +831,7 @@ export function UploadView({ navigate }: NavProps) {
                 <div className="text-sm font-semibold text-[#0D1F1D] mb-3 truncate">{projectName}</div>
               )}
               {partialRead && readReport && <PartialReadPanel report={readReport} />}
+              {Boolean(readReport?.setAsideCount) && <SetAsidePanel report={readReport!} />}
               {readReport?.codedItemsSuspect && <CodedItemsPanel report={readReport} />}
               {readReport?.descriptionColumnSuspect && <DescriptionColumnPanel report={readReport} />}
 

@@ -769,6 +769,10 @@ export type ParseBoqResult = {
    */
   expectedLineCount?: number | null
   unreadableLineCount?: number
+  /** Rows the read refused to serve as items — counted, never dropped silently. */
+  setAsideCount?: number
+  setAsideNote?: string
+  setAsideRows?: Array<{ page?: number; quantity?: number | string | null; unit?: string | null; description?: string; reason?: string }>
   /** Arabic, user-facing reasons — one per item we could not read. */
   readIssues?: string[]
   /** Tables found in the document that were deliberately not read as items. */
@@ -1441,6 +1445,10 @@ export type BoqReadFacts = {
   unreadableLineCount: number
   readIssues?: string[]
   skippedTables?: string[]
+  /** Rows the read refused to serve as items, counted by reason. */
+  setAsideCount?: number
+  setAsideNote?: string
+  setAsideRows?: Array<{ page?: number; quantity?: number | string | null; unit?: string | null; description?: string; reason?: string }>
   /** Travels with the early facts so the screen can refuse to call this a
    *  complete read before the longest leg even starts. */
   descriptionColumnSuspect?: boolean
@@ -1511,6 +1519,15 @@ export async function parseBoqFile(
       table.expectedCount === table.rows.length,
   )
 
+  /** Rows the server read but refused to serve as items, with their reason. */
+  let setAside: Array<{
+    page?: number
+    quantity?: number | string | null
+    unit?: string | null
+    description?: string
+    reason?: string
+  }> = []
+
   // Optional API enrichment — capped wait so a hung job cannot strand UploadView.
   // Scanned PDFs: give Farq tender extract (OCR when enabled) more time before giving up.
   if (isPdf) {
@@ -1537,6 +1554,9 @@ export async function parseBoqFile(
       ])
       if (apiOrTimeout.kind === 'api' && apiOrTimeout.api.rows?.length) {
         apiLines = rowsToLines(apiOrTimeout.api.rows)
+        // «لا أريد أي بند يختفي بصمت»: what the read refused, carried to the
+        // screen with its reason instead of being dropped without a word.
+        setAside = apiOrTimeout.api.set_aside || []
       }
     } catch (err) {
       console.warn('Farq BOQ parse API unavailable, using client parse', err)
@@ -1622,9 +1642,37 @@ export async function parseBoqFile(
   const skippedTables = usedTable
     ? table!.otherTables.map((t) => `صفحة ${t.page}: جدول آخر لم نقرأه كبنود — «${t.header}»`)
     : []
+  /*
+   * WHAT THE READ REFUSED TO SERVE, SAID OUT LOUD.
+   *
+   * «لا أريد أي بند يختفي بصمت». The server sets a row aside when it has no
+   * quantity, no readable text, or a number sitting off the quantity column.
+   * Those rows are almost always totals and sub-headings — «almost always» is
+   * not a reason to delete them without a word, so they are counted by reason
+   * and reported beside the read.
+   */
+  const REASON_AR: Record<string, string> = {
+    NO_QUANTITY: 'بلا كمية',
+    NO_TEXT: 'بلا نص مقروء',
+    OFF_QUANTITY_COLUMN: 'رقمها خارج عمود الكميات',
+  }
+  const setAsideByReason = new Map<string, number>()
+  for (const row of setAside) {
+    const key = REASON_AR[String(row.reason || '')] || 'سبب غير معروف'
+    setAsideByReason.set(key, (setAsideByReason.get(key) || 0) + 1)
+  }
+  const setAsideNote = setAside.length
+    ? `استبعدنا ${setAside.length} سطرًا من الكراسة ولم نعرضها كبنود: ` +
+      [...setAsideByReason.entries()].map(([reason, n]) => `${n} ${reason}`).join('، ') +
+      '. غالبها إجماليات وعناوين، راجعها إن كنت تتوقع بنودًا أكثر.'
+    : ''
+
   const readFacts = {
     expectedLineCount,
     unreadableLineCount,
+    setAsideCount: setAside.length || undefined,
+    setAsideNote: setAsideNote || undefined,
+    setAsideRows: setAside.length ? setAside.slice(0, 50) : undefined,
     readIssues: readIssues.length ? readIssues : undefined,
     skippedTables: skippedTables.length ? skippedTables : undefined,
     descriptionColumnSuspect: resolved.descriptionColumnSuspect || undefined,

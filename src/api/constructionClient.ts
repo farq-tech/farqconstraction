@@ -1716,12 +1716,28 @@ export async function matchConstructionBoqCatalog(payload: {
   return { rows: mapped, matches: mapped }
 }
 
+/** A row the read refused to serve as an item, with the reason it refused. */
+export type SetAsideRow = {
+  page?: number
+  quantity?: number | string | null
+  unit?: string | null
+  description?: string
+  reason?: string
+}
+
 export async function parseConstructionBoqPdf(file: File): Promise<{
   rows: (string | number)[][]
   item_count: number
   job_id?: string
+  set_aside?: SetAsideRow[]
 }> {
-  type Submit = { job_id: string; status: 'QUEUED' | 'COMPLETE'; rows?: (string | number)[][]; item_count?: number }
+  type Submit = {
+    job_id: string
+    status: 'QUEUED' | 'COMPLETE'
+    rows?: (string | number)[][]
+    item_count?: number
+    set_aside?: SetAsideRow[]
+  }
   const submitFile = () =>
     request<Submit>('/api/construction/boq/parse-pdf', {
       method: 'POST',
@@ -1741,7 +1757,12 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
   let unreachableSince: number | null = null
   for (;;) {
     if (submit.status === 'COMPLETE' && submit.rows) {
-      return { rows: submit.rows, item_count: submit.item_count ?? submit.rows.length, job_id: submit.job_id }
+      return {
+        rows: submit.rows,
+        item_count: submit.item_count ?? submit.rows.length,
+        job_id: submit.job_id,
+        set_aside: submit.set_aside || [],
+      }
     }
     await new Promise((r) => setTimeout(r, unreachableSince ? 4000 : 1000))
     if (Date.now() >= deadline) {
@@ -1751,7 +1772,13 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
         'BOQ_EXTRACTION_TIMEOUT',
       )
     }
-    let job: { status: string; rows?: (string | number)[][]; item_count?: number; error?: string | null }
+    let job: {
+      status: string
+      rows?: (string | number)[][]
+      item_count?: number
+      set_aside?: SetAsideRow[]
+      error?: string | null
+    }
     try {
       job = await request(`/api/construction/boq/extraction/${encodeURIComponent(submit.job_id)}`)
       unreachableSince = null
@@ -1770,7 +1797,12 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
       continue
     }
     if (job.status === 'COMPLETE') {
-      return { rows: job.rows ?? [], item_count: job.item_count ?? job.rows?.length ?? 0, job_id: submit.job_id }
+      return {
+        rows: job.rows ?? [],
+        item_count: job.item_count ?? job.rows?.length ?? 0,
+        job_id: submit.job_id,
+        set_aside: job.set_aside || [],
+      }
     }
     if (job.status === 'FAILED') {
       throw new ConstructionApiError(job.error || 'تعذرت قراءة جدول الكميات من PDF', 500, 'BOQ_EXTRACTION_FAILED')
