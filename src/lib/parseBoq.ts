@@ -633,7 +633,8 @@ function mapApiSuppliers(
         s.evidence === 'نشاط متطابق' ||
         s.evidence === 'دليل منتج' ||
         s.evidence === 'اختيارك' ||
-        s.evidence === 'تسمية آلية'
+        s.evidence === 'تسمية آلية' ||
+        s.evidence === 'خريطة فرق'
           ? s.evidence
           : i < 3
             ? 'نشاط متطابق'
@@ -652,7 +653,7 @@ function mapApiSuppliers(
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion'] }>
+  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion'] }>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -661,7 +662,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion'] }>()
+  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion'] }>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -690,6 +691,17 @@ async function matchViaFarqBoqApi(
       out.set(row.line_key, {
         farqSpecId: row.farq_spec_id,
         suppliers: mapApiSuppliers(row.suppliers || []),
+        // An ontology-named material with the map's suppliers — beside the match, never in it.
+        mapSuggestion: row.map_suggestion
+          ? {
+              intent: row.map_suggestion.intent,
+              family: row.map_suggestion.family,
+              answeredBy: row.map_suggestion.answered_by,
+              supplierCount: row.map_suggestion.supplier_count,
+              zeroReason: row.map_suggestion.zero_reason,
+              suppliers: mapApiSuppliers(row.map_suggestion.suppliers || []),
+            }
+          : undefined,
         // A model-named material rides alongside, never in place of, the match.
         aiSuggestion: row.ai_suggestion
           ? {
@@ -764,6 +776,7 @@ export async function matchSuppliersForItems(
       farqSpecId: api?.farqSpecId || undefined,
       lineKey: lineKeyFor(line),
       aiSuggestion: api?.aiSuggestion,
+      mapSuggestion: api?.mapSuggestion,
     })
 
     if (items.length % lineChunk === 0 || items.length === cleanLines.length) {

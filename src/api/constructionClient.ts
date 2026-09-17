@@ -13,7 +13,7 @@
  */
 
 import { apiBase, apiUnreachableAdvice } from './apiBase'
-import { withOntologyResolution } from '../lib/canonicalIntent'
+import { buildOntologyResolution, withOntologyResolution } from '../lib/canonicalIntent'
 import {
   constructionHeaders,
   currentAuthMode,
@@ -272,6 +272,23 @@ export type BoqCatalogMatchRow = {
     channel?: string
     rfq_eligible?: boolean
   }>
+  /** Ontology-named material whose suppliers were read from Farq's intent map (review required, never a match). */
+  map_suggestion?: {
+    intent: string
+    family: string | null
+    answered_by: string | null
+    supplier_count: number
+    zero_reason: string | null
+    suppliers: Array<{
+      id: string
+      name_ar?: string
+      name_en?: string
+      city?: string
+      evidence?: string
+      channel?: string
+      rfq_eligible?: boolean
+    }>
+  }
   /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
   ai_suggestion?: {
     intent: string
@@ -1403,6 +1420,33 @@ export async function matchConstructionSuppliers(payload: {
 }
 
 /**
+ * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
+ * product match, so `rfq_eligible` is false and the badge names the source.
+ */
+function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string) {
+  return (list || [])
+    .filter((s) => String(s.id || '').trim())
+    .slice(0, 8)
+    .map((s) => {
+      const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
+      const id = String(s.id || '')
+      const isHaraj =
+        isHarajSellerExternalKey(id) ||
+        String(s.source_system || s.source || '') === 'HARAJ' ||
+        Boolean(channels.haraj)
+      return {
+        id,
+        name_ar: s.name_ar as string | undefined,
+        name_en: s.name_en as string | undefined,
+        city: (s.city as string | undefined) || undefined,
+        evidence,
+        channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
+        rfq_eligible: false,
+      }
+    })
+}
+
+/**
  * Farq `POST /api/construction/boq/match` expects `{ rows: [{ key, name, ... }] }`
  * (see api/lib/construction/boq-catalog-matching.js). UI historically sent `lines`
  * with `line_key`/`name_ar` — that always 400s.
@@ -1425,7 +1469,7 @@ export async function matchConstructionBoqCatalog(payload: {
     brand?: string
   }>
 }): Promise<{ rows: BoqCatalogMatchRow[]; matches?: BoqCatalogMatchRow[] }> {
-  const rows =
+  const baseRows =
     payload.rows?.length
       ? payload.rows.slice(0, 200)
       : (payload.lines || []).slice(0, 200).map((line) => ({
@@ -1434,6 +1478,15 @@ export async function matchConstructionBoqCatalog(payload: {
           name_en: line.name_en,
           specification: line.spec,
         }))
+  // The resolver's own answer rides on every row. `/boq/match` is the endpoint
+  // this screen actually calls, and the server has no paired resolver of its
+  // own, so without this the ontology's name for a line never reaches the one
+  // place that could read the supplier map for it. A server that does not know
+  // the field ignores it (parseBoqMatchRows copies known keys only).
+  const rows = baseRows.map((row) => ({
+    ...row,
+    ontology_resolution: buildOntologyResolution(row.name || row.name_en || ''),
+  }))
 
   const data = await request<{
     rows?: Array<{
@@ -1458,6 +1511,14 @@ export async function matchConstructionBoqCatalog(payload: {
       ai_suggestion?: {
         intent?: string
         family?: string | null
+        supplier_count?: number
+        zero_reason?: string | null
+        suppliers?: Array<Record<string, unknown>>
+      } | null
+      map_suggestion?: {
+        intent?: string
+        family?: string | null
+        answered_by?: string | null
         supplier_count?: number
         zero_reason?: string | null
         suppliers?: Array<Record<string, unknown>>
@@ -1529,6 +1590,19 @@ export async function matchConstructionBoqCatalog(payload: {
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
       }),
+      ...(row.map_suggestion && row.map_suggestion.intent
+        ? {
+            map_suggestion: {
+              intent: String(row.map_suggestion.intent),
+              family: row.map_suggestion.family ?? null,
+              answered_by: row.map_suggestion.answered_by ?? null,
+              supplier_count: Number(row.map_suggestion.supplier_count) || 0,
+              zero_reason: row.map_suggestion.zero_reason ?? null,
+              // The ontology named the material; the map supplied the seller.
+              suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق'),
+            },
+          }
+        : {}),
       ...(row.ai_suggestion && row.ai_suggestion.intent
         ? {
             ai_suggestion: {
@@ -1536,32 +1610,8 @@ export async function matchConstructionBoqCatalog(payload: {
               family: row.ai_suggestion.family ?? null,
               supplier_count: Number(row.ai_suggestion.supplier_count) || 0,
               zero_reason: row.ai_suggestion.zero_reason ?? null,
-              suppliers: (row.ai_suggestion.suppliers || [])
-                .filter((s) => String(s.id || '').trim())
-                .slice(0, 8)
-                .map((s) => {
-                  const channels = (s.contact_channels || {}) as {
-                    email?: boolean
-                    whatsapp?: boolean
-                    haraj?: boolean
-                  }
-                  const id = String(s.id || '')
-                  const isHaraj =
-                    isHarajSellerExternalKey(id) ||
-                    String(s.source_system || s.source || '') === 'HARAJ' ||
-                    Boolean(channels.haraj)
-                  return {
-                    id,
-                    name_ar: s.name_ar as string | undefined,
-                    name_en: s.name_en as string | undefined,
-                    city: (s.city as string | undefined) || undefined,
-                    // The model named the material; the map supplied the seller.
-                    // Neither is a confirmed product match, and the badge says so.
-                    evidence: 'تسمية آلية',
-                    channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
-                    rfq_eligible: false,
-                  }
-                }),
+              // The model named the material; the map supplied the seller.
+              suppliers: suggestionSuppliers(row.ai_suggestion.suppliers, 'تسمية آلية'),
             },
           }
         : {}),

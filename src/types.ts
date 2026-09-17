@@ -21,7 +21,7 @@ export type AppView =
   | 'inbox'
   | 'inbox-thread'
 
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'اختيارك' | 'تسمية آلية'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
 export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
 
 export interface Supplier {
@@ -52,6 +52,21 @@ export interface BOQItem {
   aiSuggestion?: {
     intent: string
     family?: string | null
+    supplierCount: number
+    suppliers: Supplier[]
+    zeroReason?: string | null
+  }
+  /**
+   * The ontology NAMED this material and Farq's intent→supplier map was read
+   * for that name. Not a catalogue match: `farqSpecId` stays unset and nothing
+   * is preselected. `supplierCount: 0` means «معروف بلا مورد» — a fact about
+   * the register, not about our understanding of the line.
+   */
+  mapSuggestion?: {
+    intent: string
+    family?: string | null
+    /** SERVER_RESOLVED when the API named the line itself; WIRE_UNVERIFIED when it took this client's name. */
+    answeredBy?: string | null
     supplierCount: number
     suppliers: Supplier[]
     zeroReason?: string | null

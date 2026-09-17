@@ -7,6 +7,7 @@ import {
   subscribeSession,
 } from '../store/session'
 import { resolveBoqCardFields } from '../lib/parseBoq'
+import { intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
@@ -20,6 +21,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
   'دليل منتج': 'bg-blue-50 text-blue-700',
   'اختيارك': 'bg-amber-50 text-amber-700',
   'تسمية آلية': 'bg-purple-50 text-purple-700',
+  'خريطة فرق': 'bg-teal-50 text-teal-700',
 }
 
 const CHANNEL_ICON: Record<string, string> = {
@@ -44,6 +46,65 @@ interface BOQCardProps {
   onSelectAll: () => void
   onClearAll: () => void
   onAddSupplier: (supplier: Supplier) => void
+}
+
+const SUGGESTION_TONE = {
+  teal: { box: 'border-teal-100 bg-teal-50/60', title: 'text-teal-800', note: 'text-teal-700/80', row: 'border-teal-100' },
+  purple: { box: 'border-purple-100 bg-purple-50/60', title: 'text-purple-800', note: 'text-purple-700/80', row: 'border-purple-100' },
+} as const
+
+/**
+ * A named-but-unconfirmed material with suppliers from Farq's intent map.
+ * Always a suggestion: nothing here is selected until the buyer presses «أضف».
+ */
+function SuggestionBox({
+  tone,
+  title,
+  note,
+  emptyText,
+  suppliers,
+  evidence,
+  alreadyIds,
+  onAdd,
+}: {
+  tone: keyof typeof SUGGESTION_TONE
+  title: string
+  note: string
+  emptyText: string
+  suppliers: Supplier[]
+  evidence: Supplier['evidence']
+  alreadyIds: Set<string>
+  onAdd: (supplier: Supplier) => void
+}) {
+  const t = SUGGESTION_TONE[tone]
+  return (
+    <div className={`mb-3 rounded-xl border px-4 py-3 ${t.box}`}>
+      <div className={`text-xs font-bold ${t.title}`}>{title}</div>
+      <div className={`text-[11px] mt-1 ${t.note}`}>{note}</div>
+      {suppliers.length > 0 ? (
+        <div className="mt-2 space-y-1.5">
+          {suppliers.map((s) => (
+            <div key={`${evidence}-${s.id}`} className={`flex items-center gap-3 px-3 py-2 rounded-lg bg-white border ${t.row}`}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-[#0D1F1D] truncate">{s.name}</div>
+                <div className="text-xs text-neutral-400">{s.city}</div>
+              </div>
+              <span className="text-xs">{CHANNEL_ICON[s.channel]}</span>
+              <button
+                onClick={() => onAdd({ ...s, evidence })}
+                disabled={alreadyIds.has(s.id)}
+                className="text-xs font-semibold text-[#123F3A] hover:underline disabled:text-neutral-300"
+              >
+                {alreadyIds.has(s.id) ? 'أُضيف' : 'أضف'}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[11px] text-neutral-500 mt-2">{emptyText}</div>
+      )}
+    </div>
+  )
 }
 
 function BOQCard({
@@ -156,9 +217,11 @@ function BOQCard({
             {isSearching && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-semibold">
                 {unresolved
-                  ? item.aiSuggestion
-                    ? 'سمّاها الذكاء الاصطناعي — للمراجعة'
-                    : 'مادة غير محدّدة'
+                  ? item.mapSuggestion
+                    ? 'مادة معروفة — من خريطة فرق'
+                    : item.aiSuggestion
+                      ? 'سمّاها الذكاء الاصطناعي — للمراجعة'
+                      : 'مادة غير محدّدة'
                   : 'بلا مورد مؤكد'}
               </span>
             )}
@@ -173,7 +236,11 @@ function BOQCard({
           <div className="text-xs text-neutral-500 mb-1">
             {isSearching
               ? unresolved
-                ? item.aiSuggestion
+                ? item.mapSuggestion
+                  ? item.mapSuggestion.supplierCount > 0
+                    ? `${item.mapSuggestion.supplierCount} موردًا في خريطة فرق — للمراجعة`
+                    : 'مادة معروفة بلا مورد في خريطة فرق'
+                  : item.aiSuggestion
                   ? item.aiSuggestion.supplierCount > 0
                     ? `${item.aiSuggestion.supplierCount} موردًا مقترحًا عبر التسمية الآلية`
                     : 'سُمّيت آليًا ولا مورد لها في خريطة فرق'
@@ -211,43 +278,35 @@ function BOQCard({
             </div>
           )}
 
-          {unresolved && item.aiSuggestion && (
-            <div className="mb-3 rounded-xl border border-purple-100 bg-purple-50/60 px-4 py-3">
-              <div className="text-xs font-bold text-purple-800">
-                اقتراح آلي للمراجعة: قد تكون هذه المادة «{item.aiSuggestion.intent}»
-              </div>
-              <div className="text-[11px] text-purple-700/80 mt-1">
-                سمّى الذكاء الاصطناعي المادة مرة واحدة وحُفظت التسمية. لم يختر أي مورد: الموردون أدناه من
-                خريطة فرق لهذه التسمية، وهي ليست مطابقة مؤكدة. أضف من تراه مناسبًا بنفسك.
-              </div>
-              {item.aiSuggestion.suppliers.length > 0 ? (
-                <div className="mt-2 space-y-1.5">
-                  {item.aiSuggestion.suppliers.map((s) => (
-                    <div
-                      key={`ai-${s.id}`}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white border border-purple-100"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-[#0D1F1D] truncate">{s.name}</div>
-                        <div className="text-xs text-neutral-400">{s.city}</div>
-                      </div>
-                      <span className="text-xs">{CHANNEL_ICON[s.channel]}</span>
-                      <button
-                        onClick={() => onAddSupplier({ ...s, evidence: 'تسمية آلية' })}
-                        disabled={alreadyIds.has(s.id)}
-                        className="text-xs font-semibold text-[#123F3A] hover:underline disabled:text-neutral-300"
-                      >
-                        {alreadyIds.has(s.id) ? 'أُضيف' : 'أضف'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-[11px] text-neutral-500 mt-2">
-                  لا يحمل دليل فرق موردًا لهذه التسمية بعد.
-                </div>
-              )}
-            </div>
+          {unresolved && item.mapSuggestion && (
+            <SuggestionBox
+              tone="teal"
+              title={`عرّفت الأنطولوجيا هذه المادة: «${intentLabelAr(item.mapSuggestion.intent)}»`}
+              note={
+                'لم يؤكّد الكتالوج مطابقة لهذا البند، لكن المادة معروفة. الموردون أدناه من خريطة فرق لهذه المادة، ' +
+                'وهم مرشّحون للمراجعة لا مطابقة مؤكدة. لم يُحدَّد أحد مسبقًا: أضف من تراه مناسبًا.'
+              }
+              emptyText="المادة معروفة، ولا يحمل دليل فرق موردًا لها بعد. هذا نقص في الدليل لا في قراءة البند."
+              suppliers={item.mapSuggestion.suppliers}
+              evidence="خريطة فرق"
+              alreadyIds={alreadyIds}
+              onAdd={onAddSupplier}
+            />
+          )}
+          {unresolved && !item.mapSuggestion && item.aiSuggestion && (
+            <SuggestionBox
+              tone="purple"
+              title={`اقتراح آلي للمراجعة: قد تكون هذه المادة «${intentLabelAr(item.aiSuggestion.intent)}»`}
+              note={
+                'سمّى الذكاء الاصطناعي المادة مرة واحدة وحُفظت التسمية. لم يختر أي مورد: الموردون أدناه من ' +
+                'خريطة فرق لهذه التسمية، وهي ليست مطابقة مؤكدة. أضف من تراه مناسبًا بنفسك.'
+              }
+              emptyText="لا يحمل دليل فرق موردًا لهذه التسمية بعد."
+              suppliers={item.aiSuggestion.suppliers}
+              evidence="تسمية آلية"
+              alreadyIds={alreadyIds}
+              onAdd={onAddSupplier}
+            />
           )}
 
           <div className="space-y-2">
