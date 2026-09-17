@@ -173,23 +173,23 @@ export function SettingsView({ navigate }: NavProps) {
         <ChannelRow
           label="بريد صادر (Resend)"
           on={channels.email}
-          detail="RESEND_API_KEY + CONSTRUCTION_RFQ_* على السيرفر"
+          detail="بريد طلبات التسعير الصادر من خادم فرق"
         />
         <ChannelRow
           label="واتساب Cloud (Meta)"
           on={channels.whatsapp}
           detail={
             channels.whatsapp
-              ? `جاهز للإرسال بشرط send_consent=true · مزوّد ${channels.whatsappProvider || 'META_CLOUD_API'} · kill switch WHATSAPP_ENABLED`
+              ? 'جاهز للإرسال للموردين الذين وافقوا على المراسلة عبر واتساب'
               : channels.metaReady
-                ? 'Meta ready لكن القناة OFF (kill switch أو بانتظار نشر كود الموزّع المحدّث)'
+                ? 'الحساب مهيّأ لدى Meta لكن القناة موقوفة على خادم فرق'
                 : 'غير مهيأ'
           }
         />
         <ChannelRow
           label="واتساب يدوي (WhatsApp Web)"
           on={channels.whatsappManual}
-          detail="متاح دائمًا عند غياب consent أو تعطيل Cloud"
+          detail="رابط واتساب تفتحه أنت وترسله بنفسك: متاح دائمًا"
         />
         <ChannelRow
           label="حراج"
