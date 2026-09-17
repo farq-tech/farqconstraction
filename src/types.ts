@@ -16,6 +16,7 @@ export type AppView =
   | 'supplier-management'
   | 'supplier-detail'
   | 'settings'
+  | 'learning-review'
   | 'access-denied'
   | 'supplier'
   | 'inbox'
@@ -25,7 +26,7 @@ export type AppView =
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
  * catalog returned the supplier and nothing says how strong the link is.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
 export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
 
 export interface Supplier {
@@ -62,6 +63,8 @@ export interface BOQItem {
     suppliers: Supplier[]
     zeroReason?: string | null
   }
+  /** Trade known, material not in the list: suppliers of that trade, unconfirmed. */
+  familySuggestion?: { family: string; suppliers: Supplier[] }
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
   learnedSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */

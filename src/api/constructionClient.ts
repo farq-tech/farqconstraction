@@ -289,6 +289,11 @@ export type BoqCatalogMatchRow = {
       rfq_eligible?: boolean
     }>
   }
+  /** Trade known, material not in the list: that family's suppliers, at family grade. */
+  family_suggestion?: {
+    family: string
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+  }
   /** Suppliers the buyer chose for this same line before and that no list above contains. */
   learned_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
@@ -934,6 +939,36 @@ export async function markConstructionInboxMessageRead(messageId: string) {
   )
 }
 
+export type IntentCandidate = {
+  key: string
+  sample_text: string | null
+  sample_texts: string[]
+  lines: number
+  booklets: number
+  proposed_family: string | null
+  proposed_intent: string | null
+  confidence: number | null
+  status: string
+}
+
+/** Unknown material cores from the buyer's own booklets, most repeated first. */
+export async function listConstructionIntentCandidates(limit = 100) {
+  return request<{ total_open: number; candidates: IntentCandidate[] }>(
+    `/api/construction/learning/candidates?limit=${limit}`,
+  )
+}
+
+/** APPROVE the proposal, REJECT it, or CORRECT it to another material of the closed list. */
+export async function decideConstructionIntentCandidate(
+  key: string,
+  body: { decision: 'APPROVE' | 'REJECT' | 'CORRECT'; intent?: string },
+) {
+  return request<{ key: string; status: string }>(
+    `/api/construction/learning/candidates/${encodeURIComponent(key)}/decision`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+}
+
 export type SupplierFeedbackItem = {
   subject_kind: 'SPEC' | 'INTENT' | 'LINE_TEXT'
   subject_key: string
@@ -1552,6 +1587,7 @@ export async function matchConstructionBoqCatalog(payload: {
         suppliers?: Array<Record<string, unknown>>
       }>
       learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
       ai_suggestion?: {
         intent?: string
         family?: string | null
@@ -1655,6 +1691,9 @@ export async function matchConstructionBoqCatalog(payload: {
               suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق'),
             },
           }
+        : {}),
+      ...(row.family_suggestion?.family
+        ? { family_suggestion: { family: String(row.family_suggestion.family), suppliers: suggestionSuppliers(row.family_suggestion.suppliers, 'على مستوى النشاط') } }
         : {}),
       ...(row.learned_suggestion?.suppliers?.length
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }

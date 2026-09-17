@@ -44,6 +44,12 @@ function buildNav(offerBadge: string | null) {
       active: (v: AppView) => ['supplier-management', 'supplier-detail'].includes(v),
     },
     {
+      id: 'learning-review' as AppView,
+      label: 'مراجعة المواد',
+      Icon: FileIcon,
+      active: (v: AppView) => v === 'learning-review',
+    },
+    {
       id: 'settings' as AppView,
       label: 'الإعدادات',
       Icon: SettingsIcon,

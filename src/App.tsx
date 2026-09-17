@@ -21,6 +21,7 @@ import { SupplierPortalView } from './views/SupplierPortalView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
 import { useFarqSession } from './api/useFarqSession'
+import { LearningReviewView } from './views/LearningReviewView'
 
 function AppRoutes() {
   const {
@@ -68,6 +69,7 @@ function AppRoutes() {
         />
       )}
       {view === 'settings' && <SettingsView navigate={navigate} />}
+      {view === 'learning-review' && <LearningReviewView navigate={navigate} />}
       {view === 'inbox' && <InboxView navigate={navigate} />}
       {view === 'inbox-thread' && <InboxThreadView navigate={navigate} />}
       {view === 'access-denied' && <AccessDeniedView navigate={navigate} />}

@@ -7,7 +7,7 @@ import {
   subscribeSession,
 } from '../store/session'
 import { resolveBoqCardFields } from '../lib/parseBoq'
-import { intentLabelAr } from '../lib/intentLabels'
+import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
@@ -21,6 +21,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
   'نشاط متطابق': 'bg-[#e0efec] text-[#123F3A]',
   'دليل منتج': 'bg-blue-50 text-blue-700',
   'من الكتالوج': 'bg-neutral-100 text-neutral-600',
+  'على مستوى النشاط': 'bg-neutral-100 text-neutral-500',
   'اختيارك': 'bg-amber-50 text-amber-700',
   'تسمية آلية': 'bg-purple-50 text-purple-700',
   'خريطة فرق': 'bg-teal-50 text-teal-700',
@@ -55,6 +56,7 @@ interface BOQCardProps {
 
 const SUGGESTION_TONE = {
   teal: { box: 'border-teal-100 bg-teal-50/60', title: 'text-teal-800', note: 'text-teal-700/80', row: 'border-teal-100' },
+  grey: { box: 'border-neutral-200 bg-neutral-50', title: 'text-neutral-700', note: 'text-neutral-500', row: 'border-neutral-200' },
   purple: { box: 'border-purple-100 bg-purple-50/60', title: 'text-purple-800', note: 'text-purple-700/80', row: 'border-purple-100' },
 } as const
 
@@ -180,9 +182,10 @@ function BOQCard({
           ...(item.learnedSuggestion?.suppliers || []),
           ...(item.mapSuggestion?.suppliers || []),
           ...(!item.mapSuggestion ? item.aiSuggestion?.suppliers || [] : []),
+          ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.learnedSuggestion, item.mapSuggestion, item.aiSuggestion],
+    [item.learnedSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
   )
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
@@ -363,6 +366,19 @@ function BOQCard({
               onReject={reject}
             />
           )}
+          {!item.mapSuggestion && !item.aiSuggestion && item.familySuggestion && (
+            <SuggestionBox
+              tone="grey"
+              title={`غير مؤكد — على مستوى النشاط: «${familyLabelAr(item.familySuggestion.family)}»`}
+              note="لم نجد هذه المادة بعينها في قائمة فرق. هؤلاء موردو النشاط الأقرب لها، وقد لا يبيعونها: راجعهم قبل الاختيار، واضغط «غير مناسب» على من لا يناسب."
+              emptyText="لا يحمل دليل فرق موردًا لهذا النشاط بعد."
+              suppliers={item.familySuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="على مستوى النشاط"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+            />
+          )}
           {!item.mapSuggestion && item.aiSuggestion && (
             <SuggestionBox
               tone="purple"
@@ -513,7 +529,7 @@ function BOQCard({
           {/* Only where nothing at all was found. Under a card that lists map
               suppliers this note said «لم نبحث له عن موردين», and under a
               work-only card it told the buyer to go and find a supplier. */}
-          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && (
+          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && (
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'

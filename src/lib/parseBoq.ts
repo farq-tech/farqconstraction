@@ -537,6 +537,7 @@ function mapApiSuppliers(
         s.evidence === 'نشاط متطابق' ||
         s.evidence === 'دليل منتج' ||
         s.evidence === 'من الكتالوج' ||
+        s.evidence === 'على مستوى النشاط' ||
         s.evidence === 'اختيارك' ||
         s.evidence === 'تسمية آلية' ||
         s.evidence === 'خريطة فرق'
@@ -558,7 +559,7 @@ function mapApiSuppliers(
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion'] }>
+  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -567,7 +568,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion'] }>()
+  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -647,6 +648,9 @@ async function matchViaFarqBoqApi(
               suppliers: mapApiSuppliers(row.map_suggestion.suppliers || []),
             }
           : undefined,
+        familySuggestion: row.family_suggestion?.family
+          ? { family: row.family_suggestion.family, suppliers: mapApiSuppliers(row.family_suggestion.suppliers || []) }
+          : undefined,
         learnedSuggestion: row.learned_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
           : undefined,
@@ -725,9 +729,10 @@ export async function matchSuppliersForItems(
       lineKey: lineKeyFor(line),
       aiSuggestion: api?.aiSuggestion,
       learnedSuggestion: api?.learnedSuggestion,
+      familySuggestion: api?.familySuggestion,
       mapSuggestion: api?.mapSuggestion,
       workOnly:
-        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.familySuggestion
           ? true
           : undefined,
       itemCode: line.itemCode,
