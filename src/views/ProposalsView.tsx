@@ -49,6 +49,8 @@ interface BOQCardProps {
   onClearAll: () => void
   onAddSupplier: (supplier: Supplier) => void
   onRejectSupplier: (supplier: Supplier) => void
+  /** Removes this line from the request. The parent offers an undo. */
+  onDelete: () => void
 }
 
 const SUGGESTION_TONE = {
@@ -146,6 +148,7 @@ function BOQCard({
   onClearAll,
   onAddSupplier,
   onRejectSupplier,
+  onDelete,
 }: BOQCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [search, setSearch] = useState('')
@@ -419,12 +422,21 @@ function BOQCard({
           )}
 
           <div className="mt-3">
-            <button
-              onClick={() => setShowSearch((v) => !v)}
-              className="flex items-center gap-1 text-xs font-semibold text-neutral-500 hover:text-[#123F3A]"
-            >
-              <PlusIcon className="w-3.5 h-3.5" /> البحث في دليل الموردين
-            </button>
+            <div className="flex items-center justify-between gap-3">
+              <button
+                onClick={() => setShowSearch((v) => !v)}
+                className="flex items-center gap-1 text-xs font-semibold text-neutral-500 hover:text-[#123F3A]"
+              >
+                <PlusIcon className="w-3.5 h-3.5" /> البحث في دليل الموردين
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="flex items-center gap-1 text-xs font-semibold text-neutral-400 hover:text-red-600"
+              >
+                <XIcon className="w-3.5 h-3.5" /> حذف البند
+              </button>
+            </div>
             {showSearch && (
               <div className="mt-2">
                 <div className="flex gap-2">
@@ -602,6 +614,33 @@ export function ProposalsView({ navigate }: NavProps) {
     flushLearning()
   }, [flushLearning])
 
+  // Deleting a line is the buyer's call and must be reversible: the line goes
+  // at once, and «تراجع» puts it back where it was with its ticks.
+  const [deleted, setDeleted] = useState<{ item: BOQItem; index: number; picks: string[] } | null>(null)
+  const deletedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deleteItem = (itemId: number) => {
+    const index = items.findIndex((i) => i.id === itemId)
+    if (index < 0) return
+    setDeleted({ item: items[index]!, index, picks: selected[itemId] || [] })
+    persistItems(items.filter((i) => i.id !== itemId))
+    setSelected((prev) => {
+      const next = { ...prev }
+      delete next[itemId]
+      return next
+    })
+    if (deletedTimer.current) clearTimeout(deletedTimer.current)
+    deletedTimer.current = setTimeout(() => setDeleted(null), 12000)
+  }
+  const undoDelete = () => {
+    if (!deleted) return
+    const next = [...items]
+    next.splice(Math.min(deleted.index, next.length), 0, deleted.item)
+    persistItems(next)
+    setSelected((prev) => ({ ...prev, [deleted.item.id]: deleted.picks }))
+    setDeleted(null)
+    if (deletedTimer.current) clearTimeout(deletedTimer.current)
+  }
+
   const rejectSupplier = (itemId: number, supplier: Supplier) => {
     const item = items.find((i) => i.id === itemId)
     learn(item, [supplier.id], 'REJECTED')
@@ -768,10 +807,22 @@ export function ProposalsView({ navigate }: NavProps) {
               onClearAll={() => clearAll(item.id)}
               onAddSupplier={(supplier) => addSupplierToItem(item.id, supplier)}
               onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
+              onDelete={() => deleteItem(item.id)}
             />
           ))}
         </div>
       </div>
+
+      {deleted && (
+        <div className="fixed bottom-24 left-0 right-0 lg:right-64 z-30 flex justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto flex items-center gap-4 rounded-2xl bg-[#0D1F1D] text-white text-sm px-4 py-3 shadow-lg max-w-full">
+            <span className="truncate">حُذف البند «{deleted.item.name.slice(0, 40)}»</span>
+            <button type="button" onClick={undoDelete} className="flex-shrink-0 font-bold text-[#9ce8c6] hover:underline">
+              تراجع
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="fixed bottom-0 left-0 right-0 lg:right-64 bg-white border-t border-neutral-100 px-4 py-4 z-20">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
