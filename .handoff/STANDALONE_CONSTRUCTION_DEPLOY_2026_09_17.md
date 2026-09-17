@@ -102,6 +102,75 @@ Unreached, named rather than glossed:
   reason. Item names, quantities and units are all client-side and all present.
 - The signed-in path, and therefore a signed-in send being refused by the guard in a live browser.
 
+## Signed-in verification (owner's account, real Chrome, deployed URL)
+
+Credentials were supplied for one verification and are written nowhere — the three
+`scripts/smoke-*.mjs` read `FARQ_EMAIL` and `FARQ_PASSWORD` from the environment.
+
+- Sign-in works. **18 of 18 construction calls carried `Authorization`; 0 carried
+  `x-construction-demo-user`.** The header question is settled by observation.
+- 68/68 items with quantity and unit still holds signed in; read reports complete.
+- **Supplier matching works: 66 of 68 items matched, 250 suppliers selected, 8 suppliers
+  per item on the ones inspected.** Two items return none.
+- Nothing on the path from login to suppliers is pinned to `www.farq.sa`. The only three
+  such references are the Gmail launch bridge, a display-only email preview string, and a
+  Gmail comment — none is on that path. `credentials: 'include'` appears once, on Gmail only.
+
+### The specification join — earlier diagnosis corrected twice
+
+Unsigned it read 0 of 68 and I attributed that to authentication. Signed in, every call
+returned 200 and it **still** read 0 of 68, so that attribution was wrong. The real
+mechanism is a deliberate timeout: when the column read is complete, `parseBoq` gives the
+API **6 seconds** (`tableIsComplete ? 6_000 : 12_000`), and the server's extraction of this
+6.9 MB booklet does not finish inside it, so `apiLines` stays empty and `specsFromApi` is 0.
+The code comments state this trade intentionally — 68 correctly-valued specless lines are
+preferred over a longer wait.
+
+**But the upload screen's warning overstates it.** By the proposals screen the items do
+carry their technical text: item 1 reads
+`درابزين حديدي 385 م ط · درابزين حديدى لزوم الرامب والسلالم الداخلية من قطاعات الحديد المفرغة · رمز إنشائي 2011`.
+So specifications do reach the matching screen; what is 0 is the count at the end of the
+6-second upload window. Whether that text is sent *into* `boq/match` or returned *from* it
+was not determined — stated as the boundary of what was observed.
+
+### How a zero-supplier item reads today
+
+This matters for the requirement that legitimate zeros read as "no confirmed supplier".
+Both zero items render, verbatim:
+
+> `41 فرق يبحث عنها لوحةكهرباء 1 عدد · … وجدنا موردًا واحدًا حتى الآن`
+> `60 فرق يبحث عنها مرحاض 42 عدد · … وجدنا موردًا واحدًا حتى الآن`
+
+That is an ongoing-search framing **and** a claim of one supplier, at the same time. It does
+not read as a settled "no confirmed supplier", and a user would reasonably wait for a search
+that is not running. Matched items read `وجد فرق 8 موردًا` by contrast. Reported, not changed —
+matching, ranking and search behaviour are frozen during the rebuild.
+
+Note `مرحاض` is `wc_sanitaryware`, one of the nine pools proven `ZERO_BECAUSE_MAPPING_BROKEN`,
+and it is zero in the interface today — consistent with that diagnosis.
+
+## Gate B — the send guard under a real session
+
+A genuine signed-in attempt: 66 items ready, 250 suppliers selected, `إرسال طلب التسعير`
+pressed, modal opened, `إنشاء وإرسال كل القنوات` pressed.
+
+1. **Server refuses with 409/422 — NOT met.** The write never reaches the server, so there is
+   no server status at all. Satisfying this requires a change to the **shared production API**
+   that also serves `www.farq.sa` — a per-origin read-only mode returning `409` for the
+   testing host. That is a production behaviour change and was not made.
+2. **Does not look successful — met.** No `تم الإرسال`, `أُرسل`, `نجح`, or `تم إنشاء` anywhere
+   after the attempt. The modal renders `نتيجة الإرسال` with a red error box and a close button.
+3. **Clear message — met.** Verbatim:
+   `هذه نسخة للتجربة فقط: الإرسال الحقيقي للموردين معطّل. لن يصل أي بريد أو طلب إلى مورد من هذا الرابط.`
+4. **Zero side effects — met, checked in persisted data, not inferred.** RFQ rows before the
+   attempt: 9, newest `2026-09-15T16:54:15Z`. After: 9, same newest, **0 new rows, 0 rows dated
+   today**. No RFQ means no invitation and no recipient row beneath it.
+
+So it is not "click and nothing happens" — the refusal is rendered. The one unmet point needs a
+server change. Worth weighing: blocking in the browser gives a *stronger* guarantee on point 4
+than a server `409` would, because no request exists to be mishandled; a server-side refusal
+would satisfy point 1 but moves the guarantee into the shared API.
+
 ## Isolation
 
 Verified by a genuine `git clone` of the branch into a fresh directory, then `npm install`
