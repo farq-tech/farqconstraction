@@ -20,7 +20,7 @@
  * it never invents an id.
  */
 
-import { ONTOLOGY_VERSION, isKnownIntentId, resolveOntology } from './procurementOntology'
+import { FAMILIES, ONTOLOGY_VERSION, isKnownIntentId, normalizeProcurementText, resolveOntology } from './procurementOntology'
 
 /** Bumped when the wire shape changes in a way the receiver must react to. */
 export const CANONICAL_INTENT_CONTRACT_VERSION = 1
@@ -78,15 +78,81 @@ export type OntologyResolutionWire = {
  * The prefix is removed for RESOLUTION only. The buyer still sees the line as
  * his booklet printed it.
  */
+// «و» may stand apart from its verb: booklets print «توريد و تركيب و اختبار»
+// as often as «توريد وتركيب واختبار», and the prefix must go either way.
 const SUPPLY_PREFIX =
-  /^(?:\s*(?:و?توريد|و?تركيب|و?تنفيذ|و?اختبار|و?إختبار|و?تشغيل|و?ضمان|و?فحص|و?صيانة|و?صيانه|و?تجهيز|أعمال|اعمال|عمل)[\s،:.-]*)+/
+  /^(?:\s*(?:و\s*)?(?:توريد|تركيب|تنفيذ|اختبار|إختبار|أختبار|تشغيل|ضمان|فحص|صيانة|صيانه|تجهيز|توصيل|أعمال|اعمال|عمل)[\s،:.\/-]*)+/
+
+/**
+ * THE LAM-ALEF THE PDF TURNED ROUND.
+ *
+ * Many booklets are exported with the «لا» ligature written back to front, so
+ * «بلاط» arrives as «بالط», «سلالم» as «ساللم» and «كابلات» as «كابالت». The
+ * letters are all there, in the wrong order, and no term can match them.
+ *
+ * A blanket swap would break far more than it fixes: «اعمال» and «اتصال» end in
+ * the same two letters and are right as printed. So a word is turned back only
+ * when it is NOT a word we know and its turned form IS one. The known words are
+ * the ontology's own vocabulary, plus the few connectives a booklet wraps
+ * around it. Matching only. The buyer still sees the line as printed.
+ */
+const PROCLITICS = ['وال', 'بال', 'فال', 'كال', 'لل', 'ال', 'و', 'ب', 'ل', 'ف']
+
+const LAM_ALEF_WORDS: Set<string> = (() => {
+  const words = new Set<string>([
+    'بلاط', 'بلاطات', 'سلالم', 'سلالم', 'كابلات', 'طاولات', 'طاوله', 'توصيلات', 'وصلات',
+    'شاملا', 'كاملا', 'لازمه', 'اللازمه', 'اشعه', 'ارضيات', 'انذار', 'الانذار', 'لانهاء',
+    'بلاستيك', 'بلاستيكي', 'زلاجه', 'شلال', 'علاقه', 'علامات', 'اغلاق', 'فلاتر', 'بلاك',
+  ])
+  const collect = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(collect)
+    if (!node || typeof node !== 'object') return
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (key.endsWith('_terms') && Array.isArray(value)) {
+        for (const term of value) {
+          for (const word of normalizeProcurementText(String(term)).split(' ')) {
+            if (word.length >= 3) words.add(word)
+          }
+        }
+      } else if (typeof value === 'object') collect(value)
+    }
+  }
+  collect(FAMILIES)
+  return words
+})()
+
+function isKnownWord(word: string): boolean {
+  if (LAM_ALEF_WORDS.has(word)) return true
+  for (const p of PROCLITICS) {
+    if (word.startsWith(p) && word.length - p.length >= 3 && LAM_ALEF_WORDS.has(word.slice(p.length))) return true
+  }
+  return false
+}
+
+function turnLamAlef(word: string): string {
+  if (!word.includes('ال') || isKnownWord(word)) return word
+  // «األنذار» → «الأنذار»: the article before an alef word, turned round.
+  const article = word.replace(/اال/g, 'الا')
+  if (article !== word && isKnownWord(article)) return article
+  for (let i = 1; i < word.length - 1; i += 1) {
+    if (word[i] !== 'ا' || word[i + 1] !== 'ل') continue
+    const turned = word.slice(0, i) + 'لا' + word.slice(i + 2)
+    if (isKnownWord(turned)) return turned
+  }
+  return word
+}
+
+export function repairLamAlef(text: string): string {
+  const normalized = normalizeProcurementText(text)
+  return normalized.split(' ').map(turnLamAlef).join(' ')
+}
 
 export function forMatching(lineName: string | null | undefined): string {
   const name = String(lineName || '').trim()
-  const stripped = name.replace(SUPPLY_PREFIX, '').trim()
+  const stripped = repairLamAlef(name).replace(SUPPLY_PREFIX, '').trim()
   // Never strip a line down to nothing: «أعمال الخرسانة» is all prefix and is
   // still the only thing the line says.
-  return stripped.length >= 4 ? stripped : name
+  return stripped.length >= 4 ? stripped : repairLamAlef(name)
 }
 
 export function buildOntologyResolution(lineName: string | null | undefined): OntologyResolutionWire | null {
