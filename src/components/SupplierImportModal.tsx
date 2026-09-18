@@ -271,7 +271,7 @@ export function SupplierImportModal({
                 ].map(([title, count, tone]) => (
                   <div key={String(title)} className="rounded-2xl bg-neutral-50 px-4 py-3 text-center">
                     <div className={`text-2xl font-black ${tone}`}>
-                      {Number(count).toLocaleString('ar-SA')}
+                      {Number(count).toLocaleString('en-US')}
                     </div>
                     <div className="text-[11px] text-neutral-500 font-semibold mt-0.5">{title}</div>
                   </div>
@@ -315,7 +315,7 @@ export function SupplierImportModal({
               )}
 
               <div className="text-[11px] text-neutral-500">
-                قرأنا {rows.length.toLocaleString('ar-SA')} صفًا من «{filename}».
+                قرأنا {rows.length.toLocaleString('en-US')} صفًا من «{filename}».
                 {!workbook && headerRow > 1 && <> صف العناوين هو الصف {headerRow}.</>} المطابقة تتم مقابل
                 كل موردي حسابك، بعد توحيد الهمزة والألف والتاء المربوطة في الأسماء.
                 {unreadable.length > 0 && (
@@ -404,7 +404,7 @@ export function SupplierImportModal({
               >
                 {busy
                   ? 'جارٍ الحفظ…'
-                  : `تأكيد وحفظ ${(preview?.insert_count || 0).toLocaleString('ar-SA')} مورد`}
+                  : `تأكيد وحفظ ${(preview?.insert_count || 0).toLocaleString('en-US')} مورد`}
               </button>
               <button
                 onClick={() => {

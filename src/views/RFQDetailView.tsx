@@ -436,8 +436,7 @@ export function RFQDetailView({ navigate }: NavProps) {
       {tab === 'correspondence' && (
         <div className="space-y-2">
           <p className="text-xs text-neutral-500 mb-3">
-            حالة دعوات الموردين من `GET /api/construction/rfqs/:id` — الإرسال الخارجي يظهر هنا عند وجود
-            محاولات قنوات (بريد/واتساب).
+            حالة إرسال الطلب لكل مورد ورده عليه.
           </p>
           {invites.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 text-sm">لا دعوات مسجّلة لهذا الطلب</div>
@@ -460,10 +459,16 @@ export function RFQDetailView({ navigate }: NavProps) {
                     {attempts.length > 0 ? (
                       <div className="text-[11px] text-neutral-400 mt-1">
                         {attempts
-                          .map(
-                            (a) =>
-                              `${a.channel}: ${a.status}${a.failure_code ? ` (${a.failure_code})` : ''}`,
-                          )
+                          // Channels the supplier has no address for were never
+                          // tried; listing them read like failures.
+                          .filter((a) => !String(a.status).startsWith('SKIPPED'))
+                          .map((a) => {
+                            const channel = ({ EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'حراج' } as Record<string, string>)[a.channel] || a.channel
+                            const status =
+                              ({ SENT: 'أُرسل', DELIVERY_FAILED: 'لم يصل', NOT_SENT: 'لم يُرسل', PARTIALLY_SENT: 'أُرسل جزئيًا' } as Record<string, string>)[a.status] ||
+                              a.status
+                            return `${channel}: ${status}`
+                          })
                           .join(' · ')}
                       </div>
                     ) : (

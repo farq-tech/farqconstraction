@@ -70,7 +70,7 @@ function arabicDeliveryDate(value?: string | null): string {
   if (!raw) return 'غير محدد'
   const parsed = new Date(`${raw}T12:00:00+03:00`)
   if (Number.isNaN(parsed.getTime())) return raw
-  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
+  return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

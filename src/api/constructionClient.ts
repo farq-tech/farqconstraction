@@ -1569,6 +1569,8 @@ export async function matchConstructionBoqCatalog(payload: {
     spec?: string
     /** The nearest line above that names its material. Matching only. */
     context?: string
+    /** Already worked out off the page's thread; used as given. */
+    ontology_resolution?: unknown
   }>
   rows?: Array<{
     key: string
@@ -1589,13 +1591,15 @@ export async function matchConstructionBoqCatalog(payload: {
           name_en: line.name_en,
           specification: line.spec,
           context: line.context,
+          precomputed: line.ontology_resolution,
         }))
   // The resolver's own answer rides on every row. `/boq/match` is the endpoint
   // this screen actually calls, and the server has no paired resolver of its
   // own, so without this the ontology's name for a line never reaches the one
   // place that could read the supplier map for it. A server that does not know
   // the field ignores it (parseBoqMatchRows copies known keys only).
-  const rows = baseRows.map(({ context, ...row }: typeof baseRows[number] & { context?: string }) => {
+  const rows = baseRows.map(({ context, precomputed, ...row }: typeof baseRows[number] & { context?: string; precomputed?: unknown }) => {
+    if (precomputed !== undefined) return { ...row, ontology_resolution: precomputed }
     /*
      * THE NAME FIRST, THE LINE'S OWN TEXT AFTER IT.
      *
@@ -1791,7 +1795,10 @@ export type SetAsideRow = {
   reason?: string
 }
 
-export async function parseConstructionBoqPdf(file: File): Promise<{
+/** What a running read reports on each poll, for the live processing panel. */
+export type BoqReadProgress = { pagesDone: number; pageCount: number | null; itemCount: number; newNames: string[] }
+
+export async function parseConstructionBoqPdf(file: File, onProgress?: (p: BoqReadProgress) => void): Promise<{
   rows: (string | number)[][]
   item_count: number
   job_id?: string
@@ -1815,6 +1822,7 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
     })
 
   let submit = await submitFile()
+  let reportedRows = 0
   const deadline = Date.now() + 840_000
   // The reading job lives in the server's memory. A server restart (every
   // deploy is one) loses it: the poll answers 404, or nothing answers at all
@@ -1845,6 +1853,8 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
       status: string
       rows?: (string | number)[][]
       item_count?: number
+      pages_done?: number
+      page_count?: number | null
       set_aside?: SetAsideRow[]
       error?: string | null
     }
@@ -1875,6 +1885,22 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
     }
     if (job.status === 'FAILED') {
       throw new ConstructionApiError(job.error || 'تعذرت قراءة جدول الكميات من PDF', 500, 'BOQ_EXTRACTION_FAILED')
+    }
+    if (onProgress) {
+      // Rows arrive while the server reads; the longest text cell of each new
+      // row is its description. Only rows not reported before are passed on.
+      const rows = job.rows || []
+      const fresh = rows.slice(reportedRows)
+      reportedRows = rows.length
+      const newNames = fresh
+        .map((row) => row.map((cell) => String(cell ?? '')).reduce((a, b) => (b.length > a.length ? b : a), ''))
+        .filter((text) => /[\u0600-\u06FF]{3}/.test(text))
+        .map((text) => text.replace(/\s+/g, ' ').slice(0, 90))
+      try {
+        onProgress({ pagesDone: job.pages_done ?? 0, pageCount: job.page_count ?? null, itemCount: job.item_count ?? rows.length, newNames })
+      } catch {
+        /* the panel never breaks the read */
+      }
     }
   }
 }
@@ -2080,14 +2106,14 @@ export function formatRfqReference(
 
 export function formatSar(value: number | null | undefined): string {
   if (value == null || Number.isNaN(Number(value))) return '—'
-  return `${Number(value).toLocaleString('ar-SA', { maximumFractionDigits: 2 })} ر.س`
+  return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })} ر.س`
 }
 
 export function formatArDate(value?: string | null): string {
   if (!value) return '—'
   const ts = Date.parse(value)
   if (Number.isNaN(ts)) return value
-  return new Date(ts).toLocaleDateString('ar-SA', {
+  return new Date(ts).toLocaleDateString('en-GB', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

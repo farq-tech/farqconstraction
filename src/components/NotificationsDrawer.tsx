@@ -30,7 +30,7 @@ function dayHeading(group: NotificationDayGroup<ConstructionInboxMessage>): stri
 }
 
 function exactDateTime(ts: number): string {
-  return new Date(ts).toLocaleString('ar-SA', { dateStyle: 'full', timeStyle: 'short' })
+  return new Date(ts).toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })
 }
 
 function supplierLabel(message: ConstructionInboxMessage): string {

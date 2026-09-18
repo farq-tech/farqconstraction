@@ -342,7 +342,7 @@ export function OffersView({ navigate }: NavProps) {
                           >
                             {formatAttempt(a.channel, a.status)}
                             {a.sent_at
-                              ? ` · ${new Date(a.sent_at).toLocaleString('ar-SA', {
+                              ? ` · ${new Date(a.sent_at).toLocaleString('en-GB', {
                                   dateStyle: 'short',
                                   timeStyle: 'short',
                                 })}`

@@ -161,7 +161,13 @@ export function HomeView({ navigate }: NavProps) {
               return (
                 <button
                   key={rfq.id}
-                  onClick={() => openRfq(rfq.id, 'rfq-detail')}
+                  // A draft made by an upload lives in this browser, not on the
+                  // server: it opens the booklet's suppliers, not an RFQ page.
+                  onClick={() =>
+                    rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
+                      ? navigate('create-proposals')
+                      : openRfq(rfq.id, 'rfq-detail')
+                  }
                   className="w-full bg-white rounded-2xl border border-neutral-100 px-5 py-4 flex items-center gap-4 hover:border-[#123F3A]/20 hover:shadow-sm transition-all text-right"
                 >
                   <div className="flex-1 min-w-0">

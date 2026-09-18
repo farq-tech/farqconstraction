@@ -24,6 +24,8 @@ import {
   upsertDraftRfq,
 } from '../store/session'
 import { takePendingUpload } from '../lib/pendingUpload'
+import { clearInflightUpload, loadInflightUpload, saveInflightUpload } from '../lib/inflightUpload'
+import { farqSession } from '../api/farqSession'
 import { useProcurement } from '../procurementContext'
 import { currentAuthMode } from '../api/constructionAuth'
 
@@ -360,6 +362,7 @@ export function UploadView({ navigate }: NavProps) {
       setNeedsSignIn(true)
       return
     }
+    void saveInflightUpload(file, farqSession.getUser()?.id ?? null)
     setNeedsSignIn(false)
     // Isolate this upload immediately — never keep previous booklet lines around.
     beginBoqUpload({ fileName: file.name })
@@ -452,6 +455,7 @@ export function UploadView({ navigate }: NavProps) {
         tracker.finish()
         setEta(tracker.view())
         setPhase('error')
+        void clearInflightUpload()
         setErrorMsg(
           result.matchWarning ||
             'لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة. تأكد أن الملف يحتوي جدول كميات قابل للقراءة.',
@@ -519,7 +523,7 @@ export function UploadView({ navigate }: NavProps) {
       })
 
       const today = new Date()
-      const dateLabel = today.toLocaleDateString('ar-SA', {
+      const dateLabel = today.toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -538,6 +542,7 @@ export function UploadView({ navigate }: NavProps) {
       })
 
       setPhase('done')
+      void clearInflightUpload()
     } catch (err) {
       if (!current()) return
       // Document isolation: a failed run shows an error, never the last booklet.
@@ -549,6 +554,7 @@ export function UploadView({ navigate }: NavProps) {
       tracker.finish()
       setEta(tracker.view())
       setPhase('error')
+      void clearInflightUpload()
       setErrorMsg(err instanceof Error ? err.message : 'تعذّرت قراءة الملف')
     } finally {
       if (watchdog) window.clearTimeout(watchdog)
@@ -563,7 +569,18 @@ export function UploadView({ navigate }: NavProps) {
   // A file chosen on the home screen starts reading here, once.
   useEffect(() => {
     const file = takePendingUpload()
-    if (file) void runProcessing(file)
+    if (file) {
+      void runProcessing(file)
+      return
+    }
+    // A refresh (or a closed tab) while a booklet was being read: carry on.
+    let cancelled = false
+    void loadInflightUpload(farqSession.getUser()?.id ?? null).then((saved) => {
+      if (!cancelled && saved) void runProcessing(saved)
+    })
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -580,6 +597,7 @@ export function UploadView({ navigate }: NavProps) {
   )
 
   const reset = () => {
+    void clearInflightUpload()
     clearParsedBoq()
     setDraftBoq(null)
     runIdRef.current += 1
@@ -921,7 +939,7 @@ export function UploadView({ navigate }: NavProps) {
                 })}
                 {items.length > 60 && (
                   <div className="px-4 py-3 text-xs text-neutral-500 text-center">
-                    و{(items.length - 60).toLocaleString('ar-SA')} بندًا آخر تجدها كلها في الخطوة التالية
+                    و{(items.length - 60).toLocaleString('en-US')} بندًا آخر تجدها كلها في الخطوة التالية
                   </div>
                 )}
               </div>
@@ -1015,6 +1033,9 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
   const [candidates, setCandidates] = useState(0)
   const [total, setTotal] = useState(0)
   const [samples, setSamples] = useState(1)
+  const [pages, setPages] = useState<{ done: number; count: number | null } | null>(null)
+  const [serverItems, setServerItems] = useState(0)
+  const sawLiveNames = useRef(false)
   const cursor = useRef(0)
   const queue = useRef<Array<{ text: string; count?: number; read?: boolean }>>([])
   const seq = useRef(0)
@@ -1022,6 +1043,22 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
   useEffect(() => {
     for (; cursor.current < events.length; cursor.current++) {
       const e = events[cursor.current]!
+      if (e.kind === 'reading') {
+        setPages({ done: e.pagesDone, count: e.pageCount })
+        setServerItems(e.itemCount)
+        if (e.newNames.length) sawLiveNames.current = true
+        const step = Math.max(1, Math.floor(e.newNames.length / 30))
+        e.newNames.forEach((name, i) => {
+          if (i % step === 0) queue.current.push({ text: name, read: true })
+        })
+        continue
+      }
+      if (e.kind === 'read' && sawLiveNames.current) {
+        // The lines already scrolled past while the server read them.
+        setTotal(e.names.length)
+        setServerItems(e.names.length)
+        continue
+      }
       if (e.kind === 'read') {
         setTotal(e.names.length)
         const step = Math.max(1, Math.floor(e.names.length / 60))
@@ -1057,14 +1094,16 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
     return () => window.clearInterval(timer)
   }, [])
 
-  const readingLines = total > 0 && matched === 0
+  const readingLines = (total > 0 || serverItems > 0) && matched === 0
   return (
     <div className="mt-4 rounded-xl border border-[#CFF5DC] bg-[#F3FBF6] px-4 py-3 text-right" dir="rtl">
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs font-bold text-[#123F3A] flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#1a7a45] animate-pulse" />
           {reading && total === 0
-            ? 'نقرأ صفحات الكراسة ونتعرف على الجدول…'
+            ? pages?.count
+              ? `نقرأ صفحات الكراسة: صفحة ${Math.min(pages.done, pages.count)} من ${pages.count}…`
+              : 'نقرأ صفحات الكراسة ونتعرف على الجدول…'
             : readingLines
               ? 'نقرأ البنود…'
               : 'نبحث في دليل الموردين ونطابق كل بند…'}
@@ -1072,20 +1111,20 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
       </div>
       <div className="grid grid-cols-3 gap-2 text-center mb-3">
         <div>
-          <div className="text-lg font-black text-[#123F3A] tabular-nums">{Math.min(total, Math.round((readCount / samples) * total)).toLocaleString('ar-SA')}</div>
+          <div className="text-lg font-black text-[#123F3A] tabular-nums">{(sawLiveNames.current || serverItems ? serverItems : Math.min(total, Math.round((readCount / samples) * total))).toLocaleString('en-US')}</div>
           <div className="text-[10px] text-neutral-500">بندًا مقروءًا</div>
         </div>
         <div>
-          <div className="text-lg font-black text-[#123F3A] tabular-nums">{matched.toLocaleString('ar-SA')}</div>
+          <div className="text-lg font-black text-[#123F3A] tabular-nums">{matched.toLocaleString('en-US')}</div>
           <div className="text-[10px] text-neutral-500">بندًا طوبق</div>
         </div>
         <div>
-          <div className="text-lg font-black text-[#123F3A] tabular-nums">{candidates.toLocaleString('ar-SA')}</div>
+          <div className="text-lg font-black text-[#123F3A] tabular-nums">{candidates.toLocaleString('en-US')}</div>
           <div className="text-[10px] text-neutral-500">ترشيح مورد</div>
         </div>
       </div>
       <div className="space-y-1 min-h-[132px] overflow-hidden">
-        {reading && total === 0 && (
+        {reading && total === 0 && !shown.length && (
           <div className="h-1 rounded-full bg-[#CFF5DC] overflow-hidden">
             <div className="h-full w-1/3 bg-[#1a7a45] animate-scan" />
           </div>

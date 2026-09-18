@@ -154,7 +154,9 @@ export function RFQListView({ navigate }: NavProps) {
               <button
                 key={rfq.id}
                 onClick={() =>
-                  openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
+                  rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
+                    ? navigate('create-proposals')
+                    : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
                 }
                 className="w-full bg-white border border-neutral-100 rounded-2xl px-5 py-4 hover:border-[#123F3A]/30 hover:shadow-sm transition-all text-right"
               >

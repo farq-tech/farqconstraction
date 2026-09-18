@@ -162,7 +162,7 @@ describe('day and time labels', () => {
     expect(today).not.toBe('أمس')
     expect(listTimeLabel(iso(2026, 8, 16), now)).toBe('أمس')
     const weekday = listTimeLabel(iso(2026, 8, 13), now)
-    const expectedWeekday = new Date(2026, 8, 13).toLocaleDateString('ar-SA', { weekday: 'long' })
+    const expectedWeekday = new Date(2026, 8, 13).toLocaleDateString('en-GB', { weekday: 'long' })
     expect(weekday).toBe(expectedWeekday)
     const older = listTimeLabel(iso(2026, 7, 1), now)
     expect(older).not.toBe(expectedWeekday)

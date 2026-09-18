@@ -151,13 +151,13 @@ export function chatDayLabel(value: string | null | undefined, now: number = Dat
   const day = startOfDay(ts)
   if (day === today) return 'اليوم'
   if (day === startOfDay(today - DAY_MS / 2)) return 'أمس'
-  return new Date(ts).toLocaleDateString('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' })
+  return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 export function chatTimeLabel(value: string | null | undefined): string {
   const ts = parseTime(value)
   if (ts == null) return ''
-  return new Date(ts).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+  return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
 /**
@@ -173,9 +173,9 @@ export function listTimeLabel(value: string | null | undefined, now: number = Da
   if (day === today) return chatTimeLabel(value)
   if (day === startOfDay(today - DAY_MS / 2)) return 'أمس'
   if (day < today && today - day < 7 * DAY_MS) {
-    return new Date(ts).toLocaleDateString('ar-SA', { weekday: 'long' })
+    return new Date(ts).toLocaleDateString('en-GB', { weekday: 'long' })
   }
-  return new Date(ts).toLocaleDateString('ar-SA', { day: 'numeric', month: 'numeric', year: 'numeric' })
+  return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: 'numeric' })
 }
 
 /** File-type tag for an attachment card, from the fields the API really has. */

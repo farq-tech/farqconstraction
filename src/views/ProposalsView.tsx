@@ -612,29 +612,16 @@ export function ProposalsView({ navigate }: NavProps) {
    */
   const [openAll, setOpenAll] = useState<{ open: boolean; at: number }>({ open: true, at: 0 })
   /*
-   * DRAW WHAT THE BUYER CAN SEE.
+   * DRAW ONLY WHAT IS NEAR THE SCREEN.
    *
-   * 1,514 cards at once were ~131,000 DOM nodes: seconds of layout on a
-   * laptop, and on a phone the browser ran out of memory and reloaded the tab
-   * («الصفحة تقفل وتبدأ من جديد»). Cards are drawn 30 at a time and the next
-   * batch arrives as the list scrolls near its end.
+   * 1,514 cards at once were ~131,000 nodes, and drawing them in batches as
+   * the list scrolled still ended at 25,000 by the bottom. Cards live in
+   * chunks of 25; a chunk far from the screen is replaced by an empty block
+   * of its measured height, so the page holds a few chunks at any moment
+   * however long the booklet is.
    */
-  const RENDER_STEP = 30
-  const [renderCount, setRenderCount] = useState(RENDER_STEP)
-  const moreRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => setRenderCount(RENDER_STEP), [filter, query])
-  useEffect(() => {
-    const node = moreRef.current
-    if (!node || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) setRenderCount((n) => n + RENDER_STEP)
-      },
-      { rootMargin: '800px 0px' },
-    )
-    io.observe(node)
-    return () => io.disconnect()
-  })
+  const CHUNK = 25
+  const filterKey = `${filter}|${query}`
   const autoDone = useRef<Set<number>>(new Set(Object.keys(getSelections()).map(Number)))
   const [autoSummary, setAutoSummary] = useState<{ suppliers: number; lines: number; empty: number } | null>(null)
 
@@ -1047,25 +1034,26 @@ export function ProposalsView({ navigate }: NavProps) {
         </div>
 
         <div className="space-y-4">
-          {filtered.slice(0, renderCount).map((item) => (
-            <BOQCard
-              key={item.id}
-              item={item}
-              selectedIds={selected[item.id] || []}
-              onToggle={(id) => toggle(item.id, id)}
-              onSelectAll={() => selectAll(item.id)}
-              onClearAll={() => clearAll(item.id)}
-              onAddSupplier={(supplier) => addSupplierToItem(item.id, supplier)}
-              onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
-              onDelete={() => deleteItem(item.id)}
-              openAll={openAll}
-            />
+          {chunkList(filtered, CHUNK).map((chunk, ci) => (
+            <WindowChunk key={`${filterKey}:${ci}`} eager={ci < 2} estimate={chunk.length * 260}>
+              <div className="space-y-4">
+                {chunk.map((item) => (
+                  <BOQCard
+                    key={item.id}
+                    item={item}
+                    selectedIds={selected[item.id] || []}
+                    onToggle={(id) => toggle(item.id, id)}
+                    onSelectAll={() => selectAll(item.id)}
+                    onClearAll={() => clearAll(item.id)}
+                    onAddSupplier={(supplier) => addSupplierToItem(item.id, supplier)}
+                    onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
+                    onDelete={() => deleteItem(item.id)}
+                    openAll={openAll}
+                  />
+                ))}
+              </div>
+            </WindowChunk>
           ))}
-          {filtered.length > renderCount && (
-            <div ref={moreRef} className="py-6 text-center text-sm text-neutral-500">
-              عُرض {renderCount.toLocaleString('ar-SA')} من {filtered.length.toLocaleString('ar-SA')} بندًا · تابع النزول لعرض المزيد
-            </div>
-          )}
         </div>
       </div>
 
@@ -1137,5 +1125,41 @@ export function ProposalsView({ navigate }: NavProps) {
         />
       )}
     </>
+  )
+}
+
+function chunkList<T>(list: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
+
+/** A block of cards that is drawn only while it is near the screen. */
+function WindowChunk({ eager, estimate, children }: { eager: boolean; estimate: number; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [near, setNear] = useState(eager)
+  const height = useRef<number>(estimate)
+  useEffect(() => {
+    const node = ref.current
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setNear(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting && node.firstElementChild) height.current = node.getBoundingClientRect().height || height.current
+          setNear(entry.isIntersecting)
+        }
+      },
+      { rootMargin: '1500px 0px' },
+    )
+    io.observe(node)
+    return () => io.disconnect()
+  }, [])
+  return (
+    <div ref={ref} style={near ? undefined : { height: height.current }}>
+      {near ? children : null}
+    </div>
   )
 }
