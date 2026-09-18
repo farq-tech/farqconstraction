@@ -149,13 +149,13 @@ export function LoginView({ navigate }: NavProps) {
 function loginErrorAr(err: unknown): string {
   if (err instanceof FarqAuthError) {
     if (err.code === 'LOCAL_AUTH_NOT_CONFIGURED') {
-      return 'خدمة الحسابات غير مهيّأة على الـ API (FARQ_AUTH_JWT_SECRET غير مضبوط) — هذه مشكلة إعداد لا كلمة مرور.'
+      return 'خدمة الدخول غير متاحة الآن. حاول بعد قليل، وإن استمر الأمر تواصل مع فرق.'
     }
     if (err.code === 'ACCOUNT_LOCKED') {
-      return 'تم إيقاف المحاولات مؤقتًا بعد محاولات خاطئة متكررة — انتظر قليلًا ثم أعد المحاولة.'
+      return 'محاولات دخول كثيرة من هذا الجهاز أو هذه الشبكة. انتظر ربع ساعة ثم أعد المحاولة.'
     }
     if (err.status === 0) {
-      return 'لا يمكن الوصول إلى خدمة الحسابات — تأكد أن Farq API يعمل.'
+      return 'تعذّر الاتصال بالخادم. تحقق من اتصال الإنترنت ثم أعد المحاولة.'
     }
     return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'
   }

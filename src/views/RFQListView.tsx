@@ -38,6 +38,8 @@ function useLocalRfqs() {
 export function RFQListView({ navigate }: NavProps) {
   const localRfqs = useLocalRfqs()
   const [apiRfqs, setApiRfqs] = useState<RFQSummary[]>([])
+  // A failed load must not read as «no requests yet».
+  const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
   const [filter, setFilter] = useState<Filter>('all')
   const [search, setSearch] = useState('')
   const { openRfq } = useProcurement()
@@ -47,6 +49,7 @@ export function RFQListView({ navigate }: NavProps) {
     listBuyerRfqs()
       .then((overview) => {
         if (cancelled) return
+        setLoadState('ok')
         setApiRfqs(
           (overview.rfqs || []).map((r) => ({
             id: r.id,
@@ -61,7 +64,10 @@ export function RFQListView({ navigate }: NavProps) {
         )
       })
       .catch(() => {
-        if (!cancelled) setApiRfqs([])
+        if (!cancelled) {
+          setApiRfqs([])
+          setLoadState('error')
+        }
       })
     return () => {
       cancelled = true
@@ -125,7 +131,11 @@ export function RFQListView({ navigate }: NavProps) {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && loadState !== 'ok' && !localRfqs.length ? (
+        <div className="text-center py-20 text-sm text-neutral-500">
+          {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : 'تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد تحميل الصفحة.'}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-neutral-500 font-semibold mb-2">لا توجد طلبات تسعير</div>
           <p className="text-sm text-neutral-400 mb-4">ارفع كراسة لإنشاء أول طلب</p>

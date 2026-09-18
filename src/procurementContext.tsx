@@ -2,7 +2,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -67,16 +69,56 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   const [awardResult, setAwardResult] = useState<Record<string, unknown> | null>(null)
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
 
-  const navigate = useCallback((v: AppView) => setView(v), [])
+  /*
+   * THE BROWSER'S BACK BUTTON STAYS INSIDE THE APP.
+   *
+   * Views are state, not URLs, so Back used to leave the site altogether. Each
+   * move now pushes a history entry carrying the view and the record it shows,
+   * and Back/Forward put them back. The address bar is left as it is.
+   */
+  type HistoryEntry = { farqView: AppView; rfqId?: string | null; threadId?: string | null }
+  const push = (entry: HistoryEntry) => {
+    try {
+      window.history.pushState(entry, '')
+    } catch {
+      /* ignore */
+    }
+  }
+  useEffect(() => {
+    try {
+      window.history.replaceState({ farqView: view } satisfies HistoryEntry, '')
+    } catch {
+      /* ignore */
+    }
+    const onPop = (event: PopStateEvent) => {
+      const entry = event.state as HistoryEntry | null
+      if (!entry?.farqView) return
+      if (entry.rfqId !== undefined) setSelectedRfqId(entry.rfqId)
+      if (entry.threadId !== undefined) setSelectedThreadId(entry.threadId)
+      setView(entry.farqView)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const navigate = useCallback((v: AppView) => {
+    if (viewRef.current !== v) push({ farqView: v })
+    setView(v)
+  }, [])
 
   const openInboxThread = useCallback((inviteId: string) => {
     setSelectedThreadId(inviteId)
     setView('inbox-thread')
+    push({ farqView: 'inbox-thread', threadId: inviteId })
   }, [])
 
   const openRfq = useCallback((id: string, next: AppView = 'rfq-detail') => {
     setSelectedRfqId(id)
     setView(next)
+    push({ farqView: next, rfqId: id })
   }, [])
 
   const value = useMemo(

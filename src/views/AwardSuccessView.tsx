@@ -16,7 +16,7 @@ export function AwardSuccessView({ navigate }: NavProps) {
       </div>
       <h1 className="text-3xl font-black text-[#0D1F1D] mb-2">تم اعتماد الترسية</h1>
       <p className="text-neutral-500 text-sm mb-6">
-        سُجّلت الترسية في قاعدة بيانات البناء عبر Farq API
+        سُجّلت الترسية في النظام
         {awardId ? ` · ${awardId.slice(0, 8)}` : ''}
       </p>
       {total != null && Number.isFinite(total) && (
@@ -40,7 +40,7 @@ export function AwardSuccessView({ navigate }: NavProps) {
         </button>
       </div>
       <p className="text-xs text-neutral-400 mt-6">
-        إشعارات البريد/واتساب للمورد تعتمد على أسرار الإرسال في Railway — إن لم تُضبط، الترسية تُحفظ دون إرسال.
+        الترسية محفوظة في النظام. إبلاغ المورد يتم من صفحة الطلب.
       </p>
     </div>
   )

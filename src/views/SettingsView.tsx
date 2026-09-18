@@ -49,6 +49,15 @@ const Field = ({ label, value, onChange, dir = 'rtl' }: { label: string; value: 
 )
 
 
+const ROLE_AR: Record<string, string> = {
+  ADMIN: 'مدير',
+  PROCUREMENT: 'مشتريات',
+  ENGINEER: 'مهندس',
+  APPROVER: 'معتمد',
+  FINANCE: 'مالية',
+  MANAGEMENT: 'مشاهدة',
+}
+
 export function SettingsView({ navigate }: NavProps) {
   const [toast, setToast] = useState<string | null>(null)
   const [apiStatus, setApiStatus] = useState<string>('…')
@@ -88,7 +97,7 @@ export function SettingsView({ navigate }: NavProps) {
         const delivery = (status.delivery_channels || {}) as Record<string, unknown>
         const waConfig = (status.whatsapp_configuration || {}) as Record<string, unknown>
         setApiStatus(
-          `Farq API · read=${flags.read ? '1' : '0'} write=${flags.write ? '1' : '0'} rfq=${flags.rfq ? '1' : '0'} · role=${me.role || '—'}`,
+          `${flags.read && flags.write && flags.rfq ? 'النظام متصل ويعمل' : 'بعض خدمات النظام متوقفة مؤقتًا'} · صلاحيتك: ${ROLE_AR[String(me.role || '')] || me.role || '—'}`,
         )
         // The role is the API's answer and is authoritative. The identity is
         // not: `scope_owner_user_id` is a company scope uuid, and showing it

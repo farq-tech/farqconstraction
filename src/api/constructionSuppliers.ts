@@ -258,7 +258,7 @@ async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> 
       throw new Error(
         farqSession.isAuthenticated()
           ? 'انتهت جلستك — سجّل الدخول من جديد لتحميل دليل الموردين.'
-          : 'دليل الموردين يتطلب تسجيل دخول. سجّل الدخول بحسابك، أو محليًا شغّل CONSTRUCTION_DEMO_MODE=1 مع CONSTRUCTION_DB_URL على الـ API.',
+          : 'دليل الموردين يتطلب تسجيل الدخول. سجّل الدخول بحسابك ثم أعد المحاولة.',
       )
     }
     if (
@@ -267,7 +267,7 @@ async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> 
       code === 'CONSTRUCTION_READ_DISABLED'
     ) {
       throw new Error(
-        'Construction API unavailable — set CONSTRUCTION_DB_URL (or SUPABASE_CONSTRUCTION_DB_URL) on the Farq API / Railway service, then restart the API.',
+        'خدمة البناء غير متاحة الآن. أعد المحاولة بعد قليل، وإن استمر الأمر تواصل مع فرق.',
       )
     }
     throw new Error(code || `Farq construction API error (${response.status})`)

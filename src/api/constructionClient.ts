@@ -601,7 +601,7 @@ function unwrap<T>(
       throw new ConstructionApiError(
         farqSession.isAuthenticated()
           ? 'انتهت جلستك — سجّل الدخول من جديد.'
-          : 'يتطلب واجهة البناء تسجيل دخول. سجّل الدخول بحسابك، أو محليًا شغّل CONSTRUCTION_DEMO_MODE=1 على الـ API.',
+          : 'انتهت جلستك أو لم تسجّل الدخول. سجّل الدخول بحسابك ثم أعد المحاولة.',
         response.status,
         String(code),
       )
@@ -1779,6 +1779,9 @@ export async function parseConstructionBoqPdf(file: File): Promise<{
       method: 'POST',
       headers: { 'Content-Type': 'application/pdf' },
       body: file,
+      // A large booklet (the server takes up to 80 MB) cannot upload inside the
+      // 45 s default on an ordinary connection.
+      timeoutMs: 180_000,
     })
 
   let submit = await submitFile()

@@ -31,6 +31,8 @@ export function HomeView({ navigate }: NavProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const localRfqs = useLocalRfqs()
   const [apiRfqs, setApiRfqs] = useState<RFQSummary[]>([])
+  // A failed load must not read as «no requests yet».
+  const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
   const { openRfq } = useProcurement()
 
   useEffect(() => {
@@ -38,6 +40,7 @@ export function HomeView({ navigate }: NavProps) {
     listBuyerRfqs()
       .then((overview) => {
         if (cancelled) return
+        setLoadState('ok')
         setApiRfqs(
           (overview.rfqs || []).map((r) => ({
             id: r.id,
@@ -52,7 +55,10 @@ export function HomeView({ navigate }: NavProps) {
         )
       })
       .catch(() => {
-        if (!cancelled) setApiRfqs([])
+        if (!cancelled) {
+          setApiRfqs([])
+          setLoadState('error')
+        }
       })
     return () => {
       cancelled = true
@@ -139,7 +145,11 @@ export function HomeView({ navigate }: NavProps) {
           </button>
         </div>
 
-        {recent.length === 0 ? (
+        {recent.length === 0 && loadState !== 'ok' && !localRfqs.length ? (
+          <div className="text-center py-16 text-sm text-neutral-500">
+            {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : 'تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد تحميل الصفحة.'}
+          </div>
+        ) : recent.length === 0 ? (
           <div className="text-center py-16 text-neutral-400">
             <div className="font-semibold text-[#0D1F1D] mb-1">لا توجد طلبات بعد</div>
             <div className="text-sm">ابدأ برفع أول كراسة لترى البنود هنا</div>
