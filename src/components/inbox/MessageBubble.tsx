@@ -107,6 +107,47 @@ export type MessageBubbleProps = {
   retryBlockedReason?: string | null
 }
 
+/** A small tag naming the channel a message came or went through. */
+function ChannelTag({ channel }: { channel?: string | null }) {
+  const key = String(channel || 'EMAIL').toUpperCase()
+  if (key === 'WHATSAPP') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#25D366]/12 text-[#128C4B] px-1.5 py-0.5 text-[9px] font-bold" title="واتساب">
+        <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" aria-hidden="true" fill="currentColor">
+          <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2Zm5.8 14.03c-.24.68-1.42 1.3-1.95 1.34-.5.05-.98.23-3.3-.69-2.8-1.1-4.58-3.96-4.72-4.14-.14-.18-1.12-1.49-1.12-2.85 0-1.35.71-2.02.96-2.3.25-.27.55-.34.73-.34h.52c.17 0 .4-.06.62.47.24.56.8 1.93.87 2.07.07.14.12.3.02.48-.09.18-.14.3-.28.46-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.27.72 1.18 1.54 1.91 1.06.94 1.95 1.24 2.23 1.38.27.14.43.12.6-.07.16-.18.69-.8.87-1.08.18-.27.37-.23.62-.14.25.09 1.6.76 1.87.9.28.14.46.2.53.32.07.12.07.68-.17 1.36Z" />
+        </svg>
+        واتساب
+      </span>
+    )
+  }
+  if (key === 'HARAJ') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#2F6CB5]/12 text-[#2F6CB5] px-1.5 py-0.5 text-[9px] font-bold" title="حراج">
+        <span className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-[3px] bg-[#2F6CB5] text-white text-[7px] leading-none">ح</span>
+        حراج
+      </span>
+    )
+  }
+  if (key === 'FORM') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-600 px-1.5 py-0.5 text-[9px] font-bold" title="نموذج العرض">
+        <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4">
+          <path d="M8 3h8l4 4v14H4V3h4Z" /><path d="M8 12h8M8 16h5" />
+        </svg>
+        نموذج
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#123F3A]/10 text-[#123F3A] px-1.5 py-0.5 text-[9px] font-bold" title="بريد إلكتروني">
+      <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4">
+        <rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" />
+      </svg>
+      بريد
+    </span>
+  )
+}
+
 export function MessageBubble({
   message,
   author,
@@ -204,6 +245,7 @@ export function MessageBubble({
       )}
 
       <div className="mt-1 flex items-center gap-2 justify-end">
+        <ChannelTag channel={message.channel} />
         {mark && <span className={`text-[10px] font-bold ${mark.className}`}>{mark.text}</span>}
         {time && <span className="text-[10px] text-neutral-400">{time}</span>}
       </div>
