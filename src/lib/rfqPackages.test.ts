@@ -10,6 +10,7 @@ const item = (partial: Partial<BOQItem> & Pick<BOQItem, 'id' | 'name'>): BOQItem
   qty: '1',
   unit: 'عدد',
   status: 'ready',
+  state: 'SUPPLYABLE_MATCHED',
   supplierCount: 1,
   suppliers: [],
   ...partial,

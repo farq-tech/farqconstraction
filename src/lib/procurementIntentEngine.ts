@@ -1,9 +1,26 @@
 /**
- * Procurement Intent Engine (Phase 1) — farqconstraction mirror.
+ * Procurement Intent Engine (Phase 1) — NOT A PRODUCTION RESOLVER. DO NOT WIRE
+ * THIS INTO THE UPLOAD PATH.
  *
- * Pipeline: BOQ Item → Intent Resolver → Search Profile → Supplier Search → Ranking
- * Dictionary/alias only locally. Never search raw line text alone.
- * AI hook is stubbed / flag-gated (no live AI in production).
+ * This is a seven-intent regex dictionary: column cladding, interior paints,
+ * flooring, data outlets, electrical outlets, fire safety, lighting. `parseBoq`
+ * used to call it on every upload, and on the three real booklet fixtures in
+ * `fixtures/boq/` it resolved 15 of 462 lines — 3.2%. Every other line fell
+ * through to raw-token keyword scoring. The «98% ontology coverage» figure that
+ * was quoted alongside it belongs to a different resolver, which the upload path
+ * has never imported in any commit; this engine is the row that
+ * `scripts/intent-coverage-report.mjs` prints as «flat dictionary <- frozen
+ * baseline».
+ *
+ * Understanding a BOQ line is the backend's job and only the backend's. Farq
+ * ships cpo-v10 with 347 intents across 113 families, and `/boq/match` returns
+ * the resolution it used. A dictionary in the browser cannot be kept in step with
+ * it, and while it was in the path it silently decided coverage for the whole
+ * tender.
+ *
+ * Kept, not deleted, because `procurementIntentEngine.test.ts` and
+ * `scripts/intent-coverage-report.mjs` measure it as the baseline the backend is
+ * compared against. Measurement only.
  */
 
 export type IntentSource = 'dictionary' | 'alias' | 'ai' | 'unknown'

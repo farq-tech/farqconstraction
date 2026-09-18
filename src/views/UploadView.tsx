@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
 import { parseBoqFile, resolveBoqCardFields } from '../lib/parseBoq'
-import type { BoqParseStage } from '../lib/parseBoq'
+import type { BoqParseStage, MatchProgress } from '../lib/parseBoq'
 import { beginBoqUpload, clearParsedBoq, setParsedBoq, upsertDraftRfq } from '../store/session'
 import { useProcurement } from '../procurementContext'
 
@@ -41,6 +41,8 @@ export function UploadView({ navigate }: NavProps) {
   const [projectName, setProjectName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
+  /** Real batch progress — «ترشيح الموردين 400/1514». Never a timer. */
+  const [matchProgress, setMatchProgress] = useState<MatchProgress | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   /** Kept so «أعد المحاولة» retries the same booklet instead of asking again. */
   const lastFileRef = useRef<File | null>(null)
@@ -70,6 +72,7 @@ export function UploadView({ navigate }: NavProps) {
     setItems([])
     setProjectName('')
     setErrorMsg('')
+    setMatchProgress(null)
 
     let watchdog: number | undefined
     try {
@@ -81,6 +84,23 @@ export function UploadView({ navigate }: NavProps) {
           setActiveStage(id)
           setCompletedStages(STAGES.slice(0, i).map((s) => s.id))
           setProgress((p) => Math.max(p, STAGES[i]!.progress))
+        },
+        // Driven by batches actually completing, so the count cannot run ahead
+        // of the work the way a timer would.
+        onMatchProgress: (progress) => {
+          if (!current()) return
+          setMatchProgress(progress)
+          if (progress.total > 0) {
+            const share = progress.matched / progress.total
+            setProgress(() => Math.min(99, 80 + Math.round(share * 19)))
+          }
+        },
+        // Every line is on screen from the first snapshot, in an explicit
+        // pending state. The buyer does not wait for batch 8 of 8 to read line 1.
+        onPartialItems: (partial) => {
+          if (!current()) return
+          setItems(partial)
+          setRecognized(partial.length)
         },
       })
       const result = await new Promise<Awaited<typeof parsed>>((resolve, reject) => {
@@ -129,8 +149,21 @@ export function UploadView({ navigate }: NavProps) {
         documentId: result.documentId,
         fileName: file.name,
         items: result.items,
+        // FARQ'S VERDICT, NOT OURS.
+        //
+        // This used to tick every supplier on every line — a keyword-scored
+        // stranger from the browser fallback arrived pre-selected exactly like a
+        // verified catalogue match, and the buyer's «أرسل» sent to both. Farq now
+        // returns `autoSelectedSupplierIds`: the suppliers its send gate has
+        // vetted (direct evidence, a real URL, fresh, validated contact, one per
+        // organization). Everybody else is shown and left for the buyer to tick.
         selectedSupplierIds: Object.fromEntries(
-          result.items.map((item) => [String(item.id), item.suppliers.map((s) => s.id)]),
+          result.items.map((item) => [
+            String(item.id),
+            item.coverage?.autoSelectedSupplierIds?.length
+              ? item.coverage.autoSelectedSupplierIds
+              : item.suppliers.filter((s) => s.autoSelectable).map((s) => s.id),
+          ]),
         ),
       })
 
@@ -191,8 +224,15 @@ export function UploadView({ navigate }: NavProps) {
     setErrorMsg('')
   }
 
-  const readyCount = items.filter((i) => i.status === 'ready').length
-  const searchingCount = items.filter((i) => i.status === 'searching').length
+  // Counted off the explicit state, so «no supplier» and «we never got an answer»
+  // are never added together and never shown as the same thing.
+  const readyCount = items.filter(
+    (i) => i.state === 'SUPPLYABLE_MATCHED' || i.state === 'SUPPLYABLE_PARTIAL_COVERAGE',
+  ).length
+  const noSupplierCount = items.filter((i) => i.state === 'SUPPLYABLE_NO_SUPPLIER').length
+  const failedCount = items.filter((i) => i.state === 'MATCH_FAILED').length
+  const pendingCount = items.filter((i) => i.state === 'MATCH_PENDING').length
+  const searchingCount = noSupplierCount + failedCount + pendingCount
   const supplierCount = new Set(items.flatMap((i) => i.suppliers.map((s) => s.id))).size
 
   return (
@@ -289,6 +329,12 @@ export function UploadView({ navigate }: NavProps) {
                       }`}
                     >
                       {stage.label}
+                      {stage.id === 'match' && matchProgress && matchProgress.total > 0 && (
+                        <span className="text-xs text-neutral-400 font-normal">
+                          {' '}
+                          — {matchProgress.matched} / {matchProgress.total}
+                        </span>
+                      )}
                     </span>
                   </div>
                 )
@@ -298,6 +344,18 @@ export function UploadView({ navigate }: NavProps) {
             {phase === 'processing' && recognized > 0 && (
               <div className="mt-4 text-sm text-neutral-500 animate-fade-up">
                 تم التعرف على <span className="font-bold text-[#123F3A]">{recognized}</span> بندًا
+                {matchProgress && matchProgress.total > 0 && (
+                  <>
+                    {' · '}
+                    جارٍ ترشيح الموردين{' '}
+                    <span className="font-bold text-[#123F3A]">
+                      {matchProgress.matched}/{matchProgress.total}
+                    </span>
+                    {matchProgress.failedBatches > 0 && (
+                      <span className="text-amber-700"> · {matchProgress.failedBatches} دفعة تحتاج إعادة</span>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
@@ -364,7 +422,13 @@ export function UploadView({ navigate }: NavProps) {
                         item.status === 'ready' ? 'bg-[#CFF5DC] text-[#1a7a45]' : 'bg-amber-50 text-amber-700'
                       }`}
                     >
-                      {item.status === 'ready' ? `${item.supplierCount} مورد` : 'بحث'}
+                      {item.state === 'MATCH_PENDING'
+                        ? '…'
+                        : item.state === 'MATCH_FAILED'
+                          ? 'تعذّر'
+                          : item.state === 'SUPPLYABLE_NO_SUPPLIER'
+                            ? 'لا مورد'
+                            : `${item.supplierCount} مورد`}
                     </span>
                   </div>
                   )

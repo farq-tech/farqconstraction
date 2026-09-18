@@ -802,6 +802,7 @@ function itemsFrom(uploadAnswers: Record<string, string | null>): BOQItem[] {
     unit: line.unit,
     spec: line.spec,
     status: 'ready',
+    state: 'SUPPLYABLE_MATCHED',
     supplierCount: 3,
     suppliers: [],
     farqSpecId: uploadAnswers[line.lineKey] || undefined,

@@ -74,6 +74,7 @@ function asBoqItems(lines: { id: number; name: string; qty: string; unit: string
   return lines.map((line) => ({
     ...line,
     status: 'searching' as const,
+    state: 'MATCH_PENDING' as const,
     supplierCount: 0,
     suppliers: [],
   }))
