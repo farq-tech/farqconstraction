@@ -41,9 +41,24 @@ type ProcurementContextValue = {
 
 const ProcurementContext = createContext<ProcurementContextValue | null>(null)
 
+const UUID_PARAM = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function initialParam(name: 'thread' | 'rfq'): string | null {
+  try {
+    const value = new URLSearchParams(window.location.search).get(name) || ''
+    return UUID_PARAM.test(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
 function initialViewFromUrl(): AppView {
   try {
-    const view = new URLSearchParams(window.location.search).get('view')
+    const params = new URLSearchParams(window.location.search)
+    const view = params.get('view')
+    // Links in the email alerts: a supplier conversation or a request.
+    if (view === 'inbox' && UUID_PARAM.test(params.get('thread') || '')) return 'inbox-thread'
+    if (view === 'rfq' && UUID_PARAM.test(params.get('rfq') || '')) return 'rfq-detail'
     if (view === 'inbox') return 'inbox'
     // An invitation link from the team screen: no session yet, by design.
     if (view === 'invite') return 'invite'
@@ -61,13 +76,13 @@ function initialViewFromUrl(): AppView {
 
 export function ProcurementProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<AppView>(initialViewFromUrl)
-  const [selectedRfqId, setSelectedRfqId] = useState<string | null>(null)
+  const [selectedRfqId, setSelectedRfqId] = useState<string | null>(() => initialParam('rfq'))
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
   const [selectedQuoteVersionId, setSelectedQuoteVersionId] = useState<string | null>(null)
   const [draftBoq, setDraftBoq] = useState<DraftBoqState | null>(null)
   const [awardResult, setAwardResult] = useState<Record<string, unknown> | null>(null)
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() => initialParam('thread'))
 
   /*
    * THE BROWSER'S BACK BUTTON STAYS INSIDE THE APP.
