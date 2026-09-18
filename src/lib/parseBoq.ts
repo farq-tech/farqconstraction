@@ -564,6 +564,26 @@ type RemoteMatch = {
   error?: string
 }
 
+/**
+ * For each line, the nearest line above it (at most eight back) whose own name
+ * already says what it is. A continuation line borrows that name to be
+ * matched; see `matchConstructionBoqCatalog`.
+ */
+const CONTEXT_REACH = 8
+function lineContexts(
+  lines: ParsedLine[],
+  resolve: (name: string) => { canonical_intent_id?: string | null; family?: string | null } | null,
+): Map<ParsedLine, string> {
+  const out = new Map<ParsedLine, string>()
+  let last: { name: string; at: number } | null = null
+  lines.forEach((line, at) => {
+    if (last && at - last.at <= CONTEXT_REACH) out.set(line, last.name)
+    const own = resolve(line.name)
+    if (own?.canonical_intent_id || own?.family) last = { name: line.name, at }
+  })
+  return out
+}
+
 async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
@@ -605,6 +625,10 @@ async function matchViaFarqBoqApi(
     // query did not survive being doubled), each retried once, and a chunk that
     // still fails leaves only ITS lines unmatched and is reported by count.
     let failedLines = 0
+    // Loaded with the client, not up front: the ontology is large and this
+    // module is on the first screen.
+    const { buildOntologyResolution } = await import('./canonicalIntent')
+    const contextOf = lineContexts(supplyLines, buildOntologyResolution)
     for (const chunk of chunks) {
       const body = {
         lines: chunk.map((line) => ({
@@ -613,6 +637,7 @@ async function matchViaFarqBoqApi(
           quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
           uom: line.unit || 'عدد',
           spec: line.spec,
+          context: contextOf.get(line),
         })),
       }
       let part: Awaited<ReturnType<typeof matchConstructionBoqCatalog>> | null = null

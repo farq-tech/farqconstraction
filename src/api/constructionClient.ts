@@ -1537,11 +1537,14 @@ export async function matchConstructionBoqCatalog(payload: {
     quantity?: number
     uom?: string
     spec?: string
+    /** The nearest line above that names its material. Matching only. */
+    context?: string
   }>
   rows?: Array<{
     key: string
     name?: string
     name_en?: string
+    context?: string
     specification?: string
     category?: string
     brand?: string
@@ -1555,13 +1558,14 @@ export async function matchConstructionBoqCatalog(payload: {
           name: line.name_ar || '',
           name_en: line.name_en,
           specification: line.spec,
+          context: line.context,
         }))
   // The resolver's own answer rides on every row. `/boq/match` is the endpoint
   // this screen actually calls, and the server has no paired resolver of its
   // own, so without this the ontology's name for a line never reaches the one
   // place that could read the supplier map for it. A server that does not know
   // the field ignores it (parseBoqMatchRows copies known keys only).
-  const rows = baseRows.map((row) => {
+  const rows = baseRows.map(({ context, ...row }: typeof baseRows[number] & { context?: string }) => {
     /*
      * THE NAME FIRST, THE LINE'S OWN TEXT AFTER IT.
      *
@@ -1579,6 +1583,22 @@ export async function matchConstructionBoqCatalog(payload: {
         : buildOntologyResolution(
             [row.name, row.name_en, row.specification].filter(Boolean).join(' ').slice(0, 400),
           ) || named
+    /*
+     * A LINE THAT ONLY CONTINUES THE ONE ABOVE IT.
+     *
+     * The reader splits a long item into several priced lines, and every line
+     * after the first carries only the tail of the sentence: «سماكة 44 ملم
+     * وتشتمل على الخردوات والعتبات» under a door, «الذكية والشاحن والأسلاك
+     * الداخلية» under a light fitting. On their own they name nothing. Read
+     * together with the line above they name what the booklet meant, so that
+     * is tried last, only when the line and its own description both failed.
+     */
+    if (!resolved?.canonical_intent_id && !resolved?.family && !resolved?.not_supply && context) {
+      const inherited = buildOntologyResolution(`${context} ${row.name || ''}`.slice(0, 400))
+      if (inherited?.canonical_intent_id || inherited?.family) {
+        return { ...row, ontology_resolution: { ...inherited, inherited_from_line_above: true } }
+      }
+    }
     return { ...row, ontology_resolution: resolved }
   })
 
