@@ -110,6 +110,17 @@ export function Shell({ view, navigate, children }: ShellProps) {
     setInboxUnread(count)
   }, [])
 
+  const [badgeTick, setBadgeTick] = useState(0)
+  useEffect(() => {
+    const bump = () => setBadgeTick((n) => n + 1)
+    const timer = window.setInterval(bump, 60_000)
+    window.addEventListener('focus', bump)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', bump)
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     listBuyerRfqs()
@@ -134,7 +145,10 @@ export function Shell({ view, navigate, children }: ShellProps) {
     return () => {
       cancelled = true
     }
-  }, [view])
+    // The badges are counters, not the screen: they refresh on sign-in, every
+    // minute and when the tab regains focus, not on every tab change.
+  }, [session.isAuthenticated, badgeTick])
+
 
   function go(id: AppView) {
     if (id === 'offers') {

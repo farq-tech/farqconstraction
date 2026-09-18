@@ -611,6 +611,30 @@ export function ProposalsView({ navigate }: NavProps) {
    * learning: the system does not learn from its own guesses.
    */
   const [openAll, setOpenAll] = useState<{ open: boolean; at: number }>({ open: true, at: 0 })
+  /*
+   * DRAW WHAT THE BUYER CAN SEE.
+   *
+   * 1,514 cards at once were ~131,000 DOM nodes: seconds of layout on a
+   * laptop, and on a phone the browser ran out of memory and reloaded the tab
+   * («الصفحة تقفل وتبدأ من جديد»). Cards are drawn 30 at a time and the next
+   * batch arrives as the list scrolls near its end.
+   */
+  const RENDER_STEP = 30
+  const [renderCount, setRenderCount] = useState(RENDER_STEP)
+  const moreRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => setRenderCount(RENDER_STEP), [filter, query])
+  useEffect(() => {
+    const node = moreRef.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setRenderCount((n) => n + RENDER_STEP)
+      },
+      { rootMargin: '800px 0px' },
+    )
+    io.observe(node)
+    return () => io.disconnect()
+  })
   const autoDone = useRef<Set<number>>(new Set(Object.keys(getSelections()).map(Number)))
   const [autoSummary, setAutoSummary] = useState<{ suppliers: number; lines: number; empty: number } | null>(null)
 
@@ -1023,7 +1047,7 @@ export function ProposalsView({ navigate }: NavProps) {
         </div>
 
         <div className="space-y-4">
-          {filtered.map((item) => (
+          {filtered.slice(0, renderCount).map((item) => (
             <BOQCard
               key={item.id}
               item={item}
@@ -1037,6 +1061,11 @@ export function ProposalsView({ navigate }: NavProps) {
               openAll={openAll}
             />
           ))}
+          {filtered.length > renderCount && (
+            <div ref={moreRef} className="py-6 text-center text-sm text-neutral-500">
+              عُرض {renderCount.toLocaleString('ar-SA')} من {filtered.length.toLocaleString('ar-SA')} بندًا · تابع النزول لعرض المزيد
+            </div>
+          )}
         </div>
       </div>
 

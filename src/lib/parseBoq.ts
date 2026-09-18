@@ -589,6 +589,15 @@ function lineContexts(
   return out
 }
 
+/**
+ * What the reader and the matcher are doing, line by line, so the processing
+ * screen can show the work happening instead of a bar and a percentage.
+ */
+export type BoqActivity =
+  | { kind: 'read'; names: string[] }
+  | { kind: 'matched'; rows: Array<{ name: string; suppliers: number }> }
+let emitActivity: ((event: BoqActivity) => void) | null = null
+
 async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
@@ -656,7 +665,23 @@ async function matchViaFarqBoqApi(
           }
         }
       }
-      if (part) matchedRows.push(...(part.rows || []))
+      if (part) {
+        matchedRows.push(...(part.rows || []))
+        if (emitActivity) {
+          const byKey = new Map((part.rows || []).map((row) => [row.line_key, row]))
+          emitActivity({
+            kind: 'matched',
+            rows: chunk.map((line) => {
+              const row = byKey.get(lineKeyFor(line))
+              const ids = new Set<string>()
+              for (const x of row?.suppliers || []) ids.add(String((x as { id?: unknown }).id))
+              for (const x of row?.map_suggestion?.suppliers || []) ids.add(String((x as { id?: unknown }).id))
+              for (const x of row?.family_suggestion?.suppliers || []) ids.add(String((x as { id?: unknown }).id))
+              return { name: line.name, suppliers: Math.min(ids.size, 5) }
+            }),
+          })
+        }
+      }
     }
     if (failedLines > 0 && failedLines === supplyLines.length) throw new Error('تعذّرت مطابقة الموردين على الخادم لكل الدفعات.')
     if (failedLines > 0) error = `تعذّرت مطابقة ${failedLines} بندًا من ${supplyLines.length} على الخادم بعد محاولتين؛ بقية البنود طوبقت.`
@@ -1498,7 +1523,25 @@ export async function parseBoqFile(
      * read is a complete one.
      */
     onRead?: (facts: BoqReadFacts) => void
+    /** Line-level activity for the live panel on the processing screen. */
+    onActivity?: (event: BoqActivity) => void
   } = {},
+): Promise<ParseBoqResult> {
+  emitActivity = opts.onActivity ?? null
+  try {
+    return await parseBoqFileInner(file, opts)
+  } finally {
+    emitActivity = null
+  }
+}
+
+async function parseBoqFileInner(
+  file: File,
+  opts: {
+    onStage?: BoqParseProgress
+    onWork?: BoqWorkProgress
+    onRead?: (facts: BoqReadFacts) => void
+  },
 ): Promise<ParseBoqResult> {
   const stage = opts.onStage ?? (() => {})
   const work = opts.onWork ?? noWork
@@ -1722,6 +1765,7 @@ export async function parseBoqFile(
     codedItemsDetail: resolved.codedItemsDetail || undefined,
   }
   opts.onRead?.({ read: lines.length, ...readFacts })
+  emitActivity?.({ kind: 'read', names: lines.map((line) => line.name) })
 
   // Explicit empty — never invent lines from another document / prior session.
   if (lines.length === 0) {

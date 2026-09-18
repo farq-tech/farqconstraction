@@ -474,7 +474,37 @@ type AuthClass = 'buyer' | 'supplier'
 
 type RequestInitWithAuth = RequestInit & { timeoutMs?: number; auth?: AuthClass }
 
+/*
+ * MOVING BETWEEN TABS SHOULD NOT REFETCH WHAT WAS JUST FETCHED.
+ *
+ * The shell and each screen asked for the same RFQ list, profile and inbox
+ * counter on every tab change: 31 requests across seven screens, each a round
+ * trip to the API before the screen settled. These few read-only answers are
+ * shared for 15 seconds (and while in flight), and any write clears them so a
+ * change is never hidden. Live reads (extraction polling, threads) are never
+ * shared.
+ */
+const SHARED_GET = /^\/api\/construction\/(rfqs|me|status|inbox\/messages|inbox\/status)(\?.*)?$/
+const sharedGets = new Map<string, { at: number; value: Promise<unknown> }>()
+const SHARED_MS = 15_000
+
 async function request<T>(path: string, init: RequestInitWithAuth = {}): Promise<T> {
+  const method = String(init.method || 'GET').toUpperCase()
+  if (method !== 'GET') sharedGets.clear()
+  const shareable = method === 'GET' && !init.signal && SHARED_GET.test(path)
+  if (shareable) {
+    const key = `${farqSession.getUser()?.id || ''}|${path}`
+    const hit = sharedGets.get(key)
+    if (hit && Date.now() - hit.at < SHARED_MS) return hit.value as Promise<T>
+    const value = rawRequest<T>(path, init)
+    sharedGets.set(key, { at: Date.now(), value })
+    value.catch(() => sharedGets.delete(key))
+    return value
+  }
+  return rawRequest<T>(path, init)
+}
+
+async function rawRequest<T>(path: string, init: RequestInitWithAuth = {}): Promise<T> {
   const { timeoutMs = CONSTRUCTION_FETCH_TIMEOUT_MS, auth = 'buyer', ...fetchInit } = init
   const response = await send(path, fetchInit, timeoutMs, auth)
   return unwrap<T>(response.response, response.payload)
