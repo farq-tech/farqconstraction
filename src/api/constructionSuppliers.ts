@@ -59,6 +59,7 @@ type CatalogCache = {
 }
 
 let catalogCache: CatalogCache | null = null
+const pageCache = new Map<string, { at: number; value: { suppliers: FarqApiSupplier[]; total: number } }>()
 const CATALOG_TTL_MS = 60_000
 
 /**
@@ -66,7 +67,10 @@ const CATALOG_TTL_MS = 60_000
  * outlived a sign-in would show one account the other's suppliers.
  */
 farqSession.subscribe((event) => {
-  if (event === 'IDENTITY_CHANGED') catalogCache = null
+  if (event === 'IDENTITY_CHANGED') {
+    catalogCache = null
+    pageCache.clear()
+  }
 })
 /** Full directory is ~10k+ rows / multi-MB — never wait forever in the browser. */
 const CATALOG_FETCH_TIMEOUT_MS = 45_000
@@ -194,10 +198,27 @@ export function isRfqContactableSupplier(row: {
   )
 }
 
-async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> {
-  if (!force && catalogCache && Date.now() - catalogCache.at < CATALOG_TTL_MS) {
-    return catalogCache.suppliers
+/*
+ * The directory is searched and paged on the server (supplier_page=1). The old
+ * path downloaded all 94,855 suppliers (97 MB of JSON, then 52 MB) on every
+ * visit and filtered them here; a phone could not hold it.
+ */
+async function fetchCatalogPage(extra: Record<string, string>): Promise<{ suppliers: FarqApiSupplier[]; total: number }> {
+  const key = JSON.stringify(extra)
+  const hit = pageCache.get(key)
+  if (hit && Date.now() - hit.at < 60_000) return hit.value
+  const payload = await fetchCatalogPayload(extra)
+  const value = {
+    suppliers: (payload?.data?.suppliers || []) as FarqApiSupplier[],
+    total: Number(payload?.data?.supplier_total ?? (payload?.data?.suppliers || []).length),
   }
+  if (pageCache.size > 50) pageCache.clear()
+  pageCache.set(key, { at: Date.now(), value })
+  return value
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchCatalogPayload(extra: Record<string, string>): Promise<any> {
 
   // This 6 MB catalogue shares the API's single per-IP `/api/construction` budget
   // with every other screen. Spending a request we already know will be refused
@@ -216,6 +237,7 @@ async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> 
   // ~3s of server work the directory never used.
   params.set('include_facets', 'false')
   params.set('supplier_fields', 'directory')
+  for (const [k, v] of Object.entries(extra)) params.set(k, v)
 
   const attempt = async () => {
     const usedToken = farqSession.getAccessToken()
@@ -273,9 +295,7 @@ async function fetchCatalogSuppliers(force = false): Promise<FarqApiSupplier[]> 
     throw new Error(code || `Farq construction API error (${response.status})`)
   }
 
-  const suppliers = (payload?.data?.suppliers || []) as FarqApiSupplier[]
-  catalogCache = { at: Date.now(), suppliers }
-  return suppliers
+  return payload
 }
 
 export async function listConstructionSuppliers(options: {
@@ -288,21 +308,21 @@ export async function listConstructionSuppliers(options: {
   /** Only rows a given upload created — how a bad batch is reviewed. */
   importBatchId?: string | null
 } = {}): Promise<SupplierListResult> {
-  // Default high so directory screens can show the full Farq catalog (~10k).
-  const limit = options.limit ?? 10_000
+  const limit = Math.min(options.limit ?? 50, 500)
   const offset = options.offset ?? 0
-  const rows = await fetchCatalogSuppliers()
-  const filtered = rows.filter((row) => {
-    if (options.importBatchId && row.import_batch_id !== options.importBatchId) return false
-    if (options.contactableOnly && !isRfqContactableSupplier(row)) return false
-    if (options.verifiedOnly && row.qualification_status && !isVerified(row)) return false
-    return matchesQuery(row, options.query)
-  })
-
-  const page = filtered.slice(offset, offset + limit)
+  const extra: Record<string, string> = {
+    supplier_page: '1',
+    supplier_limit: String(limit),
+    supplier_offset: String(offset),
+  }
+  if (options.query?.trim()) extra.supplier_q = options.query.trim()
+  if (options.contactableOnly) extra.supplier_contactable = '1'
+  if (options.verifiedOnly) extra.supplier_verified = '1'
+  if (options.importBatchId) extra.supplier_batch = options.importBatchId
+  const { suppliers, total } = await fetchCatalogPage(extra)
   return {
-    suppliers: page.map(mapFarqSupplier),
-    total: filtered.length,
+    suppliers: suppliers.map(mapFarqSupplier),
+    total,
     limit,
     offset,
     source: 'farq-construction-api',
@@ -316,7 +336,17 @@ export async function listConstructionSuppliers(options: {
 export async function resolveRfqSupplierIds(ids: string[]): Promise<string[]> {
   const wanted = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))]
   if (!wanted.length) return []
-  const rows = await fetchCatalogSuppliers()
+  const rows: FarqApiSupplier[] = []
+  for (let i = 0; i < wanted.length; i += 200) {
+    const chunk = wanted.slice(i, i + 200)
+    const page = await fetchCatalogPage({
+      supplier_page: '1',
+      supplier_ids: chunk.join(','),
+      supplier_limit: String(chunk.length),
+      supplier_contactable: '1',
+    })
+    rows.push(...page.suppliers)
+  }
   const byExternal = new Map(
     rows.filter(isRfqContactableSupplier).map((row) => [String(row.id), String(row.id)]),
   )
@@ -324,14 +354,8 @@ export async function resolveRfqSupplierIds(ids: string[]): Promise<string[]> {
 }
 
 export async function getConstructionSupplier(id: string): Promise<SupplierEntry> {
-  const rows = await fetchCatalogSuppliers()
-  const found = rows.find((row) => String(row.id) === id)
+  const { suppliers } = await fetchCatalogPage({ supplier_page: '1', supplier_ids: id, supplier_limit: '1' })
+  const found = suppliers.find((row) => String(row.id) === id)
   if (found) return mapFarqSupplier(found)
-
-  // One forced refresh in case cache was stale after import.
-  const fresh = await fetchCatalogSuppliers(true)
-  const again = fresh.find((row) => String(row.id) === id)
-  if (again) return mapFarqSupplier(again)
-
   throw new Error('المورد غير موجود')
 }
