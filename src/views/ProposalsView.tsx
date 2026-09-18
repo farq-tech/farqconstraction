@@ -22,6 +22,10 @@ const EVIDENCE_STYLE: Record<string, string> = {
   // like a finding. The blue «دليل منتج» badge it replaces was handed out by
   // array position to every supplier after the third.
   'مورد محتمل': 'bg-neutral-100 text-neutral-500',
+  // Not a supplier of the material at all — Farq's last answer on a line whose
+  // material and family both failed to resolve. Styled apart so it cannot be
+  // mistaken for coverage.
+  'مقاول بهذا النشاط': 'bg-white border border-neutral-200 text-neutral-500',
   'اختيارك': 'bg-amber-50 text-amber-700',
 }
 
@@ -409,6 +413,13 @@ function BOQCard({
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {coverage.totalCount} من {coverage.targetCount} موردين — هذا كل ما
               وجده فرق لهذه المادة.
+            </div>
+          )}
+          {coverage && coverage.tradeContractorCount > 0 && (
+            <div className="mt-3 text-xs text-neutral-500 bg-white border border-neutral-100 rounded-xl px-3 py-2.5 leading-relaxed">
+              {coverage.tradeContractorCount} مقاولًا بهذا النشاط — لم نتعرف على
+              المادة نفسها، وهؤلاء مقاولون في التخصص وليسوا موردين لها. لا
+              يُحسبون ضمن الـ{coverage.targetCount} موردين.
             </div>
           )}
         </div>

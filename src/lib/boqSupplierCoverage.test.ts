@@ -105,8 +105,8 @@ describe('every supplyable line reaches Farq', () => {
   it('sends line 201 of a 201-line booklet (the old cap stopped at 80)', async () => {
     answerAll()
     const result = await matchSuppliersForItems(lines(201))
-    const sentKeys = matchSpy.mock.calls.flatMap(
-      ([payload]: [{ lines: Array<{ line_key: string }> }]) => payload.lines.map((l) => l.line_key),
+    const sentKeys = matchSpy.mock.calls.flatMap((call) =>
+      (call[0] as { lines: Array<{ line_key: string }> }).lines.map((l) => l.line_key),
     )
     expect(sentKeys).toHaveLength(201)
     expect(sentKeys).toContain('line-201')
@@ -120,7 +120,7 @@ describe('every supplyable line reaches Farq', () => {
     answerAll()
     const result = await matchSuppliersForItems(lines(1500))
     expect(matchSpy).toHaveBeenCalledTimes(8) // ceil(1500 / 200)
-    const sizes = matchSpy.mock.calls.map(([p]: [{ lines: unknown[] }]) => p.lines.length)
+    const sizes = matchSpy.mock.calls.map((call) => (call[0] as { lines: unknown[] }).lines.length)
     expect(Math.max(...sizes)).toBeLessThanOrEqual(200)
     expect(sizes.reduce((a, b) => a + b, 0)).toBe(1500)
     expect(result.items).toHaveLength(1500)
@@ -321,5 +321,128 @@ describe('progressive rendering', () => {
     expect(progress.at(-1)).toEqual({ matched: 500, total: 500 })
     // Progress only ever counts lines whose batch actually came back.
     expect(progress.every((p) => p.matched <= p.total)).toBe(true)
+  })
+})
+
+describe('a contractor of the trade is not a supplier of the material', () => {
+  /** Farq's last answer when neither the material nor its family resolved. */
+  const sectorContractorRow = (count: number) => ({
+    line_key: 'line-1',
+    key: 'line-1',
+    kind: 'BROWSE',
+    farq_spec_id: null,
+    suppliers: [],
+    match: null,
+    potential_suppliers: [],
+    // The client mapping has already bucketed these (see the mapping test below).
+    trade_contractors: Array.from({ length: count }, (_, i) => ({
+      id: `gc${i}`,
+      name_ar: `مؤسسة مقاولات ${i}`,
+      channel: 'بريد',
+      origin: 'trade_contractor' as const,
+      rfq_eligible: false,
+    })),
+    resolution: {
+      source: 'TRADE_CONTRACTORS' as const,
+      material: null,
+      material_name_ar: null,
+      family: 'general_contracting',
+      intent: null,
+    },
+    auto_selected_supplier_ids: [],
+    coverage: {
+      target: 5,
+      confirmed: 0,
+      potential: 0,
+      trade_contractors: count,
+      total: 0,
+      auto_selected: 0,
+      under_target: true,
+    },
+    gap_reason: 'TRADE_CONTRACTORS_ONLY',
+  })
+
+  it('five general contractors do NOT satisfy the five-supplier target', async () => {
+    matchSpy.mockResolvedValue({ rows: [sectorContractorRow(5)] })
+    const item = (await matchSuppliersForItems(lines(1))).items[0]!
+    // They are shown — a last answer is better than nothing.
+    expect(item.suppliers).toHaveLength(5)
+    // But they are counted apart, and the line has NOT met the target.
+    expect(item.coverage?.tradeContractorCount).toBe(5)
+    expect(item.coverage?.confirmedCount).toBe(0)
+    expect(item.coverage?.potentialCount).toBe(0)
+    expect(item.coverage?.totalCount).toBe(0)
+    expect(item.state).not.toBe('SUPPLYABLE_MATCHED')
+    expect(item.coverage?.gapReason).toBe('TRADE_CONTRACTORS_ONLY')
+  })
+
+  it('a contractor is never described as a supplier of the material', async () => {
+    matchSpy.mockResolvedValue({ rows: [sectorContractorRow(3)] })
+    const item = (await matchSuppliersForItems(lines(1))).items[0]!
+    for (const supplier of item.suppliers) {
+      expect(supplier.origin).toBe('trade_contractor')
+      expect(supplier.evidence).toBe('مقاول بهذا النشاط')
+      expect(supplier.evidence).not.toBe('دليل مباشر')
+      expect(supplier.evidence).not.toBe('مورد محتمل')
+      expect(supplier.autoSelectable).toBe(false)
+    }
+    expect(item.coverage?.resolution).toBe('trade_contractors')
+    expect(item.coverage?.autoSelectedSupplierIds).toEqual([])
+  })
+
+  it('contractors cannot top a real material answer up to the target', async () => {
+    // 2 confirmed + 6 contractors must read as 2 of 5, not 8 of 5.
+    matchSpy.mockResolvedValue({
+      rows: [
+        {
+          ...row('line-1', { confirmed: 2, potential: 0 }),
+          trade_contractors: sectorContractorRow(6).trade_contractors,
+          coverage: {
+            target: 5, confirmed: 2, potential: 0, trade_contractors: 6,
+            total: 2, auto_selected: 2, under_target: true,
+          },
+          gap_reason: 'BELOW_TARGET',
+        },
+      ],
+    })
+    const item = (await matchSuppliersForItems(lines(1))).items[0]!
+    expect(item.coverage?.totalCount).toBe(2)
+    expect(item.coverage?.tradeContractorCount).toBe(6)
+    expect(item.state).toBe('SUPPLYABLE_PARTIAL_COVERAGE')
+    expect(item.coverage?.gapReason).toBe('BELOW_TARGET')
+  })
+})
+
+describe('a stale intent-map row does not poison the valid ones', () => {
+  it('the suppliers that did survive the server-side skip are shown', async () => {
+    // Server-side, a row whose supplier_mapping_hash mismatches is skipped on its
+    // own and the intent still answers. What reaches here is a SHORT list, and a
+    // short list must render as a short list — not as a failure and not as zero.
+    matchSpy.mockResolvedValue({
+      rows: [
+        {
+          ...row('line-1', { confirmed: 0, potential: 2 }),
+          coverage: { target: 5, confirmed: 0, potential: 2, trade_contractors: 0, total: 2, auto_selected: 0, under_target: true },
+          gap_reason: 'BELOW_TARGET',
+        },
+      ],
+    })
+    const item = (await matchSuppliersForItems(lines(1))).items[0]!
+    expect(item.suppliers).toHaveLength(2)
+    expect(item.state).toBe('SUPPLYABLE_PARTIAL_COVERAGE')
+    expect(item.state).not.toBe('MATCH_FAILED')
+    expect(item.state).not.toBe('SUPPLYABLE_NO_SUPPLIER')
+    expect(item.coverage?.gapReason).toBe('BELOW_TARGET')
+  })
+
+  it('an intent whose every row was stale reports a reason, not a fake zero', async () => {
+    matchSpy.mockResolvedValue({
+      rows: [{ ...row('line-1', { confirmed: 0, potential: 0, gapReason: 'VERSION_MISMATCH' }) }],
+    })
+    const item = (await matchSuppliersForItems(lines(1))).items[0]!
+    expect(item.coverage?.totalCount).toBe(0)
+    // Farq's own word for it survives to the screen, so this is never filed as a
+    // data gap: a version mismatch is our problem, not a missing supplier.
+    expect(item.coverage?.gapReason).toBe('VERSION_MISMATCH')
   })
 })

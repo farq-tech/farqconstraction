@@ -260,7 +260,7 @@ export type BoqMatchSupplier = {
   /** True only where Farq listed the id in `rfq_eligible_supplier_ids`. */
   rfq_eligible?: boolean
   /** Which answer produced him. Decides how the screen may describe him. */
-  origin: 'material' | 'intent_map' | 'family' | 'ai' | 'directory'
+  origin: 'material' | 'intent_map' | 'family' | 'ai' | 'trade_contractor' | 'directory'
 }
 
 /** Why a line is short of the target, in Farq's words. */
@@ -299,13 +299,20 @@ export type BoqCatalogMatchRow = {
    */
   potential_suppliers?: BoqMatchSupplier[]
   /**
+   * Contractors of the line's trade, Farq's last answer when neither the material
+   * nor its family resolved. Kept in their OWN field because five general
+   * contractors are not five suppliers for a material, and the old counting would
+   * have shown such a line as having met the target.
+   */
+  trade_contractors?: BoqMatchSupplier[]
+  /**
    * Farq's own verdict on who may be contacted without a human having looked.
    * The UI ticks exactly this set and never widens it.
    */
   auto_selected_supplier_ids?: string[]
   /** What Farq resolved the line to, and by which route. */
   resolution?: {
-    source: 'MATERIAL' | 'INTENT_MAP' | 'FAMILY' | 'AI' | 'DIRECTORY' | 'NONE'
+    source: 'MATERIAL' | 'INTENT_MAP' | 'FAMILY' | 'AI' | 'TRADE_CONTRACTORS' | 'DIRECTORY' | 'NONE'
     material?: string | null
     material_name_ar?: string | null
     family?: string | null
@@ -316,6 +323,8 @@ export type BoqCatalogMatchRow = {
     target: number
     confirmed: number
     potential: number
+    /** Counted apart. Never inside `total`. */
+    trade_contractors?: number
     total: number
     auto_selected?: number
     under_target: boolean
@@ -1564,6 +1573,13 @@ export async function matchConstructionBoqCatalog(payload: {
     // candidate suppliers not already listed. All review-only by construction.
     const seen = new Set(confirmed.map((s) => s.id))
     const potential: BoqMatchSupplier[] = []
+    const potentialOrTrade = (
+      bucket: BoqMatchSupplier[],
+      s: RawSupplier,
+      origin: BoqMatchSupplier['origin'],
+    ) => {
+      bucket.push({ ...toSupplier(s, origin, new Set<string>()), rfq_eligible: false })
+    }
     const pushPotential = (list: RawSupplier[] | undefined, origin: BoqMatchSupplier['origin']) => {
       for (const s of list || []) {
         const id = String(s.id || '').trim()
@@ -1574,9 +1590,34 @@ export async function matchConstructionBoqCatalog(payload: {
         potential.push({ ...toSupplier(s, origin, new Set()), rfq_eligible: false })
       }
     }
-    pushPotential(row.map_suggestion?.suppliers, 'intent_map')
-    pushPotential(row.family_suggestion?.suppliers, 'family')
-    pushPotential(row.ai_suggestion?.suppliers, 'ai')
+    // A suggestion whose source or grade says «contractors of the trade» goes in
+    // its own bucket. Five general contractors on an unresolved line are not five
+    // suppliers for that material, and must not count toward the target.
+    const isTradeContractorSuggestion = (s?: RawSuggestion | null) =>
+      Boolean(s) && (String(s?.source || '') === 'SECTOR_CONTRACTORS' || String(s?.grade || '') === 'SECTOR')
+
+    const tradeContractors: BoqMatchSupplier[] = []
+    const pushTrade = (list: RawSupplier[] | undefined) => {
+      for (const s of list || []) {
+        const id = String(s.id || '').trim()
+        if (!id || seen.has(id) || !contactable(s)) continue
+        seen.add(id)
+        potentialOrTrade(tradeContractors, s, 'trade_contractor')
+      }
+    }
+
+    for (const field of ['map_suggestion', 'family_suggestion', 'ai_suggestion'] as const) {
+      const suggestion = row[field]
+      if (!suggestion) continue
+      if (isTradeContractorSuggestion(suggestion)) {
+        pushTrade(suggestion.suppliers)
+        continue
+      }
+      pushPotential(
+        suggestion.suppliers,
+        field === 'map_suggestion' ? 'intent_map' : field === 'ai_suggestion' ? 'ai' : 'family',
+      )
+    }
     for (const candidate of row.candidates || []) {
       if (chosen && candidate.farq_spec_id === chosen.farq_spec_id) continue
       pushPotential(candidate.suppliers, 'family')
@@ -1590,11 +1631,13 @@ export async function matchConstructionBoqCatalog(payload: {
           ? 'MATERIAL'
           : row.map_suggestion
             ? 'INTENT_MAP'
-            : row.family_suggestion
-              ? 'FAMILY'
-              : row.ai_suggestion
-                ? 'AI'
-                : 'NONE',
+            : isTradeContractorSuggestion(row.family_suggestion)
+              ? 'TRADE_CONTRACTORS'
+              : row.family_suggestion
+                ? 'FAMILY'
+                : row.ai_suggestion
+                  ? 'AI'
+                  : 'NONE',
         material: chosen?.farq_spec_id ?? null,
         material_name_ar: chosen?.name_ar ?? null,
         family: suggestion?.family ?? null,
@@ -1607,6 +1650,8 @@ export async function matchConstructionBoqCatalog(payload: {
         target: 5,
         confirmed: confirmed.length,
         potential: potential.length,
+        trade_contractors: tradeContractors.length,
+        // Trade contractors are deliberately absent from `total`.
         total: confirmed.length + potential.length,
         auto_selected: confirmed.filter((s) => s.rfq_eligible).length,
         under_target: confirmed.length + potential.length < 5,
@@ -1626,6 +1671,7 @@ export async function matchConstructionBoqCatalog(payload: {
         chosen?.rfq_eligible_supplier_count ?? eligibleIds.size,
       suppliers: confirmed,
       potential_suppliers: potential,
+      trade_contractors: tradeContractors,
       auto_selected_supplier_ids: confirmed.filter((s) => s.rfq_eligible).map((s) => s.id),
       resolution,
       coverage,

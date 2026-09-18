@@ -30,7 +30,21 @@ export type AppView =
  * array and «دليل منتج» to the rest, in three separate places, by index. A
  * supplier Farq has not graded is «مورد محتمل» and nothing stronger.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'مورد محتمل' | 'اختيارك'
+export type EvidenceType =
+  | 'دليل مباشر'
+  | 'نشاط متطابق'
+  | 'مورد محتمل'
+  /**
+   * A CONTRACTOR OF THE TRADE, NOT A SUPPLIER OF THE MATERIAL.
+   *
+   * Farq's last answer on a line whose material and family both failed to
+   * resolve is the contractors of its trade («مقاولون عموميون», «مقاولات اعمال
+   * الكهرباء»). Calling one of those «مورد محتمل» for a material would be a small
+   * lie, and counting five of them as five suppliers would be a large one, so
+   * they carry their own label and are counted apart from the target.
+   */
+  | 'مقاول بهذا النشاط'
+  | 'اختيارك'
 export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
 
 /** Farq's grade for this supplier against this material. */
@@ -42,8 +56,10 @@ export type SupplierOrigin =
   | 'material'
   /** From Farq's intent→supplier map. Review-only. */
   | 'intent_map'
-  /** From the material's family, or its trade. Review-only. */
+  /** From the material's family. Review-only. */
   | 'family'
+  /** A contractor of the line's trade. Never counts toward the target. */
+  | 'trade_contractor'
   /** From the model. Review-only. */
   | 'ai'
   /** Found by keyword while Farq's matching was unreachable. Unverified. */
@@ -96,9 +112,19 @@ export interface BoqSupplierCoverage {
   resolvedMaterialName?: string | null
   resolvedFamily?: string | null
   resolvedIntent?: string | null
-  resolution: 'material' | 'intent_map' | 'family' | 'ai' | 'degraded_search' | 'none'
+  resolution:
+    | 'material'
+    | 'intent_map'
+    | 'family'
+    | 'ai'
+    | 'trade_contractors'
+    | 'degraded_search'
+    | 'none'
   confirmedCount: number
   potentialCount: number
+  /** Contractors of the trade. Reported, never added into `totalCount`. */
+  tradeContractorCount: number
+  /** confirmed + potential. Trade contractors are NOT in here, on purpose. */
   totalCount: number
   targetCount: number
   /** Farq's verdict on who may be contacted without review. */

@@ -571,6 +571,9 @@ function evidenceForGrade(
   origin: SupplierOrigin,
 ): EvidenceType {
   if (origin === 'manual') return 'اختيارك'
+  // A contractor of the trade is never described as a supplier of the material,
+  // whatever grade rides along with him.
+  if (origin === 'trade_contractor') return 'مقاول بهذا النشاط'
   if (grade === 'DIRECT') return 'دليل مباشر'
   if (grade === 'TAXONOMY') return 'نشاط متطابق'
   // REVIEW, or a supplier Farq graded not at all. Claim nothing.
@@ -601,9 +604,11 @@ function toUiSupplier(
         ? 'intent_map'
         : row.origin === 'ai'
           ? 'ai'
-          : row.origin === 'directory'
-            ? 'degraded_search'
-            : 'family'
+          : row.origin === 'trade_contractor'
+            ? 'trade_contractor'
+            : row.origin === 'directory'
+              ? 'degraded_search'
+              : 'family'
   return {
     id: row.id,
     name: String(row.name_ar || row.name_en || row.id).trim(),
@@ -856,7 +861,12 @@ export async function matchSuppliersForItems(
       // A suggestion supplier is never auto-selectable, whatever else is true.
       ({ ...toUiSupplier(s, new Set<string>()), autoSelectable: false }),
     )
-    const fromFarq = [...confirmed, ...potential]
+    // Contractors of the trade come last on the card and count toward nothing.
+    const tradeContractors = (row?.trade_contractors || []).map((s) => ({
+      ...toUiSupplier(s, new Set<string>()),
+      autoSelectable: false,
+    }))
+    const fromFarq = [...confirmed, ...potential, ...tradeContractors]
     const suppliers = (fromFarq.length ? fromFarq : degradedSuppliers || []).slice(
       0,
       MATCH_SUPPLIERS_PER_LINE,
@@ -865,8 +875,12 @@ export async function matchSuppliersForItems(
     const confirmedCount = row?.coverage?.confirmed ?? confirmed.length
     const potentialCount =
       row?.coverage?.potential ?? (potential.length || (degradedSuppliers?.length ?? 0))
+    const tradeContractorCount = row?.coverage?.trade_contractors ?? tradeContractors.length
+    // Trade contractors are NOT in the total. A line answered only by the
+    // contractors of its trade has not met the target and must not look as if it
+    // had — that is the difference between a last answer and padding.
     const totalCount = row?.coverage?.total ?? confirmedCount + potentialCount
-    const state = stateForRow(row, confirmedCount + potentialCount || suppliers.length, isDegraded, failed)
+    const state = stateForRow(row, totalCount || (isDegraded ? suppliers.length : 0), isDegraded, failed)
 
     const coverage: BoqSupplierCoverage = {
       lineKey: key,
@@ -885,9 +899,12 @@ export async function matchSuppliersForItems(
               ? 'family'
               : row?.resolution?.source === 'AI'
                 ? 'ai'
-                : 'none',
+                : row?.resolution?.source === 'TRADE_CONTRACTORS'
+                  ? 'trade_contractors'
+                  : 'none',
       confirmedCount,
       potentialCount,
+      tradeContractorCount,
       totalCount,
       targetCount: row?.coverage?.target ?? COVERAGE_TARGET,
       // Farq's verdict, copied. Never widened to reach the target.
