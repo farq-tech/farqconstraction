@@ -12,6 +12,9 @@ import {
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
   fetchConstructionWhatsAppPricing,
+  startConstructionDispatch,
+  getConstructionDispatch,
+  cancelConstructionDispatch,
   DEFAULT_DELIVERY_CITY,
   type ConstructionInvitation,
 } from '../api/constructionClient'
@@ -189,6 +192,8 @@ export function SendModal({
   // (count × price) or gets WhatsApp Web links instead.
   const [waConfirm, setWaConfirm] = useState<{ count: number; price: number; category: string } | null>(null)
   const waConfirmResolve = useRef<((paid: boolean) => void) | null>(null)
+  // The server owns the batch once it starts: closing the window no longer stops it.
+  const [serverSending, setServerSending] = useState(false)
   const answerWaConfirm = (paid: boolean) => {
     const resolve = waConfirmResolve.current
     waConfirmResolve.current = null
@@ -288,6 +293,11 @@ export function SendModal({
   }
 
   const requestClose = () => {
+    if (busy && serverSending) {
+      // The batch runs on the server; leaving the window does not stop it.
+      onClose()
+      return
+    }
     if (busy) {
       requestCancel()
       return
@@ -553,6 +563,112 @@ export function SendModal({
     }
   }
 
+  /** Reflect one invitation's recorded attempts in its progress row. */
+  const applyAttempts = (invite: ConstructionInvitation) => {
+    const attempts = invite.dispatch_attempts || []
+    const ok = attempts.find((a) => a.status === 'SENT')
+    if (ok) {
+      const label = ok.channel === 'WHATSAPP' ? 'واتساب · أُرسل من رقم فرق' : ok.channel === 'HARAJ' ? 'حراج · أُرسل' : 'بريد · قبله مزود البريد'
+      updateRow(invite.id, { status: 'sent', detail: label, code: 'SENT', finishedAt: Date.now() })
+      return 'sent' as const
+    }
+    const bad = attempts.find((a) => a.status === 'DELIVERY_FAILED')
+    if (bad) {
+      updateRow(invite.id, { status: 'failed', detail: `لم يُرسل · ${bad.failure_code || bad.status}`, code: bad.failure_code || 'SEND_FAILED', finishedAt: Date.now() })
+      return 'failed' as const
+    }
+    return 'pending' as const
+  }
+
+  const runServerDispatch = async (
+    createdId: string,
+    invites: ConstructionInvitation[],
+    opts: { includeHaraj: boolean },
+  ) => {
+    const waInvites = invites.filter((i) => invitePreferredChannel(i) === 'WHATSAPP')
+    const harajInvites = invites.filter((i) => invitePreferredChannel(i) === 'HARAJ')
+    let waPaid = false
+    if (waInvites.length) {
+      const pricing = await fetchConstructionWhatsAppPricing()
+      if (pricing.enabled && pricing.price_sar && !cancelRef.current) {
+        touchActivity({ step: `بانتظار موافقتك على واتساب (${waInvites.length})`, index: 0, total: waInvites.length, channel: 'WHATSAPP', supplierName: '—', inviteStartedAt: null })
+        waPaid = await new Promise<boolean>((resolve) => {
+          waConfirmResolve.current = resolve
+          setWaConfirm({ count: waInvites.length, price: pricing.price_sar!, category: pricing.category || '' })
+        })
+      }
+    }
+    if (cancelRef.current) {
+      return { sent: 0, failed: 0, waPrepared: 0, cancelled: true, deferredHaraj: [] as ConstructionInvitation[] }
+    }
+    for (const invite of invites) {
+      const channel = invitePreferredChannel(invite)
+      if (channel === 'HARAJ' && !opts.includeHaraj) {
+        updateRow(invite.id, { status: 'skipped', detail: 'مؤجّل — «إرسال حراج الآن» بعد الدفعة.', code: 'DEFERRED_FAST_MODE' })
+      } else if (channel === 'WHATSAPP' && !waPaid) {
+        updateRow(invite.id, { status: 'pending', detail: 'رابط واتساب ويب بعد الدفعة' })
+      } else {
+        updateRow(invite.id, { status: 'sending', detail: 'في طابور الخادم…', startedAt: Date.now() })
+      }
+    }
+    await startConstructionDispatch(createdId, { whatsappPaid: waPaid, includeHaraj: opts.includeHaraj })
+    setServerSending(true)
+    let finalState = 'RUNNING'
+    let sent = 0
+    let failed = 0
+    for (;;) {
+      if (cancelRef.current) {
+        await cancelConstructionDispatch(createdId).catch(() => undefined)
+        finalState = 'CANCELLED'
+        break
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2500))
+      const [job, detail] = await Promise.all([
+        getConstructionDispatch(createdId).catch(() => null),
+        getConstructionRfq(createdId).catch(() => null),
+      ])
+      sent = 0
+      failed = 0
+      for (const invite of detail?.invitations || []) {
+        const outcome = applyAttempts(invite)
+        if (outcome === 'sent') sent += 1
+        else if (outcome === 'failed') failed += 1
+      }
+      if (job && job.state !== 'NONE') {
+        touchActivity({
+          step: `الخادم يرسل: ${job.processed || 0} من ${job.total || invites.length} — يمكنك إغلاق النافذة`,
+          index: job.processed || 0,
+          total: job.total || invites.length,
+          channel: 'SETUP',
+          supplierName: '—',
+          inviteStartedAt: null,
+        })
+        if (['DONE', 'FAILED', 'CANCELLED'].includes(job.state)) {
+          finalState = job.state
+          break
+        }
+      }
+    }
+    setServerSending(false)
+    let waPrepared = 0
+    if (!waPaid && waInvites.length && finalState !== 'CANCELLED') {
+      for (let index = 0; index < waInvites.length; index += 1) {
+        const outcome = await prepareOneWa(createdId, waInvites[index]!, index, waInvites.length)
+        if (outcome === 'wa_ready') waPrepared += 1
+        else if (outcome === 'sent') sent += 1
+        else if (outcome === 'failed') failed += 1
+      }
+    }
+    if (finalState === 'FAILED' && sent === 0) failed = Math.max(failed, 1)
+    return {
+      sent,
+      failed,
+      waPrepared,
+      cancelled: finalState === 'CANCELLED',
+      deferredHaraj: opts.includeHaraj ? ([] as ConstructionInvitation[]) : harajInvites,
+    }
+  }
+
   const runDispatchPipeline = async (
     createdId: string,
     invites: ConstructionInvitation[],
@@ -718,7 +834,7 @@ export function SendModal({
       updateRow(invite.id, { status: 'pending', detail: 'في طابور حراج…', code: undefined })
     }
     try {
-      const result = await runDispatchPipeline(rfqId, deferredHaraj, { sendHaraj: true })
+      const result = await runServerDispatch(rfqId, deferredHaraj, { includeHaraj: true })
       setDeferredHaraj([])
       setPhase('done')
       if (result.cancelled) {
@@ -927,9 +1043,11 @@ export function SendModal({
         })),
       )
 
-      const result = await runDispatchPipeline(created.id, invites, {
-        sendHaraj: !fastEmailFirst,
+      const result = await runServerDispatch(created.id, invites, {
+        includeHaraj: !fastEmailFirst,
       })
+      if (!fastEmailFirst) setDeferredHaraj([])
+      else if (result.deferredHaraj.length) setDeferredHaraj(result.deferredHaraj)
 
       setPhase('done')
       setLive((prev) =>
@@ -1197,6 +1315,12 @@ export function SendModal({
                   لا، جهّز روابط واتساب ويب
                 </button>
               </div>
+            </div>
+          )}
+
+          {phase === 'sending' && serverSending && (
+            <div className="mb-3 rounded-xl bg-[#f0faf7] border border-[#123F3A]/15 px-3 py-2 text-xs text-[#123F3A] leading-relaxed">
+              الإرسال يجري الآن في الخادم. تقدر تغلق هذه النافذة أو الصفحة، والإرسال يكمل وحده، وتتابع النتيجة من صفحة الطلب.
             </div>
           )}
 

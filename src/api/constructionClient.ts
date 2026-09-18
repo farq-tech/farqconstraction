@@ -798,6 +798,38 @@ export async function createConstructionRfq(
   })
 }
 
+export type ConstructionDispatchJob = {
+  id?: string
+  state: 'NONE' | 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'CANCELLED'
+  whatsapp_paid?: boolean
+  include_haraj?: boolean
+  total?: number
+  processed?: number
+  sent?: number
+  failed?: number
+  last_error?: string | null
+}
+
+/** Ask the server to send every invite of this request; it carries on if the page closes. */
+export async function startConstructionDispatch(
+  rfqId: string,
+  options: { whatsappPaid: boolean; includeHaraj: boolean },
+): Promise<ConstructionDispatchJob> {
+  return request<ConstructionDispatchJob>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/dispatch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ whatsapp_paid: options.whatsappPaid, include_haraj: options.includeHaraj }),
+  })
+}
+
+export async function getConstructionDispatch(rfqId: string): Promise<ConstructionDispatchJob> {
+  return request<ConstructionDispatchJob>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/dispatch`)
+}
+
+export async function cancelConstructionDispatch(rfqId: string): Promise<ConstructionDispatchJob> {
+  return request<ConstructionDispatchJob>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/dispatch/cancel`, { method: 'POST' })
+}
+
 export type ConstructionWhatsAppPricing = {
   enabled: boolean
   category?: string
