@@ -172,7 +172,8 @@ export function SendModal({
   const [quoteDeadlineTime, setQuoteDeadlineTime] = useState('17:00')
   const [requestType, setRequestType] = useState<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>('SUPPLY_ONLY')
   /** Fast path: EMAIL+WA first; defer Haraj (20s pacing) unless user opts in. */
-  const [fastEmailFirst, setFastEmailFirst] = useState(true)
+  // Haraj goes out in the same batch by default (owner, 2026-09-18).
+  const [fastEmailFirst, setFastEmailFirst] = useState(false)
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'form' | 'sending' | 'done'>('form')
   const [error, setError] = useState<string | null>(null)
@@ -1153,15 +1154,17 @@ export function SendModal({
                 <span>
                   <span className="block text-sm font-bold text-[#0D1F1D]">إرسال سريع: بريد أولًا</span>
                   <span className="block text-[11px] text-neutral-500 leading-relaxed mt-0.5">
-                    يرسل البريد بالتوازي (حتى {EMAIL_CONCURRENCY}) ثم يجهّز واتساب، ويؤجّل حراج (كل رسالة
-                    ≥20ث على السيرفر). ألغِ الخيار لإرسال حراج في نفس الدفعة بعد البريد.
+                    يرسل البريد وواتساب ويؤجّل حراج لزر منفصل. بدون هذا الخيار يُرسل حراج تلقائيًا في نفس الدفعة بعدهما.
                   </span>
                 </span>
               </label>
 
               {harajSelected > 0 && (
                 <p className="text-xs text-[#123F3A] mb-4 leading-relaxed bg-[#f0faf7] rounded-xl px-3 py-2">
-                  {harajSelected} بائع حراج — {fastEmailFirst ? 'سيُؤجَّلون بعد البريد' : 'سيُرسلون أخيرًا بالتتابع'}.
+                  {harajSelected} بائع حراج —{' '}
+                  {fastEmailFirst
+                    ? 'سيُؤجَّلون لزر منفصل بعد البريد.'
+                    : `يُرسلون تلقائيًا بعد البريد وواتساب، رسالة كل 20 ثانية (قرابة ${Math.max(1, Math.ceil((harajSelected * 20) / 60))} دقيقة). أبقِ الصفحة مفتوحة حتى ينتهي.`}
                 </p>
               )}
             </>
