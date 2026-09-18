@@ -1,6 +1,7 @@
 import { ProcurementProvider, useProcurement } from './procurementContext'
 import { isReadOnlyBuild } from './api/readOnlyMode'
 import { Shell } from './components/Shell'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { LoginView } from './views/LoginView'
 import { InviteView } from './views/InviteView'
 import { HomeView } from './views/HomeView'
@@ -60,12 +61,25 @@ function AppRoutes() {
   // behind this line can only fail to load. The visitor meets the sign-in form
   // instead of an app-shaped page of errors. Suppliers are exempt above: they
   // carry a one-use token, never a buyer session.
-  if (view === 'login' || (import.meta.env.PROD && !session.isAuthenticated)) {
+  // Signed in already: «?view=login» left in the address bar after signing in
+  // must not send a refresh back to the sign-in form.
+  if (view === 'login' && session.isAuthenticated) {
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('view')
+      window.history.replaceState(window.history.state, '', url.pathname + (url.search || '') + url.hash)
+    } catch {
+      /* ignore */
+    }
+    queueMicrotask(() => navigate('home'))
+  }
+  if ((view === 'login' && !session.isAuthenticated) || (import.meta.env.PROD && !session.isAuthenticated)) {
     return <LoginView navigate={navigate} />
   }
 
   return (
     <Shell view={view} navigate={navigate}>
+      <ErrorBoundary resetKey={view}>
       {view === 'home' && <HomeView navigate={navigate} />}
       {view === 'create-upload' && <UploadView navigate={navigate} />}
       {view === 'create-proposals' && <ProposalsView navigate={navigate} />}
@@ -96,6 +110,7 @@ function AppRoutes() {
       {view === 'inbox' && <InboxView navigate={navigate} />}
       {view === 'inbox-thread' && <InboxThreadView navigate={navigate} />}
       {view === 'access-denied' && <AccessDeniedView navigate={navigate} />}
+      </ErrorBoundary>
     </Shell>
   )
 }
