@@ -3,7 +3,7 @@ import { autoPickFor } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
 import { parseBoqFile, resolveBoqCardFields } from '../lib/parseBoq'
-import type { BoqParseStage } from '../lib/parseBoq'
+import type { BoqActivity, BoqParseStage } from '../lib/parseBoq'
 import {
   BoqEtaTracker,
   hasAnyCalibration,
@@ -316,6 +316,7 @@ export function UploadView({ navigate }: NavProps) {
   const [fileName, setFileName] = useState('')
   const [completedStages, setCompletedStages] = useState<string[]>([])
   const [activeStage, setActiveStage] = useState<string | null>(null)
+  const [activity, setActivity] = useState<BoqActivity[]>([])
   const [recognized, setRecognized] = useState(0)
   const [progress, setProgress] = useState(0)
   const [dragging, setDragging] = useState(false)
@@ -384,6 +385,7 @@ export function UploadView({ navigate }: NavProps) {
     etaRef.current = tracker
     setEta(tracker.view())
 
+    setActivity([])
     let watchdog: number | undefined
     try {
       const parsed = parseBoqFile(file, {
@@ -399,6 +401,10 @@ export function UploadView({ navigate }: NavProps) {
           if (!current()) return
           tracker.note(event)
           setEta(tracker.view())
+        },
+        onActivity: (event) => {
+          if (!current()) return
+          setActivity((prev) => [...prev, event])
         },
         onRead: (facts) => {
           if (!current()) return
@@ -601,7 +607,6 @@ export function UploadView({ navigate }: NavProps) {
       ? Math.max(progress, Math.round(span[0] + (span[1] - span[0]) * eta.legFraction))
       : progress
 
-  const readyCount = items.filter((i) => i.status === 'ready').length
   /**
  * The booklet numbers its own items, so this is a fact rather than a guess, and
  * everything on the screen below reads differently because of it.
@@ -783,6 +788,9 @@ export function UploadView({ navigate }: NavProps) {
               })}
             </div>
 
+            {phase === 'processing' && (
+              <LiveActivity events={activity} reading={activeStage !== 'match'} />
+            )}
             {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} elapsed={elapsed} />}
 
             {phase === 'processing' && partialRead && readReport && (
@@ -884,7 +892,7 @@ export function UploadView({ navigate }: NavProps) {
 
               {/* البنود appear immediately */}
               <div className="mb-5 max-h-72 overflow-y-auto rounded-xl border border-neutral-100 divide-y divide-neutral-50">
-                {items.map((item) => {
+                {items.slice(0, 60).map((item) => {
                   const { name, qty, unit, spec } = resolveBoqCardFields(item)
                   return (
                   <div key={item.id} className="px-4 py-3 flex items-start gap-3 text-right">
@@ -911,6 +919,11 @@ export function UploadView({ navigate }: NavProps) {
                   </div>
                   )
                 })}
+                {items.length > 60 && (
+                  <div className="px-4 py-3 text-xs text-neutral-500 text-center">
+                    و{(items.length - 60).toLocaleString('ar-SA')} بندًا آخر تجدها كلها في الخطوة التالية
+                  </div>
+                )}
               </div>
 
               <button
@@ -918,8 +931,8 @@ export function UploadView({ navigate }: NavProps) {
                 className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
               >
                 {partialRead
-                  ? `عرض الموردين للبنود المقروءة فقط (${readyCount} من ${readReport?.expected ?? items.length})`
-                  : `عرض الموردين المقترحين (${readyCount} بندًا جاهزًا)`}
+                  ? `عرض الموردين للبنود المقروءة فقط (${coveredCount} من ${readReport?.expected ?? items.length})`
+                  : `عرض الموردين المقترحين (${coveredCount} بندًا لها موردون)`}
               </button>
               <button
                 onClick={reset}
@@ -982,6 +995,118 @@ export function UploadView({ navigate }: NavProps) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * THE WORK, SHOWN HAPPENING.
+ *
+ * A bar and a percentage said nothing about what Farq was doing for the three
+ * minutes of a read. This panel shows it: while the server reads the pages a
+ * scanning line runs; once the lines are known they scroll past as they are
+ * counted, and every line the matcher answers appears with how many suppliers
+ * it found. Everything shown is a real line and a real count from this upload.
+ */
+export function LiveActivity({ events, reading }: { events: BoqActivity[]; reading: boolean }) {
+  const [shown, setShown] = useState<Array<{ key: number; text: string; count?: number }>>([])
+  const [readCount, setReadCount] = useState(0)
+  const [matched, setMatched] = useState(0)
+  const [candidates, setCandidates] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [samples, setSamples] = useState(1)
+  const cursor = useRef(0)
+  const queue = useRef<Array<{ text: string; count?: number; read?: boolean }>>([])
+  const seq = useRef(0)
+
+  useEffect(() => {
+    for (; cursor.current < events.length; cursor.current++) {
+      const e = events[cursor.current]!
+      if (e.kind === 'read') {
+        setTotal(e.names.length)
+        const step = Math.max(1, Math.floor(e.names.length / 60))
+        let n = 0
+        e.names.forEach((name, i) => {
+          if (i % step === 0 || i === e.names.length - 1) {
+            queue.current.push({ text: name, read: true })
+            n++
+          }
+        })
+        setSamples(Math.max(1, n))
+      } else {
+        for (const row of e.rows) queue.current.push({ text: row.name, count: row.suppliers })
+      }
+    }
+  }, [events])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const burst = Math.max(1, Math.ceil(queue.current.length / 25))
+      for (let i = 0; i < burst; i++) {
+        const next = queue.current.shift()
+        if (!next) break
+        if (next.read) setReadCount((n) => n + 1)
+        else {
+          setMatched((n) => n + 1)
+          setCandidates((n) => n + (next.count || 0))
+        }
+        const key = ++seq.current
+        setShown((prev) => [{ key, text: next.text, count: next.read ? undefined : next.count }, ...prev].slice(0, 6))
+      }
+    }, 120)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const readingLines = total > 0 && matched === 0
+  return (
+    <div className="mt-4 rounded-xl border border-[#CFF5DC] bg-[#F3FBF6] px-4 py-3 text-right" dir="rtl">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-bold text-[#123F3A] flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#1a7a45] animate-pulse" />
+          {reading && total === 0
+            ? 'نقرأ صفحات الكراسة ونتعرف على الجدول…'
+            : readingLines
+              ? 'نقرأ البنود…'
+              : 'نبحث في دليل الموردين ونطابق كل بند…'}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center mb-3">
+        <div>
+          <div className="text-lg font-black text-[#123F3A] tabular-nums">{Math.min(total, Math.round((readCount / samples) * total)).toLocaleString('ar-SA')}</div>
+          <div className="text-[10px] text-neutral-500">بندًا مقروءًا</div>
+        </div>
+        <div>
+          <div className="text-lg font-black text-[#123F3A] tabular-nums">{matched.toLocaleString('ar-SA')}</div>
+          <div className="text-[10px] text-neutral-500">بندًا طوبق</div>
+        </div>
+        <div>
+          <div className="text-lg font-black text-[#123F3A] tabular-nums">{candidates.toLocaleString('ar-SA')}</div>
+          <div className="text-[10px] text-neutral-500">ترشيح مورد</div>
+        </div>
+      </div>
+      <div className="space-y-1 min-h-[132px] overflow-hidden">
+        {reading && total === 0 && (
+          <div className="h-1 rounded-full bg-[#CFF5DC] overflow-hidden">
+            <div className="h-full w-1/3 bg-[#1a7a45] animate-scan" />
+          </div>
+        )}
+        {shown.map((row, i) => (
+          <div
+            key={row.key}
+            className="flex items-center justify-between gap-2 text-xs animate-fade-up"
+            style={{ opacity: 1 - i * 0.14 }}
+          >
+            <span className="truncate text-[#0D1F1D]">{row.text}</span>
+            {row.count === undefined ? (
+              <span className="flex-shrink-0 text-neutral-400">قُرئ</span>
+            ) : row.count > 0 ? (
+              <span className="flex-shrink-0 font-semibold text-[#1a7a45]">{row.count} موردين ✓</span>
+            ) : (
+              <span className="flex-shrink-0 text-amber-700">نبحث عن بديل</span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

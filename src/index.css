@@ -51,3 +51,12 @@ html, body {
 .animate-pulse-dot {
   animation: pulse-dot 1.4s ease-in-out infinite;
 }
+
+/* The scanning line on the processing screen while the server reads pages. */
+@keyframes scan {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+.animate-scan {
+  animation: scan 1.4s ease-in-out infinite;
+}
