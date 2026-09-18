@@ -11,6 +11,7 @@ import {
   matchConstructionBoqCatalog,
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
+  fetchConstructionWhatsAppPricing,
   DEFAULT_DELIVERY_CITY,
   type ConstructionInvitation,
 } from '../api/constructionClient'
@@ -183,6 +184,16 @@ export function SendModal({
   const activeAbortsRef = useRef(new Set<AbortController>())
   const [cancelRequested, setCancelRequested] = useState(false)
   const [deferredHaraj, setDeferredHaraj] = useState<ConstructionInvitation[]>([])
+  // Suppliers with no email: the account holder confirms the paid WhatsApp send
+  // (count × price) or gets WhatsApp Web links instead.
+  const [waConfirm, setWaConfirm] = useState<{ count: number; price: number; category: string } | null>(null)
+  const waConfirmResolve = useRef<((paid: boolean) => void) | null>(null)
+  const answerWaConfirm = (paid: boolean) => {
+    const resolve = waConfirmResolve.current
+    waConfirmResolve.current = null
+    setWaConfirm(null)
+    resolve?.(paid)
+  }
 
   // Work with nothing to buy is never put in front of a supplier.
   const readyItems = items.filter((i) => !i.workOnly && (selectedByItem[i.id] || []).length > 0)
@@ -270,6 +281,7 @@ export function SendModal({
   const requestCancel = () => {
     cancelRef.current = true
     setCancelRequested(true)
+    if (waConfirmResolve.current) answerWaConfirm(false)
     abortAllInFlight()
     touchActivity({ step: 'إلغاء… إيقاف الطلبات الجارية فورًا' })
   }
@@ -440,6 +452,44 @@ export function SendModal({
     }
   }
 
+  const sendOneWaPaid = async (
+    createdId: string,
+    invite: ConstructionInvitation,
+    index: number,
+    total: number,
+  ): Promise<'wa_ready' | 'sent' | 'failed' | 'cancelled'> => {
+    if (cancelRef.current) return 'cancelled'
+    const name = String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد')
+    const startedAt = Date.now()
+    touchActivity({ step: `واتساب ${index + 1}/${total}`, index: index + 1, total, supplierName: name, channel: 'WHATSAPP', inviteStartedAt: startedAt })
+    updateRow(invite.id, { status: 'sending', detail: 'إرسال واتساب من رقم فرق…', startedAt })
+    const ctrl = beginAbortable()
+    try {
+      const updated = await sendConstructionRfqInvite(createdId, invite.id, {
+        sendConsent: false,
+        whatsappPaid: true,
+        timeoutMs: SEND_INVITE_TIMEOUT_MS,
+        signal: ctrl.signal,
+      })
+      activeAbortsRef.current.delete(ctrl)
+      const row = (updated?.invitations || []).find((r) => r.id === invite.id)
+      const wa = (row?.dispatch_attempts || []).find((a) => a.channel === 'WHATSAPP')
+      if (wa?.status === 'SENT') {
+        updateRow(invite.id, { status: 'sent', detail: 'واتساب · أُرسل من رقم فرق', code: 'SENT', finishedAt: Date.now() })
+        return 'sent'
+      }
+      // Not sent (cap reached, number refused…): fall back to a WhatsApp Web link.
+      return prepareOneWa(createdId, invite, index, total)
+    } catch (err) {
+      activeAbortsRef.current.delete(ctrl)
+      if (cancelRef.current || isAbortError(err)) {
+        updateRow(invite.id, { status: 'skipped', detail: 'أُلغي', code: 'CANCELLED', finishedAt: Date.now() })
+        return 'cancelled'
+      }
+      return prepareOneWa(createdId, invite, index, total)
+    }
+  }
+
   const sendOneHaraj = async (
     createdId: string,
     invite: ConstructionInvitation,
@@ -560,8 +610,20 @@ export function SendModal({
       return { sent, failed, waPrepared, cancelled: true, deferredHaraj: [] as ConstructionInvitation[] }
     }
 
-    // 2) WhatsApp link prep in parallel (no window.open).
+    // 2) WhatsApp. Paid send from Farq's number only after the account holder
+    // confirms the total; otherwise WhatsApp Web links (no window.open).
+    let waPaid = false
     if (waInvites.length) {
+      const pricing = await fetchConstructionWhatsAppPricing()
+      if (pricing.enabled && pricing.price_sar && !cancelRef.current) {
+        touchActivity({ step: `بانتظار موافقتك على واتساب (${waInvites.length})`, index: 0, total: waInvites.length, channel: 'WHATSAPP', supplierName: '—', inviteStartedAt: null })
+        waPaid = await new Promise<boolean>((resolve) => {
+          waConfirmResolve.current = resolve
+          setWaConfirm({ count: waInvites.length, price: pricing.price_sar!, category: pricing.category || '' })
+        })
+      }
+    }
+    if (waInvites.length && !cancelRef.current) {
       await mapPool(
         waInvites,
         WA_CONCURRENCY,
@@ -570,7 +632,9 @@ export function SendModal({
             cancelled = true
             return
           }
-          const result = await prepareOneWa(createdId, invite, index, waInvites.length)
+          const result = waPaid
+            ? await sendOneWaPaid(createdId, invite, index, waInvites.length)
+            : await prepareOneWa(createdId, invite, index, waInvites.length)
           if (result === 'wa_ready') waPrepared += 1
           else if (result === 'sent') sent += 1
           else if (result === 'failed') failed += 1
@@ -1101,6 +1165,36 @@ export function SendModal({
                 </p>
               )}
             </>
+          )}
+
+          {phase === 'sending' && waConfirm && (
+            <div className="mb-4 rounded-2xl border-2 border-[#123F3A]/30 bg-[#f0faf7] p-4" role="alertdialog" aria-live="assertive">
+              <p className="text-sm font-bold text-[#0D1F1D] mb-1">
+                {waConfirm.count} {waConfirm.count === 1 ? 'مورد ليس لديه' : 'موردين ليس لديهم'} بريد إلكتروني
+              </p>
+              <p className="text-xs text-neutral-700 leading-relaxed mb-3">
+                نرسل لهم طلب التسعير على واتساب من رقم فرق مع رابط تقديم العرض. تكلفة الرسالة{' '}
+                <span className="font-bold">{waConfirm.price.toFixed(2)} ريال</span>، والإجمالي{' '}
+                <span className="font-bold text-[#123F3A]">{(waConfirm.count * waConfirm.price).toFixed(2)} ريال</span>{' '}
+                ({waConfirm.count} × {waConfirm.price.toFixed(2)}). السعر من Meta وقد يتغير.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => answerWaConfirm(true)}
+                  className="flex-1 py-3 bg-[#123F3A] text-white font-bold rounded-xl text-sm hover:bg-[#1a5c54]"
+                >
+                  موافق، أرسل ({(waConfirm.count * waConfirm.price).toFixed(2)} ريال)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => answerWaConfirm(false)}
+                  className="flex-1 py-3 bg-white border border-neutral-200 text-[#0D1F1D] font-bold rounded-xl text-sm hover:border-[#123F3A]/40"
+                >
+                  لا، جهّز روابط واتساب ويب
+                </button>
+              </div>
+            </div>
           )}
 
           {phase === 'sending' && live && (

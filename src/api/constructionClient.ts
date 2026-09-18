@@ -776,6 +776,8 @@ export function countHarajSupplierIds(ids: string[]): number {
 
 export type SendRfqInviteOptions = {
   sendConsent?: boolean
+  /** The account holder confirmed the paid WhatsApp send from Farq's number. */
+  whatsappPaid?: boolean
   /** Required (=1) when sending a single Haraj seller invite. */
   harajLimit?: number
   /** Override default 45s — Haraj pacing needs more headroom. */
@@ -796,6 +798,22 @@ export async function createConstructionRfq(
   })
 }
 
+export type ConstructionWhatsAppPricing = {
+  enabled: boolean
+  category?: string
+  price_sar?: number
+  currency?: string
+}
+
+/** Price per WhatsApp message from Farq's number, read from the template's category on Meta. */
+export async function fetchConstructionWhatsAppPricing(): Promise<ConstructionWhatsAppPricing> {
+  try {
+    return (await request<ConstructionWhatsAppPricing>('/api/construction/whatsapp/pricing')) || { enabled: false }
+  } catch {
+    return { enabled: false }
+  }
+}
+
 export async function sendConstructionRfqInvite(
   rfqId: string,
   inviteId: string,
@@ -811,6 +829,7 @@ export async function sendConstructionRfqInvite(
   if (options.harajLimit != null) {
     body.haraj_limit = options.harajLimit
   }
+  if (options.whatsappPaid) body.whatsapp_paid = true
   return request<ConstructionRfq>(
     `/api/construction/rfqs/${encodeURIComponent(rfqId)}/invites/${encodeURIComponent(inviteId)}/send`,
     {
