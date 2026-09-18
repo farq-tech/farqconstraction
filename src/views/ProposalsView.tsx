@@ -903,7 +903,7 @@ export function ProposalsView({ navigate }: NavProps) {
 
   return (
     <>
-      <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8 pb-36">
+      <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8 pb-52 lg:pb-36">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-[#0D1F1D] mb-1">الموردون المقترحون</h1>
@@ -1057,7 +1057,9 @@ export function ProposalsView({ navigate }: NavProps) {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 lg:right-64 bg-white border-t border-neutral-100 px-4 py-4 z-20">
+      {/* Above the phone/tablet tab bar (58px, lg:hidden in Shell): at bottom-0 the
+          bar sat underneath it and the only way to send an RFQ was covered. */}
+      <div className="fixed bottom-[58px] lg:bottom-0 left-0 right-0 lg:right-64 bg-white border-t border-neutral-100 px-4 py-4 z-30">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           {/* «جاهزة» used to mean «has suggestions», which read as «ready to
               send» while suppliers were pre-ticked. With nothing selected by

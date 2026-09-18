@@ -308,15 +308,30 @@ export function SendModal({
     })
     const ctrl = beginAbortable()
     try {
-      await sendConstructionRfqInvite(createdId, invite.id, {
+      const updated = await sendConstructionRfqInvite(createdId, invite.id, {
         sendConsent: false,
         timeoutMs: SEND_INVITE_TIMEOUT_MS,
         signal: ctrl.signal,
       })
       activeAbortsRef.current.delete(ctrl)
+      // The API answers 200 whatever the provider did; the invite in the reply
+      // carries the truth. «أُرسل» only when the email was actually accepted.
+      const row = (updated?.invitations || []).find((r) => r.id === invite.id)
+      const email = (row?.dispatch_attempts || []).find((a) => a.channel === 'EMAIL')
+      const delivered = email ? email.status === 'SENT' : row?.delivery_status === 'SENT'
+      if (!delivered) {
+        const why = email?.failure_code || row?.delivery_status || 'NOT_SENT'
+        updateRow(invite.id, {
+          status: 'failed',
+          detail: why === 'SKIPPED_NO_RECIPIENT' ? 'لا بريد لهذا المورد' : `لم يُرسل البريد · ${why}`,
+          code: why,
+          finishedAt: Date.now(),
+        })
+        return 'failed'
+      }
       updateRow(invite.id, {
         status: 'sent',
-        detail: 'بريد · قبول Resend',
+        detail: 'بريد · قبله مزود البريد',
         code: 'SENT',
         finishedAt: Date.now(),
       })

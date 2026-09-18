@@ -497,6 +497,11 @@ async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Pro
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
     return extractPdfText(file, work)
   }
+  // An .xlsx/.xls is a zip archive; read as text it is bytes, and the buyer
+  // was told «لم نعثر على بنود» about a perfectly good booklet. Say what is true.
+  if (/\.(xlsx|xls)$/i.test(file.name)) {
+    throw new Error('ملفات Excel غير مدعومة. احفظ الكراسة بصيغة PDF وارفعها.')
+  }
   // Excel/CSV fallback: read as text (works for simple CSV exports). One blob
   // read with no progress to report — declared opaque rather than faked.
   // These archives are a different shape entirely: standard encoding, one item
