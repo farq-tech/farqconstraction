@@ -4,7 +4,9 @@ import {
   getBoqItems,
   getSession,
   setParsedBoq,
+  getSelections,
   resetWorkingSession,
+  setSelections,
   subscribeSession,
 } from '../store/session'
 import { resolveBoqCardFields } from '../lib/parseBoq'
@@ -576,22 +578,90 @@ export function ProposalsView({ navigate }: NavProps) {
     [],
   )
 
-  const [selected, setSelected] = useState<Record<number, string[]>>({})
+  const [selected, setSelected] = useState<Record<number, string[]>>(() => ({ ...getSelections() }))
 
-  // Nothing is selected because it was returned. Appearing in the results is a
-  // suggestion from ranking, not a decision, and pre-selecting turned a ranking
-  // mistake into a sent RFQ: eight tile and building-material suppliers came up
-  // pre-ticked for a porcelain squat-toilet line, one click from a real email.
-  // Automatic selection can come back when an eligibility gate exists to earn
-  // it. Until then the choice is the buyer's and has to be made explicitly.
+  // The buyer's ticks travel with the booklet, so a refresh restores them.
   useEffect(() => {
-    setSelected((prev) => {
-      const next: Record<number, string[]> = { ...prev }
-      for (const item of items) {
-        if (!next[item.id]) next[item.id] = []
+    setSelections(selected)
+  }, [selected])
+
+  /*
+   * THE SYSTEM CHOOSES, THE BUYER CONFIRMS.
+   *
+   * The owner's order: «اهم شي يختارهم لي … الهدف لا يوجد بند بدون مورد». Until
+   * now nothing arrived ticked, because a ranking mistake once put eight tile
+   * suppliers on a squat-toilet line one click from a real email. The answer to
+   * that is an ORDER of evidence, not an empty screen:
+   *
+   *   1. suppliers he chose for this same line in an earlier booklet
+   *   2. suppliers named for the material itself
+   *   3. suppliers of the catalogue item it matched
+   *   4. suppliers the model named the material for
+   *   5. only then suppliers of the activity, marked «مورد محتمل»
+   *
+   * Up to five per line, never one he rejected, and never sent without the
+   * send screen listing every recipient first. An automatic pick is NOT fed to
+   * learning: the system does not learn from its own guesses.
+   */
+  const AUTO_PICK = 5
+  const autoDone = useRef<Set<number>>(new Set(Object.keys(getSelections()).map(Number)))
+  const [autoSummary, setAutoSummary] = useState<{ suppliers: number; lines: number; empty: number } | null>(null)
+
+  useEffect(() => {
+    const fresh = items.filter((item) => !item.workOnly && !autoDone.current.has(item.id))
+    if (!fresh.length) return
+    const picks: Record<number, Supplier[]> = {}
+    for (const item of fresh) {
+      autoDone.current.add(item.id)
+      const rejected = new Set(item.rejectedSupplierIds || [])
+      const named = (item.mapSuggestion?.suppliers || []).filter((s) => s.evidence !== 'على مستوى النشاط')
+      const activity = (item.mapSuggestion?.suppliers || []).filter((s) => s.evidence === 'على مستوى النشاط')
+      const ordered = [
+        ...(item.learnedSuggestion?.suppliers || []),
+        ...named,
+        ...item.suppliers,
+        ...(item.aiSuggestion?.suppliers || []),
+        ...activity,
+        ...(item.familySuggestion?.suppliers || []),
+      ]
+      const chosen: Supplier[] = []
+      const seen = new Set<string>()
+      for (const s of ordered) {
+        if (!s?.id || seen.has(s.id) || rejected.has(s.id)) continue
+        seen.add(s.id)
+        chosen.push(s)
+        if (chosen.length >= AUTO_PICK) break
       }
-      return next
-    })
+      if (chosen.length) picks[item.id] = chosen
+    }
+    const pickedIds = Object.keys(picks).map(Number)
+    if (pickedIds.length) {
+      // A supplier chosen from a suggestion box joins the line's own list, the
+      // same way a buyer's tick does, so the send screen can name him.
+      persistItems(
+        items.map((item) => {
+          const add = picks[item.id]
+          if (!add) return item
+          const have = new Set(item.suppliers.map((s) => s.id))
+          const suppliers = [...item.suppliers, ...add.filter((s) => !have.has(s.id))]
+          return { ...item, suppliers, supplierCount: suppliers.length, status: 'ready' as const }
+        }),
+      )
+      setSelected((prev) => {
+        const next = { ...prev }
+        for (const id of pickedIds) if (!(next[id] || []).length) next[id] = picks[id].map((s) => s.id)
+        return next
+      })
+    }
+    const all = items.filter((i) => !i.workOnly)
+    const lines = pickedIds.length
+    const suppliers = new Set(Object.values(picks).flat().map((s) => s.id)).size
+    setAutoSummary((prev) => ({
+      suppliers: (prev?.suppliers || 0) + suppliers,
+      lines: (prev?.lines || 0) + lines,
+      empty: all.filter((i) => !picks[i.id] && !(selected[i.id] || []).length && !i.suppliers.length).length,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
 
   const persistItems = (nextItems: BOQItem[]) => {
@@ -859,6 +929,34 @@ export function ProposalsView({ navigate }: NavProps) {
           </button>
         </div>
 
+        {/*
+          The first thing the buyer reads after a booklet: how many suppliers
+          were chosen for him, for how many lines, and how many lines are still
+          empty — the number the owner judges the whole system by.
+        */}
+        {(() => {
+          const lines = items.filter((i) => !i.workOnly)
+          const covered = lines.filter((i) => (selected[i.id] || []).length > 0).length
+          const chosen = new Set(lines.flatMap((i) => selected[i.id] || [])).size
+          const empty = lines.length - covered
+          return (
+            <div
+              className={`mb-6 rounded-2xl border px-5 py-4 ${empty === 0 ? 'bg-[#F3FBF6] border-[#CFF5DC]' : 'bg-amber-50 border-amber-200'}`}
+              dir="rtl"
+            >
+              <div className="text-base font-black text-[#0D1F1D]">
+                اخترنا لك {chosen} موردًا لـ {covered} من {lines.length} بندًا
+              </div>
+              <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
+                {empty === 0
+                  ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال: من عليه «مورد محتمل» اختير لنشاطه لا لمادته.'
+                  : `${empty} بندًا لم نجد لها موردًا في دليلنا. البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين، ومن عليه «مورد محتمل» اختير لنشاطه لا لمادته.`}
+                {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
+              </div>
+            </div>
+          )
+        })()}
+
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="flex items-center gap-2 bg-white border border-neutral-100 rounded-xl px-4 py-2.5">
             <span className="text-lg font-black text-[#0D1F1D]">{items.length}</span>
@@ -949,13 +1047,15 @@ export function ProposalsView({ navigate }: NavProps) {
               send» while suppliers were pre-ticked. With nothing selected by
               default the two must be told apart. */}
           <div className="text-sm text-neutral-500">
-            <span className="font-bold text-[#0D1F1D]">{readyItems.length}</span> بندًا لها موردون
-            مقترحون ·{' '}
+            <span className="font-bold text-[#0D1F1D]">
+              {items.filter((i) => !i.workOnly && (selected[i.id] || []).length > 0).length}
+            </span>{' '}
+            بندًا لها موردون مختارون ·{' '}
             {totalSelected === 0 ? (
-              <span className="font-bold text-[#0D1F1D]">لم تختر أي مورد بعد</span>
+              <span className="font-bold text-[#0D1F1D]">لا مورد مختار بعد</span>
             ) : (
               <>
-                <span className="font-bold text-[#0D1F1D]">{totalSelected}</span> موردًا اخترته
+                <span className="font-bold text-[#0D1F1D]">{totalSelected}</span> موردًا
               </>
             )}
             {learnError ? (

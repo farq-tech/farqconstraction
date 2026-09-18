@@ -45,6 +45,12 @@ type SessionState = {
   rfqs: RFQSummary[]
   offers: SessionOffer[]
   activeRfqId: string | null
+  /**
+   * Which suppliers are ticked on which line. Stored with the booklet so a
+   * refresh brings back the buyer's choices, not only the lines — the owner's
+   * rule is that nothing is cleared except by «ابدأ من جديد».
+   */
+  selections: Record<number, string[]>
 }
 
 type Listener = () => void
@@ -60,6 +66,7 @@ function emptyState(ownerUserId: string | null): SessionState {
     rfqs: [],
     offers: [],
     activeRfqId: null,
+    selections: {},
   }
 }
 
@@ -140,6 +147,7 @@ export function beginBoqUpload(meta?: { fileName?: string; documentId?: string |
   state.readIssue = null
   state.offers = []
   state.activeRfqId = null
+  state.selections = {}
   emit()
 }
 
@@ -161,6 +169,15 @@ export function setParsedBoq(payload: {
   emit()
 }
 
+export function getSelections(): Record<number, string[]> {
+  return state.selections || {}
+}
+
+export function setSelections(selections: Record<number, string[]>) {
+  state.selections = selections
+  emit()
+}
+
 /** Clear booklet lines after a failed parse — do not restore the previous upload. */
 export function clearParsedBoq() {
   state.documentId = null
@@ -170,6 +187,7 @@ export function clearParsedBoq() {
   state.readIssue = null
   state.offers = []
   state.activeRfqId = null
+  state.selections = {}
   emit()
 }
 
