@@ -21,6 +21,7 @@ export type AppView =
   | 'supplier'
   | 'inbox'
   | 'inbox-thread'
+  | 'invite'
 
 /**
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the

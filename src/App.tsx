@@ -2,6 +2,7 @@ import { ProcurementProvider, useProcurement } from './procurementContext'
 import { isReadOnlyBuild } from './api/readOnlyMode'
 import { Shell } from './components/Shell'
 import { LoginView } from './views/LoginView'
+import { InviteView } from './views/InviteView'
 import { HomeView } from './views/HomeView'
 import { UploadView } from './views/UploadView'
 import { ProposalsView } from './views/ProposalsView'
@@ -48,6 +49,8 @@ function AppRoutes() {
   }, [session.isAuthenticated])
 
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
+  // An invited colleague arrives signed out; the page creates the session.
+  if (view === 'invite') return <InviteView navigate={navigate} />
   // A production build has no demo identity, so without a session every screen
   // behind this line can only fail to load. The visitor meets the sign-in form
   // instead of an app-shaped page of errors. Suppliers are exempt above: they
