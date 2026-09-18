@@ -8,6 +8,18 @@ import {
   getConstructionStatus,
 } from '../api/constructionClient'
 import { farqSession } from '../api/farqSession'
+import {
+  ACCESS_LEVELS,
+  inviteMember,
+  loadTeam,
+  loadTeamContext,
+  removeMember,
+  revokeInvitation,
+  roleLabel,
+  type AccessLevel,
+  type Team,
+  type TeamContext,
+} from '../api/teamClient'
 import { useFarqSession } from '../api/useFarqSession'
 
 // Module scope on purpose: declared inside the component these were a new
@@ -264,6 +276,9 @@ export function SettingsView({ navigate }: NavProps) {
         حفظ التغييرات
       </button>
 
+      {session.isAuthenticated && <TeamSection showToast={showToast} />}
+      {session.isAuthenticated && <PasswordSection showToast={showToast} />}
+
       <button
         onClick={() => {
           if (!session.isAuthenticated) {
@@ -285,6 +300,200 @@ export function SettingsView({ navigate }: NavProps) {
           {toast}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Change one's own password. Accounts are handed over with a password chosen
+ * by someone else; this is where the holder replaces it.
+ */
+function PasswordSection({ showToast }: { showToast: (message: string) => void }) {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const submit = async () => {
+    setError('')
+    if (next.length < 8) return setError('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل.')
+    if (next !== confirm) return setError('كلمتا المرور الجديدتان غير متطابقتين.')
+    if (next === current) return setError('اختر كلمة مرور مختلفة عن الحالية.')
+    setBusy(true)
+    try {
+      await farqSession.changePassword(current, next)
+      setCurrent('')
+      setNext('')
+      setConfirm('')
+      showToast('غُيّرت كلمة المرور. أُغلقت الجلسات على الأجهزة الأخرى.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر تغيير كلمة المرور.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const input = 'w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm text-left focus:outline-none focus:border-[#123F3A]'
+  return (
+    <div className="mt-6 rounded-2xl border border-neutral-100 bg-white p-5" dir="rtl">
+      <div className="text-sm font-bold text-[#0D1F1D] mb-3">تغيير كلمة المرور</div>
+      <div className="space-y-2.5">
+        <input type="password" autoComplete="current-password" placeholder="كلمة المرور الحالية" dir="ltr"
+          className={input} value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder="كلمة المرور الجديدة (8 أحرف على الأقل)" dir="ltr"
+          className={input} value={next} onChange={(e) => setNext(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder="أعد كتابة كلمة المرور الجديدة" dir="ltr"
+          className={input} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+      </div>
+      {error && <div className="mt-2 text-xs text-red-600">{error}</div>}
+      <button
+        onClick={() => void submit()}
+        disabled={busy || !current || !next || !confirm}
+        className="mt-3 w-full py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-50"
+      >
+        {busy ? 'جارٍ الحفظ…' : 'تغيير كلمة المرور'}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * The company's team, for its administrators only: who has access, pending
+ * invitations, and inviting or removing someone. Everyone else never sees it.
+ */
+function TeamSection({ showToast }: { showToast: (message: string) => void }) {
+  const [context, setContext] = useState<TeamContext | null>(null)
+  const [team, setTeam] = useState<Team | null>(null)
+  const [email, setEmail] = useState('')
+  const [level, setLevel] = useState<AccessLevel>('procurement')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const refresh = async (ctx: TeamContext) => {
+    try {
+      setTeam(await loadTeam(ctx))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر تحميل الفريق.')
+    }
+  }
+
+  useEffect(() => {
+    loadTeamContext()
+      .then((ctx) => {
+        setContext(ctx)
+        if (ctx?.canManage) void refresh(ctx)
+      })
+      .catch(() => setContext(null))
+  }, [])
+
+  if (!context?.canManage) return null
+
+  const invite = async () => {
+    setError('')
+    const clean = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return setError('اكتب بريدًا صحيحًا.')
+    setBusy(true)
+    try {
+      await inviteMember(context, clean, level)
+      setEmail('')
+      showToast(`أُرسلت الدعوة إلى ${clean}. يفتح الرابط في بريده ويختار كلمة مروره.`)
+      await refresh(context)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر إرسال الدعوة.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const act = async (fn: () => Promise<unknown>, done: string) => {
+    setError('')
+    try {
+      await fn()
+      showToast(done)
+      await refresh(context)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر التنفيذ.')
+    }
+  }
+
+  const seats = team?.seats
+  return (
+    <div className="mt-6 rounded-2xl border border-neutral-100 bg-white p-5" dir="rtl">
+      <div className="flex items-baseline justify-between mb-3">
+        <div className="text-sm font-bold text-[#0D1F1D]">فريق {context.organizationName}</div>
+        {seats?.limit != null && (
+          <div className="text-xs text-neutral-500">
+            {seats.used} من {seats.limit} مقاعد
+          </div>
+        )}
+      </div>
+
+      <div className="divide-y divide-neutral-50 mb-4">
+        {(team?.members || []).map((m) => (
+          <div key={m.membership_id} className="py-2.5 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-[#0D1F1D] truncate" dir="ltr">{m.email}</div>
+              <div className="text-xs text-neutral-500">{roleLabel(m)}{m.is_me ? ' · أنت' : ''}</div>
+            </div>
+            {!m.is_me && m.organization_role !== 'OWNER' && (
+              <button
+                onClick={() => {
+                  if (window.confirm(`إزالة ${m.email} من الشركة؟ سيفقد الدخول فورًا.`)) {
+                    void act(() => removeMember(context, m.membership_id), `أُزيل ${m.email}.`)
+                  }
+                }}
+                className="text-xs text-red-600 font-semibold flex-shrink-0"
+              >
+                إزالة
+              </button>
+            )}
+          </div>
+        ))}
+        {(team?.invitations || []).map((i) => (
+          <div key={i.id} className="py-2.5 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm text-neutral-600 truncate" dir="ltr">{i.email}</div>
+              <div className="text-xs text-amber-700">دعوة لم تُقبل بعد</div>
+            </div>
+            <button
+              onClick={() => void act(() => revokeInvitation(context, i.id), `أُلغيت دعوة ${i.email}.`)}
+              className="text-xs text-neutral-500 font-semibold flex-shrink-0"
+            >
+              إلغاء الدعوة
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-xs font-bold text-[#0D1F1D] mb-2">إضافة حساب</div>
+      <input
+        type="email"
+        dir="ltr"
+        placeholder="name@company.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm text-left focus:outline-none focus:border-[#123F3A]"
+      />
+      <div className="mt-2 space-y-1.5">
+        {ACCESS_LEVELS.map((l) => (
+          <label key={l.id} className="flex items-center gap-2 text-sm text-neutral-700">
+            <input type="radio" name="team-level" checked={level === l.id} onChange={() => setLevel(l.id)} />
+            {l.label}
+          </label>
+        ))}
+      </div>
+      {error && <div className="mt-2 text-xs text-red-600">{error}</div>}
+      <button
+        onClick={() => void invite()}
+        disabled={busy || !email.trim()}
+        className="mt-3 w-full py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-50"
+      >
+        {busy ? 'جارٍ الإرسال…' : 'أرسل الدعوة'}
+      </button>
+      <div className="mt-2 text-[11px] text-neutral-400 leading-relaxed">
+        تصله رسالة فيها رابط، يختار منه كلمة مروره ويدخل مباشرة.
+      </div>
     </div>
   )
 }

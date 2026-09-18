@@ -43,6 +43,8 @@ function initialViewFromUrl(): AppView {
   try {
     const view = new URLSearchParams(window.location.search).get('view')
     if (view === 'inbox') return 'inbox'
+    // An invitation link from the team screen: no session yet, by design.
+    if (view === 'invite') return 'invite'
     // Deployed builds have no demo mode (the API refuses
     // `x-construction-demo-user` unless NODE_ENV !== production), so every
     // read 401s until someone signs in. Nothing else reaches 'login': the one

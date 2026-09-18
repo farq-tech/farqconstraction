@@ -380,6 +380,71 @@ export function createFarqSession(options: FarqSessionOptions = {}) {
       return next
     },
 
+    /** Create an account (an invited colleague with no account yet) and sign in. */
+    async signUp(email: string, password: string): Promise<FarqSession> {
+      const result = await post<ApiSessionPayload>('/signup', { email, password })
+      if (!result.ok || !result.data) {
+        throw new FarqAuthError(
+          result.status === 409 ? 'هذا البريد لديه حساب بالفعل.' : result.message || 'تعذّر إنشاء الحساب.',
+          result.status,
+          result.status === 409 ? 'EMAIL_UNAVAILABLE' : 'SIGNUP_FAILED',
+        )
+      }
+      const next = toSession(result.data, now())
+      if (!next) throw new FarqAuthError('ردّ غير مفهوم من خدمة الحسابات.', 502, 'BAD_SESSION')
+      setSession(next, 'SIGNED_IN')
+      return next
+    },
+
+    /** Take a session the API issued elsewhere (an invitation's password claim). */
+    adoptSession(payload: unknown): boolean {
+      const next = payload ? toSession(payload as ApiSessionPayload, now()) : null
+      if (!next) return false
+      setSession(next, 'SIGNED_IN')
+      return true
+    },
+
+    /**
+     * Replace this account's password. The current one is required. The server
+     * ends every other session and returns a fresh one for this device, which
+     * is kept as a refresh so the buyer's working state stays where it is.
+     */
+    async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+      const token = session?.accessToken
+      if (!token) throw new FarqAuthError('سجّل الدخول أولًا.', 401, 'AUTH_REQUIRED')
+      let response: Response
+      try {
+        response = await fetchImpl(`${apiBase()}/api/auth/password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        })
+      } catch {
+        throw new FarqAuthError('تعذّر الوصول إلى خدمة الحسابات.', 0, 'NETWORK')
+      }
+      const payload = (await response.json().catch(() => null)) as
+        | { data?: ApiSessionPayload; errors?: Array<{ code?: string }> }
+        | null
+      if (!response.ok) {
+        const code = payload?.errors?.[0]?.code || 'PASSWORD_CHANGE_FAILED'
+        const message =
+          code === 'CURRENT_PASSWORD_INCORRECT'
+            ? 'كلمة المرور الحالية غير صحيحة.'
+            : code === 'PASSWORD_TOO_SHORT'
+              ? 'كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل.'
+              : code === 'ACCOUNT_LOCKED'
+                ? 'محاولات خاطئة كثيرة. حاول بعد قليل.'
+                : 'تعذّر تغيير كلمة المرور.'
+        throw new FarqAuthError(message, response.status, code)
+      }
+      const next = payload?.data ? toSession(payload.data, now()) : null
+      if (next) setSession(next, 'REFRESHED')
+    },
+
     /**
      * End this session. Local state is cleared first: a user who taps sign out
      * is signed out even if the request fails. The server revoke is best effort.
