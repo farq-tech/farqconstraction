@@ -75,20 +75,27 @@ try {
   // Stubbed at the NETWORK boundary, not the module boundary: this way the real
   // client mapping (grades, potential suppliers, auto-selected ids) is exercised
   // too, and ESM's read-only exports are not fought with.
+  let matchRequests = 0
+  let matchBytesUp = 0
+  let matchBytesDown = 0
+  let directoryBytes = 0
   globalThis.fetch = async (url, init = {}) => {
     const href = String(url)
     if (href.includes('/api/construction/boq/match')) {
+      matchRequests += 1
+      matchBytesUp += Buffer.byteLength(String(init.body || ''))
       const body = JSON.parse(String(init.body || '{}'))
       const rows = body.rows || []
       batchSizes.push(rows.length)
       sentKeys.push(...rows.map((r) => r.key))
-      return new Response(JSON.stringify({ ok: true, data: { rows: stubRows(rows.map((r) => ({ line_key: r.key }))) } }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      })
+      const payload = JSON.stringify({ ok: true, data: { rows: stubRows(rows.map((r) => ({ line_key: r.key }))) } })
+      matchBytesDown += Buffer.byteLength(payload)
+      return new Response(payload, { status: 200, headers: { 'content-type': 'application/json' } })
     }
     if (href.includes('/api/construction/catalog')) {
       directoryFetches += 1
+      // The real directory response measured ~5.9 MB after the field trim.
+      directoryBytes += 5_900_000
       return new Response(JSON.stringify({ ok: true, data: { suppliers: [] } }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -111,6 +118,11 @@ try {
     sentKeys = []
     batchSizes = []
     directoryFetches = 0
+    matchRequests = 0
+    matchBytesUp = 0
+    matchBytesDown = 0
+    directoryBytes = 0
+    const started = Date.now()
     const text = readFileSync(resolve(fixture), 'utf8')
     const resolved = parse.resolveParsedLines({
       text,
@@ -143,6 +155,11 @@ try {
       non_supplyable: state('NON_SUPPLYABLE'),
       match_pending: state('MATCH_PENDING'),
       directory_fetches: directoryFetches,
+      match_requests: matchRequests,
+      match_bytes_up: matchBytesUp,
+      match_bytes_down: matchBytesDown,
+      directory_bytes: directoryBytes,
+      wall_ms: Date.now() - started,
       evidence_invented_by_ui: result.items
         .flatMap((i) => i.suppliers)
         .filter((s) => s.evidence !== 'مورد محتمل' && !s.grade).length,
@@ -179,7 +196,9 @@ try {
       console.log(`  match failed            ${f.match_failed}`)
       console.log(`  degraded (keyword)      ${f.degraded}`)
       console.log(`  directory downloads     ${f.directory_fetches}   <- MUST be 0 when healthy`)
-      console.log(`  UI-invented evidence    ${f.evidence_invented_by_ui}   <- MUST be 0\n`)
+      console.log(`  UI-invented evidence    ${f.evidence_invented_by_ui}   <- MUST be 0`)
+      console.log(`  requests / bytes up+down ${f.match_requests} / ${(f.match_bytes_up / 1024).toFixed(0)} KB + ${(f.match_bytes_down / 1024).toFixed(0)} KB`)
+      console.log(`  directory bytes          ${(f.directory_bytes / 1_000_000).toFixed(1)} MB   <- was ~5.9 MB per upload\n`)
     }
     console.log('TOTALS')
     console.log(`  supplyable rows         ${grand.supplyable_rows}`)
