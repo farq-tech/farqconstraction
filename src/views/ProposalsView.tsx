@@ -877,8 +877,16 @@ export function ProposalsView({ navigate }: NavProps) {
     return true
   })
 
+  // Two different numbers, and the owner read the first as the second: the
+  // DISTINCT suppliers (one RFQ each, covering all their lines) and the
+  // line-by-supplier PICKS (1,514 lines x 5 is ~7,500 picks from ~300
+  // suppliers, because one supplier of a material serves every line of it).
   const totalSelected = useMemo(
     () => new Set(Object.values(selected).flat()).size,
+    [selected],
+  )
+  const totalPicks = useMemo(
+    () => Object.values(selected).reduce((sum, ids) => sum + ids.length, 0),
     [selected],
   )
 
@@ -938,6 +946,7 @@ export function ProposalsView({ navigate }: NavProps) {
           const lines = items.filter((i) => !i.workOnly)
           const covered = lines.filter((i) => (selected[i.id] || []).length > 0).length
           const chosen = new Set(lines.flatMap((i) => selected[i.id] || [])).size
+          const picks = lines.reduce((sum, i) => sum + (selected[i.id] || []).length, 0)
           const empty = lines.length - covered
           return (
             <div
@@ -945,7 +954,10 @@ export function ProposalsView({ navigate }: NavProps) {
               dir="rtl"
             >
               <div className="text-base font-black text-[#0D1F1D]">
-                اخترنا لك {chosen} موردًا لـ {covered} من {lines.length} بندًا
+                اخترنا لك {chosen} موردًا مختلفًا لـ {covered} من {lines.length} بندًا
+              </div>
+              <div className="text-xs text-neutral-700 mt-1">
+                مجموع الاختيارات {picks.toLocaleString('en-US')}: المورد الواحد يُختار لكل بنود مادته، فيصله طلب عرض واحد يشملها كلها.
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                 {empty === 0
@@ -1055,7 +1067,8 @@ export function ProposalsView({ navigate }: NavProps) {
               <span className="font-bold text-[#0D1F1D]">لا مورد مختار بعد</span>
             ) : (
               <>
-                <span className="font-bold text-[#0D1F1D]">{totalSelected}</span> موردًا
+                <span className="font-bold text-[#0D1F1D]">{totalSelected}</span> موردًا مختلفًا ·{' '}
+                <span className="font-bold text-[#0D1F1D]">{totalPicks.toLocaleString('en-US')}</span> اختيارًا
               </>
             )}
             {learnError ? (
