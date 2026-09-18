@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AppView } from '../types'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon } from '../icons'
 import { NotificationsDrawer } from './NotificationsDrawer'
-import { listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
+import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
 
@@ -12,7 +12,7 @@ interface ShellProps {
   children: React.ReactNode
 }
 
-function buildNav(offerBadge: string | null) {
+function buildNav(offerBadge: string | null, isScopeOwner = false) {
   return [
     {
       id: 'home' as AppView,
@@ -43,12 +43,18 @@ function buildNav(offerBadge: string | null) {
       Icon: UsersIcon,
       active: (v: AppView) => ['supplier-management', 'supplier-detail'].includes(v),
     },
-    {
-      id: 'learning-review' as AppView,
-      label: 'مراجعة المواد',
-      Icon: FileIcon,
-      active: (v: AppView) => v === 'learning-review',
-    },
+    // «مراجعة المواد» is the owner's tool for teaching the resolver; it lists
+    // lines from every booklet the company has read. Colleagues never see it.
+    ...(isScopeOwner
+      ? [
+          {
+            id: 'learning-review' as AppView,
+            label: 'مراجعة المواد',
+            Icon: FileIcon,
+            active: (v: AppView) => v === 'learning-review',
+          },
+        ]
+      : []),
     {
       id: 'settings' as AppView,
       label: 'الإعدادات',
@@ -86,7 +92,20 @@ export function Shell({ view, navigate, children }: ShellProps) {
     : 'سجّل الدخول للمتابعة'
   const inCreate = isCreateFlow(view)
   const step = getStep(view)
-  const NAV = buildNav(offerCount != null && offerCount > 0 ? String(offerCount) : null)
+  const [isScopeOwner, setIsScopeOwner] = useState(false)
+  useEffect(() => {
+    if (!session.isAuthenticated) return
+    let cancelled = false
+    getConstructionMe()
+      .then((me) => {
+        if (!cancelled) setIsScopeOwner(Boolean(me.user_id) && me.user_id === me.scope_owner_user_id)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [session.isAuthenticated, session.user?.id])
+  const NAV = buildNav(offerCount != null && offerCount > 0 ? String(offerCount) : null, isScopeOwner)
   const onInboxUnreadChange = useCallback((count: number) => {
     setInboxUnread(count)
   }, [])
