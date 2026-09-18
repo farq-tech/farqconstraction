@@ -56,6 +56,8 @@ interface BOQCardProps {
   onRejectSupplier: (supplier: Supplier) => void
   /** Removes this line from the request. The parent offers an undo. */
   onDelete: () => void
+  /** «طيّ الكل / فتح الكل»: every card follows the latest request. */
+  openAll: { open: boolean; at: number }
 }
 
 const SUGGESTION_TONE = {
@@ -167,8 +169,12 @@ function BOQCard({
   onAddSupplier,
   onRejectSupplier,
   onDelete,
+  openAll,
 }: BOQCardProps) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(openAll.open)
+  useEffect(() => {
+    if (openAll.at) setExpanded(openAll.open)
+  }, [openAll])
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [showAll, setShowAll] = useState(false)
@@ -604,6 +610,7 @@ export function ProposalsView({ navigate }: NavProps) {
    * send screen listing every recipient first. An automatic pick is NOT fed to
    * learning: the system does not learn from its own guesses.
    */
+  const [openAll, setOpenAll] = useState<{ open: boolean; at: number }>({ open: true, at: 0 })
   const autoDone = useRef<Set<number>>(new Set(Object.keys(getSelections()).map(Number)))
   const [autoSummary, setAutoSummary] = useState<{ suppliers: number; lines: number; empty: number } | null>(null)
 
@@ -612,9 +619,14 @@ export function ProposalsView({ navigate }: NavProps) {
     if (!fresh.length) return
     const picks: Record<number, Supplier[]> = {}
     for (const item of fresh) {
-      autoDone.current.add(item.id)
+      // Marked done only once something was chosen: a line whose suggestions
+      // arrive later (a restored session, a retried chunk) is picked then,
+      // instead of staying empty for good.
       const chosen = autoPickFor(item, AUTO_PICK)
-      if (chosen.length) picks[item.id] = chosen
+      if (chosen.length) {
+        autoDone.current.add(item.id)
+        picks[item.id] = chosen
+      }
     }
     const pickedIds = Object.keys(picks).map(Number)
     if (pickedIds.length) {
@@ -967,6 +979,15 @@ export function ProposalsView({ navigate }: NavProps) {
           </div>
         </div>
 
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={() => setOpenAll((prev) => ({ open: !prev.open, at: Date.now() }))}
+            className="text-sm font-semibold text-[#123F3A] bg-white border border-neutral-200 rounded-xl px-4 py-2 hover:bg-neutral-50"
+          >
+            {openAll.open ? 'طيّ كل البنود' : 'فتح كل البنود'}
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="flex rounded-xl border border-neutral-200 overflow-hidden bg-white">
             {(
@@ -1013,6 +1034,7 @@ export function ProposalsView({ navigate }: NavProps) {
               onAddSupplier={(supplier) => addSupplierToItem(item.id, supplier)}
               onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
               onDelete={() => deleteItem(item.id)}
+              openAll={openAll}
             />
           ))}
         </div>
