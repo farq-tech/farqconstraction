@@ -570,30 +570,11 @@ type RemoteMatch = {
 }
 
 /**
- * For each line, the nearest line above it (at most eight back) whose own name
- * already says what it is. A continuation line borrows that name to be
- * matched; see `matchConstructionBoqCatalog`.
- */
-const CONTEXT_REACH = 8
-function lineContexts(
-  lines: ParsedLine[],
-  resolve: (name: string) => { canonical_intent_id?: string | null; family?: string | null } | null,
-): Map<ParsedLine, string> {
-  const out = new Map<ParsedLine, string>()
-  let last: { name: string; at: number } | null = null
-  lines.forEach((line, at) => {
-    if (last && at - last.at <= CONTEXT_REACH) out.set(line, last.name)
-    const own = resolve(line.name)
-    if (own?.canonical_intent_id || own?.family) last = { name: line.name, at }
-  })
-  return out
-}
-
-/**
  * What the reader and the matcher are doing, line by line, so the processing
  * screen can show the work happening instead of a bar and a percentage.
  */
 export type BoqActivity =
+  | { kind: 'reading'; pagesDone: number; pageCount: number | null; itemCount: number; newNames: string[] }
   | { kind: 'read'; names: string[] }
   | { kind: 'matched'; rows: Array<{ name: string; suppliers: number }> }
 let emitActivity: ((event: BoqActivity) => void) | null = null
@@ -639,10 +620,11 @@ async function matchViaFarqBoqApi(
     // query did not survive being doubled), each retried once, and a chunk that
     // still fails leaves only ITS lines unmatched and is reported by count.
     let failedLines = 0
-    // Loaded with the client, not up front: the ontology is large and this
-    // module is on the first screen.
-    const { buildOntologyResolution } = await import('./canonicalIntent')
-    const contextOf = lineContexts(supplyLines, buildOntologyResolution)
+    // Every line's material, worked out once and off the page's thread (see
+    // lineResolution.ts): this used to freeze a phone long enough to be killed.
+    const { resolveLinesOffThread } = await import('./lineResolution')
+    const resolutions = await resolveLinesOffThread(supplyLines.map((line) => ({ name: line.name, spec: line.spec })))
+    const resolutionOf = new Map(supplyLines.map((line, i) => [line, resolutions[i] ?? null]))
     for (const chunk of chunks) {
       const body = {
         lines: chunk.map((line) => ({
@@ -651,7 +633,7 @@ async function matchViaFarqBoqApi(
           quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
           uom: line.unit || 'عدد',
           spec: line.spec,
-          context: contextOf.get(line),
+          ontology_resolution: resolutionOf.get(line) ?? null,
         })),
       }
       let part: Awaited<ReturnType<typeof matchConstructionBoqCatalog>> | null = null
@@ -1620,7 +1602,7 @@ async function parseBoqFileInner(
     try {
       const { parseConstructionBoqPdf } = await import('../api/constructionClient')
       const apiOrTimeout = await Promise.race([
-        parseConstructionBoqPdf(file).then((api) => ({ kind: 'api' as const, api })),
+        parseConstructionBoqPdf(file, (p) => emitActivity?.({ kind: 'reading', ...p })).then((api) => ({ kind: 'api' as const, api })),
         new Promise<{ kind: 'timeout' }>((resolve) => {
           apiTimer = setTimeout(() => resolve({ kind: 'timeout' }), apiWaitMs)
         }),

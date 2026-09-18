@@ -22,7 +22,7 @@ function batchDate(batch: SupplierImportBatch): string {
   if (!batch.created_at) return ''
   const ts = Date.parse(batch.created_at)
   if (Number.isNaN(ts)) return ''
-  return new Date(ts).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })
+  return new Date(ts).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavProps) {
@@ -218,13 +218,13 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
               ? 'جارٍ تحميل دليل الموردين…'
               : !totalKnown
                 ? 'تعذّرت قراءة عدد الموردين'
-                : `${total.toLocaleString('ar-SA')} مورد في كتالوج فرق${
+                : `${total.toLocaleString('en-US')} مورد في كتالوج فرق${
                     error ? ' · آخر قراءة ناجحة' : ''
                   }`}
           </p>
           {source && !loading && !error && (
             <p className="text-[11px] text-neutral-400 mt-1">
-              دليل موردي فرق · معروض {suppliers.length.toLocaleString('ar-SA')}
+              دليل موردي فرق · معروض {suppliers.length.toLocaleString('en-US')}
             </p>
           )}
         </div>
@@ -283,7 +283,7 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
                       : 'bg-[#f0faf7] text-[#123F3A] hover:bg-[#CFF5DC]'
                   }`}
                 >
-                  {batchTitle(batch)} · {(batch.live_supplier_count ?? 0).toLocaleString('ar-SA')}
+                  {batchTitle(batch)} · {(batch.live_supplier_count ?? 0).toLocaleString('en-US')}
                 </button>
               ))}
           </div>
@@ -303,9 +303,9 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
                     {batchDate(batch) ? ` · ${batchDate(batch)}` : ''}
                     {batch.created_by_label ? ` · بواسطة ${batch.created_by_label}` : ''}
                     <div className="mt-0.5">
-                      أُضيف {(batch.inserted_count ?? 0).toLocaleString('ar-SA')} · طوبق{' '}
-                      {(batch.matched_count ?? 0).toLocaleString('ar-SA')} · رُفض{' '}
-                      {(batch.rejected_count ?? 0).toLocaleString('ar-SA')}
+                      أُضيف {(batch.inserted_count ?? 0).toLocaleString('en-US')} · طوبق{' '}
+                      {(batch.matched_count ?? 0).toLocaleString('en-US')} · رُفض{' '}
+                      {(batch.rejected_count ?? 0).toLocaleString('en-US')}
                     </div>
                   </div>
                   <button
@@ -432,7 +432,7 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
             >
               {loadingMore
                 ? 'جاري التحميل…'
-                : `تحميل المزيد (${suppliers.length.toLocaleString('ar-SA')} من ${total.toLocaleString('ar-SA')})`}
+                : `تحميل المزيد (${suppliers.length.toLocaleString('en-US')} من ${total.toLocaleString('en-US')})`}
             </button>
           )}
         </div>

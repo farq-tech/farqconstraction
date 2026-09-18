@@ -104,7 +104,7 @@ function formatElapsed(ms: number): string {
 
 function formatClock(ts: number): string {
   try {
-    return new Date(ts).toLocaleTimeString('ar-SA', {
+    return new Date(ts).toLocaleTimeString('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',

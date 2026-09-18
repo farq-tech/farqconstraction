@@ -12,7 +12,7 @@ interface ShellProps {
   children: React.ReactNode
 }
 
-function buildNav(offerBadge: string | null, isScopeOwner = false) {
+function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: string | null = null) {
   return [
     {
       id: 'home' as AppView,
@@ -35,7 +35,14 @@ function buildNav(offerBadge: string | null, isScopeOwner = false) {
       Icon: InboxIcon,
       badge: offerBadge || undefined,
       active: (v: AppView) =>
-        ['offers', 'offer-detail', 'comparison', 'award', 'award-success', 'inbox'].includes(v),
+        ['offers', 'offer-detail', 'comparison', 'award', 'award-success'].includes(v),
+    },
+    {
+      id: 'inbox' as AppView,
+      label: 'المراسلات',
+      Icon: InboxIcon,
+      badge: inboxBadge || undefined,
+      active: (v: AppView) => v === 'inbox' || v === 'inbox-thread',
     },
     {
       id: 'supplier-management' as AppView,
@@ -105,7 +112,11 @@ export function Shell({ view, navigate, children }: ShellProps) {
       cancelled = true
     }
   }, [session.isAuthenticated, session.user?.id])
-  const NAV = buildNav(offerCount != null && offerCount > 0 ? String(offerCount) : null, isScopeOwner)
+  const NAV = buildNav(
+    offerCount != null && offerCount > 0 ? String(offerCount) : null,
+    isScopeOwner,
+    inboxUnread != null && inboxUnread > 0 ? String(inboxUnread) : null,
+  )
   const onInboxUnreadChange = useCallback((count: number) => {
     setInboxUnread(count)
   }, [])
@@ -152,7 +163,9 @@ export function Shell({ view, navigate, children }: ShellProps) {
 
   function go(id: AppView) {
     if (id === 'offers') {
-      const rfqId = selectedRfqId || latestRfqId
+      // A draft made by an upload («RFQ-…») lives in this browser, not on the
+      // server; the offers screen opens the latest real RFQ instead.
+      const rfqId = (selectedRfqId && !selectedRfqId.startsWith('RFQ-') ? selectedRfqId : null) || latestRfqId
       if (rfqId) openRfq(rfqId, 'offers')
       else navigate('rfq-list')
       return
@@ -196,13 +209,6 @@ export function Shell({ view, navigate, children }: ShellProps) {
           })}
 
           <div className="mt-4 mx-3 border-t border-white/10 pt-4 space-y-1">
-            <button
-              onClick={() => navigate('inbox')}
-              className="w-full flex items-center gap-2 px-3 py-2 text-right text-white/50 hover:text-white/80 transition-colors text-xs"
-            >
-              <span className="text-[10px]">✉</span>
-              صندوق الوارد
-            </button>
             <button
               onClick={() => navigate('supplier')}
               className="w-full flex items-center gap-2 px-3 py-2 text-right text-white/30 hover:text-white/60 transition-colors text-xs"
@@ -269,7 +275,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.slice(0, 4).map(({ id, label, Icon, active }) => {
+          {NAV.slice(0, 5).map(({ id, label, Icon, active }) => {
             const isActive = active(view)
             return (
               <button
