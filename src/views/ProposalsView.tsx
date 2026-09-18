@@ -17,8 +17,25 @@ type Filter = 'all' | 'ready' | 'needs'
 const EVIDENCE_STYLE: Record<string, string> = {
   'دليل مباشر': 'bg-[#CFF5DC] text-[#1a7a45]',
   'نشاط متطابق': 'bg-[#e0efec] text-[#123F3A]',
-  'دليل منتج': 'bg-blue-50 text-blue-700',
+  // Deliberately the quietest of the four. «مورد محتمل» is what a supplier gets
+  // when Farq graded him REVIEW or graded him not at all, and it must not read
+  // like a finding. The blue «دليل منتج» badge it replaces was handed out by
+  // array position to every supplier after the third.
+  'مورد محتمل': 'bg-neutral-100 text-neutral-500',
+  // Not a supplier of the material at all — Farq's last answer on a line whose
+  // material and family both failed to resolve. Styled apart so it cannot be
+  // mistaken for coverage.
+  'مقاول بهذا النشاط': 'bg-white border border-neutral-200 text-neutral-500',
   'اختيارك': 'bg-amber-50 text-amber-700',
+}
+
+/** What each terminal state says on the card. No state renders as «searching». */
+const STATE_LABEL: Record<string, string> = {
+  MATCH_PENDING: 'جارٍ الترشيح',
+  MATCH_FAILED: 'تعذّر تحميل الموردين',
+  SUPPLYABLE_NO_SUPPLIER: 'لا يوجد مورد في سجلات فرق',
+  NON_SUPPLYABLE: 'ليس بند توريد',
+  INVALID_FOR_PRICING: 'غير قابل للتسعير',
 }
 
 const CHANNEL_ICON: Record<string, string> = {
@@ -66,7 +83,14 @@ function BOQCard({
   const allIds = item.suppliers.map((s) => s.id)
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.includes(id))
   const { name, qty, unit, spec } = resolveBoqCardFields(item)
-  const isSearching = item.status === 'searching'
+  const state = item.state || (item.status === 'ready' ? 'SUPPLYABLE_MATCHED' : 'SUPPLYABLE_NO_SUPPLIER')
+  /** Only a batch that has not returned is genuinely still in progress. */
+  const isPending = state === 'MATCH_PENDING'
+  const hasSuppliers = item.suppliers.length > 0
+  const coverage = item.coverage
+  const confirmedCount = coverage?.confirmedCount ?? 0
+  const potentialCount = coverage?.potentialCount ?? item.suppliers.length
+  const isSearching = !hasSuppliers
   const alreadyIds = useMemo(() => new Set(item.suppliers.map((s) => s.id)), [item.suppliers])
 
   useEffect(() => {
@@ -130,6 +154,10 @@ function BOQCard({
       city: hit.city,
       evidence: 'اختيارك',
       channel: hit.hasEmail ? 'بريد' : hit.hasHaraj ? 'حراج' : 'واتساب',
+      // A supplier the buyer found himself. We hold no evidence that he supplies
+      // this material, so he carries no grade and is never auto-selectable.
+      origin: 'manual',
+      autoSelectable: false,
     })
     setSearch('')
     setHits([])
@@ -145,9 +173,22 @@ function BOQCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold text-neutral-400">{item.id}</span>
-            {isSearching && (
+            {state !== 'SUPPLYABLE_MATCHED' && state !== 'SUPPLYABLE_PARTIAL_COVERAGE' && (
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                  isPending
+                    ? 'bg-neutral-100 text-neutral-500'
+                    : state === 'MATCH_FAILED'
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-neutral-100 text-neutral-600'
+                }`}
+              >
+                {STATE_LABEL[state] || STATE_LABEL.SUPPLYABLE_NO_SUPPLIER}
+              </span>
+            )}
+            {coverage?.degraded && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">
-                فرق يبحث عنها
+                بحث نصي فقط
               </span>
             )}
           </div>
@@ -159,13 +200,34 @@ function BOQCard({
         </div>
         <div className="text-left flex-shrink-0">
           <div className="text-xs text-neutral-500 mb-1">
-            {isSearching
-              ? `وجدنا موردًا واحدًا حتى الآن`
-              : `وجد فرق ${item.supplierCount} موردًا`}
+            {/*
+              This read «وجدنا موردًا واحدًا حتى الآن» on a line with ZERO
+              suppliers, because the old status had one value for «none» and
+              «still going». It now says the number, and says nothing when there
+              is no number to say.
+            */}
+            {isPending
+              ? 'جارٍ الترشيح…'
+              : state === 'MATCH_FAILED'
+                ? 'لم نحصل على إجابة'
+                : !hasSuppliers
+                  ? 'لا مورد'
+                  : confirmedCount > 0 && potentialCount > 0
+                    ? `${confirmedCount} مؤكد · ${potentialCount} محتمل`
+                    : confirmedCount > 0
+                      ? `${confirmedCount} مورد مؤكد`
+                      : `${potentialCount} مورد محتمل`}
           </div>
           <div className="flex items-center gap-1 justify-end">
+            {/* The pulsing dot is for work actually in flight, nothing else. */}
             <span
-              className={`w-2 h-2 rounded-full ${isSearching ? 'bg-amber-400 animate-pulse-dot' : 'bg-[#123F3A]'}`}
+              className={`w-2 h-2 rounded-full ${
+                isPending
+                  ? 'bg-amber-400 animate-pulse-dot'
+                  : hasSuppliers
+                    ? 'bg-[#123F3A]'
+                    : 'bg-neutral-300'
+              }`}
             />
             {expanded ? (
               <ChevronUpIcon className="w-4 h-4 text-neutral-400" />
@@ -317,9 +379,47 @@ function BOQCard({
             )}
           </div>
 
-          {isSearching && (
+          {/*
+            This used to promise «فرق يواصل البحث عن موردين لهذا البند عبر
+            الكتالوج الحي» on a line where matching had already finished with
+            nothing. There was no background search and no retry: it was a
+            permanent claim about work that was not happening. Each state now says
+            what is actually true, and offers the action that exists.
+          */}
+          {isPending && (
             <div className="mt-3 text-xs text-neutral-400 bg-neutral-50 rounded-xl px-3 py-2.5">
-              فرق يواصل البحث عن موردين لهذا البند عبر الكتالوج الحي.
+              فرق يرشّح موردي هذا البند الآن…
+            </div>
+          )}
+          {state === 'MATCH_FAILED' && (
+            <div className="mt-3 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2.5 leading-relaxed">
+              تعذّر تحميل الموردين لهذا البند — لم نحصل على إجابة من فرق. هذا ليس
+              «لا يوجد مورد». أعد المطابقة، أو ابحث عن مورد يدويًا.
+            </div>
+          )}
+          {state === 'SUPPLYABLE_NO_SUPPLIER' && (
+            <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5 leading-relaxed">
+              بحث فرق في كامل سجلاته ولم يجد موردًا لهذه المادة
+              {coverage?.resolvedFamily ? ' ولا لعائلتها' : ''}. ابحث يدويًا إن كنت
+              تعرف موردًا.
+            </div>
+          )}
+          {state === 'NON_SUPPLYABLE' && (
+            <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
+              صنّف فرق هذا السطر بأنه ليس بند توريد، فلم يُرشَّح له موردون.
+            </div>
+          )}
+          {coverage && coverage.totalCount > 0 && coverage.totalCount < coverage.targetCount && (
+            <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
+              {coverage.totalCount} من {coverage.targetCount} موردين — هذا كل ما
+              وجده فرق لهذه المادة.
+            </div>
+          )}
+          {coverage && coverage.tradeContractorCount > 0 && (
+            <div className="mt-3 text-xs text-neutral-500 bg-white border border-neutral-100 rounded-xl px-3 py-2.5 leading-relaxed">
+              {coverage.tradeContractorCount} مقاولًا بهذا النشاط — لم نتعرف على
+              المادة نفسها، وهؤلاء مقاولون في التخصص وليسوا موردين لها. لا
+              يُحسبون ضمن الـ{coverage.targetCount} موردين.
             </div>
           )}
         </div>
@@ -351,7 +451,13 @@ export function ProposalsView({ navigate }: NavProps) {
     setSelected((prev) => {
       const next: Record<number, string[]> = { ...prev }
       for (const item of items) {
-        if (!next[item.id]) next[item.id] = item.suppliers.map((s) => s.id)
+        if (next[item.id]) continue
+        // Farq's send gate decides what arrives ticked. This used to tick every
+        // supplier on the line, so an unverified keyword hit was pre-selected
+        // beside a verified catalogue match.
+        next[item.id] = item.coverage?.autoSelectedSupplierIds?.length
+          ? [...item.coverage.autoSelectedSupplierIds]
+          : item.suppliers.filter((s) => s.autoSelectable).map((s) => s.id)
       }
       return next
     })
@@ -412,12 +518,20 @@ export function ProposalsView({ navigate }: NavProps) {
     setSelected((prev) => ({ ...prev, [itemId]: [] }))
   }
 
-  const readyItems = items.filter((i) => i.status === 'ready')
-  const searchingItems = items.filter((i) => i.status === 'searching')
+  const stateOf = (i: BOQItem) =>
+    i.state || (i.status === 'ready' ? 'SUPPLYABLE_MATCHED' : 'SUPPLYABLE_NO_SUPPLIER')
+  const readyItems = items.filter((i) => i.suppliers.length > 0)
+  const searchingItems = items.filter((i) => i.suppliers.length === 0)
+  // These three are counted apart on purpose. «Farq searched and found nobody»,
+  // «Farq never answered» and «not a supply line» are different facts, and adding
+  // them together was how a request failure came to read as an empty directory.
+  const noSupplierItems = items.filter((i) => stateOf(i) === 'SUPPLYABLE_NO_SUPPLIER')
+  const failedItems = items.filter((i) => stateOf(i) === 'MATCH_FAILED')
+  const nonSupplyableItems = items.filter((i) => stateOf(i) === 'NON_SUPPLYABLE')
 
   const filtered = items.filter((item) => {
-    if (filter === 'ready' && item.status !== 'ready') return false
-    if (filter === 'needs' && item.status !== 'searching') return false
+    if (filter === 'ready' && item.suppliers.length === 0) return false
+    if (filter === 'needs' && item.suppliers.length > 0) return false
     if (query && !resolveBoqCardFields(item).name.includes(query)) return false
     return true
   })
@@ -464,11 +578,42 @@ export function ProposalsView({ navigate }: NavProps) {
             <span className="text-lg font-black text-[#123F3A]">{readyItems.length}</span>
             <span className="text-sm text-[#123F3A]">جاهزة للإرسال</span>
           </div>
-          <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-4 py-2.5">
-            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse-dot" />
-            <span className="text-lg font-black text-amber-700">{searchingItems.length}</span>
-            <span className="text-sm text-amber-700">يحتاج موردين</span>
-          </div>
+          {noSupplierItems.length > 0 && (
+            <div className="flex items-center gap-2 bg-neutral-100 rounded-xl px-4 py-2.5">
+              <span className="text-lg font-black text-neutral-600">{noSupplierItems.length}</span>
+              <span className="text-sm text-neutral-600">بلا مورد في سجلات فرق</span>
+            </div>
+          )}
+          {failedItems.length > 0 && (
+            <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-4 py-2.5">
+              <span className="text-lg font-black text-amber-700">{failedItems.length}</span>
+              <span className="text-sm text-amber-700">تعذّر الترشيح — أعد المحاولة</span>
+            </div>
+          )}
+          {nonSupplyableItems.length > 0 && (
+            <div className="flex items-center gap-2 bg-white border border-neutral-100 rounded-xl px-4 py-2.5">
+              <span className="text-lg font-black text-neutral-500">{nonSupplyableItems.length}</span>
+              <span className="text-sm text-neutral-500">ليست بنود توريد</span>
+            </div>
+          )}
+        </div>
+
+        {/*
+          THE AUDIT LINE. Every extracted row is accounted for here, so a line
+          that will not reach the RFQ is visible before «أرسل» rather than simply
+          absent from it.
+        */}
+        <div className="mb-6 rounded-xl border border-neutral-100 bg-white px-4 py-3 text-xs text-neutral-500 leading-relaxed">
+          من <span className="font-bold text-[#0D1F1D]">{items.length}</span> بندًا
+          مقروءًا:{' '}
+          <span className="font-bold text-[#123F3A]">{readyItems.length}</span> لها
+          موردون ·{' '}
+          <span className="font-bold text-neutral-600">{noSupplierItems.length}</span>{' '}
+          بحث فرق ولم يجد ·{' '}
+          <span className="font-bold text-amber-700">{failedItems.length}</span>{' '}
+          لم نحصل لها على إجابة ·{' '}
+          <span className="font-bold text-neutral-600">{nonSupplyableItems.length}</span>{' '}
+          ليست بنود توريد. البنود بلا موردين محدَّدين لا تدخل طلب التسعير.
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">

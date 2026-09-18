@@ -1,4 +1,14 @@
-import type { BOQItem, Supplier } from '../types'
+import type {
+  BOQItem,
+  BoqSupplierCoverage,
+  ChannelType,
+  EvidenceType,
+  LineCoverageState,
+  Supplier,
+  SupplierGrade,
+  SupplierOrigin,
+} from '../types'
+import type { BoqCatalogMatchRow } from '../api/constructionClient'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 
 function normalizeAr(text: string): string {
@@ -526,209 +536,382 @@ async function extractPlainText(file: File): Promise<string> {
   return file.text()
 }
 
-/** Cap UI proposals so a 10k+ directory response cannot freeze the tab. */
+/**
+ * Display cap per card. Farq decides WHO; this only decides how many fit before
+ * «اعرض الكل». It is not a coverage limit: `coverage.totalCount` reports what
+ * Farq actually found, whether or not every one is rendered.
+ */
 const MATCH_SUPPLIERS_PER_LINE = 8
-/** Client-side fallback only scores against this many directory rows. */
-const MATCH_CATALOG_SCORE_CAP = 2_500
-/** Prefer Farq BOQ match for at most this many lines (API max is 200). */
-const MATCH_API_LINE_CAP = 80
 
-function scoreSupplier(hay: string, needles: string[]): number {
-  let score = 0
-  const normHay = normalizeAr(hay)
-  for (const n of needles) {
-    const nn = normalizeAr(n)
-    if (nn && normHay.includes(nn)) score += 2
-  }
-  return score
-}
+/** How many /boq/match requests may be in flight at once. */
+const MATCH_BATCH_CONCURRENCY = 3
+
+/**
+ * The degraded keyword path scores against this many directory rows — and ONLY
+ * when Farq's matching failed for a batch. It used to run on every upload as the
+ * primary source of proposals, which meant the first 2,500 contactable rows of a
+ * 10k+ directory decided coverage for the whole booklet, while the per-line
+ * search box beside it queried the entire directory and found suppliers the
+ * automatic path could not reach.
+ */
+const DEGRADED_CATALOG_SCORE_CAP = 2_500
 
 function lineKeyFor(line: ParsedLine): string {
   return `line-${line.id}`
 }
 
-function mapApiSuppliers(
-  rows: Array<{
+/**
+ * The ONE place a supplier's Arabic label is chosen, and it is chosen from the
+ * grade Farq sent. Three separate places used to assign «نشاط متطابق» to the
+ * first three suppliers of an array and «دليل منتج» to the rest, by index, with
+ * no evidence behind either word.
+ */
+function evidenceForGrade(
+  grade: SupplierGrade | undefined,
+  origin: SupplierOrigin,
+): EvidenceType {
+  if (origin === 'manual') return 'اختيارك'
+  // A contractor of the trade is never described as a supplier of the material,
+  // whatever grade rides along with him.
+  if (origin === 'trade_contractor') return 'مقاول بهذا النشاط'
+  if (grade === 'DIRECT') return 'دليل مباشر'
+  if (grade === 'TAXONOMY') return 'نشاط متطابق'
+  // REVIEW, or a supplier Farq graded not at all. Claim nothing.
+  return 'مورد محتمل'
+}
+
+function channelFor(raw: string | undefined): ChannelType {
+  return raw === 'واتساب' ? 'واتساب' : raw === 'حراج' ? 'حراج' : 'بريد'
+}
+
+function toUiSupplier(
+  row: {
     id: string
     name_ar?: string
     name_en?: string
-    city?: unknown
-    evidence?: string
+    city?: string
+    grade?: SupplierGrade
     channel?: string
-  }>,
-): Supplier[] {
-  return rows
-    .slice(0, MATCH_SUPPLIERS_PER_LINE)
-    .map((s, i) => {
-      const evidence: Supplier['evidence'] =
-        s.evidence === 'دليل مباشر' ||
-        s.evidence === 'نشاط متطابق' ||
-        s.evidence === 'دليل منتج' ||
-        s.evidence === 'اختيارك'
-          ? s.evidence
-          : i < 3
-            ? 'نشاط متطابق'
-            : 'دليل منتج'
-      const channel: Supplier['channel'] =
-        s.channel === 'واتساب' ? 'واتساب' : s.channel === 'حراج' ? 'حراج' : 'بريد'
-      return {
-        id: s.id,
-        name: String(s.name_ar || s.name_en || s.id).trim(),
-        city: cityLabel(s.city),
-        evidence,
-        channel,
-      }
-    })
-}
-
-async function matchViaFarqBoqApi(lines: ParsedLine[]): Promise<Map<string, {
-  farqSpecId?: string | null
-  suppliers: Supplier[]
-}>> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[] }>()
-  if (!lines.length) return out
-  try {
-    const { matchConstructionBoqCatalog } = await import('../api/constructionClient')
-    const matched = await matchConstructionBoqCatalog({
-      lines: lines.slice(0, MATCH_API_LINE_CAP).map((line) => ({
-        line_key: lineKeyFor(line),
-        name_ar: line.name,
-        quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
-        uom: line.unit || 'عدد',
-        spec: line.spec,
-      })),
-    })
-    for (const row of matched.rows || []) {
-      out.set(row.line_key, {
-        farqSpecId: row.farq_spec_id,
-        suppliers: mapApiSuppliers(row.suppliers || []),
-      })
-    }
-  } catch {
-    // Fall through to local keyword matching.
+    rfq_eligible?: boolean
+    origin: string
+  },
+  autoSelectedIds: Set<string>,
+): Supplier {
+  const origin: SupplierOrigin =
+    row.origin === 'material'
+      ? 'material'
+      : row.origin === 'intent_map'
+        ? 'intent_map'
+        : row.origin === 'ai'
+          ? 'ai'
+          : row.origin === 'trade_contractor'
+            ? 'trade_contractor'
+            : row.origin === 'directory'
+              ? 'degraded_search'
+              : 'family'
+  return {
+    id: row.id,
+    name: String(row.name_ar || row.name_en || row.id).trim(),
+    city: cityLabel(row.city),
+    evidence: evidenceForGrade(row.grade, origin),
+    channel: channelFor(row.channel),
+    grade: row.grade,
+    origin,
+    autoSelectable: autoSelectedIds.has(row.id),
   }
-  return out
 }
 
-export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
-  items: BOQItem[]
-  catalogLoaded: boolean
+export type MatchProgress = {
+  /** Lines whose batch has come back, successfully or not. */
+  matched: number
+  /** Lines that will be sent in total. */
+  total: number
+  /** Batches that failed outright. */
+  failedBatches: number
+}
+
+/**
+ * Sends EVERY supplyable line to Farq, in batches of the server's real limit.
+ *
+ * The cap this replaces was 80 lines, once, with no batching and no second
+ * request — on a 1,514-line booklet that is 5% of the tender reaching the engine
+ * and 95% of it silently keyword-matched in the browser. The server validates
+ * 1..200 rows per request and 400s outside that, so 200 is the batch size and
+ * nothing is dropped to fit.
+ *
+ * A batch that fails marks ONLY its own lines. It never fails the upload, and it
+ * never reads as «no supplier».
+ */
+async function matchAllLinesViaFarq(
+  lines: ParsedLine[],
+  onProgress?: (progress: MatchProgress) => void,
+): Promise<{
+  byKey: Map<string, BoqCatalogMatchRow>
+  failedKeys: Set<string>
+  failedBatches: number
+  batchCount: number
+  lastError?: string
 }> {
-  const cleanLines = sanitizeBoqLines(lines)
-  const apiHits = await matchViaFarqBoqApi(cleanLines)
+  const byKey = new Map<string, BoqCatalogMatchRow>()
+  const failedKeys = new Set<string>()
+  if (!lines.length) return { byKey, failedKeys, failedBatches: 0, batchCount: 0 }
+
+  const { matchConstructionBoqCatalog, CONSTRUCTION_BOQ_MATCH_MAX_ROWS } = await import(
+    '../api/constructionClient'
+  )
+
+  const batches: ParsedLine[][] = []
+  for (let i = 0; i < lines.length; i += CONSTRUCTION_BOQ_MATCH_MAX_ROWS) {
+    batches.push(lines.slice(i, i + CONSTRUCTION_BOQ_MATCH_MAX_ROWS))
+  }
+
+  let matched = 0
+  let failedBatches = 0
+  let lastError: string | undefined
+  const report = () =>
+    onProgress?.({ matched, total: lines.length, failedBatches })
+
+  const runBatch = async (batch: ParsedLine[]) => {
+    try {
+      const result = await matchConstructionBoqCatalog({
+        lines: batch.map((line) => ({
+          line_key: lineKeyFor(line),
+          name_ar: line.name,
+          quantity: Number(String(line.qty).replace(/,/g, '')) || 1,
+          uom: line.unit || 'عدد',
+          spec: line.spec,
+        })),
+      })
+      const rows = result.rows || []
+      for (const row of rows) byKey.set(row.line_key, row)
+      // A row Farq did not answer for is not a silent success.
+      for (const line of batch) {
+        const key = lineKeyFor(line)
+        if (!byKey.has(key)) failedKeys.add(key)
+      }
+    } catch (error) {
+      failedBatches += 1
+      lastError = error instanceof Error ? error.message : String(error)
+      for (const line of batch) failedKeys.add(lineKeyFor(line))
+    } finally {
+      matched += batch.length
+      report()
+    }
+  }
+
+  // Bounded concurrency: enough to hide latency, not enough to trip the
+  // per-IP construction limiter that the inbox shares.
+  let cursor = 0
+  const workers = Array.from(
+    { length: Math.min(MATCH_BATCH_CONCURRENCY, batches.length) },
+    async () => {
+      while (cursor < batches.length) {
+        const batch = batches[cursor++]
+        if (batch) await runBatch(batch)
+      }
+    },
+  )
+  await Promise.all(workers)
+
+  return { byKey, failedKeys, failedBatches, batchCount: batches.length, lastError }
+}
+
+/**
+ * Keyword search over the directory, for lines whose batch failed only.
+ *
+ * Everything it returns is «مورد محتمل» with no grade and no auto-selection:
+ * a token overlap is not evidence, and the screen must not dress it as one.
+ */
+async function degradedSupplierSearch(
+  lines: ParsedLine[],
+): Promise<{ byKey: Map<string, Supplier[]>; catalogLoaded: boolean }> {
+  const byKey = new Map<string, Supplier[]>()
+  if (!lines.length) return { byKey, catalogLoaded: false }
 
   let catalog: Awaited<ReturnType<typeof listConstructionSuppliers>>['suppliers'] = []
-  let catalogLoaded = false
   try {
     const result = await listConstructionSuppliers({
-      limit: MATCH_CATALOG_SCORE_CAP,
+      limit: DEGRADED_CATALOG_SCORE_CAP,
       offset: 0,
       contactableOnly: true,
     })
     catalog = result.suppliers
-      .slice(0, MATCH_CATALOG_SCORE_CAP)
-    catalogLoaded = catalog.length > 0
   } catch {
-    catalog = []
-    catalogLoaded = false
+    return { byKey, catalogLoaded: false }
   }
+  if (!catalog.length) return { byKey, catalogLoaded: false }
 
-  // Intent → shared pool (one catalog scan per unique intent), then per-line rank.
-  const {
-    resolveProcurementIntentBatch,
-    scoreSupplierAgainstProfile,
-  } = await import('./procurementIntentEngine')
-  const batch = resolveProcurementIntentBatch(
-    cleanLines.map((line) => ({ id: line.id, name: line.name })),
-  )
-  const poolSuppliers = new Map<string, typeof catalog>()
-  for (const pool of batch.pools) {
-    const scored = catalog
-      .map((s) => {
-        const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-        const { score, vetoed } = scoreSupplierAgainstProfile(hay, {
-          intent: pool.intent,
-          domain: pool.domain,
-          type: 'product',
-          search_terms: pool.search_terms,
-          supplier_archetypes: pool.supplier_archetypes,
-          exclude: pool.exclude,
-          confidence: 1,
-          source: 'dictionary',
-          raw: pool.intent,
-        })
-        return { s, score, vetoed }
-      })
-      .filter((x) => !x.vetoed && x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((x) => x.s)
-    poolSuppliers.set(pool.pool_key, scored)
-  }
-
-  const profileByLineId = new Map(
-    batch.lines.map((row) => [row.line_id, row.profile]),
+  const haystacks = catalog.map(
+    (s) => `${s.name} ${s.category} ${s.activity || ''} ${s.city}`,
   )
 
-  const items = cleanLines.map((line) => {
-    const api = apiHits.get(lineKeyFor(line))
-    const apiSuppliers = api?.suppliers || []
-    const profile = profileByLineId.get(String(line.id))
-    const poolKey =
-      profile && profile.intent !== 'unknown'
-        ? profile.intent
-        : `line:${line.id}`
-    const pooled = poolSuppliers.get(poolKey) || []
+  for (const line of lines) {
+    const needles = normalizeAr(line.name)
+      .split(/\s+/)
+      .filter((word) => word.length >= 3)
+      .slice(0, 4)
+    if (!needles.length) {
+      byKey.set(lineKeyFor(line), [])
+      continue
+    }
+    const scored: Array<{ index: number; score: number }> = []
+    for (let i = 0; i < catalog.length; i++) {
+      let score = 0
+      const hay = normalizeAr(haystacks[i] || '')
+      for (const needle of needles) {
+        const nn = normalizeAr(needle)
+        if (nn && hay.includes(nn)) score += 2
+      }
+      if (score > 0) scored.push({ index: i, score })
+    }
+    scored.sort((a, b) => b.score - a.score)
+    byKey.set(
+      lineKeyFor(line),
+      scored.slice(0, MATCH_SUPPLIERS_PER_LINE).map(({ index }) => {
+        const s = catalog[index]!
+        return {
+          id: s.id,
+          name: s.name,
+          city: s.city,
+          // No grade: nobody graded him. No auto-selection either.
+          evidence: 'مورد محتمل' as EvidenceType,
+          channel: (s.hasEmail ? 'بريد' : 'واتساب') as ChannelType,
+          origin: 'degraded_search' as SupplierOrigin,
+          autoSelectable: false,
+        }
+      }),
+    )
+  }
+  return { byKey, catalogLoaded: true }
+}
 
-    // Per-line re-rank within the shared intent pool (apply line profile again).
-    const ranked = (profile
-      ? pooled
-          .map((s) => {
-            const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-            const { score, vetoed } = scoreSupplierAgainstProfile(hay, profile)
-            return { s, score, vetoed }
-          })
-          .filter((x) => !x.vetoed && x.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .map((x) => x.s)
-      : pooled)
+/** The state a line lands in, from Farq's own answer. */
+function stateForRow(
+  row: BoqCatalogMatchRow | undefined,
+  supplierCount: number,
+  degraded: boolean,
+  failed: boolean,
+): LineCoverageState {
+  if (failed && !degraded) return 'MATCH_FAILED'
+  if (row?.kind === 'REJECT_NOT_SUPPLY') return 'NON_SUPPLYABLE'
+  if (supplierCount === 0) return failed ? 'MATCH_FAILED' : 'SUPPLYABLE_NO_SUPPLIER'
+  const target = row?.coverage?.target ?? COVERAGE_TARGET
+  const total = row?.coverage?.total ?? supplierCount
+  return total >= target ? 'SUPPLYABLE_MATCHED' : 'SUPPLYABLE_PARTIAL_COVERAGE'
+}
 
-    // Fallback: if pool empty and profile unknown, soft token score (still not raw-only dump).
-    const fallbackNeedles =
-      profile?.search_terms?.length
-        ? profile.search_terms
-        : normalizeAr(line.name)
-            .split(/\s+/)
-            .filter((w) => w.length >= 3)
-            .slice(0, 4)
-    const fallback =
-      ranked.length > 0
-        ? []
-        : catalog
-            .map((s) => {
-              const hay = `${s.name} ${s.category} ${s.activity || ''} ${s.city}`
-              if (profile && scoreSupplierAgainstProfile(hay, profile).vetoed) {
-                return { s, score: 0 }
-              }
-              return { s, score: scoreSupplier(hay, fallbackNeedles) }
-            })
-            .filter((x) => x.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .map((x) => x.s)
+/** The five-supplier floor, as Farq reports it. */
+const COVERAGE_TARGET = 5
 
-    const catalogSource = ranked.length > 0 ? ranked : fallback
-    const seen = new Set(apiSuppliers.map((s) => s.id))
-    const catalogExtras: Supplier[] = catalogSource
-      .filter((s) => !seen.has(s.id))
-      .slice(0, Math.max(0, MATCH_SUPPLIERS_PER_LINE - apiSuppliers.length))
-      .map((s, i) => ({
-        id: s.id,
-        name: s.name,
-        city: s.city,
-        evidence: (i < 3 ? 'نشاط متطابق' : 'دليل منتج') as Supplier['evidence'],
-        channel: (s.hasEmail ? 'بريد' : 'واتساب') as Supplier['channel'],
-      }))
+export async function matchSuppliersForItems(
+  lines: ParsedLine[],
+  options: {
+    onProgress?: (progress: MatchProgress) => void
+    /** Called with a snapshot each time a batch lands, for progressive render. */
+    onPartial?: (items: BOQItem[]) => void
+  } = {},
+): Promise<{
+  items: BOQItem[]
+  catalogLoaded: boolean
+  /** True when any line's suppliers came from the degraded keyword path. */
+  degraded: boolean
+  /** Lines Farq never answered for, even after the degraded attempt. */
+  unmatchedLineCount: number
+  matchWarning?: string
+}> {
+  const cleanLines = sanitizeBoqLines(lines)
 
-    const suppliers = [...apiSuppliers, ...catalogExtras].slice(0, MATCH_SUPPLIERS_PER_LINE)
+  // Every line is shown immediately, in an explicit pending state. Nothing waits
+  // for the last batch to be readable, and nothing is invented while it waits.
+  const pendingItems: BOQItem[] = cleanLines.map((line) => ({
+    id: line.id,
+    name: line.name,
+    qty: line.qty,
+    unit: line.unit,
+    spec: line.spec,
+    status: 'searching' as const,
+    state: 'MATCH_PENDING' as LineCoverageState,
+    supplierCount: 0,
+    suppliers: [],
+    lineKey: lineKeyFor(line),
+  }))
+  options.onPartial?.(pendingItems.map((item) => ({ ...item })))
+
+  const matched = await matchAllLinesViaFarq(cleanLines, options.onProgress)
+
+  // Degraded keyword search ONLY for the lines Farq could not answer. On a
+  // healthy upload this never runs, so the 6 MB directory is never downloaded.
+  const failedLines = cleanLines.filter((line) => matched.failedKeys.has(lineKeyFor(line)))
+  const degradedResult = failedLines.length
+    ? await degradedSupplierSearch(failedLines)
+    : { byKey: new Map<string, Supplier[]>(), catalogLoaded: false }
+
+  const items: BOQItem[] = cleanLines.map((line) => {
+    const key = lineKeyFor(line)
+    const row = matched.byKey.get(key)
+    const failed = matched.failedKeys.has(key)
+    const degradedSuppliers = degradedResult.byKey.get(key)
+    const isDegraded = Boolean(degradedSuppliers && degradedSuppliers.length > 0)
+
+    const autoSelectedIds = new Set(
+      (row?.auto_selected_supplier_ids || []).map((id) => String(id)),
+    )
+    const confirmed = (row?.suppliers || []).map((s) => toUiSupplier(s, autoSelectedIds))
+    const potential = (row?.potential_suppliers || []).map((s) =>
+      // A suggestion supplier is never auto-selectable, whatever else is true.
+      ({ ...toUiSupplier(s, new Set<string>()), autoSelectable: false }),
+    )
+    // Contractors of the trade come last on the card and count toward nothing.
+    const tradeContractors = (row?.trade_contractors || []).map((s) => ({
+      ...toUiSupplier(s, new Set<string>()),
+      autoSelectable: false,
+    }))
+    const fromFarq = [...confirmed, ...potential, ...tradeContractors]
+    const suppliers = (fromFarq.length ? fromFarq : degradedSuppliers || []).slice(
+      0,
+      MATCH_SUPPLIERS_PER_LINE,
+    )
+
+    const confirmedCount = row?.coverage?.confirmed ?? confirmed.length
+    const potentialCount =
+      row?.coverage?.potential ?? (potential.length || (degradedSuppliers?.length ?? 0))
+    const tradeContractorCount = row?.coverage?.trade_contractors ?? tradeContractors.length
+    // Trade contractors are NOT in the total. A line answered only by the
+    // contractors of its trade has not met the target and must not look as if it
+    // had — that is the difference between a last answer and padding.
+    const totalCount = row?.coverage?.total ?? confirmedCount + potentialCount
+    const state = stateForRow(row, totalCount || (isDegraded ? suppliers.length : 0), isDegraded, failed)
+
+    const coverage: BoqSupplierCoverage = {
+      lineKey: key,
+      state,
+      resolvedMaterial: row?.resolution?.material ?? row?.farq_spec_id ?? null,
+      resolvedMaterialName: row?.resolution?.material_name_ar ?? row?.name_ar ?? null,
+      resolvedFamily: row?.resolution?.family ?? null,
+      resolvedIntent: row?.resolution?.intent ?? null,
+      resolution: isDegraded
+        ? 'degraded_search'
+        : row?.resolution?.source === 'MATERIAL'
+          ? 'material'
+          : row?.resolution?.source === 'INTENT_MAP'
+            ? 'intent_map'
+            : row?.resolution?.source === 'FAMILY'
+              ? 'family'
+              : row?.resolution?.source === 'AI'
+                ? 'ai'
+                : row?.resolution?.source === 'TRADE_CONTRACTORS'
+                  ? 'trade_contractors'
+                  : 'none',
+      confirmedCount,
+      potentialCount,
+      tradeContractorCount,
+      totalCount,
+      targetCount: row?.coverage?.target ?? COVERAGE_TARGET,
+      // Farq's verdict, copied. Never widened to reach the target.
+      autoSelectedSupplierIds: confirmed.filter((s) => s.autoSelectable).map((s) => s.id),
+      gapReason: failed && !isDegraded ? 'MATCH_REQUEST_FAILED' : (row?.gap_reason ?? null),
+      degraded: isDegraded,
+    }
 
     return {
       id: line.id,
@@ -736,15 +919,39 @@ export async function matchSuppliersForItems(lines: ParsedLine[]): Promise<{
       qty: line.qty,
       unit: line.unit,
       spec: line.spec,
-      status: suppliers.length > 0 ? ('ready' as const) : ('searching' as const),
+      // Derived, so the two cannot disagree.
+      status: state === 'SUPPLYABLE_MATCHED' || state === 'SUPPLYABLE_PARTIAL_COVERAGE'
+        ? ('ready' as const)
+        : ('searching' as const),
+      state,
       supplierCount: suppliers.length,
       suppliers,
-      farqSpecId: api?.farqSpecId || undefined,
-      lineKey: lineKeyFor(line),
+      coverage,
+      farqSpecId: row?.farq_spec_id || undefined,
+      lineKey: key,
     }
   })
 
-  return { items, catalogLoaded }
+  options.onPartial?.(items.map((item) => ({ ...item })))
+
+  const unmatchedLineCount = items.filter((item) => item.state === 'MATCH_FAILED').length
+  const degraded = items.some((item) => item.coverage?.degraded)
+
+  let matchWarning: string | undefined
+  if (matched.failedBatches > 0 && unmatchedLineCount > 0) {
+    matchWarning = `تعذّر ترشيح الموردين لـ ${unmatchedLineCount} بندًا (${matched.failedBatches} من ${matched.batchCount} دفعات فشلت). البنود ظاهرة ويمكن إعادة المحاولة — لا نعرض هذه البنود كأنها بلا مورد.`
+  } else if (degraded) {
+    matchWarning =
+      'تعذّر الوصول إلى محرك المطابقة في فرق لبعض البنود، فعرضنا مرشحين بالبحث النصي فقط. هؤلاء «موردون محتملون» ولم نتحقق من أنهم يوردون هذه المادة.'
+  }
+
+  return {
+    items,
+    catalogLoaded: matched.byKey.size > 0 || degradedResult.catalogLoaded,
+    degraded,
+    unmatchedLineCount,
+    matchWarning,
+  }
 }
 
 export type ParseBoqResult = {
@@ -754,9 +961,20 @@ export type ParseBoqResult = {
   documentId: string
   source: 'pdf-text' | 'waiting-hall-curated' | 'empty'
   rawLineCount: number
-  /** True when Farq API was unreachable / returned no directory during match. */
+  /**
+   * True when Farq's matching could not be reached for at least one line, so some
+   * suppliers came from the degraded keyword path or some lines got no answer.
+   * It used to be derived from the directory fetch alone, which meant a total
+   * matching outage rendered as a confident result with no warning at all.
+   */
   matchDegraded?: boolean
   matchWarning?: string
+  /** Lines that went to Farq's matching. The invariant: === items.length. */
+  supplyableLineCount?: number
+  /** Lines Farq answered for. */
+  matchedLineCount?: number
+  /** Lines whose batch failed. Never counted as «no supplier». */
+  unmatchedLineCount?: number
 }
 
 /** SHA-256 hex of file bytes — stable document identity for this upload. */
@@ -1109,9 +1327,16 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
 
 export async function parseBoqFile(
   file: File,
-  opts: { onStage?: BoqParseProgress } = {},
+  opts: {
+    onStage?: BoqParseProgress
+    /** Live «ترشيح الموردين 400/1514» counter, driven by real batch completion. */
+    onMatchProgress?: (progress: MatchProgress) => void
+    /** Snapshot after each batch, so cards fill in as answers arrive. */
+    onPartialItems?: (items: BOQItem[]) => void
+  } = {},
 ): Promise<ParseBoqResult> {
   const stage = opts.onStage ?? (() => {})
+  const options = opts
   stage('open')
   const documentId = await hashDocumentId(file)
   let apiLines: ParsedLine[] = []
@@ -1194,20 +1419,25 @@ export async function parseBoqFile(
   // Supplier matching must never wipe successfully parsed lines.
   stage('match')
   try {
-    const matched = await matchSuppliersForItems(lines)
-    const ready = matched.items.filter((i) => i.suppliers.length > 0).length
+    const matched = await matchSuppliersForItems(lines, {
+      onProgress: options.onMatchProgress,
+      onPartial: options.onPartialItems,
+    })
     return {
       items: matched.items,
       projectName,
       documentId,
       source,
       rawLineCount: lines.length,
-      matchDegraded: !matched.catalogLoaded,
-      matchWarning: !matched.catalogLoaded
-        ? 'تعذر الاتصال بـ Farq API (:3000). شغّل الـ API ثم أعد رفع الكراسة.'
-        : ready === 0
-          ? 'قُرئت البنود لكن لم يُعثر على موردين مطابقين. تأكد أن CONSTRUCTION_READ_ENABLED=1 ثم أعد الرفع.'
-          : undefined,
+      // Degraded means «we could not reach Farq's engine for some lines», not
+      // «the directory was empty». A total matching outage used to be swallowed
+      // by a bare catch and rendered as a normal, unwarned result built entirely
+      // from browser keyword scoring.
+      matchDegraded: matched.degraded || matched.unmatchedLineCount > 0,
+      matchWarning: matched.matchWarning,
+      supplyableLineCount: matched.items.length,
+      matchedLineCount: matched.items.length - matched.unmatchedLineCount,
+      unmatchedLineCount: matched.unmatchedLineCount,
     }
   } catch (err) {
     console.warn('Supplier match failed after successful parse — keeping lines', err)
@@ -1219,6 +1449,8 @@ export async function parseBoqFile(
         unit: line.unit,
         spec: line.spec,
         status: 'searching' as const,
+        // Not «no supplier»: we never got an answer for this line.
+        state: 'MATCH_FAILED' as LineCoverageState,
         supplierCount: 0,
         suppliers: [],
         lineKey: `line-${line.id}`,
@@ -1228,7 +1460,10 @@ export async function parseBoqFile(
       source,
       rawLineCount: lines.length,
       matchDegraded: true,
-      matchWarning: 'قُرئت البنود، لكن تعذّرت مطابقة الموردين. يمكنك المتابعة وإعادة المطابقة لاحقًا.',
+      matchWarning: 'قُرئت البنود، لكن تعذّرت مطابقة الموردين. البنود محفوظة — أعد المطابقة دون إعادة قراءة الملف.',
+      supplyableLineCount: lines.length,
+      matchedLineCount: 0,
+      unmatchedLineCount: lines.length,
     }
   }
 }

@@ -241,6 +241,31 @@ export type PublicSupplierInvite = {
   }>
 }
 
+/** A supplier as Farq describes him. `grade` is Farq's word, never ours. */
+export type BoqMatchSupplier = {
+  id: string
+  name_ar?: string
+  name_en?: string
+  city?: string
+  /**
+   * Farq's own evidence grade for THIS material: DIRECT (evidenced against the
+   * item), TAXONOMY (evidenced against its taxonomy), REVIEW (inferred from the
+   * directory activity — a candidate, not a match). Absent means we were told
+   * nothing and must claim nothing.
+   */
+  grade?: 'DIRECT' | 'TAXONOMY' | 'REVIEW'
+  /** Farq's Arabic label where it sent one. Never synthesised here. */
+  evidence_label?: string
+  channel?: string
+  /** True only where Farq listed the id in `rfq_eligible_supplier_ids`. */
+  rfq_eligible?: boolean
+  /** Which answer produced him. Decides how the screen may describe him. */
+  origin: 'material' | 'intent_map' | 'family' | 'ai' | 'trade_contractor' | 'directory'
+}
+
+/** Why a line is short of the target, in Farq's words. */
+export type BoqGapReason = string
+
 export type BoqCatalogMatchRow = {
   /** Farq match key (same as request row.key / line_key). */
   line_key: string
@@ -258,15 +283,55 @@ export type BoqCatalogMatchRow = {
   candidate_count?: number
   rfq_eligible_supplier_ids?: string[]
   rfq_eligible_supplier_count?: number
-  suppliers?: Array<{
-    id: string
-    name_ar?: string
-    name_en?: string
-    city?: string
-    evidence?: string
-    channel?: string
-    rfq_eligible?: boolean
-  }>
+  /**
+   * Suppliers evidenced against the named material. Farq admits a supplier here
+   * only with DIRECT or TAXONOMY evidence for this exact item.
+   */
+  suppliers?: BoqMatchSupplier[]
+  /**
+   * Suppliers from the intent map, the family, or the model. Every one of these
+   * arrives `review_required` on Farq's side, so the screen shows them as
+   * «مورد محتمل» and NOTHING here may be auto-selected.
+   *
+   * These used to be thrown away: the client parsed `candidates[]` and kept only
+   * `candidates.length`, so family and map suppliers were fetched, paid for, and
+   * dropped — which is a large part of why a line with a real answer showed none.
+   */
+  potential_suppliers?: BoqMatchSupplier[]
+  /**
+   * Contractors of the line's trade, Farq's last answer when neither the material
+   * nor its family resolved. Kept in their OWN field because five general
+   * contractors are not five suppliers for a material, and the old counting would
+   * have shown such a line as having met the target.
+   */
+  trade_contractors?: BoqMatchSupplier[]
+  /**
+   * Farq's own verdict on who may be contacted without a human having looked.
+   * The UI ticks exactly this set and never widens it.
+   */
+  auto_selected_supplier_ids?: string[]
+  /** What Farq resolved the line to, and by which route. */
+  resolution?: {
+    source: 'MATERIAL' | 'INTENT_MAP' | 'FAMILY' | 'AI' | 'TRADE_CONTRACTORS' | 'DIRECTORY' | 'NONE'
+    material?: string | null
+    material_name_ar?: string | null
+    family?: string | null
+    intent?: string | null
+  }
+  /** Farq's count against the five-supplier floor. */
+  coverage?: {
+    target: number
+    confirmed: number
+    potential: number
+    /** Counted apart. Never inside `total`. */
+    trade_contractors?: number
+    total: number
+    auto_selected?: number
+    under_target: boolean
+  }
+  gap_reason?: BoqGapReason | null
+  /** CONTACTABLE_SUPPLIERS | NEEDS_SUPPLIER, straight from Farq. */
+  supplier_coverage?: string
 }
 
 export class ConstructionApiError extends Error {
@@ -1342,10 +1407,21 @@ export async function matchConstructionSuppliers(payload: {
   })
 }
 
+/** The real server limit on one `/boq/match` request (validated at 1..200). */
+export const CONSTRUCTION_BOQ_MATCH_MAX_ROWS = 200
+
 /**
  * Farq `POST /api/construction/boq/match` expects `{ rows: [{ key, name, ... }] }`
  * (see api/lib/construction/boq-catalog-matching.js). UI historically sent `lines`
  * with `line_key`/`name_ar` — that always 400s.
+ *
+ * This reads the WHOLE answer. It used to keep only `row.match` and
+ * `candidates.length`, which meant every supplier the intent map, the family or
+ * the model found was parsed and then dropped, and every supplier that survived
+ * was relabelled «نشاط متطابق» whether or not Farq had said so. Now: Farq's
+ * grades are carried through as grades, candidates and suggestions become
+ * `potential_suppliers`, and `auto_selected_supplier_ids` is Farq's verdict,
+ * copied rather than re-derived.
  */
 export async function matchConstructionBoqCatalog(payload: {
   lines?: Array<{
@@ -1364,70 +1440,223 @@ export async function matchConstructionBoqCatalog(payload: {
     category?: string
     brand?: string
   }>
+  signal?: AbortSignal
 }): Promise<{ rows: BoqCatalogMatchRow[]; matches?: BoqCatalogMatchRow[] }> {
   const rows =
     payload.rows?.length
-      ? payload.rows.slice(0, 200)
-      : (payload.lines || []).slice(0, 200).map((line) => ({
+      ? payload.rows.slice(0, CONSTRUCTION_BOQ_MATCH_MAX_ROWS)
+      : (payload.lines || []).slice(0, CONSTRUCTION_BOQ_MATCH_MAX_ROWS).map((line) => ({
           key: line.line_key,
           name: line.name_ar || '',
           name_en: line.name_en,
           specification: line.spec,
         }))
 
+  type RawSupplier = Record<string, unknown>
+  type RawCandidate = {
+    id?: string
+    farq_spec_id?: string
+    name_ar?: string
+    name_en?: string
+    rfq_eligible_supplier_ids?: string[]
+    rfq_eligible_supplier_count?: number
+    suppliers?: RawSupplier[]
+  }
+  type RawSuggestion = {
+    source?: string
+    grade?: string
+    review_required?: boolean
+    family?: string | null
+    intent?: string | null
+    supplier_count?: number
+    named_supplier_count?: number
+    family_supplier_count?: number
+    below_floor?: boolean
+    zero_reason?: string | null
+    suppliers?: RawSupplier[]
+  }
+
   const data = await request<{
     rows?: Array<{
       key?: string
       kind?: string
-      match?: {
-        farq_spec_id?: string
-        name_ar?: string
-        name_en?: string
-        rfq_eligible_supplier_ids?: string[]
-        rfq_eligible_supplier_count?: number
-        suppliers?: Array<Record<string, unknown>>
-      } | null
-      candidates?: Array<{
-        farq_spec_id?: string
-        name_ar?: string
-        name_en?: string
-        rfq_eligible_supplier_ids?: string[]
-        rfq_eligible_supplier_count?: number
-        suppliers?: Array<Record<string, unknown>>
-      }>
+      procurement_intent?: string | null
+      match?: RawCandidate | null
+      candidates?: RawCandidate[]
+      map_suggestion?: RawSuggestion | null
+      family_suggestion?: RawSuggestion | null
+      ai_suggestion?: RawSuggestion | null
+      auto_selected_supplier_ids?: string[]
+      confirmed_supplier_ids?: string[]
+      potential_supplier_ids?: string[]
+      resolution?: BoqCatalogMatchRow['resolution']
+      coverage?: BoqCatalogMatchRow['coverage']
+      gap_reason?: string | null
+      supplier_coverage?: string
     }>
   }>('/api/construction/boq/match', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows }),
     timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
+    signal: payload.signal,
   })
 
+  /** Farq's grade, or nothing. Never a grade this file decided on. */
+  const gradeOf = (s: RawSupplier): BoqMatchSupplier['grade'] | undefined => {
+    const raw = String(
+      (s.evidence_grade as string) ||
+        ((s.product_match as { evidence?: Array<{ evidence_grade?: string }> } | undefined)
+          ?.evidence?.[0]?.evidence_grade) ||
+        '',
+    )
+      .trim()
+      .toUpperCase()
+    return raw === 'DIRECT' || raw === 'TAXONOMY' || raw === 'REVIEW' ? raw : undefined
+  }
+
+  const channelOf = (s: RawSupplier): string => {
+    const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
+    const id = String(s.id || '')
+    const isHaraj =
+      isHarajSellerExternalKey(id) ||
+      String(s.source_system || s.source || '') === 'HARAJ' ||
+      Boolean(channels.haraj)
+    return channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب'
+  }
+
+  const contactable = (s: RawSupplier): boolean => {
+    const id = String(s.id || '').trim()
+    if (!id) return false
+    const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
+    const isHaraj = isHarajSellerExternalKey(id) || String(s.source_system || s.source || '') === 'HARAJ'
+    return Boolean(channels.email || channels.whatsapp || channels.haraj || isHaraj)
+  }
+
+  const toSupplier = (
+    s: RawSupplier,
+    origin: BoqMatchSupplier['origin'],
+    eligibleIds: Set<string>,
+  ): BoqMatchSupplier => {
+    const id = String(s.id || '')
+    return {
+      id,
+      name_ar: s.name_ar as string | undefined,
+      name_en: s.name_en as string | undefined,
+      city: (s.city as string | undefined) || undefined,
+      grade: gradeOf(s),
+      // Farq sends this Arabic label only for intent-map suppliers. Where it is
+      // absent the screen must stay silent rather than pick a label.
+      evidence_label: typeof s.evidence === 'string' ? s.evidence : undefined,
+      channel: channelOf(s),
+      rfq_eligible: eligibleIds.has(id),
+      origin,
+    }
+  }
+
   const mapped: BoqCatalogMatchRow[] = (data.rows || []).map((row) => {
-    // ONLY a confirmed `match` counts. Farq deliberately separates `match` from
-    // `candidates`; taking `candidates[0]` collapsed that distinction and is how
+    // ONLY a confirmed `match` names the material. Farq deliberately separates
+    // `match` from `candidates`; taking `candidates[0]` collapsed that and is how
     // ten unrelated PPE lines on ELE-RFQ-51D17AF6 all acquired the OSB spec id
-    // and were relabelled «ألواح أو إس بي». An unmatched line stays unmatched
-    // and is sent under its own description instead.
+    // and were relabelled «ألواح أو إس بي». Candidates are still READ — they
+    // become potential suppliers — but they never name the line.
     const chosen = row.match || null
     const eligibleIds = new Set(
-      (chosen?.rfq_eligible_supplier_ids || []).map((id) => String(id)),
+      (row.auto_selected_supplier_ids || chosen?.rfq_eligible_supplier_ids || []).map((id) => String(id)),
     )
-    // Farq pads match.suppliers with non-eligible rows. Prefer eligible ids;
-    // otherwise keep contactable channels including Haraj sellers.
-    const suppliersRaw = (chosen?.suppliers || []).filter((s) => {
-      const id = String(s.id || '').trim()
-      if (!id) return false
-      const source = String(s.source_system || s.source || '')
-      const isHaraj = isHarajSellerExternalKey(id) || source === 'HARAJ'
-      if (eligibleIds.size > 0) return eligibleIds.has(id)
-      const channels = (s.contact_channels || {}) as {
-        email?: boolean
-        whatsapp?: boolean
-        haraj?: boolean
+
+    const confirmed = (chosen?.suppliers || [])
+      .filter(contactable)
+      .map((s) => toSupplier(s, 'material', eligibleIds))
+
+    // Potential: the suggestions first (Farq ranked them for a buyer), then any
+    // candidate suppliers not already listed. All review-only by construction.
+    const seen = new Set(confirmed.map((s) => s.id))
+    const potential: BoqMatchSupplier[] = []
+    const potentialOrTrade = (
+      bucket: BoqMatchSupplier[],
+      s: RawSupplier,
+      origin: BoqMatchSupplier['origin'],
+    ) => {
+      bucket.push({ ...toSupplier(s, origin, new Set<string>()), rfq_eligible: false })
+    }
+    const pushPotential = (list: RawSupplier[] | undefined, origin: BoqMatchSupplier['origin']) => {
+      for (const s of list || []) {
+        const id = String(s.id || '').trim()
+        if (!id || seen.has(id) || !contactable(s)) continue
+        seen.add(id)
+        // A suggestion supplier is never RFQ-eligible on his own account: every
+        // suggestion Farq builds carries review_required.
+        potential.push({ ...toSupplier(s, origin, new Set()), rfq_eligible: false })
       }
-      return Boolean(channels.email || channels.whatsapp || channels.haraj || isHaraj)
-    })
+    }
+    // A suggestion whose source or grade says «contractors of the trade» goes in
+    // its own bucket. Five general contractors on an unresolved line are not five
+    // suppliers for that material, and must not count toward the target.
+    const isTradeContractorSuggestion = (s?: RawSuggestion | null) =>
+      Boolean(s) && (String(s?.source || '') === 'SECTOR_CONTRACTORS' || String(s?.grade || '') === 'SECTOR')
+
+    const tradeContractors: BoqMatchSupplier[] = []
+    const pushTrade = (list: RawSupplier[] | undefined) => {
+      for (const s of list || []) {
+        const id = String(s.id || '').trim()
+        if (!id || seen.has(id) || !contactable(s)) continue
+        seen.add(id)
+        potentialOrTrade(tradeContractors, s, 'trade_contractor')
+      }
+    }
+
+    for (const field of ['map_suggestion', 'family_suggestion', 'ai_suggestion'] as const) {
+      const suggestion = row[field]
+      if (!suggestion) continue
+      if (isTradeContractorSuggestion(suggestion)) {
+        pushTrade(suggestion.suppliers)
+        continue
+      }
+      pushPotential(
+        suggestion.suppliers,
+        field === 'map_suggestion' ? 'intent_map' : field === 'ai_suggestion' ? 'ai' : 'family',
+      )
+    }
+    for (const candidate of row.candidates || []) {
+      if (chosen && candidate.farq_spec_id === chosen.farq_spec_id) continue
+      pushPotential(candidate.suppliers, 'family')
+    }
+
+    const suggestion = row.map_suggestion || row.family_suggestion || row.ai_suggestion || null
+    const resolution =
+      row.resolution ||
+      ({
+        source: chosen
+          ? 'MATERIAL'
+          : row.map_suggestion
+            ? 'INTENT_MAP'
+            : isTradeContractorSuggestion(row.family_suggestion)
+              ? 'TRADE_CONTRACTORS'
+              : row.family_suggestion
+                ? 'FAMILY'
+                : row.ai_suggestion
+                  ? 'AI'
+                  : 'NONE',
+        material: chosen?.farq_spec_id ?? null,
+        material_name_ar: chosen?.name_ar ?? null,
+        family: suggestion?.family ?? null,
+        intent: row.procurement_intent ?? suggestion?.intent ?? null,
+      } as BoqCatalogMatchRow['resolution'])
+
+    const coverage =
+      row.coverage ||
+      ({
+        target: 5,
+        confirmed: confirmed.length,
+        potential: potential.length,
+        trade_contractors: tradeContractors.length,
+        // Trade contractors are deliberately absent from `total`.
+        total: confirmed.length + potential.length,
+        auto_selected: confirmed.filter((s) => s.rfq_eligible).length,
+        under_target: confirmed.length + potential.length < 5,
+      } as BoqCatalogMatchRow['coverage'])
+
     return {
       line_key: String(row.key || ''),
       key: row.key,
@@ -1436,32 +1665,18 @@ export async function matchConstructionBoqCatalog(payload: {
       name_en: chosen?.name_en,
       match_kind: row.kind,
       kind: row.kind,
-      /** Unconfirmed candidates, for diagnostics only — never a match. */
       candidate_count: row.candidates?.length || 0,
       rfq_eligible_supplier_ids: [...eligibleIds],
       rfq_eligible_supplier_count:
         chosen?.rfq_eligible_supplier_count ?? eligibleIds.size,
-      suppliers: suppliersRaw.slice(0, 8).map((s) => {
-        const channels = (s.contact_channels || {}) as {
-          email?: boolean
-          whatsapp?: boolean
-          haraj?: boolean
-        }
-        const id = String(s.id || '')
-        const isHaraj =
-          isHarajSellerExternalKey(id) ||
-          String(s.source_system || s.source || '') === 'HARAJ' ||
-          Boolean(channels.haraj)
-        return {
-          id,
-          name_ar: s.name_ar as string | undefined,
-          name_en: s.name_en as string | undefined,
-          city: (s.city as string | undefined) || undefined,
-          evidence: 'نشاط متطابق',
-          channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
-          rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
-        }
-      }),
+      suppliers: confirmed,
+      potential_suppliers: potential,
+      trade_contractors: tradeContractors,
+      auto_selected_supplier_ids: confirmed.filter((s) => s.rfq_eligible).map((s) => s.id),
+      resolution,
+      coverage,
+      gap_reason: row.gap_reason ?? null,
+      supplier_coverage: row.supplier_coverage,
     }
   })
 
