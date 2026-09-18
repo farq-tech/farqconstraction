@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { autoPickFor } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
 import { parseBoqFile, resolveBoqCardFields } from '../lib/parseBoq'
@@ -609,8 +610,11 @@ export function UploadView({ navigate }: NavProps) {
   // A read can be complete by count and still be worthless, so «اكتملت» is not
   // allowed to depend on the count alone.
   const badRead = partialRead || Boolean(readReport?.descriptionColumnSuspect) || Boolean(readReport?.codedItemsSuspect)
-  const searchingCount = items.filter((i) => i.status === 'searching').length
-  const supplierCount = new Set(items.flatMap((i) => i.suppliers.map((s) => s.id))).size
+  // The same choice the proposals page makes, so both screens say one thing.
+  const picksById = new Map(items.map((i) => [i.id, i.workOnly ? [] : autoPickFor(i)]))
+  const searchingCount = items.filter((i) => !i.workOnly && !(picksById.get(i.id) || []).length).length
+  const supplierCount = new Set([...picksById.values()].flat().map((s) => s.id)).size
+  const coveredCount = items.filter((i) => (picksById.get(i.id) || []).length > 0).length
 
   return (
     <div className="max-w-2xl mx-auto px-4 lg:px-8 py-10">
@@ -858,12 +862,16 @@ export function UploadView({ navigate }: NavProps) {
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl font-black text-amber-600">{searchingCount}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">تحتاج موردين</div>
+                    <div className={`text-2xl font-black ${searchingCount ? 'text-amber-600' : 'text-[#123F3A]'}`}>
+                      {searchingCount ? searchingCount : coveredCount}
+                    </div>
+                    <div className="text-xs text-neutral-500 mt-0.5">
+                      {searchingCount ? 'بلا مورد في دليلنا' : 'بندًا لها موردون'}
+                    </div>
                   </div>
                   <div>
                     <div className="text-2xl font-black text-[#123F3A]">{supplierCount}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">موردًا مطابقًا</div>
+                    <div className="text-xs text-neutral-500 mt-0.5">موردًا مختارًا</div>
                   </div>
                 </div>
               </div>
@@ -888,13 +896,18 @@ export function UploadView({ navigate }: NavProps) {
                         {spec ? ` · ${spec}` : ''}
                       </div>
                     </div>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${
-                        item.status === 'ready' ? 'bg-[#CFF5DC] text-[#1a7a45]' : 'bg-amber-50 text-amber-700'
-                      }`}
-                    >
-                      {item.status === 'ready' ? `${item.supplierCount} مورد` : 'بحث'}
-                    </span>
+                    {(() => {
+                      const n = (picksById.get(item.id) || []).length
+                      return (
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${
+                            n ? 'bg-[#CFF5DC] text-[#1a7a45]' : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {n === 0 ? 'بلا مورد' : n === 1 ? 'مورد واحد' : n === 2 ? 'موردان' : `${n} موردين`}
+                        </span>
+                      )
+                    })()}
                   </div>
                   )
                 })}
