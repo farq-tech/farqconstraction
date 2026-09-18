@@ -1166,10 +1166,19 @@ export async function retryConstructionInboxReply(outboxId: string) {
   )
 }
 
-/** Same caps the API enforces (`filesForSend`): reject before a pointless round trip. */
-export const INBOX_ATTACHMENT_TYPES = ['pdf', 'png', 'jpg', 'jpeg', 'txt', 'csv'] as const
-export const INBOX_ATTACHMENT_MAX_FILES = 5
-export const INBOX_ATTACHMENT_MAX_TOTAL_BYTES = 512 * 1024
+/** Same caps the API enforces (`filesForSend`): any file type except pages and programs. */
+export const INBOX_ATTACHMENT_BLOCKED = ['html', 'htm', 'js', 'exe', 'bat', 'cmd', 'scr', 'msi', 'vbs', 'ps1', 'jar', 'sh'] as const
+export const INBOX_ATTACHMENT_MAX_FILES = 10
+export const INBOX_ATTACHMENT_MAX_TOTAL_BYTES = 18 * 1024 * 1024
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).split(',', 2)[1] || '')
+    reader.onerror = () => reject(new Error('تعذر قراءة الملف — أعد اختياره.'))
+    reader.readAsDataURL(file)
+  })
+}
 
 export async function readConstructionInboxAttachments(
   files: File[],
@@ -1181,17 +1190,14 @@ export async function readConstructionInboxAttachments(
   const out: ConstructionInboxOutboundAttachment[] = []
   for (const file of files) {
     const extension = file.name.split('.').pop()?.toLowerCase() || ''
-    if (!INBOX_ATTACHMENT_TYPES.includes(extension as (typeof INBOX_ATTACHMENT_TYPES)[number])) {
-      throw new Error(`نوع غير مسموح (${extension || 'بلا امتداد'}) — المسموح: ${INBOX_ATTACHMENT_TYPES.join('، ')}.`)
+    if (INBOX_ATTACHMENT_BLOCKED.includes(extension as (typeof INBOX_ATTACHMENT_BLOCKED)[number])) {
+      throw new Error(`لا يمكن إرسال ملفات .${extension} — أرسلها مضغوطة (zip).`)
     }
     total += file.size
     if (!file.size || total > INBOX_ATTACHMENT_MAX_TOTAL_BYTES) {
-      throw new Error('حجم المرفقات يتجاوز 512 كيلوبايت لكل رسالة — أرسل ملفًا أصغر أو رابطًا.')
+      throw new Error('حجم المرفقات يتجاوز 18 ميجابايت للرسالة — قسّمها على أكثر من رسالة.')
     }
-    const buffer = new Uint8Array(await file.arrayBuffer())
-    let binary = ''
-    for (let i = 0; i < buffer.length; i += 1) binary += String.fromCharCode(buffer[i])
-    out.push({ filename: file.name, content: btoa(binary) })
+    out.push({ filename: file.name, content: await fileToBase64(file) })
   }
   return out
 }
@@ -1230,11 +1236,11 @@ export function inboxReplyErrorMessageAr(code: string): string {
     case 'SUPPLIER_NO_SCOPED_LINES':
       return 'لا بنود مخصصة لهذا المورد في هذا الطلب.'
     case 'INBOX_FILES_TOO_LARGE':
-      return 'المرفقات أكبر من الحد المسموح للإرسال (512 كيلوبايت لكل رسالة) — أرسلها على رسائل منفصلة أو اضغط الملف.'
+      return 'المرفقات أكبر من 18 ميجابايت للرسالة — قسّمها على أكثر من رسالة.'
     case 'INBOX_FILES_TOO_MANY':
       return `لا يمكن إرفاق أكثر من ${INBOX_ATTACHMENT_MAX_FILES} ملفات في الرسالة الواحدة.`
     case 'INBOX_FILE_TYPE_BLOCKED':
-      return `نوع الملف غير مسموح — المسموح ${INBOX_ATTACHMENT_TYPES.join('، ')} فقط.`
+      return 'لا يمكن إرسال صفحات ويب أو برامج — أرسلها مضغوطة (zip).'
     case 'INBOX_INVALID_FILES':
       return 'مرفق غير مقبول أو تالف — أعد اختيار الملف.'
     case 'INBOX_SEALED':

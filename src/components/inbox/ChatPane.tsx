@@ -11,7 +11,6 @@ import {
   replyToConstructionInboxThread,
   retryConstructionInboxReply,
   INBOX_ATTACHMENT_MAX_FILES,
-  INBOX_ATTACHMENT_TYPES,
   type ConstructionInboxThreadDetail,
   type ConstructionInboxThreadMessage,
 } from '../../api/constructionClient'
@@ -565,7 +564,7 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
               className={`flex-shrink-0 w-10 h-10 rounded-full border border-neutral-200 bg-white flex items-center justify-center text-sm cursor-pointer hover:border-[#123F3A]/40 ${
                 !canCompose || sending ? 'opacity-50 pointer-events-none' : ''
               }`}
-              title={`المسموح: ${INBOX_ATTACHMENT_TYPES.join('، ')}`}
+              title={`إرفاق ملفات (حتى ${INBOX_ATTACHMENT_MAX_FILES})`}
             >
               📎
               <input
@@ -574,7 +573,6 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
                 multiple
                 className="hidden"
                 disabled={!canCompose || sending}
-                accept={INBOX_ATTACHMENT_TYPES.map((t) => `.${t}`).join(',')}
                 onChange={(event) =>
                   setFiles(Array.from(event.target.files || []).slice(0, INBOX_ATTACHMENT_MAX_FILES))
                 }

@@ -1,5 +1,4 @@
 import {
-  INBOX_ATTACHMENT_TYPES,
   type ConstructionInboxThreadFile,
   type ConstructionInboxThreadMessage,
 } from '../../api/constructionClient'
@@ -32,9 +31,9 @@ function deliveryMark(message: ConstructionInboxThreadMessage): { text: string; 
 /** A refused supplier attachment must read as an instruction, not a code. */
 function inboundFileNoticeAr(state?: string): string {
   if (state === 'TOO_LARGE')
-    return 'لم يُحفظ المرفق: أكبر من الحد المسموح (٥ ميجابايت للملف و١٠ ميجابايت للرسالة). اطلب من المورد إرساله مضغوطًا أو على أجزاء.'
+    return 'لم يُحفظ المرفق: أكبر من الحد (25 ميجابايت للملف و40 ميجابايت للرسالة). اطلب من المورد إرساله على أجزاء.'
   if (state === 'BLOCKED_TYPE')
-    return `لم يُحفظ المرفق: نوع غير مسموح. المسموح ${INBOX_ATTACHMENT_TYPES.join('، ')} فقط.`
+    return 'لم يُحفظ المرفق — افتح البريد الأصلي للحصول عليه.'
   return 'لم يُحفظ المرفق — افتح البريد الأصلي للحصول عليه.'
 }
 
