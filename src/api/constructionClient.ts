@@ -71,6 +71,7 @@ export type ConstructionManagementOverview = {
 }
 
 export type ConstructionInvitation = {
+  preferred_channel?: 'EMAIL' | 'WHATSAPP' | 'HARAJ' | null
   id: string
   supplier_id: string
   delivery_status: string
@@ -1382,6 +1383,8 @@ export async function startConstructionGmailConnect(returnTo = buildConstruction
 
 /** Prefer channel label for UI badges from invitation contact fields. */
 export function invitePreferredChannel(invite: {
+  /** Decided by the server, which still sees the contacts a colleague's view hides. */
+  preferred_channel?: 'EMAIL' | 'WHATSAPP' | 'HARAJ' | string | null
   supplier_id?: string
   supplier?: {
     id?: string
@@ -1390,6 +1393,9 @@ export function invitePreferredChannel(invite: {
     phone?: string | null
   }
 }): 'EMAIL' | 'WHATSAPP' | 'HARAJ' {
+  if (invite.preferred_channel === 'EMAIL' || invite.preferred_channel === 'WHATSAPP' || invite.preferred_channel === 'HARAJ') {
+    return invite.preferred_channel
+  }
   const id = String(invite.supplier?.id || invite.supplier_id || '')
   if (isHarajSellerExternalKey(id)) return 'HARAJ'
   if (String(invite.supplier?.email || '').trim()) return 'EMAIL'
