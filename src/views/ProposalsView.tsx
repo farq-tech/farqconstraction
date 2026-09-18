@@ -25,6 +25,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
   'دليل منتج': 'bg-blue-50 text-blue-700',
   'من الكتالوج': 'bg-neutral-100 text-neutral-600',
   'على مستوى النشاط': 'bg-neutral-100 text-neutral-500',
+  'مقاول بهذا النشاط': 'bg-white border border-neutral-200 text-neutral-500',
   'اختيارك': 'bg-amber-50 text-amber-700',
   'تسمية آلية': 'bg-purple-50 text-purple-700',
   'خريطة فرق': 'bg-teal-50 text-teal-700',
@@ -388,11 +389,19 @@ function BOQCard({
           {!item.mapSuggestion && !item.aiSuggestion && item.familySuggestion && (
             <SuggestionBox
               tone="grey"
-              title={`غير مؤكد — على مستوى النشاط: «${familyLabelAr(item.familySuggestion.family)}»`}
-              note="لم نجد هذه المادة بعينها في قائمة فرق. هؤلاء موردو النشاط الأقرب لها، وقد لا يبيعونها: راجعهم قبل الاختيار، واضغط «غير مناسب» على من لا يناسب."
+              title={
+                item.familySuggestion.trade
+                  ? 'مقاولون في التخصص — ليسوا موردين لهذه المادة'
+                  : `غير مؤكد — على مستوى النشاط: «${familyLabelAr(item.familySuggestion.family)}»`
+              }
+              note={
+                item.familySuggestion.trade
+                  ? 'لم نتعرّف على مادة هذا البند ولا على عائلتها، فلم نجد له موردًا. هؤلاء مقاولون يعملون في تخصصه، ولم نخترهم تلقائيًا: اخترهم بنفسك إن كان البند عملًا ينفّذه مقاول.'
+                  : 'لم نجد هذه المادة بعينها في قائمة فرق. هؤلاء موردو النشاط الأقرب لها، وقد لا يبيعونها: راجعهم قبل الاختيار، واضغط «غير مناسب» على من لا يناسب.'
+              }
               emptyText="لا يحمل دليل فرق موردًا لهذا النشاط بعد."
               suppliers={item.familySuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
-              evidence="على مستوى النشاط"
+              evidence={item.familySuggestion.trade ? 'مقاول بهذا النشاط' : 'على مستوى النشاط'}
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
@@ -622,7 +631,11 @@ export function ProposalsView({ navigate }: NavProps) {
         ...item.suppliers,
         ...(item.aiSuggestion?.suppliers || []),
         ...activity,
-        ...(item.familySuggestion?.suppliers || []),
+        // A contractor of the trade is not a seller of the material. He stays on
+        // the card for the buyer to tick, but the system never picks him: five
+        // «مقاولون عموميون» made a line read as covered when nobody who sells
+        // its material had been found.
+        ...(item.familySuggestion?.trade ? [] : item.familySuggestion?.suppliers || []),
       ]
       const chosen: Supplier[] = []
       const seen = new Set<string>()
@@ -939,6 +952,11 @@ export function ProposalsView({ navigate }: NavProps) {
           const covered = lines.filter((i) => (selected[i.id] || []).length > 0).length
           const chosen = new Set(lines.flatMap((i) => selected[i.id] || [])).size
           const empty = lines.length - covered
+          // Of the empty lines, those whose only answer was the contractors of
+          // their trade: said apart, so «no supplier» is not read as «nothing».
+          const tradeOnly = lines.filter(
+            (i) => !(selected[i.id] || []).length && i.familySuggestion?.trade && i.familySuggestion.suppliers.length > 0,
+          ).length
           return (
             <div
               className={`mb-6 rounded-2xl border px-5 py-4 ${empty === 0 ? 'bg-[#F3FBF6] border-[#CFF5DC]' : 'bg-amber-50 border-amber-200'}`}
@@ -950,7 +968,7 @@ export function ProposalsView({ navigate }: NavProps) {
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                 {empty === 0
                   ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال: من عليه «مورد محتمل» اختير لنشاطه لا لمادته.'
-                  : `${empty} بندًا لم نجد لها موردًا في دليلنا. البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين، ومن عليه «مورد محتمل» اختير لنشاطه لا لمادته.`}
+                  : `${empty} بندًا لم نجد لها موردًا في دليلنا${tradeOnly ? ` (منها ${tradeOnly} عليها مقاولون في التخصص فقط، لم نخترهم لك)` : ''}. البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين، ومن عليه «مورد محتمل» اختير لنشاطه لا لمادته.`}
                 {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
               </div>
             </div>

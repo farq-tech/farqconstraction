@@ -26,7 +26,7 @@ export type AppView =
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
  * catalog returned the supplier and nothing says how strong the link is.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'مقاول بهذا النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
 export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
 
 export interface Supplier {
@@ -66,7 +66,13 @@ export interface BOQItem {
   /** Suppliers the buyer dismissed for this material on this page (also stored server side). */
   rejectedSupplierIds?: string[]
   /** Trade known, material not in the list: suppliers of that trade, unconfirmed. */
-  familySuggestion?: { family: string; suppliers: Supplier[] }
+  /**
+   * `trade` is set when the server's answer was the CONTRACTORS of the line's
+   * trade (source SECTOR_CONTRACTORS, grade SECTOR) — its last answer when
+   * neither the material nor its family resolved. They are shown, but they are
+   * not suppliers of the material: never auto-picked, never counted as cover.
+   */
+  familySuggestion?: { family: string; suppliers: Supplier[]; trade?: boolean }
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
   learnedSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */

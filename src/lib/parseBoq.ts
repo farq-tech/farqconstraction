@@ -538,6 +538,7 @@ function mapApiSuppliers(
         s.evidence === 'دليل منتج' ||
         s.evidence === 'من الكتالوج' ||
         s.evidence === 'على مستوى النشاط' ||
+        s.evidence === 'مقاول بهذا النشاط' ||
         s.evidence === 'اختيارك' ||
         s.evidence === 'تسمية آلية' ||
         s.evidence === 'خريطة فرق'
@@ -674,7 +675,11 @@ async function matchViaFarqBoqApi(
             }
           : undefined,
         familySuggestion: row.family_suggestion?.family
-          ? { family: row.family_suggestion.family, suppliers: mapApiSuppliers(row.family_suggestion.suppliers || []) }
+          ? {
+              family: row.family_suggestion.family,
+              trade: Boolean(row.family_suggestion.trade),
+              suppliers: mapApiSuppliers(row.family_suggestion.suppliers || []),
+            }
           : undefined,
         learnedSuggestion: row.learned_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
