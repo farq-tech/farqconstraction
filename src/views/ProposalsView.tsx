@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AUTO_PICK, autoPickFor } from '../lib/autoPick'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
   getBoqItems,
@@ -603,7 +604,6 @@ export function ProposalsView({ navigate }: NavProps) {
    * send screen listing every recipient first. An automatic pick is NOT fed to
    * learning: the system does not learn from its own guesses.
    */
-  const AUTO_PICK = 5
   const autoDone = useRef<Set<number>>(new Set(Object.keys(getSelections()).map(Number)))
   const [autoSummary, setAutoSummary] = useState<{ suppliers: number; lines: number; empty: number } | null>(null)
 
@@ -613,25 +613,7 @@ export function ProposalsView({ navigate }: NavProps) {
     const picks: Record<number, Supplier[]> = {}
     for (const item of fresh) {
       autoDone.current.add(item.id)
-      const rejected = new Set(item.rejectedSupplierIds || [])
-      const named = (item.mapSuggestion?.suppliers || []).filter((s) => s.evidence !== 'على مستوى النشاط')
-      const activity = (item.mapSuggestion?.suppliers || []).filter((s) => s.evidence === 'على مستوى النشاط')
-      const ordered = [
-        ...(item.learnedSuggestion?.suppliers || []),
-        ...named,
-        ...item.suppliers,
-        ...(item.aiSuggestion?.suppliers || []),
-        ...activity,
-        ...(item.familySuggestion?.suppliers || []),
-      ]
-      const chosen: Supplier[] = []
-      const seen = new Set<string>()
-      for (const s of ordered) {
-        if (!s?.id || seen.has(s.id) || rejected.has(s.id)) continue
-        seen.add(s.id)
-        chosen.push(s)
-        if (chosen.length >= AUTO_PICK) break
-      }
+      const chosen = autoPickFor(item, AUTO_PICK)
       if (chosen.length) picks[item.id] = chosen
     }
     const pickedIds = Object.keys(picks).map(Number)
