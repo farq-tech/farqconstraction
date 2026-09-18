@@ -215,7 +215,7 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
               catalogue; "we could not read it" is a claim about the request. */}
           <p className="text-neutral-500 text-sm mt-1">
             {loading
-              ? 'جاري التحميل من Farq API…'
+              ? 'جارٍ تحميل دليل الموردين…'
               : !totalKnown
                 ? 'تعذّرت قراءة عدد الموردين'
                 : `${total.toLocaleString('ar-SA')} مورد في كتالوج فرق${
@@ -224,7 +224,7 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
           </p>
           {source && !loading && !error && (
             <p className="text-[11px] text-neutral-400 mt-1">
-              المصدر: Farq API · /api/construction/catalog · معروض {suppliers.length.toLocaleString('ar-SA')}
+              دليل موردي فرق · معروض {suppliers.length.toLocaleString('ar-SA')}
             </p>
           )}
         </div>
@@ -348,7 +348,7 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
             <div className="text-xs mt-2 text-red-600/80">
               {isProductionBuild()
                 ? apiUnreachableAdvice()
-                : 'شغّل Farq API محلياً (أو عيّن VITE_API_PROXY_TARGET)، ضع CONSTRUCTION_DB_URL في api/.env، وللوضع بدون تسجيل دخول أضف CONSTRUCTION_DEMO_MODE=1 ثم أعد تشغيل الـ API — ليس Vite.'}
+                : 'تعذّر تحميل دليل الموردين الآن. أعد تحميل الصفحة بعد قليل، وإن استمر الأمر تواصل مع فرق.'}
             </div>
           )}
         </div>

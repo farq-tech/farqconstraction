@@ -291,7 +291,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         // Old API build: no /launch bridge, and it rejects the signed return_to
         // state. Starting Google here would dead-end, so stop and say why.
         throw new Error(
-          'الـ API الذي يخدم هذا التطبيق نسخة قديمة بلا جسر /launch — يلزم نشر Farq API المحدّث قبل إتمام الربط من هنا.',
+          'ربط بريد Gmail غير متاح من هذه الصفحة حاليًا. تواصل مع فرق لإتمام الربط.',
         )
       }
       // launch_url sets the Secure cookie on www.farq.sa (Google callback host).
@@ -363,7 +363,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         return {
           tone: 'warn',
           title: 'الجلسة غير مصادَقة لواجهة البناء.',
-          action: 'محليًا: CONSTRUCTION_DEMO_MODE=1 على الـ API. للإنتاج: VITE_FARQ_ACCESS_TOKEN لمالك info@farq.sa.',
+          action: 'سجّل الدخول بحساب مالك الشركة لإدارة ربط البريد.',
         }
       }
       return { tone: 'warn', title: 'تعذّر قراءة حالة Gmail.', action: gmailError }
@@ -408,7 +408,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         return {
           tone: 'warn',
           title: `المزامنة متوقفة مؤقتًا (${failure}).`,
-          action: 'ستُعاد المحاولة تلقائيًا؛ إن تكرر الرمز راجع سجلات Farq API.',
+          action: 'ستُعاد المحاولة تلقائيًا. إن تكررت المشكلة تواصل مع فرق.',
         }
       }
       if (captured > 0) {
@@ -428,14 +428,14 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
       return {
         tone: 'warn',
         title: 'ممثّل الجلسة لا يطابق مالك الصندوق (actor mismatch).',
-        action: 'اجعل CONSTRUCTION_GMAIL_OWNER_ACTOR_ID مساويًا لـ CONSTRUCTION_DEMO_BUYER_USER_ID على الـ API، أو استخدم VITE_FARQ_ACCESS_TOKEN لمالك info@farq.sa.',
+        action: 'ربط البريد يديره مالك الشركة. تواصل معه أو مع فرق.',
       }
     }
     if (gmail.configured === false) {
       return {
         tone: 'info',
         title: 'تفويض Gmail غير مهيّأ على الـ API (بيانات Google ناقصة).',
-        action: 'اضبط على الـ API: CONSTRUCTION_GMAIL_ENABLED، CONSTRUCTION_GMAIL_CLIENT_ID، CLIENT_SECRET، TOKEN_KEY، OWNER_ACTOR_ID. لا علاقة للأمر بـ CONSTRUCTION_DB_URL أو أعلام القراءة/الكتابة.',
+        action: 'ربط بريد Gmail غير مفعّل لهذه الشركة بعد. تواصل مع فرق لتفعيله.',
       }
     }
     return {
@@ -524,9 +524,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               <div className="font-bold text-amber-900 text-sm mb-1">تعذّر قراءة الصندوق</div>
               <p className="text-xs text-amber-800 leading-relaxed mb-2 break-words">{error}</p>
               <p className="text-[11px] text-amber-700 leading-relaxed">
-                إن ظهر أن الاستقبال معطّل على الـ API، فعّل على Railway (أسماء فقط): `CONSTRUCTION_INBOX_ENABLED`,
-                `CONSTRUCTION_CORRESPONDENCE_ENABLED`, `CONSTRUCTION_INBOX_DOMAIN`, `CONSTRUCTION_INBOX_ROUTING_SECRET`,
-                `CONSTRUCTION_INBOX_WEBHOOK_SECRET`, `CONSTRUCTION_INBOX_RESEND_API_KEY`. لا نختلق بيانات واردة هنا.
+                أعد المحاولة بعد قليل. إن استمرت المشكلة تواصل مع فرق. لا نعرض بيانات واردة غير حقيقية هنا.
               </p>
             </div>
           )}
