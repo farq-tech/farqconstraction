@@ -8,6 +8,7 @@ import {
   getConstructionStatus,
 } from '../api/constructionClient'
 import { farqSession } from '../api/farqSession'
+import { signOutAndForget } from '../store/session'
 import {
   ACCESS_LEVELS,
   inviteMember,
@@ -288,7 +289,7 @@ export function SettingsView({ navigate }: NavProps) {
           // Sign out ends the session AND clears this account's working state
           // (الكراسة، المسودات) through the identity-change listener in
           // src/store/session.ts, so a shared machine hands over nothing.
-          void farqSession.signOut().then(() => navigate('login'))
+          void signOutAndForget().then(() => navigate('login'))
         }}
         className="w-full mt-3 py-2.5 text-neutral-400 text-sm font-semibold hover:text-neutral-600 transition-colors"
       >

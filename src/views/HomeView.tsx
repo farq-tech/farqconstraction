@@ -99,7 +99,7 @@ export function HomeView({ navigate }: NavProps) {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.xlsx,.xls"
+          accept=".pdf,application/pdf"
           className="hidden"
           onChange={(e) => {
             setPendingUpload(e.target.files?.[0])
@@ -114,7 +114,7 @@ export function HomeView({ navigate }: NavProps) {
           <p className="text-neutral-400 text-sm mb-6 text-center">اسحب الملف هنا أو اضغط للاختيار</p>
           <div className="flex items-center gap-3">
             <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">PDF</span>
-            <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">Excel</span>
+            
           </div>
           <button
             className="mt-6 px-6 py-3 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"

@@ -116,8 +116,18 @@ export function resetWorkingSession(): void {
  */
 export function resetSessionForIdentity(ownerUserId: string | null) {
   Object.assign(state, emptyState(ownerUserId))
-  clearPersistedSession()
+  // Only the screen is cleared here. A session that lapsed (refresh token
+  // expired or revoked) is not the buyer throwing his work away, and the stored
+  // copy is keyed to its owner: it restores only to him and is overwritten by
+  // anyone else's work. It goes on «ابدأ من جديد» or an explicit sign-out
+  // (signOutAndForget) — the owner's rule.
   listeners.forEach((fn) => fn())
+}
+
+/** Explicit sign-out on this device: nothing of the tender stays behind. */
+export async function signOutAndForget(): Promise<void> {
+  clearPersistedSession()
+  await farqSession.signOut()
 }
 
 farqSession.subscribe((event, next) => {

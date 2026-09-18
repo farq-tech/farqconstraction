@@ -697,7 +697,7 @@ export function UploadView({ navigate }: NavProps) {
           <input
             ref={inputRef}
             type="file"
-            accept=".pdf,.xlsx,.xls,.csv,.txt"
+            accept=".pdf,application/pdf"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0]
@@ -712,7 +712,7 @@ export function UploadView({ navigate }: NavProps) {
             <p className="text-neutral-400 text-sm mb-6 text-center">اسحب الملف أو اضغط للاختيار</p>
             <div className="flex gap-2">
               <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">PDF</span>
-              <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">Excel</span>
+              
             </div>
           </div>
         </div>

@@ -43,7 +43,12 @@ function AppRoutes() {
    * restore can never land on top of an upload the buyer has just started.
    */
   useEffect(() => {
-    if (restored.current || !session.isAuthenticated) return
+    // Signed out (a lapsed session included): the next sign-in restores again.
+    if (!session.isAuthenticated) {
+      restored.current = false
+      return
+    }
+    if (restored.current) return
     restored.current = true
     void restoreSession()
   }, [session.isAuthenticated])
