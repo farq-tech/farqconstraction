@@ -38,6 +38,8 @@ export interface Supplier {
   channel: ChannelType
   /** The buyer chose this supplier for this material before. */
   learned?: boolean
+  /** Where it comes from: the company's own list, Farq's base, or other sources. */
+  origin?: 'COMPANY' | 'FARQ' | 'OTHER'
 }
 
 export interface BOQItem {

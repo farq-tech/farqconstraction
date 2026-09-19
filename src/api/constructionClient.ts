@@ -1677,6 +1677,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         evidence,
         learned: s.learned_choice === true,
         channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
+        origin: (s.origin as string | undefined) || (isHaraj ? 'OTHER' : 'FARQ'),
         rfq_eligible: false,
       }
     })
@@ -1687,6 +1688,41 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
  * (see api/lib/construction/boq-catalog-matching.js). UI historically sent `lines`
  * with `line_key`/`name_ar` — that always 400s.
  */
+export type OtherSourceCandidate = {
+  author_id: string
+  author_username?: string
+  city?: string | null
+  grade: 'A' | 'B' | 'C'
+  evidence?: { sentence?: string; ad_url?: string; ad_title?: string; post_date?: number | string }
+}
+export type OtherSourceSearch = {
+  job_id?: string
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETE' | 'FAILED'
+  progress?: { terms_total?: number; terms_done?: number }
+  result?: { candidates?: OtherSourceCandidate[] }
+}
+
+/** Search other sources for one BOQ line; the server runs it as a job. */
+export async function startOtherSourceSearch(body: { item_name: string; spec?: string; city?: string; farq_spec_id: string }) {
+  return request<{ job_id: string; status: string }>('/api/construction/haraj/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+export async function getOtherSourceSearch(jobId: string) {
+  return request<OtherSourceSearch>(`/api/construction/haraj/search/${encodeURIComponent(jobId)}`)
+}
+
+/** Keep chosen candidates as this account's suppliers for the line's material. */
+export async function adoptOtherSourceCandidates(body: { job_id: string; author_ids: string[]; farq_spec_id: string }) {
+  return request<{ family?: string; suppliers: Array<{ id: string; name_ar?: string; city?: string | null; grade?: string }> }>(
+    '/api/construction/haraj/candidates',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+}
+
 export async function matchConstructionBoqCatalog(payload: {
   lines?: Array<{
     line_key: string
@@ -1874,6 +1910,7 @@ export async function matchConstructionBoqCatalog(payload: {
               : 'من الكتالوج',
           learned: s.learned_choice === true,
           channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
+          origin: (s.origin as string | undefined) || (isHaraj ? 'OTHER' : 'FARQ'),
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
       }),

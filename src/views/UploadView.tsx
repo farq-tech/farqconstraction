@@ -28,6 +28,9 @@ import { clearInflightUpload, loadInflightUpload, saveInflightUpload } from '../
 import { farqSession } from '../api/farqSession'
 import { useProcurement } from '../procurementContext'
 import { currentAuthMode } from '../api/constructionAuth'
+import { getSupplierSources, setSupplierSources, SUPPLIER_ORIGIN_LABEL, type SupplierOrigin } from '../lib/supplierSources'
+import { refreshAllowedSources } from '../lib/parseBoq'
+import { addOtherSourceSuppliers, OTHER_SOURCES_MAX_LINES, type OtherSourcesProgress } from '../lib/otherSources'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -315,6 +318,16 @@ function DescriptionColumnPanel({ report }: { report: ReadReport }) {
 export function UploadView({ navigate }: NavProps) {
   const { setDraftBoq } = useProcurement()
   const [phase, setPhase] = useState<Phase>('idle')
+  const [sources, setSources] = useState<Set<SupplierOrigin>>(() => getSupplierSources())
+  const [otherProgress, setOtherProgress] = useState<OtherSourcesProgress | null>(null)
+  const toggleSource = (o: SupplierOrigin) => {
+    setSources((prev) => {
+      const next = new Set(prev)
+      if (next.has(o)) { if (next.size > 1) next.delete(o) } else next.add(o)
+      setSupplierSources(next)
+      return next
+    })
+  }
   const [fileName, setFileName] = useState('')
   const [completedStages, setCompletedStages] = useState<string[]>([])
   const [activeStage, setActiveStage] = useState<string | null>(null)
@@ -389,6 +402,8 @@ export function UploadView({ navigate }: NavProps) {
     setEta(tracker.view())
 
     setActivity([])
+    setOtherProgress(null)
+    refreshAllowedSources()
     let watchdog: number | undefined
     try {
       const parsed = parseBoqFile(file, {
@@ -461,6 +476,17 @@ export function UploadView({ navigate }: NavProps) {
             'لم نعثر على بنود في هذا الملف. لم نُعد استخدام كراسة سابقة. تأكد أن الملف يحتوي جدول كميات قابل للقراءة.',
         )
         return
+      }
+
+      // «مصادر أخرى»: lines short of suppliers are searched one by one.
+      if (getSupplierSources().has('OTHER')) {
+        const other = await addOtherSourceSuppliers(result.items, {
+          city: 'الرياض',
+          onProgress: (p) => { if (current()) setOtherProgress(p) },
+          isCurrent: current,
+        })
+        if (!current()) return
+        result.items = other.items
       }
 
       setCompletedStages(STAGES.map((s) => s.id))
@@ -681,6 +707,30 @@ export function UploadView({ navigate }: NavProps) {
       )}
 
       {phase === 'idle' && (
+        <div className="mb-3 bg-white border border-neutral-100 rounded-2xl px-4 py-3">
+          <div className="text-sm font-bold text-[#0D1F1D] mb-2">من أين نقترح الموردين؟</div>
+          <div className="flex flex-wrap gap-2">
+            {(['COMPANY', 'FARQ', 'OTHER'] as SupplierOrigin[]).map((o) => (
+              <button
+                key={o}
+                type="button"
+                aria-pressed={sources.has(o)}
+                onClick={() => toggleSource(o)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${sources.has(o) ? 'bg-[#123F3A] text-white border-[#123F3A]' : 'bg-white text-neutral-600 border-neutral-200 hover:border-[#123F3A]/40'}`}
+              >
+                {sources.has(o) ? '✓ ' : ''}{SUPPLIER_ORIGIN_LABEL[o]}
+              </button>
+            ))}
+          </div>
+          {sources.has('OTHER') && (
+            <p className="mt-2 text-[11px] text-neutral-500">
+              «مصادر أخرى»: نبحث لكل بند ينقصه موردون (حتى {OTHER_SOURCES_MAX_LINES} بنود) — نحو نصف دقيقة لكل بند.
+            </p>
+          )}
+        </div>
+      )}
+
+      {phase === 'idle' && (
         <div
           className={`rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
             dragging ? 'border-[#123F3A] bg-[#f0faf7]' : 'border-neutral-200 bg-white hover:border-[#123F3A]/40'
@@ -810,6 +860,14 @@ export function UploadView({ navigate }: NavProps) {
               <LiveActivity events={activity} reading={activeStage !== 'match'} />
             )}
             {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} elapsed={elapsed} />}
+            {otherProgress && (
+              <div className="mt-3 rounded-xl bg-[#f0faf7] px-4 py-2.5 text-xs text-[#123F3A] text-right" dir="rtl">
+                {otherProgress.total === 0
+                  ? 'مصادر أخرى: كل البنود لديها موردون كافون.'
+                  : `مصادر أخرى: ${otherProgress.done} من ${otherProgress.total} بنود — أُضيف ${otherProgress.added} مورد.`}
+                {otherProgress.stopped && <span className="block text-amber-800 mt-1">{otherProgress.stopped}</span>}
+              </div>
+            )}
 
             {phase === 'processing' && partialRead && readReport && (
               <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 animate-fade-up text-right" dir="rtl">

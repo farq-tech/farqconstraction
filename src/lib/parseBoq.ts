@@ -1,3 +1,4 @@
+import { getSupplierSources, supplierOrigin } from './supplierSources'
 import type { BOQItem, Supplier } from '../types'
 import type { BoqWorkProgress } from './boqEta'
 import {
@@ -523,6 +524,12 @@ function lineKeyFor(line: ParsedLine): string {
   return `line-${line.id}`
 }
 
+/** Read once per match: the choice made on the upload screen. */
+let allowedSources = getSupplierSources()
+export function refreshAllowedSources(): void {
+  allowedSources = getSupplierSources()
+}
+
 function mapApiSuppliers(
   rows: Array<{
     id: string
@@ -532,6 +539,7 @@ function mapApiSuppliers(
     evidence?: string
     channel?: string
     learned?: boolean
+    origin?: string
   }>,
 ): Supplier[] {
   return rows
@@ -558,8 +566,11 @@ function mapApiSuppliers(
         evidence,
         learned: s.learned === true ? true : undefined,
         channel,
+        origin: supplierOrigin({ origin: s.origin, channel }),
       }
     })
+    // Only the sources the buyer chose at upload.
+    .filter((s) => allowedSources.has(s.origin))
 }
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
