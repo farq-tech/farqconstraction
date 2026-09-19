@@ -12,7 +12,9 @@ import {
   mapInvitationsToOfferRows,
   type ConstructionRfq,
   type ConstructionRfqSummary,
+  formatRfqReference,
 } from '../api/constructionClient'
+import { rfqProjectName } from '../lib/rfqIdentity'
 
 const STATUS_CONF = {
   complete: { label: 'وصل عرض', className: 'bg-[#CFF5DC] text-[#1a7a45]' },
@@ -190,7 +192,9 @@ export function OffersView({ navigate }: NavProps) {
         <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
           {rfqList.map((entry) => {
             const active = entry.id === activeRfqId
-            const label = formatRfqTitle(entry)
+            // The project the buyer named, then its reference: five chips reading
+            // «القسم المدني والإنشائي — الرياض» could not be told apart.
+            const label = rfqProjectName(entry) || `${formatRfqTitle(entry)} · ${formatRfqReference(entry.id, entry.engineering_department || null)}`
             return (
               <button
                 key={entry.id}
@@ -329,7 +333,7 @@ export function OffersView({ navigate }: NavProps) {
 
                     {attempts.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {attempts.map((a, idx) => (
+                        {attempts.filter((a) => !String(a.status).startsWith('SKIPPED')).map((a, idx) => (
                           <span
                             key={`${a.channel}-${a.sent_at || idx}`}
                             className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${

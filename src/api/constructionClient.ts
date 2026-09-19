@@ -45,6 +45,10 @@ export type ConstructionRfqSummary = {
   opened_count: number
   expired_count: number
   line_count: number
+  sent_count?: number
+  replied_count?: number
+  quote_deadline?: string | null
+  quote_deadline_time?: string | null
   received_base_quote_total: number | null
 }
 
@@ -2176,9 +2180,11 @@ export function formatArDate(value?: string | null): string {
   if (!value) return '—'
   const ts = Date.parse(value)
   if (Number.isNaN(ts)) return value
-  return new Date(ts).toLocaleDateString('en-GB', {
+  // Isolated left-to-right: inside Arabic text «19 September 2026» otherwise
+  // renders as «September 2026 19».
+  return `\u2066${new Date(ts).toLocaleDateString('en-GB', {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
-  })
+  })}\u2069`
 }

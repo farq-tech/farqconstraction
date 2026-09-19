@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import type { NavProps } from '../types'
 import { ClockIcon } from '../icons'
 import { useProcurement } from '../procurementContext'
+import { rfqClosing, rfqProjectName } from '../lib/rfqIdentity'
 import {
   formatArDate,
   formatInviteDeliveryStatus,
   formatInviteResponseStatus,
   formatRfqApiStatus,
+  formatRfqReference,
   formatRfqTitle,
   getConstructionRfq,
   invitePreferredChannel,
@@ -18,15 +20,30 @@ import {
   type ConstructionRfq,
 } from '../api/constructionClient'
 
-type Tab = 'overview' | 'items' | 'offers' | 'correspondence' | 'log'
+type Tab = 'correspondence' | 'offers' | 'items' | 'log'
 
+// «نظرة عامة» repeated the header's numbers; the request opens on its suppliers.
 const TABS: [Tab, string][] = [
-  ['overview', 'نظرة عامة'],
+  ['correspondence', 'الموردون'],
+  ['offers', 'العروض'],
   ['items', 'البنود'],
-  ['offers', 'الردود'],
-  ['correspondence', 'المراسلات'],
   ['log', 'السجل'],
 ]
+
+const CHANNEL_LABEL: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'حراج' }
+
+/** Where one supplier stands, in the buyer's words, with the colour that says it. */
+function supplierStage(invite: { response_status?: string; opened_at?: string | null; dispatch_attempts?: Array<{ status: string; channel: string }> }): { label: string; cls: string } {
+  const response = String(invite.response_status || '').toUpperCase()
+  if (response === 'QUOTED') return { label: 'قدّم عرضًا', cls: 'bg-[#CFF5DC] text-[#1a7a45]' }
+  if (response === 'DECLINED') return { label: 'اعتذر', cls: 'bg-neutral-100 text-neutral-500' }
+  if (invite.opened_at) return { label: 'فتح الطلب', cls: 'bg-[#eef4fb] text-[#2F6CB5]' }
+  const sent = (invite.dispatch_attempts || []).find((a) => a.status === 'SENT')
+  if (sent) return { label: `وصله عبر ${CHANNEL_LABEL[sent.channel] || sent.channel}`, cls: 'bg-neutral-100 text-neutral-600' }
+  const failed = (invite.dispatch_attempts || []).find((a) => a.status === 'DELIVERY_FAILED')
+  if (failed) return { label: 'لم يصله', cls: 'bg-red-50 text-red-700' }
+  return { label: 'لم يُرسل بعد', cls: 'bg-amber-50 text-amber-700' }
+}
 
 const AUDIT_EVENT_LABELS: Record<string, string> = {
   RFQ_CREATED: 'أُنشئ الطلب',
@@ -55,11 +72,11 @@ function auditEventDetail(event: { event_type: string; snapshot?: Record<string,
 }
 
 export function RFQDetailView({ navigate }: NavProps) {
-  const { selectedRfqId, openRfq, setSelectedOfferId } = useProcurement()
+  const { selectedRfqId, openRfq, setSelectedOfferId, openInboxThread } = useProcurement()
   const [rfq, setRfq] = useState<ConstructionRfq | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>('correspondence')
   const [dispatching, setDispatching] = useState(false)
   const [dispatchProgress, setDispatchProgress] = useState<string | null>(null)
   const [dispatchNote, setDispatchNote] = useState<string | null>(null)
@@ -214,23 +231,54 @@ export function RFQDetailView({ navigate }: NavProps) {
     engineering_department: rfq.engineering_department,
     buyer: rfq.current_version?.payload?.buyer,
   })
+  const payload = rfq.current_version?.payload as
+    | { delivery?: { city?: string; site_address?: string; required_date?: string }; quote_deadline?: string; quote_deadline_time?: string }
+    | undefined
+  const project = rfqProjectName({ delivery: payload?.delivery })
+  const reference = formatRfqReference(rfq.id, rfq.engineering_department || null)
   const lines = rfq.current_version?.payload?.lines || []
   const invites = rfq.invitations || []
   const offerRows = mapInvitationsToOfferRows(rfq)
   const replied = offerRows.filter((o) => o.status !== 'pending')
   const uiStatus = mapRfqUiStatus(rfq.status, rfq.award?.id)
   const draftNotSent = String(rfq.status).toUpperCase() === 'DRAFT_NOT_SENT'
-  const deadline = rfq.current_version?.payload?.delivery?.required_date
+  const deadline = payload?.delivery?.required_date
+  const closing = rfqClosing(payload?.quote_deadline, payload?.quote_deadline_time)
+  const quoted = invites.filter((i) => String(i.response_status || '').toUpperCase() === 'QUOTED')
+  const reached = invites.filter((i) => (i.dispatch_attempts || []).some((a) => a.status === 'SENT')).length
+  const opened = invites.filter((i) => i.opened_at).length
+  const total = invites.length
+
+  // The one thing to do next, stated once, above everything else.
+  const next = quoted.length >= 2
+    ? { text: `وصلتك ${quoted.length} عروض أسعار — قارن بينها واختر الأنسب.`, action: 'مقارنة العروض', go: () => openRfq(rfq.id, 'comparison'), tone: 'green' }
+    : quoted.length === 1
+      ? { text: 'وصلك أول عرض سعر. انتظر بقية الموردين أو راجعه الآن.', action: 'عرض العروض', go: () => openRfq(rfq.id, 'offers'), tone: 'green' }
+      : reached === 0 && total > 0
+        ? { text: 'لم يصل الطلب لأي مورد بعد.', action: null, go: null, tone: 'amber' }
+        : { text: `بانتظار عروض الموردين${closing.label ? ` — ${closing.label}` : ''}. أي رد يصلك بالبريد فورًا.`, action: 'المراسلات', go: () => navigate('inbox'), tone: 'neutral' }
+
+  const stageBar = (label: string, value: number, colour: string) => (
+    <div className="flex-1 min-w-0">
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="text-xs text-neutral-500">{label}</span>
+        <span className="text-sm font-black text-[#0D1F1D] tabular-nums">{value}<span className="text-neutral-400 text-xs font-medium">/{total}</span></span>
+      </div>
+      <div className="h-2 rounded-full bg-neutral-100 overflow-hidden">
+        <div className={`h-full rounded-full ${colour}`} style={{ width: `${total ? Math.round((value / total) * 100) : 0}%` }} />
+      </div>
+    </div>
+  )
 
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
-      <div className="mb-6">
+      <div className="mb-5">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           <button onClick={() => navigate('rfq-list')} className="text-xs text-neutral-400 hover:text-neutral-600">
-            طلبات التسعير
+            الطلبات
           </button>
           <span className="text-neutral-300">/</span>
-          <span className="text-xs font-mono text-neutral-400">{rfq.id.slice(0, 8)}</span>
+          <span dir="ltr" className="text-xs font-mono text-neutral-400">{reference}</span>
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
               uiStatus === 'draft'
@@ -243,20 +291,38 @@ export function RFQDetailView({ navigate }: NavProps) {
             {formatRfqApiStatus(rfq.status)}
           </span>
         </div>
-        <h1 className="text-3xl font-black text-[#0D1F1D]">{title}</h1>
-        {deadline && (
-          <div className="flex items-center gap-1.5 mt-2 text-sm text-neutral-500">
-            <ClockIcon className="w-4 h-4" />
-            الموعد النهائي: <span className="font-semibold text-[#0D1F1D]">{formatArDate(deadline)}</span>
-          </div>
-        )}
+        <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D]">{project || title}</h1>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-neutral-500">
+          {project && <span>{title}</span>}
+          <span>{lines.length} {lines.length === 1 ? 'بند' : 'بنود'}</span>
+          {closing.label && (
+            <span className={`flex items-center gap-1 font-semibold ${closing.urgent ? 'text-red-600' : ''}`}>
+              <ClockIcon className="w-4 h-4" /> {closing.label}
+            </span>
+          )}
+          {deadline && <span>التوريد: <span className="font-semibold text-[#0D1F1D]">{formatArDate(deadline)}</span></span>}
+        </div>
       </div>
+
+      {!draftNotSent && total > 0 && (
+        <div
+          className={`mb-5 rounded-2xl border px-4 py-4 flex flex-wrap items-center justify-between gap-3 ${
+            next.tone === 'green' ? 'bg-[#f0faf7] border-[#123F3A]/20' : next.tone === 'amber' ? 'bg-amber-50 border-amber-100' : 'bg-white border-neutral-100'
+          }`}
+        >
+          <p className="text-sm font-semibold text-[#0D1F1D]">{next.text}</p>
+          {next.action && next.go && (
+            <button onClick={next.go} className="px-4 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm">
+              {next.action}
+            </button>
+          )}
+        </div>
+      )}
 
       {draftNotSent && (
         <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="mb-3">
-            الطلب محفوظ كمسودة مع {invites.length} دعوة داخل Farq. لم يُرسل بريد بعد — اضغط للإرسال عبر
-            Resend، ثم راقب «المراسلات».
+            الطلب محفوظ ولم يُرسل بعد إلى {invites.length} موردين.
           </p>
           <button
             type="button"
@@ -264,7 +330,7 @@ export function RFQDetailView({ navigate }: NavProps) {
             onClick={dispatchPendingEmails}
             className="px-4 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-50"
           >
-            {dispatching ? dispatchProgress || 'جارٍ الإرسال…' : `إرسال البريد الآن (${invites.length})`}
+            {dispatching ? dispatchProgress || 'جارٍ الإرسال…' : `أرسل الطلب الآن (${invites.length})`}
           </button>
         </div>
       )}
@@ -286,6 +352,14 @@ export function RFQDetailView({ navigate }: NavProps) {
         </div>
       )}
 
+      {total > 0 && (
+        <div className="mb-6 bg-white border border-neutral-100 rounded-2xl px-4 py-4 flex gap-4">
+          {stageBar('وصلهم الطلب', reached, 'bg-[#123F3A]/40')}
+          {stageBar('فتحوا الطلب', opened, 'bg-[#2F6CB5]/70')}
+          {stageBar('قدّموا عرضًا', quoted.length, 'bg-[#1a7a45]')}
+        </div>
+      )}
+
       {!draftNotSent &&
         invites.some((invite) => String(invite.delivery_status || '').toUpperCase() !== 'SENT') && (
           <div className="mb-5">
@@ -295,27 +369,10 @@ export function RFQDetailView({ navigate }: NavProps) {
               onClick={dispatchPendingEmails}
               className="px-4 py-2.5 border border-neutral-200 text-neutral-700 font-semibold rounded-xl text-sm disabled:opacity-50"
             >
-              {dispatching ? dispatchProgress || 'جارٍ الإرسال…' : 'إعادة إرسال الدعوات غير المُرسلة'}
+              {dispatching ? dispatchProgress || 'جارٍ الإرسال…' : 'أرسل لمن لم يصلهم الطلب'}
             </button>
           </div>
         )}
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {[
-          { n: String(lines.length), label: 'بندًا' },
-          { n: String(rfq.supplier_count || invites.length), label: 'موردًا مدعوًا' },
-          { n: String(rfq.response_count || replied.length), label: 'ردًا' },
-          {
-            n: String(offerRows.filter((o) => o.status === 'complete').length),
-            label: 'عروض مكتملة',
-          },
-        ].map((m) => (
-          <div key={m.label} className="bg-white border border-neutral-100 rounded-2xl px-4 py-4 text-center">
-            <div className="text-2xl font-black text-[#123F3A]">{m.n}</div>
-            <div className="text-xs text-neutral-500 mt-0.5">{m.label}</div>
-          </div>
-        ))}
-      </div>
 
       <div className="flex border-b border-neutral-100 mb-6 overflow-x-auto">
         {TABS.map(([id, label]) => (
@@ -328,50 +385,10 @@ export function RFQDetailView({ navigate }: NavProps) {
           >
             {label}
             {id === 'correspondence' ? ` (${invites.length})` : ''}
-            {id === 'offers' ? ` (${rfq.response_count || replied.length})` : ''}
+            {id === 'offers' ? ` (${quoted.length})` : ''}
           </button>
         ))}
       </div>
-
-      {tab === 'overview' && (
-        <div className="space-y-4">
-          <div className="bg-white border border-neutral-100 rounded-2xl p-5">
-            <h3 className="font-bold text-[#0D1F1D] mb-4">ملخص الطلب</h3>
-            <div className="grid sm:grid-cols-2 gap-4 text-sm">
-              <div className="flex justify-between gap-3">
-                <span className="text-neutral-500">المشروع / الموقع</span>
-                <span className="font-semibold text-left max-w-[65%]">{title}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">تاريخ الإنشاء</span>
-                <span className="font-semibold">{formatArDate(rfq.created_at)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">البنود</span>
-                <span className="font-semibold">{lines.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">الدعوات</span>
-                <span className="font-semibold">{invites.length}</span>
-              </div>
-            </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <button
-              onClick={() => setTab('correspondence')}
-              className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm"
-            >
-              عرض المراسلات ({invites.length})
-            </button>
-            <button
-              onClick={() => openRfq(rfq.id, 'offers')}
-              className="w-full py-3.5 border border-neutral-200 text-neutral-700 font-semibold rounded-xl text-sm"
-            >
-              صندوق الردود والعروض
-            </button>
-          </div>
-        </div>
-      )}
 
       {tab === 'items' && (
         <div className="space-y-2">
@@ -435,60 +452,49 @@ export function RFQDetailView({ navigate }: NavProps) {
 
       {tab === 'correspondence' && (
         <div className="space-y-2">
-          <p className="text-xs text-neutral-500 mb-3">
-            حالة إرسال الطلب لكل مورد ورده عليه.
-          </p>
           {invites.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500 text-sm">لا دعوات مسجّلة لهذا الطلب</div>
+            <div className="text-center py-12 text-neutral-500 text-sm">لا موردين في هذا الطلب</div>
           ) : (
-            invites.slice(0, 200).map((invite) => {
-              const attempts = invite.dispatch_attempts || []
-              return (
-                <div
-                  key={invite.id}
-                  className="bg-white border border-neutral-100 rounded-xl px-4 py-3.5 flex items-start gap-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[#0D1F1D] text-sm truncate">
-                      {invite.supplier?.name_ar || invite.supplier?.name_en || invite.supplier_id}
-                    </div>
-                    <div className="text-xs text-neutral-500 mt-1">
-                      الإرسال: {formatInviteDeliveryStatus(invite.delivery_status)} · الرد:{' '}
-                      {formatInviteResponseStatus(invite.response_status)}
-                    </div>
-                    {attempts.length > 0 ? (
-                      <div className="text-[11px] text-neutral-400 mt-1">
-                        {attempts
-                          // Channels the supplier has no address for were never
-                          // tried; listing them read like failures.
-                          .filter((a) => !String(a.status).startsWith('SKIPPED'))
-                          .map((a) => {
-                            const channel = ({ EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'حراج' } as Record<string, string>)[a.channel] || a.channel
-                            const status =
-                              ({ SENT: 'أُرسل', DELIVERY_FAILED: 'لم يصل', NOT_SENT: 'لم يُرسل', PARTIALLY_SENT: 'أُرسل جزئيًا' } as Record<string, string>)[a.status] ||
-                              a.status
-                            return `${channel}: ${status}`
-                          })
-                          .join(' · ')}
+            [...invites]
+              // Who needs a look first: quoted, then opened, then the rest.
+              .sort((x, y) => {
+                const rank = (i: typeof x) => (String(i.response_status || '').toUpperCase() === 'QUOTED' ? 0 : i.opened_at ? 1 : 2)
+                return rank(x) - rank(y)
+              })
+              .slice(0, 200)
+              .map((invite) => {
+                const stage = supplierStage(invite)
+                const isQuoted = String(invite.response_status || '').toUpperCase() === 'QUOTED'
+                return (
+                  <div key={invite.id} className="bg-white border border-neutral-100 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-[#0D1F1D] text-sm truncate">
+                        {invite.supplier?.name_ar || invite.supplier?.name_en || invite.supplier_id}
                       </div>
-                    ) : (
-                      <div className="text-[11px] text-amber-700/80 mt-1">
-                        لا محاولات إرسال قنوات — الدعوة داخل النظام فقط
-                      </div>
-                    )}
+                      <span className={`inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${stage.cls}`}>{stage.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => openInboxThread(invite.id)}
+                        className="text-xs px-3 py-1.5 border border-neutral-200 rounded-lg font-semibold text-neutral-700 hover:border-[#123F3A]/40"
+                      >
+                        المحادثة
+                      </button>
+                      {isQuoted && (
+                        <button
+                          onClick={() => {
+                            setSelectedOfferId(invite.id)
+                            openRfq(rfq.id, 'offer-detail')
+                          }}
+                          className="text-xs px-3 py-1.5 bg-[#123F3A] text-white rounded-lg font-bold"
+                        >
+                          العرض
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedOfferId(invite.id)
-                      openRfq(rfq.id, 'offer-detail')
-                    }}
-                    className="text-xs px-3 py-1.5 border border-neutral-200 rounded-lg font-semibold text-neutral-600"
-                  >
-                    تفاصيل
-                  </button>
-                </div>
-              )
-            })
+                )
+              })
           )}
         </div>
       )}

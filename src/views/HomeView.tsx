@@ -1,22 +1,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { setPendingUpload } from '../lib/pendingUpload'
 import type { NavProps, RFQSummary } from '../types'
-import { UploadIcon, ArrowRightIcon } from '../icons'
+import { UploadIcon, ArrowRightIcon, InboxIcon, FileIcon } from '../icons'
 import { getSession, subscribeSession } from '../store/session'
-import {
-  formatArDate,
-  formatRfqTitle,
-  listBuyerRfqs,
-  mapRfqUiStatus,
-} from '../api/constructionClient'
+import { listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
-
-const STATUS_CONFIG = {
-  active: { label: 'بانتظار العروض', className: 'bg-amber-50 text-amber-700' },
-  awarded: { label: 'تمت الترسية', className: 'bg-[#CFF5DC] text-[#1a7a45]' },
-  draft: { label: 'مسودة', className: 'bg-neutral-100 text-neutral-500' },
-  closed: { label: 'مغلق', className: 'bg-neutral-100 text-neutral-500' },
-}
+import { useFarqSession } from '../api/useFarqSession'
+import { toRfqSummary } from '../lib/rfqIdentity'
+import { RfqCard } from '../components/RfqCard'
 
 function useLocalRfqs() {
   return useSyncExternalStore(
@@ -26,14 +17,55 @@ function useLocalRfqs() {
   )
 }
 
+function greeting(): string {
+  const hour = new Date().getHours()
+  return hour < 12 ? 'صباح الخير' : 'مساء الخير'
+}
+
+/** One thing waiting for the buyer, with the action that deals with it. */
+function AttentionCard({
+  count,
+  title,
+  hint,
+  tone,
+  onClick,
+}: {
+  count: number | null
+  title: string
+  hint: string
+  tone: 'green' | 'blue' | 'red'
+  onClick: () => void
+}) {
+  const active = (count ?? 0) > 0
+  const colours = {
+    green: active ? 'bg-[#f0faf7] border-[#123F3A]/20' : 'bg-white border-neutral-100',
+    blue: active ? 'bg-[#eef4fb] border-[#2F6CB5]/20' : 'bg-white border-neutral-100',
+    red: active ? 'bg-red-50 border-red-200' : 'bg-white border-neutral-100',
+  }[tone]
+  const number = { green: 'text-[#123F3A]', blue: 'text-[#2F6CB5]', red: 'text-red-600' }[tone]
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 min-w-[150px] rounded-2xl border px-4 py-4 text-right transition-all hover:shadow-sm ${colours}`}
+    >
+      <div className={`text-3xl font-black tabular-nums ${active ? number : 'text-neutral-300'}`}>{count ?? '—'}</div>
+      <div className="mt-1 text-sm font-bold text-[#0D1F1D]">{title}</div>
+      <div className="text-xs text-neutral-500 mt-0.5">{active ? hint : 'لا جديد'}</div>
+    </button>
+  )
+}
+
 export function HomeView({ navigate }: NavProps) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const localRfqs = useLocalRfqs()
   const [apiRfqs, setApiRfqs] = useState<RFQSummary[]>([])
-  // A failed load must not read as «no requests yet».
   const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
+  const [unread, setUnread] = useState<number | null>(null)
   const { openRfq } = useProcurement()
+  const session = useFarqSession()
+  const name = session.user?.displayName?.trim() || ''
 
   useEffect(() => {
     let cancelled = false
@@ -41,24 +73,20 @@ export function HomeView({ navigate }: NavProps) {
       .then((overview) => {
         if (cancelled) return
         setLoadState('ok')
-        setApiRfqs(
-          (overview.rfqs || []).map((r) => ({
-            id: r.id,
-            name: formatRfqTitle(r),
-            items: r.line_count || 0,
-            offers: r.response_count || 0,
-            suppliers: r.supplier_count || 0,
-            status: mapRfqUiStatus(r.status, r.award_id),
-            date: formatArDate(r.created_at),
-            deadline: r.delivery?.required_date ? formatArDate(r.delivery.required_date) : undefined,
-          })),
-        )
+        setApiRfqs((overview.rfqs || []).map(toRfqSummary))
       })
       .catch(() => {
         if (!cancelled) {
           setApiRfqs([])
           setLoadState('error')
         }
+      })
+    listConstructionInboxMessages()
+      .then((page) => {
+        if (!cancelled) setUnread(page.unread_count ?? 0)
+      })
+      .catch(() => {
+        if (!cancelled) setUnread(null)
       })
     return () => {
       cancelled = true
@@ -72,133 +100,147 @@ export function HomeView({ navigate }: NavProps) {
     seen.add(r.id)
     rfqs.push(r)
   }
-  const recent = rfqs.slice(0, 5)
+  const active = rfqs.filter((r) => r.status === 'active' || r.status === 'draft')
+  const offersTotal = rfqs.filter((r) => r.status === 'active').reduce((sum, r) => sum + (r.offers || 0), 0)
+  const withOffers = rfqs.find((r) => r.status === 'active' && r.offers > 0)
+  const closingSoon = rfqs.filter((r) => r.status === 'active' && r.closesUrgent)
+
+  const openCard = (rfq: RFQSummary) =>
+    rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
+      ? navigate('create-proposals')
+      : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
+
+  const pickFile = () => inputRef.current?.click()
 
   return (
-    <div className="max-w-4xl mx-auto px-4 lg:px-8 py-10">
-      <div className="mb-10">
-        <h1 className="text-4xl lg:text-5xl font-black text-[#0D1F1D] leading-tight mb-3">سعّر مناقصتك بدقائق</h1>
-        <p className="text-lg text-neutral-500 leading-relaxed max-w-xl">
-          ارفع كراسة الشروط والمواصفات، ونقرأ البنود ونقترح الموردين المناسبين لكل بند.
-        </p>
-      </div>
-
-      <div
-        className={`relative rounded-2xl border-2 border-dashed transition-all cursor-pointer mb-10 ${
-          dragging
-            ? 'border-[#123F3A] bg-[#f0faf7]'
-            : 'border-neutral-200 bg-white hover:border-[#123F3A]/40 hover:bg-[#f0faf7]/50'
-        }`}
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragging(true)
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragging(false)
-          setPendingUpload(e.dataTransfer.files?.[0])
+    <div
+      className="max-w-4xl mx-auto px-4 lg:px-8 py-8"
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragging(false)
+        setPendingUpload(e.dataTransfer.files?.[0])
+        navigate('create-upload')
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          setPendingUpload(e.target.files?.[0])
           navigate('create-upload')
         }}
-        onClick={() => inputRef.current?.click()}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,application/pdf"
-          className="hidden"
-          onChange={(e) => {
-            setPendingUpload(e.target.files?.[0])
-            navigate('create-upload')
-          }}
-        />
-        <div className="flex flex-col items-center py-16 px-8">
+      />
+
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D]">
+            {greeting()}
+            {name ? `، ${name}` : ''}
+          </h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            {rfqs.length ? 'هذا ما يحتاج انتباهك اليوم.' : 'ارفع كراسة وسنقرأ البنود ونقترح لكل بند موردين مناسبين.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={pickFile}
+          className="flex items-center gap-2 px-5 py-3 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm shadow-sm"
+        >
+          <UploadIcon className="w-4 h-4" />
+          طلب تسعير جديد
+        </button>
+      </div>
+
+      {dragging && (
+        <div className="mb-6 rounded-2xl border-2 border-dashed border-[#123F3A] bg-[#f0faf7] py-10 text-center text-sm font-bold text-[#123F3A]">
+          أفلت الكراسة هنا لنبدأ القراءة
+        </div>
+      )}
+
+      {rfqs.length > 0 && (
+        <div className="flex flex-wrap gap-3 mb-8">
+          <AttentionCard
+            count={unread}
+            title="ردود جديدة من الموردين"
+            hint="افتح المراسلات للرد"
+            tone="blue"
+            onClick={() => navigate('inbox')}
+          />
+          <AttentionCard
+            count={offersTotal}
+            title="عروض أسعار مستلمة"
+            hint="راجعها وقارن بينها"
+            tone="green"
+            onClick={() => (withOffers ? openRfq(withOffers.id, 'offers') : navigate('rfq-list'))}
+          />
+          <AttentionCard
+            count={closingSoon.length}
+            title="طلبات تغلق قريبًا"
+            hint="خلال يومين — تابع الموردين"
+            tone="red"
+            onClick={() => (closingSoon[0] ? openRfq(closingSoon[0].id, 'rfq-detail') : navigate('rfq-list'))}
+          />
+        </div>
+      )}
+
+      {loadState !== 'ok' && !rfqs.length ? (
+        <div className="text-center py-16 text-sm text-neutral-500">
+          {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : 'تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد تحميل الصفحة.'}
+        </div>
+      ) : rfqs.length === 0 ? (
+        <button
+          type="button"
+          onClick={pickFile}
+          className="w-full rounded-2xl border-2 border-dashed border-neutral-200 bg-white hover:border-[#123F3A]/40 hover:bg-[#f0faf7]/50 transition-all py-16 px-8 flex flex-col items-center"
+        >
           <div className="w-16 h-16 rounded-2xl bg-[#CFF5DC] flex items-center justify-center mb-5">
             <UploadIcon className="w-8 h-8 text-[#123F3A]" />
           </div>
-          <div className="text-xl font-bold text-[#0D1F1D] mb-2">رفع كراسة جديدة</div>
-          <p className="text-neutral-400 text-sm mb-6 text-center">اسحب الملف هنا أو اضغط للاختيار</p>
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">PDF</span>
-            
+          <div className="text-xl font-bold text-[#0D1F1D] mb-2">ارفع أول كراسة</div>
+          <p className="text-neutral-500 text-sm text-center max-w-sm">
+            ملف PDF لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند خمسة موردين، وترسل لهم بضغطة.
+          </p>
+        </button>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-[#0D1F1D] flex items-center gap-2">
+              <FileIcon className="w-4 h-4 text-[#123F3A]" />
+              الطلبات الجارية
+              <span className="text-xs font-semibold text-neutral-400">({active.length})</span>
+            </h2>
+            <button
+              onClick={() => navigate('rfq-list')}
+              className="text-sm text-[#123F3A] font-semibold hover:underline flex items-center gap-1"
+            >
+              كل الطلبات <ArrowRightIcon className="w-3.5 h-3.5 rotate-180" />
+            </button>
           </div>
-          <button
-            className="mt-6 px-6 py-3 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate('create-upload')
-            }}
-          >
-            اختر ملفًا
-          </button>
+          {active.length === 0 ? (
+            <div className="rounded-2xl border border-neutral-100 bg-white py-10 text-center text-sm text-neutral-500">
+              لا طلبات جارية. كل طلباتك مغلقة أو تمت ترسيتها.
+              <button onClick={() => navigate('inbox')} className="mt-3 flex items-center gap-1 mx-auto text-[#123F3A] font-semibold">
+                <InboxIcon className="w-4 h-4" /> المراسلات
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {active.slice(0, 8).map((rfq) => (
+                <RfqCard key={rfq.id} rfq={rfq} onOpen={() => openCard(rfq)} />
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-[#0D1F1D]">آخر طلبات التسعير</h2>
-          <button
-            onClick={() => navigate('rfq-list')}
-            className="text-sm text-[#123F3A] font-semibold hover:underline flex items-center gap-1"
-          >
-            عرض الكل <ArrowRightIcon className="w-3.5 h-3.5 rotate-180" />
-          </button>
-        </div>
-
-        {recent.length === 0 && loadState !== 'ok' && !localRfqs.length ? (
-          <div className="text-center py-16 text-sm text-neutral-500">
-            {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : 'تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد تحميل الصفحة.'}
-          </div>
-        ) : recent.length === 0 ? (
-          <div className="text-center py-16 text-neutral-400">
-            <div className="font-semibold text-[#0D1F1D] mb-1">لا توجد طلبات بعد</div>
-            <div className="text-sm">ابدأ برفع أول كراسة لترى البنود هنا</div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {recent.map((rfq) => {
-              const cfg = STATUS_CONFIG[rfq.status]
-              return (
-                <button
-                  key={rfq.id}
-                  // A draft made by an upload lives in this browser, not on the
-                  // server: it opens the booklet's suppliers, not an RFQ page.
-                  onClick={() =>
-                    rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
-                      ? navigate('create-proposals')
-                      : openRfq(rfq.id, 'rfq-detail')
-                  }
-                  className="w-full bg-white rounded-2xl border border-neutral-100 px-5 py-4 flex items-center gap-4 hover:border-[#123F3A]/20 hover:shadow-sm transition-all text-right"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.className}`}>{cfg.label}</span>
-                      <span className="text-xs text-neutral-400">{rfq.date}</span>
-                    </div>
-                    <div className="font-bold text-[#0D1F1D] text-base">{rfq.name}</div>
-                    <div className="text-xs text-neutral-400 mt-1">{rfq.id}</div>
-                  </div>
-                  <div className="flex items-center gap-6 text-center flex-shrink-0">
-                    <div>
-                      <div className="text-lg font-black text-[#0D1F1D]">{rfq.items}</div>
-                      <div className="text-xs text-neutral-400">بندًا</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-black text-[#0D1F1D]">{rfq.suppliers}</div>
-                      <div className="text-xs text-neutral-400">موردًا</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-black text-[#123F3A]">{rfq.offers}</div>
-                      <div className="text-xs text-neutral-400">عرضًا</div>
-                    </div>
-                  </div>
-                  <ArrowRightIcon className="w-4 h-4 text-neutral-300 flex-shrink-0 rotate-180" />
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
+
+export default HomeView

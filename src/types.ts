@@ -100,6 +100,16 @@ export interface RFQSummary {
   status: 'draft' | 'active' | 'awarded' | 'closed'
   date: string
   deadline?: string
+  /** Short reference suppliers see, e.g. CIV-RFQ-51D17AF6. */
+  reference?: string
+  /** Department · city, under the project name. */
+  subtitle?: string
+  /** Suppliers the request reached, and those who answered. */
+  sent?: number
+  replied?: number
+  /** When quotes close, as «يغلق بعد 3 أيام»; urgent inside two days. */
+  closesLabel?: string
+  closesUrgent?: boolean
 }
 
 export interface SupplierEntry {

@@ -21,21 +21,17 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
       active: (v: AppView) => v === 'home',
     },
     {
+      // Requests, their offers, the comparison and the award are one place:
+      // «العروض والمراسلات» next to «المراسلات» read as two inboxes.
       id: 'rfq-list' as AppView,
-      label: 'طلبات التسعير',
+      label: 'الطلبات',
       Icon: FileIcon,
-      active: (v: AppView) =>
-        ['rfq-list', 'create-upload', 'create-proposals', 'rfq-detail', 'rfq-closed', 'sent', 'sent-failure'].includes(
-          v,
-        ),
-    },
-    {
-      id: 'offers' as AppView,
-      label: 'العروض والمراسلات',
-      Icon: InboxIcon,
       badge: offerBadge || undefined,
       active: (v: AppView) =>
-        ['offers', 'offer-detail', 'comparison', 'award', 'award-success'].includes(v),
+        [
+          'rfq-list', 'create-upload', 'create-proposals', 'rfq-detail', 'rfq-closed', 'sent', 'sent-failure',
+          'offers', 'offer-detail', 'comparison', 'award', 'award-success',
+        ].includes(v),
     },
     {
       id: 'inbox' as AppView,
@@ -186,6 +182,16 @@ export function Shell({ view, navigate, children }: ShellProps) {
           </div>
         </div>
 
+        <div className="px-4 pt-4">
+          <button
+            onClick={() => navigate('create-upload')}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#CFF5DC] text-[#123F3A] font-bold text-sm py-2.5 hover:bg-white transition-colors"
+          >
+            <span className="text-lg leading-none">+</span>
+            طلب تسعير جديد
+          </button>
+        </div>
+
         <nav className="flex-1 py-3 overflow-y-auto">
           {NAV.map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
@@ -275,7 +281,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.slice(0, 5).map(({ id, label, Icon, active }) => {
+          {NAV.filter((item) => item.id !== 'learning-review').slice(0, 5).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button
@@ -287,9 +293,9 @@ export function Shell({ view, navigate, children }: ShellProps) {
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium">{label.split(' ')[0]}</span>
-                {id === 'offers' && offerCount != null && offerCount > 0 && (
-                  <span className="absolute top-1.5 left-[calc(50%+7px)] w-4 h-4 bg-[#123F3A] text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                    {offerCount}
+                {badge && (
+                  <span className="absolute top-1.5 left-[calc(50%+7px)] min-w-4 h-4 px-1 bg-[#123F3A] text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                    {badge}
                   </span>
                 )}
               </button>

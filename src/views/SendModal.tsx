@@ -12,6 +12,7 @@ import {
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
   fetchConstructionWhatsAppPricing,
+  formatArDate,
   startConstructionDispatch,
   getConstructionDispatch,
   cancelConstructionDispatch,
@@ -177,6 +178,8 @@ export function SendModal({
   /** Fast path: EMAIL+WA first; defer Haraj (20s pacing) unless user opts in. */
   // Haraj goes out in the same batch by default (owner, 2026-09-18).
   const [fastEmailFirst, setFastEmailFirst] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const [showRecipients, setShowRecipients] = useState(false)
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'form' | 'sending' | 'done'>('form')
   const [error, setError] = useState<string | null>(null)
@@ -1158,23 +1161,45 @@ export function SendModal({
         <div className="px-6 py-5">
           {phase === 'form' && (
             <>
-              <div className="bg-[#f0faf7] rounded-2xl p-4 mb-5">
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <div className="text-2xl font-black text-[#123F3A]">{readyItems.length}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">بندًا</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black text-[#123F3A]">{selectedSupplierIds.length}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">موردًا</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black text-amber-600">{searchingItems}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">قيد البحث</div>
-                  </div>
+              {/* What will happen, in one sentence; the settings stay folded unless asked for. */}
+              <div className="bg-[#f0faf7] rounded-2xl p-4 mb-4">
+                <div className="text-base font-black text-[#0D1F1D]">
+                  سيصل طلبك إلى {recipients.length} {recipients.length === 1 ? 'مورد' : 'موردين'} عن {readyItems.length}{' '}
+                  {readyItems.length === 1 ? 'بند' : 'بنود'}
                 </div>
+                <div className="text-xs text-neutral-600 mt-1">كل مورد يرى بنوده فقط، ويرد عبر رابط أو بالرد على الرسالة.</div>
+                {searchingItems > 0 && (
+                  <div className="text-xs text-amber-700 mt-1">{searchingItems} بنود ما زال البحث عن موردين لها جاريًا — تُرسل لاحقًا.</div>
+                )}
               </div>
 
+              <div className="mb-4 rounded-2xl border border-neutral-100 bg-white divide-y divide-neutral-100 text-sm">
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <span className="text-neutral-500">التسليم</span>
+                  <span className="font-semibold text-[#0D1F1D] text-left">{site || '—'} · {deadline ? formatArDate(deadline) : '—'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <span className="text-neutral-500">آخر موعد للعروض</span>
+                  <span className="font-semibold text-[#0D1F1D]">{quoteDeadline ? formatArDate(quoteDeadline) : '—'} · <span dir="ltr">{quoteDeadlineTime}</span></span>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <span className="text-neutral-500">النوع والقسم</span>
+                  <span className="font-semibold text-[#0D1F1D] text-left">
+                    {requestType === 'SUPPLY_ONLY' ? 'توريد فقط' : 'توريد وتركيب'} ·{' '}
+                    {DEPARTMENT_CHOICES.find((d) => d.key === department)?.label || 'اختر القسم'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDetails((v) => !v)}
+                  className="w-full px-4 py-2.5 text-xs font-bold text-[#123F3A] text-right hover:bg-[#f0faf7]"
+                >
+                  {showDetails ? 'إخفاء التفاصيل' : 'تعديل التفاصيل'}
+                </button>
+              </div>
+
+              {(showDetails || !department || !quoteDeadline) && (
+                <div className="mb-4 rounded-2xl border border-neutral-100 bg-white px-4 pt-4">
               <div className="space-y-3 mb-4">
                 <div>
                   <label className="text-xs text-neutral-500 mb-1 block">موقع التسليم</label>
@@ -1226,18 +1251,43 @@ export function SendModal({
                 </select>
               </div>
 
-              <div className="mb-4 rounded-xl border border-neutral-200">
-                <div className="px-3 py-2 text-xs font-bold text-[#0D1F1D] border-b border-neutral-100">
-                  سيصل الطلب إلى هؤلاء ({recipients.length}) — كل مورد يرى بنوده فقط
+              <label className="flex items-start gap-3 mb-4 rounded-xl border border-neutral-100 bg-white px-3 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1 accent-[#123F3A]"
+                  checked={fastEmailFirst}
+                  onChange={(e) => setFastEmailFirst(e.target.checked)}
+                />
+                <span>
+                  <span className="block text-sm font-bold text-[#0D1F1D]">إرسال سريع: بريد أولًا</span>
+                  <span className="block text-[11px] text-neutral-500 leading-relaxed mt-0.5">
+                    يرسل البريد وواتساب ويؤجّل حراج لزر منفصل. بدون هذا الخيار يُرسل حراج تلقائيًا في نفس الدفعة بعدهما.
+                  </span>
+                </span>
+              </label>
+
                 </div>
-                <ul className="max-h-40 overflow-y-auto divide-y divide-neutral-100">
-                  {recipients.map((r, i) => (
-                    <li key={`${r.name}-${i}`} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
-                      <span className="truncate text-[#0D1F1D]">{r.name}</span>
-                      <span className="flex-shrink-0 text-neutral-500">{r.lines} بندًا{r.channel ? ` · ${r.channel}` : ''}</span>
-                    </li>
-                  ))}
-                </ul>
+              )}
+
+              <div className="mb-4 rounded-xl border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setShowRecipients((v) => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-[#0D1F1D]"
+                >
+                  <span>الموردون ({recipients.length})</span>
+                  <span className="text-[#123F3A]">{showRecipients ? 'إخفاء' : 'عرض'}</span>
+                </button>
+                {showRecipients && (
+                  <ul className="max-h-40 overflow-y-auto divide-y divide-neutral-100 border-t border-neutral-100">
+                    {recipients.map((r, i) => (
+                      <li key={`${r.name}-${i}`} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
+                        <span className="truncate text-[#0D1F1D]">{r.name}</span>
+                        <span className="flex-shrink-0 text-neutral-500">{r.lines} بندًا{r.channel ? ` · ${r.channel}` : ''}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               {readIssue?.kind === 'partial' && (
@@ -1261,21 +1311,6 @@ export function SendModal({
                   ))}
                 </div>
               )}
-
-              <label className="flex items-start gap-3 mb-4 rounded-xl border border-neutral-100 bg-white px-3 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-1 accent-[#123F3A]"
-                  checked={fastEmailFirst}
-                  onChange={(e) => setFastEmailFirst(e.target.checked)}
-                />
-                <span>
-                  <span className="block text-sm font-bold text-[#0D1F1D]">إرسال سريع: بريد أولًا</span>
-                  <span className="block text-[11px] text-neutral-500 leading-relaxed mt-0.5">
-                    يرسل البريد وواتساب ويؤجّل حراج لزر منفصل. بدون هذا الخيار يُرسل حراج تلقائيًا في نفس الدفعة بعدهما.
-                  </span>
-                </span>
-              </label>
 
               {harajSelected > 0 && (
                 <p className="text-xs text-[#123F3A] mb-4 leading-relaxed bg-[#f0faf7] rounded-xl px-3 py-2">
