@@ -237,6 +237,17 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
     () => (thread?.send_channels || []).find((c) => c.channel === 'EMAIL'),
     [thread],
   )
+  /**
+   * The reply goes back on the channel the supplier last wrote on; the server
+   * refuses anything else. With no inbound message yet: email when the thread
+   * has an address, otherwise Haraj.
+   */
+  const replyChannel = useMemo<'EMAIL' | 'HARAJ' | 'WHATSAPP'>(() => {
+    const lastIn = [...(thread?.messages || [])].reverse().find((m) => m.direction === 'INBOUND' && ['EMAIL', 'HARAJ', 'WHATSAPP'].includes(String(m.channel)))
+    if (lastIn) return String(lastIn.channel) as 'EMAIL' | 'HARAJ' | 'WHATSAPP'
+    const available = (thread?.send_channels || []).map((c) => String(c.channel))
+    return available.includes('EMAIL') || !available.includes('HARAJ') ? 'EMAIL' : 'HARAJ'
+  }, [thread])
   const unreadNow = (thread?.messages || []).filter((m) => m.direction === 'INBOUND' && m.unread).length
   /** One switch for every control that would send: permission AND a build that may write. */
   const canCompose = Boolean(thread?.can_reply) && !readOnly
@@ -262,8 +273,17 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
     setError(null)
     setNotice(null)
     try {
+      if (replyChannel === 'WHATSAPP') {
+        setError('آخر رسالة من المورد وصلت على واتساب — الرد عليه يكون من تطبيق واتساب نفسه.')
+        return
+      }
+      if (replyChannel === 'HARAJ' && files.length) {
+        setError('محادثة حراج تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.')
+        return
+      }
       const attachments = files.length ? await readConstructionInboxAttachments(files) : []
       const result = await replyToConstructionInboxThread(String(thread.invite_id), {
+        channel: replyChannel === 'HARAJ' ? 'HARAJ' : 'EMAIL',
         idempotency_key: crypto.randomUUID(),
         text: text.trim(),
         parent_message_id: thread.last_message_id ?? null,
