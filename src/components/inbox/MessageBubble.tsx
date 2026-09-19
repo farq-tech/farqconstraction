@@ -108,7 +108,7 @@ export type MessageBubbleProps = {
 }
 
 /** A small tag naming the channel a message came or went through. */
-function ChannelTag({ channel }: { channel?: string | null }) {
+export function ChannelTag({ channel }: { channel?: string | null }) {
   const key = String(channel || 'EMAIL').toUpperCase()
   if (key === 'WHATSAPP') {
     return (

@@ -8,8 +8,7 @@ import { HomeView } from './views/HomeView'
 import { UploadView } from './views/UploadView'
 import { ProposalsView } from './views/ProposalsView'
 import { RFQListView } from './views/RFQListView'
-import { RFQDetailView } from './views/RFQDetailView'
-import { RFQClosedView } from './views/RFQClosedView'
+import { RequestFileView } from './views/RequestFileView'
 import { OffersView } from './views/OffersView'
 import { OfferDetailView } from './views/OfferDetailView'
 import { ComparisonView } from './views/ComparisonView'
@@ -84,11 +83,11 @@ function AppRoutes() {
       {view === 'create-upload' && <UploadView navigate={navigate} />}
       {view === 'create-proposals' && <ProposalsView navigate={navigate} />}
       {view === 'rfq-list' && <RFQListView navigate={navigate} />}
-      {view === 'rfq-detail' && <RFQDetailView navigate={navigate} />}
-      {view === 'rfq-closed' && <RFQClosedView navigate={navigate} />}
-      {view === 'offers' && <OffersView navigate={navigate} />}
+      {/* One page per request — the whole deal file (overview, items, quotes, suppliers, messages, history). */}
+      {(view === 'rfq-detail' || view === 'rfq-closed') && <RequestFileView key={view} navigate={navigate} />}
+      {view === 'offers' && <RequestFileView key="offers" navigate={navigate} initialTab="quotes" />}
       {view === 'offer-detail' && <OfferDetailView navigate={navigate} />}
-      {view === 'comparison' && <ComparisonView navigate={navigate} />}
+      {view === 'comparison' && <RequestFileView key="comparison" navigate={navigate} initialTab="quotes" />}
       {view === 'award' && <AwardView navigate={navigate} />}
       {view === 'award-success' && <AwardSuccessView navigate={navigate} />}
       {view === 'supplier-management' && (

@@ -130,6 +130,8 @@ export type ConstructionRfq = {
     approved_at?: string
     approved_by_email?: string
     selection_reason?: string
+    supplier_quote_version_id?: string
+    created_at?: string
   } | null
   audit_timeline?: Array<{
     event_type: string
@@ -162,6 +164,13 @@ export type ConstructionComparison = {
       lines?: Array<Record<string, unknown>>
       delivery?: unknown
       currency?: string
+      inviteId?: string
+      quoteVersion?: number
+      /** supplier_quote_versions.created_at — when this version was submitted. */
+      submittedAt?: string
+      prices_include_tax?: boolean | null
+      tax_rate?: number | null
+      notes?: string | null
     }
     eligibility?: { eligible?: boolean; reason_codes?: string[] }
   }>
@@ -197,6 +206,7 @@ export type ConstructionComparison = {
         needs_review: number
         complete: boolean
       }
+      totals?: { total?: number | null; goods_total?: number; tax?: number; complete?: boolean } | null
     }>
   }
   serving_decision?: {
@@ -712,6 +722,19 @@ export async function getConstructionRfq(id: string): Promise<ConstructionRfq> {
   return request<ConstructionRfq>(`/api/construction/rfqs/${encodeURIComponent(id)}`)
 }
 
+export type ConstructionSupplierOutcomeEvent = {
+  id: string
+  event_type: 'INVITED' | 'OPENED' | 'SEND_FAILED' | 'QUOTE_RECEIVED' | 'LINE_DECLINED' | 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED' | 'AWARDED' | string
+  /** The event's own recorded timestamp; never the request's creation time. */
+  created_at: string | null
+  supplier_id: string | null
+  details?: Record<string, unknown> | null
+}
+
+export async function getConstructionSupplierOutcomes(id: string): Promise<{ events: ConstructionSupplierOutcomeEvent[] }> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/supplier-outcomes`)
+}
+
 export async function getConstructionComparison(id: string): Promise<ConstructionComparison> {
   return request<ConstructionComparison>(
     `/api/construction/rfqs/${encodeURIComponent(id)}/comparison`,
@@ -780,6 +803,8 @@ export function countHarajSupplierIds(ids: string[]): number {
 }
 
 export type SendRfqInviteOptions = {
+  /** A resend after a failed attempt: the server sends again instead of returning the stored failure. */
+  retry?: boolean
   sendConsent?: boolean
   /** The account holder confirmed the paid WhatsApp send from Farq's number. */
   whatsappPaid?: boolean
@@ -867,6 +892,7 @@ export async function sendConstructionRfqInvite(
     body.haraj_limit = options.harajLimit
   }
   if (options.whatsappPaid) body.whatsapp_paid = true
+  if (options.retry) body.retry = true
   return request<ConstructionRfq>(
     `/api/construction/rfqs/${encodeURIComponent(rfqId)}/invites/${encodeURIComponent(inviteId)}/send`,
     {

@@ -79,9 +79,15 @@ export type ChatPaneProps = {
    * server returned the whole thread, so the number is never a guess.
    */
   onUnreadKnown?: (inviteId: string, unread: number) => void
+  /**
+   * Inside a request's page: show only this request's messages (the inbox
+   * thread merges every open request with the same supplier) and hide the
+   * «تفاصيل الطلب» link, since the user is already on it.
+   */
+  requestScoped?: boolean
 }
 
-export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPaneProps) {
+export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestScoped = false }: ChatPaneProps) {
   const readOnly = isReadOnlyBuild()
   const [thread, setThread] = useState<ConstructionInboxThreadDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -367,7 +373,7 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
             {selecting ? 'إنهاء التحديد' : 'تحديد'}
           </button>
         )}
-        {rfqId && (
+        {rfqId && !requestScoped && (
           <button
             type="button"
             onClick={() => onOpenRfq(String(rfqId))}
@@ -461,7 +467,7 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown }: ChatPan
                 أعاد الخادم أحدث الرسائل فقط — توجد رسائل أقدم غير معروضة هنا.
               </div>
             )}
-            {thread.messages.map((message) => {
+            {(requestScoped ? thread.messages.filter((m) => !m.invite_id || m.invite_id === inviteId) : thread.messages).map((message) => {
               const day = chatDayLabel(message.created_at, now)
               const showDay = Boolean(day) && day !== lastDay
               if (showDay) lastDay = day
