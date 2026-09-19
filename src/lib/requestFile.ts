@@ -97,8 +97,8 @@ export function taxLabel(pricesIncludeTax?: boolean | null): string {
 }
 
 /**
- * The supplier's stated lead time, if the quote carries one. The supplier form
- * does not collect it today, so this is «لم يحدد مدة التوريد» unless a field exists.
+ * The supplier's stated lead time (lead_time_days from the quote form), or
+ * «لم يحدد مدة التوريد» when the supplier left it empty.
  */
 export function leadTimeLabel(offer: Record<string, unknown>): string {
   const days = Number(offer.lead_time_days ?? offer.delivery_days)

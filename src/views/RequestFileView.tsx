@@ -4,6 +4,7 @@ import { ClockIcon } from '../icons'
 import { useProcurement } from '../procurementContext'
 import {
   ConstructionApiError,
+  closeConstructionRfqSubmissions,
   constructionRateLimitWaitSec,
   createConstructionAward,
   createConstructionProject,
@@ -14,6 +15,7 @@ import {
   getConstructionRfq,
   getConstructionSupplierOutcomes,
   invitePreferredChannel,
+  openConstructionRfqEnvelopes,
   sendConstructionRfqInvite,
   type ConstructionComparison,
   type ConstructionInvitation,
@@ -98,6 +100,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const [notice, setNotice] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null)
   const [resending, setResending] = useState<string | null>(null)
   const [awarding, setAwarding] = useState<Offer | null>(null)
+  const [stepping, setStepping] = useState<'close' | 'open' | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const load = useCallback(
@@ -315,6 +318,30 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         </div>
       </div>
 
+      {(() => {
+        const status = String(rfq.status || '').toUpperCase()
+        const canClose = !rfq.submission_closed_at && ['SENT', 'PARTIALLY_SENT'].includes(status)
+        const canOpen = Boolean(rfq.submission_closed_at) && !rfq.envelopes_opened_at && !rfq.award
+        if (!canClose && !canOpen) return null
+        return (
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            {canClose && (
+              <button onClick={() => setStepping('close')} className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-bold text-[#0D1F1D] hover:bg-neutral-50">
+                إغلاق استلام العروض
+              </button>
+            )}
+            {canOpen && (
+              <button onClick={() => setStepping('open')} className="px-4 py-2 rounded-xl bg-[#123F3A] text-white text-sm font-bold hover:bg-[#1a5c54]">
+                فتح المظاريف
+              </button>
+            )}
+            <span className="text-xs text-neutral-500">
+              {canClose ? 'بعد الإغلاق لا يستطيع الموردون تقديم عرض أو تعديله.' : 'فتح المظاريف يُسجَّل باسمك ووقته في سجل الطلب.'}
+            </span>
+          </div>
+        )
+      })()}
+
       {notice && (
         <div className={`mb-4 rounded-xl px-4 py-3 text-sm ${notice.tone === 'ok' ? 'bg-[#f0faf7] text-[#123F3A]' : 'bg-red-50 text-red-700'}`}>{notice.text}</div>
       )}
@@ -470,6 +497,12 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                             })}
                           </tr>
                         ))}
+                        <tr className="bg-neutral-50/60">
+                          <td className="px-3 py-2.5 text-xs font-semibold text-neutral-600">مدة التوريد</td>
+                          {offers.map((row) => (
+                            <td key={String(row.offer.quoteVersionId)} className="px-3 py-2.5 text-xs font-semibold text-[#0D1F1D]">{leadTimeLabel(row.offer)}</td>
+                          ))}
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -584,6 +617,22 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         </div>
       )}
 
+      {stepping && (
+        <StepDialog
+          step={stepping}
+          rfq={rfq}
+          deadlinePassed={deadline ? deadline.passed : true}
+          quoted={progress.quoted}
+          onClose={() => setStepping(null)}
+          onDone={(updated) => {
+            setStepping(null)
+            setRfq(updated)
+            setNotice({ tone: 'ok', text: stepping === 'close' ? 'أُغلق استلام العروض.' : 'فُتحت المظاريف.' })
+            load(rfq.id, { comparison: true, outcomes: outcomes !== null }).catch(() => {})
+          }}
+        />
+      )}
+
       {awarding && (
         <AwardDialog
           rfq={rfq}
@@ -674,6 +723,64 @@ function CellView({ cell, lowest }: { cell: Cell; lowest: boolean }) {
   )
 }
 
+/** Close submissions, or open envelopes, with the reason the server asks for when it needs one. */
+function StepDialog({ step, rfq, deadlinePassed, quoted, onClose, onDone }: {
+  step: 'close' | 'open'
+  rfq: ConstructionRfq
+  deadlinePassed: boolean
+  quoted: number
+  onClose: () => void
+  onDone: (rfq: ConstructionRfq) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const needsReason = step === 'close' ? !deadlinePassed : quoted < 2
+  const ready = !needsReason || reason.trim().length >= 5
+
+  const confirm = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const updated = step === 'close'
+        ? await closeConstructionRfqSubmissions(rfq.id, reason.trim())
+        : await openConstructionRfqEnvelopes(rfq.id, reason.trim())
+      onDone(updated)
+    } catch (err) {
+      const status = err instanceof ConstructionApiError ? err.status : 0
+      setError(status === 403 ? (step === 'open' ? 'فتح المظاريف يحتاج صلاحية مدير أو معتمد.' : 'الإغلاق يحتاج صلاحية مشتريات أو مدير.') : err instanceof Error ? err.message : 'تعذر التنفيذ')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
+      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-lg font-black text-[#0D1F1D] mb-2">{step === 'close' ? 'إغلاق استلام العروض' : 'فتح المظاريف'}</h2>
+        <p className="text-sm text-neutral-600 mb-4">
+          {step === 'close'
+            ? `وصل ${quoted} ${quoted === 1 ? 'عرض' : 'عروض'}. بعد الإغلاق لا يُقبل عرض جديد ولا تعديل.`
+            : `${quoted} ${quoted === 1 ? 'عرض' : 'عروض'} في الظرف. يُسجَّل الفتح باسمك ووقته.`}
+        </p>
+        {needsReason && (
+          <label className="block text-sm font-bold text-[#0D1F1D] mb-3">
+            {step === 'close' ? 'سبب الإغلاق قبل الموعد' : 'سبب فتح المظاريف بأقل من عرضين'}
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm min-h-20" placeholder="خمسة أحرف على الأقل" />
+          </label>
+        )}
+        {error && <div className="mb-3 rounded-xl bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
+        <div className="flex gap-2">
+          <button disabled={!ready || busy} onClick={confirm} className="flex-1 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40">
+            {busy ? 'جارٍ التنفيذ…' : 'تأكيد'}
+          </button>
+          <button onClick={onClose} className="px-5 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AwardDialog({ rfq, offer, coverage, onClose, onDone }: {
   rfq: ConstructionRfq
   offer: Offer
@@ -724,6 +831,7 @@ function AwardDialog({ rfq, offer, coverage, onClose, onDone }: {
           <div><span className="text-neutral-500">المورد: </span><span className="font-bold">{name}</span></div>
           <div><span className="text-neutral-500">قيمة العرض: </span><span className="font-bold">{money || 'غير مكتملة'}</span></div>
           {coverage && <div className="text-xs text-neutral-600">{coverage.label} · {taxLabel(offer.offer.prices_include_tax)}</div>}
+          <div className="text-xs text-neutral-600">مدة التوريد: {leadTimeLabel(offer.offer)}</div>
         </div>
         <div className="text-sm font-bold text-[#0D1F1D] mb-2">سبب الترسية</div>
         <div className="grid grid-cols-2 gap-2 mb-3">
