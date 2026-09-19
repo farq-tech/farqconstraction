@@ -163,6 +163,7 @@ export function buildTimeline(
   rfq: ConstructionRfq,
   outcomes: ConstructionSupplierOutcomeEvent[],
   supplierName: (supplierId: string | null) => string,
+  lineName: (lineId: string) => string | null = () => null,
 ): TimelineEvent[] {
   const events: TimelineEvent[] = []
   for (const [i, e] of (rfq.audit_timeline || []).entries()) {
@@ -178,7 +179,7 @@ export function buildTimeline(
       OPENED: `${who} فتح الطلب`,
       SEND_FAILED: `تعذر الإرسال إلى ${who}${channel ? ` عبر ${channel}` : ''}`,
       QUOTE_RECEIVED: `تم استلام عرض من ${who}`,
-      LINE_DECLINED: `${who} أفاد بعدم توفر بند`,
+      LINE_DECLINED: `${who} أفاد بعدم توفر ${lineName(String(e.details?.line_id || '')) ? `«${lineName(String(e.details?.line_id || ''))}»` : 'بند'}`,
       AWARDED: `تمت الترسية على ${who}`,
     }[e.event_type]
     if (!title) continue

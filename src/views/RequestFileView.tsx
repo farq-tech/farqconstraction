@@ -568,7 +568,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
             <Empty text="جارٍ تحميل السجل…" />
           ) : (
             <ol className="relative border-r-2 border-neutral-100 mr-2 space-y-4">
-              {buildTimeline(rfq, outcomes, nameOfSupplier).map((event) => {
+              {buildTimeline(rfq, outcomes, nameOfSupplier, (id) => matrix?.lines.find((l) => l.id === id)?.name_ar || null).map((event) => {
                 const when = formatEventTime(event.at)
                 return (
                   <li key={event.key} className="pr-5 relative">
