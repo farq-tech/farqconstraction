@@ -1099,6 +1099,15 @@ export async function recordConstructionSupplierFeedback(items: SupplierFeedback
 }
 
 /** Back to unread for the signed-in member only; colleagues keep their own state. */
+/** Read or unread for whole conversations: the listed invites, or every conversation of the company. */
+export async function markConstructionInboxThreads(target: string[] | 'all', read: boolean) {
+  return request<{ read: boolean; messages: number }>('/api/construction/inbox/threads/read-state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(target === 'all' ? { all: true, read } : { invite_ids: target, read }),
+  })
+}
+
 export async function markConstructionInboxMessageUnread(messageId: string) {
   return request<{ read: boolean }>(
     `/api/construction/inbox/messages/${encodeURIComponent(messageId)}/unread`,

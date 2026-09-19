@@ -13,6 +13,7 @@ import {
   type ConstructionInboxStatus,
   type ConstructionInboxThread,
   type ConstructionInboxThreadsResult,
+  markConstructionInboxThreads,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { ChatPane } from '../components/inbox/ChatPane'
@@ -733,6 +734,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           hasMore={Boolean(threadMeta?.next_cursor)}
           activeKey={activeId}
           onSelect={handleSelect}
+          onMarkThreads={async (target, read) => {
+            await markConstructionInboxThreads(target, read)
+            setReloadKey((n) => n + 1)
+          }}
           actions={
             <>
               <button
