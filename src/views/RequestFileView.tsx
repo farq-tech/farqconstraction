@@ -14,8 +14,11 @@ import {
   getConstructionProjects,
   getConstructionRfq,
   getConstructionSupplierOutcomes,
+  broadcastToRequestSuppliers,
+  getRequestBroadcast,
   invitePreferredChannel,
   openConstructionRfqEnvelopes,
+  type ConstructionBroadcastStatus,
   sendConstructionRfqInvite,
   type ConstructionComparison,
   type ConstructionInvitation,
@@ -101,6 +104,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const [resending, setResending] = useState<string | null>(null)
   const [awarding, setAwarding] = useState<Offer | null>(null)
   const [stepping, setStepping] = useState<'close' | 'open' | null>(null)
+  const [broadcasting, setBroadcasting] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const load = useCallback(
@@ -571,6 +575,15 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         </div>
       )}
 
+      {tab === 'messages' && invites.length > 1 && (
+        <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs text-neutral-500">رسالة واحدة تصل لكل موردي الطلب، كلٌّ في محادثته وعلى قناته.</span>
+          <button onClick={() => setBroadcasting(true)} className="px-4 py-2 rounded-xl bg-[#123F3A] text-white text-sm font-bold hover:bg-[#1a5c54]">
+            رسالة لكل الموردين ({invites.length})
+          </button>
+        </div>
+      )}
+
       {tab === 'messages' && (
         <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden flex h-[70vh] min-h-[480px]">
           <div className={`w-full lg:w-72 border-l border-neutral-100 overflow-y-auto ${chatSupplier ? 'hidden lg:block' : ''}`}>
@@ -616,6 +629,8 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
           )}
         </div>
       )}
+
+      {broadcasting && <BroadcastDialog rfqId={rfq.id} count={invites.length} onClose={() => setBroadcasting(false)} />}
 
       {stepping && (
         <StepDialog
@@ -718,6 +733,77 @@ function CellView({ cell, lowest }: { cell: Cell; lowest: boolean }) {
       <div className="text-sm font-bold text-[#0D1F1D] tabular-nums">{formatMoney(cell.line_total, cell.currency)}</div>
       <div className="text-[10px] text-neutral-500 tabular-nums">
         {formatMoney(cell.unit_price, cell.currency)} للوحدة{lowest ? ' · الأقل' : ''}
+      </div>
+    </div>
+  )
+}
+
+const BROADCAST_REASON: Record<string, string> = {
+  MANUAL_WHATSAPP_REQUIRED: 'محادثته على واتساب — أرسلها يدويًا',
+  NO_REPLY_CHANNEL: 'لا قناة رد متاحة',
+  INBOX_NEW_MESSAGE: 'وصلت منه رسالة جديدة أثناء الإرسال — أعد المحاولة',
+}
+
+/** One message to every supplier; the server sends it and the dialog shows how far it got. */
+function BroadcastDialog({ rfqId, count, onClose }: { rfqId: string; count: number; onClose: () => void }) {
+  const [text, setText] = useState('')
+  const [status, setStatus] = useState<ConstructionBroadcastStatus | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const idRef = useRef<string>(crypto.randomUUID())
+
+  useEffect(() => {
+    if (!status || (!status.running && status.pending === 0)) return
+    const timer = window.setTimeout(() => {
+      getRequestBroadcast(rfqId, idRef.current).then(setStatus).catch(() => {})
+    }, 4000)
+    return () => window.clearTimeout(timer)
+  }, [status, rfqId])
+
+  const start = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      setStatus(await broadcastToRequestSuppliers(rfqId, idRef.current, text.trim()))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر بدء الإرسال')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const done = status && !status.running && status.pending === 0
+  const reasons = status ? status.items.filter((i) => i.state === 'SKIPPED' || i.state === 'FAILED' || i.state === 'UNKNOWN') : []
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
+      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-lg font-black text-[#0D1F1D] mb-1">رسالة لكل الموردين</h2>
+        <p className="text-sm text-neutral-600 mb-3">تصل لـ{count} موردين، كل مورد في محادثته وعلى نفس قناته (حراج أو بريد). الخادم يرسلها واحدة واحدة، ويمكنك إغلاق النافذة.</p>
+        {!status ? (
+          <>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={4000} className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm min-h-32" placeholder="اكتب الرسالة…" />
+            {error && <div className="mt-2 rounded-xl bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
+            <div className="flex gap-2 mt-3">
+              <button disabled={!text.trim() || busy} onClick={start} className="flex-1 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40">{busy ? 'جارٍ البدء…' : `إرسال لـ${count} موردين`}</button>
+              <button onClick={onClose} className="px-5 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إلغاء</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="rounded-xl bg-neutral-50 px-4 py-3 text-sm space-y-1">
+              <div className="font-bold text-[#0D1F1D]">{done ? 'اكتمل الإرسال' : 'جارٍ الإرسال…'}</div>
+              <div>أُرسلت: <b>{status.sent}</b> من {status.total}</div>
+              {status.pending > 0 && <div className="text-neutral-500">متبقٍّ: {status.pending}</div>}
+              {status.skipped + status.failed > 0 && <div className="text-amber-700">لم تُرسل: {status.skipped + status.failed}</div>}
+            </div>
+            {done && reasons.length > 0 && (
+              <ul className="mt-2 text-xs text-neutral-600 space-y-0.5">
+                {Object.entries(reasons.reduce<Record<string, number>>((m, r) => { const k = BROADCAST_REASON[r.failure_code || ''] || 'تعذر الإرسال'; m[k] = (m[k] || 0) + 1; return m }, {})).map(([k, n]) => <li key={k}>{k}: {n}</li>)}
+              </ul>
+            )}
+            <button onClick={onClose} className="w-full mt-3 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إغلاق</button>
+          </>
+        )}
       </div>
     </div>
   )

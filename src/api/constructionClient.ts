@@ -1241,6 +1241,32 @@ export async function replyToConstructionInboxThread(
   )
 }
 
+export type ConstructionBroadcastStatus = {
+  broadcast_id: string
+  total: number
+  sent: number
+  skipped: number
+  failed: number
+  pending: number
+  running: boolean
+  items: Array<{ invite_id: string; state: string; channel?: string; failure_code?: string | null }>
+}
+
+/** One message to every supplier of a request; the server sends it, one supplier at a time. */
+export async function broadcastToRequestSuppliers(rfqId: string, broadcastId: string, text: string) {
+  return request<ConstructionBroadcastStatus>(`/api/construction/inbox/requests/${encodeURIComponent(rfqId)}/broadcast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ broadcast_id: broadcastId, text }),
+  })
+}
+
+export async function getRequestBroadcast(rfqId: string, broadcastId: string) {
+  return request<ConstructionBroadcastStatus>(
+    `/api/construction/inbox/requests/${encodeURIComponent(rfqId)}/broadcast/${encodeURIComponent(broadcastId)}`,
+  )
+}
+
 export async function retryConstructionInboxReply(outboxId: string) {
   return request<ConstructionInboxReplyResult>(
     `/api/construction/inbox/outbox/${encodeURIComponent(outboxId)}/retry`,
