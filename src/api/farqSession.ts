@@ -325,7 +325,7 @@ export function createFarqSession(options: FarqSessionOptions = {}) {
       const refreshToken = session?.refreshToken
       if (!refreshToken) return { session: null, outcome: { status: 'no-session' } as const }
       // Another tab renewed while this one waited for the lock: use its session.
-      if (refreshToken !== startToken && session && session.expiresAt - now() > REFRESH_MARGIN_MS) {
+      if (refreshToken !== startToken && session && session.expiresAt * 1000 - now() > REFRESH_MARGIN_MS) {
         return { session, outcome: { status: 'refreshed', accessToken: session.accessToken } as const }
       }
       const result = await post<ApiSessionPayload>('/refresh', { refresh_token: refreshToken })
@@ -335,7 +335,7 @@ export function createFarqSession(options: FarqSessionOptions = {}) {
         // tab stored a newer session in the meantime.
         if (result.status === 401) {
           adoptStored()
-          if (session && session.refreshToken !== refreshToken && session.expiresAt > now()) {
+          if (session && session.refreshToken !== refreshToken && session.expiresAt * 1000 > now()) {
             return { session, outcome: { status: 'refreshed', accessToken: session.accessToken } as const }
           }
           failures = 0
