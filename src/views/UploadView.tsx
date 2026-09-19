@@ -917,8 +917,8 @@ export function UploadView({ navigate }: NavProps) {
                     <span className="text-xs font-bold text-neutral-400 w-6 pt-0.5">{item.id}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-[#0D1F1D]">{name}</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">
-                        {qty} {unit}
+                      <div className="text-xs text-neutral-500 mt-0.5 line-clamp-2" title={spec || undefined}>
+                        <span className="font-semibold text-[#0D1F1D]">{qty} {unit}</span>
                         {spec ? ` · ${spec}` : ''}
                       </div>
                     </div>
@@ -1038,6 +1038,9 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
   const sawLiveNames = useRef(false)
   const cursor = useRef(0)
   const queue = useRef<Array<{ text: string; count?: number; read?: boolean }>>([])
+  // A line matched twice (a retried batch, a resumed read) is counted once:
+  // the counter read «2,088 طوبق» against 1,514 lines read.
+  const matchedKeys = useRef(new Set<string>())
   const seq = useRef(0)
 
   useEffect(() => {
@@ -1071,7 +1074,12 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
         })
         setSamples(Math.max(1, n))
       } else {
-        for (const row of e.rows) queue.current.push({ text: row.name, count: row.suppliers })
+        for (const row of e.rows) {
+          const key = row.key || row.name
+          if (matchedKeys.current.has(key)) continue
+          matchedKeys.current.add(key)
+          queue.current.push({ text: row.name, count: row.suppliers })
+        }
       }
     }
   }, [events])

@@ -576,7 +576,7 @@ type RemoteMatch = {
 export type BoqActivity =
   | { kind: 'reading'; pagesDone: number; pageCount: number | null; itemCount: number; newNames: string[] }
   | { kind: 'read'; names: string[] }
-  | { kind: 'matched'; rows: Array<{ name: string; suppliers: number }> }
+  | { kind: 'matched'; rows: Array<{ key?: string; name: string; suppliers: number }> }
 let emitActivity: ((event: BoqActivity) => void) | null = null
 
 async function matchViaFarqBoqApi(
@@ -659,7 +659,7 @@ async function matchViaFarqBoqApi(
               for (const x of row?.suppliers || []) ids.add(String((x as { id?: unknown }).id))
               for (const x of row?.map_suggestion?.suppliers || []) ids.add(String((x as { id?: unknown }).id))
               for (const x of row?.family_suggestion?.suppliers || []) ids.add(String((x as { id?: unknown }).id))
-              return { name: line.name, suppliers: Math.min(ids.size, 5) }
+              return { key: lineKeyFor(line), name: line.name, suppliers: Math.min(ids.size, 5) }
             }),
           })
         }
