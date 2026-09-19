@@ -305,16 +305,39 @@ export function createFarqSession(options: FarqSessionOptions = {}) {
   function runRefresh(): Promise<{ session: FarqSession | null; outcome: RefreshOutcome }> {
     if (inFlight) return inFlight
     adoptStored()
-    const refreshToken = session?.refreshToken
-    if (!refreshToken) {
+    const startToken = session?.refreshToken
+    if (!startToken) {
       return Promise.resolve({ session: null, outcome: { status: 'no-session' } as const })
     }
-    const flight = (async () => {
+    /*
+     * Tabs share one single-use refresh token and schedule their renewal for the
+     * same moment. Re-reading storage is not enough when two tabs read it in the
+     * same instant: both spend the token, the server sees reuse and revokes the
+     * whole family, and every tab signs out. A browser-wide lock makes the tabs
+     * take turns; inside it, a tab first adopts what the previous one stored.
+     */
+    const withLock = <T,>(fn: () => Promise<T>): Promise<T> => {
+      const locks = typeof navigator !== 'undefined' ? (navigator as unknown as { locks?: { request: (name: string, cb: () => Promise<unknown>) => Promise<unknown> } }).locks : undefined
+      return locks?.request ? (locks.request('farq_construction_session_refresh', fn) as Promise<T>) : fn()
+    }
+    const flight = withLock(async () => {
+      adoptStored()
+      const refreshToken = session?.refreshToken
+      if (!refreshToken) return { session: null, outcome: { status: 'no-session' } as const }
+      // Another tab renewed while this one waited for the lock: use its session.
+      if (refreshToken !== startToken && session && session.expiresAt - now() > REFRESH_MARGIN_MS) {
+        return { session, outcome: { status: 'refreshed', accessToken: session.accessToken } as const }
+      }
       const result = await post<ApiSessionPayload>('/refresh', { refresh_token: refreshToken })
       if (!result.ok || !result.data) {
         // Only a refused token ends the session: expired, already redeemed, or
-        // a family revoked by reuse detection. That 401 is real.
+        // a family revoked by reuse detection. That 401 is real — unless another
+        // tab stored a newer session in the meantime.
         if (result.status === 401) {
+          adoptStored()
+          if (session && session.refreshToken !== refreshToken && session.expiresAt > now()) {
+            return { session, outcome: { status: 'refreshed', accessToken: session.accessToken } as const }
+          }
           failures = 0
           setSession(null, 'SIGNED_OUT')
           return { session: null, outcome: { status: 'rejected' } as const }
@@ -334,7 +357,7 @@ export function createFarqSession(options: FarqSessionOptions = {}) {
         session: next,
         outcome: { status: 'refreshed', accessToken: next.accessToken } as const,
       }
-    })()
+    })
     inFlight = flight
     void flight
       .catch(() => null)
