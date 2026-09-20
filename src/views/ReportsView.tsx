@@ -46,6 +46,22 @@ function duration(hours?: string | number | null): string {
   if (days) return `${part(days, 'يوم', 'يومان', 'أيام')}${hh ? ` و${part(hh, 'ساعة', 'ساعتان', 'ساعات')}` : ''}`
   return `${part(hh, 'ساعة', 'ساعتان', 'ساعات')}${mm ? ` و${mm} دقيقة` : ''}`
 }
+/** Catalogue categories are slugs; show the Arabic trade where we know it. */
+const CATEGORY_AR: Record<string, string> = {
+  electrical: 'كهرباء', plumbing: 'سباكة', hvac: 'تكييف', 'cables-and-wires': 'كابلات وأسلاك',
+  'steel-iron': 'حديد', 'precast-concrete': 'خرسانة سابقة الصب', concrete: 'خرسانة', sand: 'رمل',
+  'doors-and-windows': 'أبواب ونوافذ', 'osb-boards': 'ألواح خشب', paints: 'دهانات', 'floors-and-walls': 'أرضيات وجدران',
+  'ceramic-and-porcelain': 'سيراميك وبورسلين', insulation: 'عزل', facade: 'واجهات', finishing: 'تشطيبات',
+  'building-material': 'مواد بناء', lighting: 'إنارة', 'sanitary-ware': 'أدوات صحية', product: 'مواد متنوعة',
+  'custom-procurement': 'بنود خاصة', 'hand-tools': 'عدد وأدوات', pipes: 'مواسير', siteworks: 'أعمال موقع',
+}
+function categoryLabel(raw: string): string {
+  const key = String(raw || '').toLowerCase()
+  if (CATEGORY_AR[key]) return CATEGORY_AR[key]
+  if (/^(direct|boq|custom)[-:]/i.test(key)) return 'بند من الكراسة'
+  return raw || 'غير مصنّف'
+}
+
 function projectTitle(p: ConstructionReportProject): string {
   return (p.site_address || '').trim() || p.city || 'طلب تسعير'
 }
@@ -244,7 +260,7 @@ export function ReportsView({ navigate }: NavProps) {
                     <td className="px-3 py-2.5 tabular-nums">{p.lines ? Math.round((p.line_offers_total / p.lines) * 100) / 100 : '—'}</td>
                     <td className="px-3 py-2.5 tabular-nums">{p.reached}</td>
                     <td className="px-3 py-2.5 tabular-nums">{p.replied}</td>
-                    <td className="px-3 py-2.5 text-xs">{duration(p.median_reply_hours)}</td>
+                    <td className="px-3 py-2.5 text-xs">{p.replied ? duration(p.median_reply_hours) : '—'}</td>
                     <td className="px-3 py-2.5 text-xs">{num(p.spread_value) ? money(p.spread_value) : '—'}</td>
                     <td className="px-3 py-2.5"><span title={state.why} className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${state.cls}`}>{state.label}</span></td>
                   </tr>
@@ -325,7 +341,7 @@ export function ReportsView({ navigate }: NavProps) {
                   <td className="px-3 py-2.5 text-xs text-neutral-600">{CHANNEL_AR[String(s.channel)] || s.channel || '—'}</td>
                   <td className="px-3 py-2.5 tabular-nums">{s.rfqs}</td>
                   <td className="px-3 py-2.5 tabular-nums">{s.replied}</td>
-                  <td className="px-3 py-2.5 text-xs">{duration(s.median_reply_hours)}</td>
+                  <td className="px-3 py-2.5 text-xs">{s.replied ? duration(s.median_reply_hours) : '—'}</td>
                   <td className="px-3 py-2.5 tabular-nums">{s.quotes}{s.partial_quotes ? <span className="text-[11px] text-amber-700"> ({s.partial_quotes} جزئي)</span> : null}</td>
                   <td className="px-3 py-2.5 tabular-nums">{s.wins}</td>
                   <td className="px-3 py-2.5 tabular-nums">{s.rfqs ? `${Math.round((s.replied / s.rfqs) * 100)}%` : '—'}</td>
@@ -348,7 +364,7 @@ export function ReportsView({ navigate }: NavProps) {
             <tbody className="divide-y divide-neutral-100">
               {data.categories.map((c) => (
                 <tr key={c.category} className="hover:bg-neutral-50">
-                  <td className="px-3 py-2.5 font-semibold text-[#0D1F1D]">{c.category}</td>
+                  <td className="px-3 py-2.5 font-semibold text-[#0D1F1D]">{categoryLabel(c.category)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{c.lines}</td>
                   <td className="px-3 py-2.5 tabular-nums">{c.priced_lines}</td>
                   <td className="px-3 py-2.5 tabular-nums">{c.lines ? `${Math.round((c.priced_lines / c.lines) * 100)}%` : '—'}</td>
