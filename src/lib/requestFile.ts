@@ -132,6 +132,45 @@ export function lowestPerLine(matrix?: Matrix | null): Map<string, string | null
   return out
 }
 
+export type LineSort = { supplierId: string; dir: 'asc' | 'desc' }
+
+/**
+ * The comparison lines ordered by what one supplier charges for each.
+ *
+ * Only priced lines are ordered; a line that supplier did not price has no
+ * number to sort by, so it sinks to the bottom in both directions rather than
+ * pretending to be the cheapest or the dearest. Without a sort the request's
+ * own order is kept, because that is the order of the booklet.
+ */
+export function sortLinesBySupplier<T extends { id: string; offers?: readonly (Cell | undefined)[] }>(
+  lines: readonly T[],
+  sort?: LineSort | null,
+): T[] {
+  const out = [...lines]
+  if (!sort) return out
+  const valueOf = (line: T): number | null => {
+    const cell = (line.offers || []).find((c) => c && c.supplier_id === sort.supplierId)
+    if (!cell || cell.status !== 'PRICED' || cell.line_total == null) return null
+    return Number(cell.line_total)
+  }
+  return out
+    .map((line, index) => ({ line, index, value: valueOf(line) }))
+    .sort((a, b) => {
+      if (a.value == null && b.value == null) return a.index - b.index
+      if (a.value == null) return 1
+      if (b.value == null) return -1
+      if (a.value === b.value) return a.index - b.index
+      return sort.dir === 'asc' ? a.value - b.value : b.value - a.value
+    })
+    .map((row) => row.line)
+}
+
+/** Click a column: cheapest first, then dearest first, then back to the booklet's order. */
+export function nextLineSort(current: LineSort | null, supplierId: string): LineSort | null {
+  if (!current || current.supplierId !== supplierId) return { supplierId, dir: 'asc' }
+  return current.dir === 'asc' ? { supplierId, dir: 'desc' } : null
+}
+
 export type MatrixTotal = {
   supplier_id: string
   total: number
@@ -198,6 +237,66 @@ export function matrixTotals(matrix?: Matrix | null): { totals: MatrixTotal[]; l
   const best = full.reduce((a, b) => (b.total < a.total ? b : a))
   const tie = full.filter((t) => t.total === best.total).length > 1
   return { totals, lowest: tie ? null : best.supplier_id }
+}
+
+export type CheapestBasket = {
+  total: number
+  currency: string
+  covered: number
+  requested: number
+  suppliers: number
+  /** The cheapest single supplier who priced everything, when there is one. */
+  bestSingle: { supplier_id: string; total: number } | null
+  saving: number | null
+}
+
+/**
+ * What the request costs if every line is bought from whoever is cheapest on it.
+ *
+ * Split buying is the buyer's real alternative to one award, so the figure is
+ * worth showing — but only where «cheapest» is a fact: a line counts only when
+ * `lowestPerLine` named a winner, which already refuses ties, mixed tax bases
+ * and mixed currencies. The count of covered lines rides along so a basket
+ * built from part of the request is never read as the whole of it, and the
+ * saving is stated only against a supplier who priced every line.
+ */
+export function cheapestPerLineTotal(
+  matrix: Matrix | null | undefined,
+  best: Map<string, string | null>,
+  totals: MatrixTotal[],
+): CheapestBasket | null {
+  const lines = matrix?.lines || []
+  if (!lines.length) return null
+  let total = 0
+  let covered = 0
+  const suppliers = new Set<string>()
+  const currencies = new Set<string>()
+  for (const line of lines) {
+    const winner = best.get(line.id)
+    if (!winner) continue
+    const cell = (line.offers || []).find((c) => c && c.supplier_id === winner)
+    if (!cell || cell.line_total == null) continue
+    total += Number(cell.line_total)
+    covered += 1
+    suppliers.add(winner)
+    currencies.add(String(cell.currency || 'SAR'))
+  }
+  if (!covered || currencies.size > 1) return null
+
+  const full = totals.filter((t) => t.complete)
+  const bestSingle = full.length && covered === lines.length
+    ? full.reduce((a, b) => (b.total < a.total ? b : a))
+    : null
+  const rounded = Math.round(total * 100) / 100
+  return {
+    total: rounded,
+    currency: [...currencies][0],
+    covered,
+    requested: lines.length,
+    suppliers: suppliers.size,
+    bestSingle: bestSingle ? { supplier_id: bestSingle.supplier_id, total: bestSingle.total } : null,
+    saving: bestSingle ? Math.round((bestSingle.total - rounded) * 100) / 100 : null,
+  }
 }
 
 export const CELL_LABEL: Record<string, string> = {
