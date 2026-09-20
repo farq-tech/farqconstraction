@@ -175,12 +175,14 @@ export function ReportsView({ navigate }: NavProps) {
   const t = data.totals
   const a = data.attention
   const scoped = rfqId ? data.projects.find((p) => p.id === rfqId) : null
+  // Ordered by what needs a decision first; «no reply yet» is the standing
+  // background number, so it sits last.
   const attentionCards: Array<[number, string, () => void]> = [
     [a.lines_no_offer_48h, 'بنود بلا أي عرض منذ 48 ساعة', () => void openLines('no_offer', 'بنود بلا أي عرض')],
     [a.lines_single_offer, 'بنود بعرض واحد فقط — بلا مقارنة', () => void openLines('single_offer', 'بنود بعرض واحد فقط')],
     [a.rfqs_closing_today, 'طلبات تغلق اليوم', () => navigate('rfq-list')],
-    [a.suppliers_silent, 'موردون لم يردّوا بعد', () => document.getElementById('suppliers-table')?.scrollIntoView({ behavior: 'smooth' })],
     [a.quotes_last_24h, 'عروض جديدة خلال 24 ساعة', () => navigate('rfq-list')],
+    [a.suppliers_silent, 'موردون لم يردّوا بعد', () => document.getElementById('suppliers-table')?.scrollIntoView({ behavior: 'smooth' })],
   ]
 
   return (

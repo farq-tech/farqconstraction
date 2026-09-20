@@ -82,6 +82,31 @@ const CREATE_STEPS = [
 const isCreateFlow = (v: AppView) => v === 'create-upload' || v === 'create-proposals'
 const getStep = (v: AppView) => (v === 'create-upload' ? 1 : v === 'create-proposals' ? 2 : 3)
 
+/**
+ * The Farq wordmark as the brand file draws it, tinted by `bg-*`: the artwork is
+ * a mask, so one file serves a light header and a dark one without a second
+ * export and without ever re-drawing the letters.
+ */
+function FarqWordmark({ className = '' }: { className?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label="فرق"
+      className={`inline-block aspect-[1564/648] ${className}`}
+      style={{
+        WebkitMaskImage: 'url(/brand/farq-wordmark.png)',
+        maskImage: 'url(/brand/farq-wordmark.png)',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+        WebkitMaskSize: 'contain',
+        maskSize: 'contain',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+      }}
+    />
+  )
+}
+
 export function Shell({ view, navigate, children }: ShellProps) {
   const { selectedRfqId, openRfq } = useProcurement()
   const [showNotifs, setShowNotifs] = useState(false)
@@ -180,8 +205,8 @@ export function Shell({ view, navigate, children }: ShellProps) {
       <aside className="hidden lg:flex fixed top-0 right-0 bottom-0 w-60 bg-[#123F3A] flex-col z-50">
         <div className="flex items-center gap-3 px-5 py-6 border-b border-white/10">
           <div>
-            <div className="text-white font-black text-2xl leading-none tracking-tight">Farq</div>
-            <div className="text-white/50 text-xs mt-1">بناء</div>
+            <FarqWordmark className="h-7 bg-white" />
+            <div className="text-white/50 text-xs mt-1.5">بناء</div>
           </div>
         </div>
 
@@ -263,7 +288,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
       <div className="lg:mr-60">
         <header className="lg:hidden sticky top-0 z-40 bg-[#123F3A] px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate('home')} className="flex items-center gap-2">
-            <span className="text-white font-black text-xl leading-none tracking-tight">Farq</span>
+            <FarqWordmark className="h-5 bg-white" />
             <span className="text-white/40 text-base leading-none">|</span>
             <span className="text-white/90 font-bold text-base leading-none">بناء</span>
           </button>
