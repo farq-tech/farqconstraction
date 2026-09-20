@@ -5,16 +5,17 @@
  * email domain: colleagues of one company sign in with different addresses, and
  * the company's owner may use another domain entirely.
  *
- * The artwork is a mask, so the mark takes the interface's colour instead of
- * its printed red — one file, readable on the dark header and on paper.
+ * The artwork is placed in the company's own colours. Their identity is theirs;
+ * we never recolour it to match our interface. `mark` is the circular monogram
+ * for the header, `logo` the full lockup for the places that have room for it.
  */
-export type AccountBrand = { name: string; mark: string; seal: string; aspect: string }
+export type AccountBrand = { name: string; mark: string; logo: string; aspect: string }
 
 const BRANDS: Record<string, AccountBrand> = {
   '44cdaadd-e084-4654-a84b-a95e6c920580': {
     name: 'شركة الدفع للتجارة والمقاولات',
     mark: '/brand/aldafe-mark.png',
-    seal: '/brand/aldafe-seal.png',
+    logo: '/brand/aldafe-logo.png',
     aspect: '1/1',
   },
 }

@@ -100,25 +100,19 @@ function useAccountBrand(): AccountBrand | null {
   return brand
 }
 
-/** A company mark tinted by `bg-*`, drawn from its own artwork. */
+/**
+ * A company's own mark, in its own colours. Their identity is theirs: we place
+ * the artwork as they print it and never recolour it to suit our interface.
+ */
 function BrandMark({ mark, aspect, label, className = '' }: { mark: string; aspect: string; label: string; className?: string }) {
   return (
-    <span
-      role="img"
-      aria-label={label}
+    <img
+      src={mark}
+      alt={label}
       title={label}
-      className={`inline-block ${className}`}
-      style={{
-        aspectRatio: aspect,
-        WebkitMaskImage: `url(${mark})`,
-        maskImage: `url(${mark})`,
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
-        WebkitMaskSize: 'contain',
-        maskSize: 'contain',
-        WebkitMaskPosition: 'center',
-        maskPosition: 'center',
-      }}
+      loading="lazy"
+      className={`inline-block object-contain ${className}`}
+      style={{ aspectRatio: aspect }}
     />
   )
 }
@@ -252,7 +246,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
           </div>
           {brand && (
             <div className="flex flex-col items-center gap-1 flex-shrink-0 max-w-[92px]">
-              <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-9 bg-[#CFF5DC]" />
+              <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-9" />
               <span className="text-white/60 text-[10px] leading-tight text-center line-clamp-2">{brand.name}</span>
             </div>
           )}
@@ -342,7 +336,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
             {brand && (
               <>
                 <span className="w-px h-5 bg-white/20 mx-1" />
-                <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-7 bg-[#CFF5DC]" />
+                <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-7" />
               </>
             )}
           </button>
