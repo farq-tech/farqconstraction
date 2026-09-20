@@ -132,6 +132,74 @@ export function lowestPerLine(matrix?: Matrix | null): Map<string, string | null
   return out
 }
 
+export type MatrixTotal = {
+  supplier_id: string
+  total: number
+  priced: number
+  requested: number
+  currency: string
+  complete: boolean
+}
+
+/**
+ * What each supplier's priced lines come to, for the foot of the comparison.
+ *
+ * This is the goods total of the lines in the table — not the quote's total,
+ * which also carries delivery, unloading and tax. A supplier who priced only
+ * part of the request naturally shows a smaller sum, so the row states how many
+ * lines each total covers, and `lowest` names a supplier only when every line
+ * is priced on one tax basis in one currency. A partial offer is never called
+ * the cheapest.
+ */
+export function matrixTotals(matrix?: Matrix | null): { totals: MatrixTotal[]; lowest: string | null } {
+  const lines = matrix?.lines || []
+  const requested = lines.length
+  const bySupplier = new Map<string, { total: number; priced: number; currencies: Set<string>; taxBases: Set<boolean | null> }>()
+  for (const line of lines) {
+    for (const cell of line.offers || []) {
+      if (!cell) continue
+      const entry = bySupplier.get(cell.supplier_id)
+        || { total: 0, priced: 0, currencies: new Set<string>(), taxBases: new Set<boolean | null>() }
+      if (cell.status === 'PRICED' && cell.line_total != null) {
+        entry.total += Number(cell.line_total)
+        entry.priced += 1
+        entry.currencies.add(String(cell.currency || 'SAR'))
+        entry.taxBases.add(cell.prices_include_tax ?? null)
+      }
+      bySupplier.set(cell.supplier_id, entry)
+    }
+  }
+
+  const totals: MatrixTotal[] = []
+  for (const [supplierId, entry] of bySupplier) {
+    totals.push({
+      supplier_id: supplierId,
+      total: Math.round(entry.total * 100) / 100,
+      priced: entry.priced,
+      requested,
+      currency: entry.currencies.size === 1 ? [...entry.currencies][0] : 'SAR',
+      complete: requested > 0 && entry.priced === requested,
+    })
+  }
+
+  // Only complete offers compete on the total, and only when they all state tax
+  // the same way in the same currency — the rule the per-line marker follows.
+  const full = totals.filter((t) => t.complete)
+  const bases = new Set<boolean | null>()
+  const currencies = new Set<string>()
+  for (const t of full) {
+    const entry = bySupplier.get(t.supplier_id)
+    for (const base of entry?.taxBases || []) bases.add(base)
+    for (const currency of entry?.currencies || []) currencies.add(currency)
+  }
+  if (full.length < 2 || bases.size > 1 || bases.has(null) || currencies.size > 1) {
+    return { totals, lowest: null }
+  }
+  const best = full.reduce((a, b) => (b.total < a.total ? b : a))
+  const tie = full.filter((t) => t.total === best.total).length > 1
+  return { totals, lowest: tie ? null : best.supplier_id }
+}
+
 export const CELL_LABEL: Record<string, string> = {
   NOT_QUOTED: 'لم يسعّر',
   UNAVAILABLE: 'غير متوفر',

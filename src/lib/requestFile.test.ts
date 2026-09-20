@@ -3,6 +3,7 @@ import type { ConstructionInvitation, ConstructionRfq } from '../api/constructio
 import {
   buildTimeline,
   lowestPerLine,
+  matrixTotals,
   quoteCoverage,
   quoteDeadline,
   requestProgress,
@@ -90,6 +91,38 @@ describe('quotes', () => {
     expect(best.get('l1')).toBe('B')
     expect(best.get('l2')).toBeNull()
     expect(best.get('l3')).toBeNull()
+  })
+
+  it('totals each column and never calls a partial offer the cheapest', () => {
+    const cell = (supplier_id: string, status: string, line_total: number | null, prices_include_tax: boolean | null = false) =>
+      ({ supplier_id, status, unit_price: line_total, line_total, quantity: 1, currency: 'SAR', prices_include_tax })
+    const matrix = {
+      basis: '', requested_line_count: 2, supplier_count: 3, complete_quote_count: 2,
+      lines: [
+        { id: 'l1', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 'PRICED', 100), cell('B', 'PRICED', 90), cell('C', 'PRICED', 10)] },
+        { id: 'l2', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 'PRICED', 100), cell('B', 'PRICED', 120), cell('C', 'UNAVAILABLE', null)] },
+      ],
+    }
+    const { totals, lowest } = matrixTotals(matrix)
+    const of = (id: string) => totals.find((t) => t.supplier_id === id)!
+    expect(of('A').total).toBe(200)
+    expect(of('A').complete).toBe(true)
+    // C is the cheapest number on the table and still not the winner: it priced
+    // one line of two, so its total answers a smaller question.
+    expect(of('C').total).toBe(10)
+    expect(of('C').complete).toBe(false)
+    expect(of('C').priced).toBe(1)
+    expect(lowest).toBe('A')
+  })
+
+  it('names no cheapest total when the complete offers state tax differently', () => {
+    const cell = (supplier_id: string, line_total: number, prices_include_tax: boolean) =>
+      ({ supplier_id, status: 'PRICED', unit_price: line_total, line_total, quantity: 1, currency: 'SAR', prices_include_tax })
+    const matrix = {
+      basis: '', requested_line_count: 1, supplier_count: 2, complete_quote_count: 2,
+      lines: [{ id: 'l1', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 100, true), cell('B', 95, false)] }],
+    }
+    expect(matrixTotals(matrix).lowest).toBeNull()
   })
 })
 

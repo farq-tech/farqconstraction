@@ -33,6 +33,7 @@ import {
   formatMoney,
   leadTimeLabel,
   lowestPerLine,
+  matrixTotals,
   quoteCoverage,
   quoteDeadline,
   requestProgress,
@@ -40,6 +41,7 @@ import {
   supplierState,
   taxLabel,
 } from '../lib/requestFile'
+import type { MatrixTotal } from '../lib/requestFile'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ChannelTag } from '../components/inbox/MessageBubble'
 
@@ -247,6 +249,8 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const lines = payload.lines || []
   const matrix = comparison?.quote_matrix || null
   const best = lowestPerLine(matrix)
+  const totals = matrixTotals(matrix)
+  const totalBySupplier = new Map(totals.totals.map((t) => [t.supplier_id, t]))
   const offers = [...(comparison?.supplier_responses || [])].sort((a, b) => {
     const ca = summaryBySupplier.get(String(a.supplier.id))?.coverage?.complete ? 0 : 1
     const cb = summaryBySupplier.get(String(b.supplier.id))?.coverage?.complete ? 0 : 1
@@ -507,6 +511,17 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                             <td key={String(row.offer.quoteVersionId)} className="px-3 py-2.5 text-xs font-semibold text-[#0D1F1D]">{leadTimeLabel(row.offer)}</td>
                           ))}
                         </tr>
+                        <tr className="bg-[#f3f7f5] border-t-2 border-neutral-200">
+                          <td className="px-3 py-3 text-sm font-bold text-[#0D1F1D]">
+                            إجمالي البنود
+                            <div className="text-[11px] font-normal text-neutral-500">بدون التوصيل والتنزيل والضريبة</div>
+                          </td>
+                          {offers.map((row) => (
+                            <td key={String(row.offer.quoteVersionId)} className="px-3 py-3 align-top">
+                              <TotalCell total={totalBySupplier.get(String(row.supplier.id))} lowest={totals.lowest === String(row.supplier.id)} />
+                            </td>
+                          ))}
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -529,6 +544,18 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                         </div>
                       </div>
                     ))}
+                    <div className="bg-white border-2 border-neutral-200 rounded-2xl p-3">
+                      <div className="font-bold text-[#0D1F1D] text-sm">إجمالي البنود</div>
+                      <div className="text-[11px] text-neutral-500 mb-2">بدون التوصيل والتنزيل والضريبة</div>
+                      <div className="divide-y divide-neutral-100">
+                        {offers.map((row) => (
+                          <div key={String(row.offer.quoteVersionId)} className="flex items-center justify-between gap-3 py-2">
+                            <span className="text-xs text-[#0D1F1D] truncate">{row.supplier.name_ar || row.supplier.name_en}</span>
+                            <TotalCell total={totalBySupplier.get(String(row.supplier.id))} lowest={totals.lowest === String(row.supplier.id)} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -733,6 +760,19 @@ function CellView({ cell, lowest }: { cell: Cell; lowest: boolean }) {
       <div className="text-sm font-bold text-[#0D1F1D] tabular-nums">{formatMoney(cell.line_total, cell.currency)}</div>
       <div className="text-[10px] text-neutral-500 tabular-nums">
         {formatMoney(cell.unit_price, cell.currency)} للوحدة{lowest ? ' · الأقل' : ''}
+      </div>
+    </div>
+  )
+}
+
+/** A supplier's column total at the foot of the comparison. */
+function TotalCell({ total, lowest }: { total?: MatrixTotal; lowest: boolean }) {
+  if (!total || total.priced === 0) return <span className="text-xs text-neutral-400">لم يسعّر</span>
+  return (
+    <div className={`inline-block rounded-lg px-2 py-1 ${lowest ? 'bg-[#CFF5DC]' : ''}`}>
+      <div className="text-sm font-black text-[#0D1F1D] tabular-nums">{formatMoney(total.total, total.currency)}</div>
+      <div className="text-[10px] text-neutral-500 tabular-nums">
+        {total.complete ? 'كل البنود' : `${total.priced} من ${total.requested} بنود`}{lowest ? ' · الأقل' : ''}
       </div>
     </div>
   )
