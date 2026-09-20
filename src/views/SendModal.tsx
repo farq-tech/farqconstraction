@@ -988,6 +988,9 @@ export function SendModal({
       const company = loadCompanyProfile()
       const buyerUser = farqSession.getUser()
       const createBody: Record<string, unknown> = {
+        // Which booklet this request came from, so the reports can measure the
+        // time from upload to the first quote. Older requests never recorded it.
+        ...(getSession().documentId ? { boq_document_id: getSession().documentId } : {}),
         manual_send: true,
         send_consent: false,
         engineering_department: department,
