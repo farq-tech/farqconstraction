@@ -1,0 +1,14 @@
+{
+  "name": "فرق بناء",
+  "short_name": "فرق بناء",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#123F3A",
+  "theme_color": "#123F3A",
+  "icons": [
+    { "src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
