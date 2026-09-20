@@ -32,16 +32,19 @@ import {
   formatEventTime,
   formatMoney,
   leadTimeLabel,
+  cheapestPerLineTotal,
   lowestPerLine,
   matrixTotals,
+  nextLineSort,
   quoteCoverage,
+  sortLinesBySupplier,
   quoteDeadline,
   requestProgress,
   requestState,
   supplierState,
   taxLabel,
 } from '../lib/requestFile'
-import type { MatrixTotal } from '../lib/requestFile'
+import type { CheapestBasket, LineSort, MatrixTotal } from '../lib/requestFile'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ChannelTag } from '../components/inbox/MessageBubble'
 
@@ -105,6 +108,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const [notice, setNotice] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null)
   const [resending, setResending] = useState<string | null>(null)
   const [awarding, setAwarding] = useState<Offer | null>(null)
+  const [lineSort, setLineSort] = useState<LineSort | null>(null)
   const [stepping, setStepping] = useState<'close' | 'open' | null>(null)
   const [broadcasting, setBroadcasting] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -251,6 +255,8 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const best = lowestPerLine(matrix)
   const totals = matrixTotals(matrix)
   const totalBySupplier = new Map(totals.totals.map((t) => [t.supplier_id, t]))
+  const sortedLines = sortLinesBySupplier(matrix?.lines || [], lineSort)
+  const basket = cheapestPerLineTotal(matrix, best, totals.totals)
   const offers = [...(comparison?.supplier_responses || [])].sort((a, b) => {
     const ca = summaryBySupplier.get(String(a.supplier.id))?.coverage?.complete ? 0 : 1
     const cb = summaryBySupplier.get(String(b.supplier.id))?.coverage?.complete ? 0 : 1
@@ -478,22 +484,42 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                   <h3 className="font-bold text-[#0D1F1D]">مقارنة الأسعار بندًا بندًا</h3>
                   <p className="text-xs text-neutral-500 -mt-3">
                     الأقل مميّز فقط حين تكون الأسعار قابلة للمقارنة (نفس أساس الضريبة والعملة). الأرخص ليس فائزًا تلقائيًا.
+                    اضغط اسم المورد لترتيب البنود حسب سعره.
                   </p>
+                  {basket && <CheapestBasketCard basket={basket} nameOf={nameOfSupplier} />}
                   {/* Desktop: lines × suppliers */}
                   <div className="hidden md:block overflow-x-auto bg-white border border-neutral-100 rounded-2xl">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-neutral-50 text-xs text-neutral-500">
                           <th className="text-right font-semibold px-3 py-2.5 min-w-[220px]">البند</th>
-                          {offers.map((row) => (
-                            <th key={String(row.offer.quoteVersionId)} className="text-right font-semibold px-3 py-2.5 min-w-[140px]">
-                              {row.supplier.name_ar || row.supplier.name_en}
-                            </th>
-                          ))}
+                          {offers.map((row) => {
+                            const id = String(row.supplier.id)
+                            const active = lineSort?.supplierId === id
+                            return (
+                              <th
+                                key={String(row.offer.quoteVersionId)}
+                                className="text-right font-semibold px-3 py-2.5 min-w-[140px]"
+                                aria-sort={active ? (lineSort!.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setLineSort(nextLineSort(lineSort, id))}
+                                  title={active ? 'اضغط لعكس الترتيب أو لإلغائه' : 'رتّب البنود حسب سعر هذا المورد'}
+                                  className={`flex items-center gap-1 text-right hover:text-[#123F3A] ${active ? 'text-[#123F3A] font-bold' : ''}`}
+                                >
+                                  <span>{row.supplier.name_ar || row.supplier.name_en}</span>
+                                  <span aria-hidden className={active ? '' : 'opacity-30'}>
+                                    {active ? (lineSort!.dir === 'asc' ? '▲' : '▼') : '⇅'}
+                                  </span>
+                                </button>
+                              </th>
+                            )
+                          })}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
-                        {matrix.lines.map((line) => (
+                        {sortedLines.map((line) => (
                           <tr key={line.id}>
                             <td className="px-3 py-2.5 align-top">
                               <div className="font-semibold text-[#0D1F1D]">{line.name_ar}</div>
@@ -527,7 +553,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                   </div>
                   {/* Mobile: one card per line */}
                   <div className="md:hidden space-y-3">
-                    {matrix.lines.map((line) => (
+                    {sortedLines.map((line) => (
                       <div key={line.id} className="bg-white border border-neutral-100 rounded-2xl p-3">
                         <div className="font-bold text-[#0D1F1D] text-sm">{line.name_ar}</div>
                         <div className="text-[11px] text-neutral-500 mb-2">{line.quantity} {line.uom}</div>
@@ -760,6 +786,42 @@ function CellView({ cell, lowest }: { cell: Cell; lowest: boolean }) {
       <div className="text-sm font-bold text-[#0D1F1D] tabular-nums">{formatMoney(cell.line_total, cell.currency)}</div>
       <div className="text-[10px] text-neutral-500 tabular-nums">
         {formatMoney(cell.unit_price, cell.currency)} للوحدة{lowest ? ' · الأقل' : ''}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * What the request costs if each line is bought from whoever is cheapest on it —
+ * the buyer's alternative to awarding the whole request to one supplier.
+ */
+function CheapestBasketCard({ basket, nameOf }: { basket: CheapestBasket; nameOf: (id: string | null) => string }) {
+  const partial = basket.covered < basket.requested
+  return (
+    <div className="bg-[#0D1F1D] text-white rounded-2xl p-4">
+      <div className="text-xs text-white/60">لو أخذت الأرخص في كل بند</div>
+      <div className="mt-1 text-2xl font-black tabular-nums">{formatMoney(basket.total, basket.currency)}</div>
+      <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+        <span className="px-2 py-0.5 rounded-full bg-white/10">من {basket.suppliers} موردين</span>
+        <span className={`px-2 py-0.5 rounded-full ${partial ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10'}`}>
+          {partial ? `يغطي ${basket.covered} من ${basket.requested} بنود` : 'كل البنود'}
+        </span>
+        <span className="px-2 py-0.5 rounded-full bg-white/10">بدون التوصيل والتنزيل والضريبة</span>
+      </div>
+      {basket.saving != null && basket.bestSingle && (
+        <div className="mt-2 text-xs text-white/70">
+          {basket.saving > 0
+            ? `أقل بـ ${formatMoney(basket.saving, basket.currency)} من أرخص عرض كامل (${nameOf(basket.bestSingle.supplier_id)}).`
+            : 'لا يوفّر شيئًا عن أرخص عرض كامل — التوريد من مورد واحد أبسط.'}
+        </div>
+      )}
+      {partial && (
+        <div className="mt-2 text-[11px] text-amber-200/90">
+          البنود الباقية بلا أرخص واضح — إما لم يسعّرها أحد، أو تعادل فيها موردان، أو اختلف أساس الضريبة.
+        </div>
+      )}
+      <div className="mt-2 text-[11px] text-white/50">
+        رقم استرشادي: التوريد من عدة موردين يعني عدة أوامر شراء وعدة عمليات توصيل.
       </div>
     </div>
   )

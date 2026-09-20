@@ -4,6 +4,9 @@ import {
   buildTimeline,
   lowestPerLine,
   matrixTotals,
+  nextLineSort,
+  sortLinesBySupplier,
+  cheapestPerLineTotal,
   quoteCoverage,
   quoteDeadline,
   requestProgress,
@@ -123,6 +126,62 @@ describe('quotes', () => {
       lines: [{ id: 'l1', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 100, true), cell('B', 95, false)] }],
     }
     expect(matrixTotals(matrix).lowest).toBeNull()
+  })
+
+  it('orders the lines by one supplier and sinks the lines he never priced', () => {
+    const cell = (supplier_id: string, status: string, line_total: number | null) =>
+      ({ supplier_id, status, unit_price: line_total, line_total, quantity: 1, currency: 'SAR', prices_include_tax: false })
+    const lines = [
+      { id: 'l1', offers: [cell('A', 'PRICED', 300)] },
+      { id: 'l2', offers: [cell('A', 'UNAVAILABLE', null)] },
+      { id: 'l3', offers: [cell('A', 'PRICED', 100)] },
+      { id: 'l4', offers: [cell('A', 'PRICED', 200)] },
+    ]
+    expect(sortLinesBySupplier(lines, { supplierId: 'A', dir: 'asc' }).map((l) => l.id)).toEqual(['l3', 'l4', 'l1', 'l2'])
+    expect(sortLinesBySupplier(lines, { supplierId: 'A', dir: 'desc' }).map((l) => l.id)).toEqual(['l1', 'l4', 'l3', 'l2'])
+    expect(sortLinesBySupplier(lines, null).map((l) => l.id)).toEqual(['l1', 'l2', 'l3', 'l4'])
+    // A click cycles cheapest, dearest, then back to the booklet's own order.
+    expect(nextLineSort(null, 'A')).toEqual({ supplierId: 'A', dir: 'asc' })
+    expect(nextLineSort({ supplierId: 'A', dir: 'asc' }, 'A')).toEqual({ supplierId: 'A', dir: 'desc' })
+    expect(nextLineSort({ supplierId: 'A', dir: 'desc' }, 'A')).toBeNull()
+    expect(nextLineSort({ supplierId: 'A', dir: 'desc' }, 'B')).toEqual({ supplierId: 'B', dir: 'asc' })
+  })
+
+  it('adds up the cheapest line by line and says how it compares to one supplier', () => {
+    const cell = (supplier_id: string, status: string, line_total: number | null) =>
+      ({ supplier_id, status, unit_price: line_total, line_total, quantity: 1, currency: 'SAR', prices_include_tax: false })
+    const matrix = {
+      basis: '', requested_line_count: 2, supplier_count: 2, complete_quote_count: 2,
+      lines: [
+        { id: 'l1', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 'PRICED', 100), cell('B', 'PRICED', 80)] },
+        { id: 'l2', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 'PRICED', 50), cell('B', 'PRICED', 90)] },
+      ],
+    }
+    const totals = matrixTotals(matrix).totals
+    const basket = cheapestPerLineTotal(matrix, lowestPerLine(matrix), totals)!
+    expect(basket.total).toBe(130)
+    expect(basket.suppliers).toBe(2)
+    expect(basket.covered).toBe(2)
+    expect(basket.bestSingle!.total).toBe(150)
+    expect(basket.saving).toBe(20)
+  })
+
+  it('counts only the lines that have a real cheapest, and then claims no saving', () => {
+    const cell = (supplier_id: string, status: string, line_total: number | null, prices_include_tax: boolean | null = false) =>
+      ({ supplier_id, status, unit_price: line_total, line_total, quantity: 1, currency: 'SAR', prices_include_tax })
+    const matrix = {
+      basis: '', requested_line_count: 2, supplier_count: 2, complete_quote_count: 2,
+      lines: [
+        { id: 'l1', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 'PRICED', 100), cell('B', 'PRICED', 80)] },
+        // Same price on both: no winner, so this line stays out of the basket.
+        { id: 'l2', name_ar: '', quantity: 1, uom: '', offers: [cell('A', 'PRICED', 50), cell('B', 'PRICED', 50)] },
+      ],
+    }
+    const basket = cheapestPerLineTotal(matrix, lowestPerLine(matrix), matrixTotals(matrix).totals)!
+    expect(basket.total).toBe(80)
+    expect(basket.covered).toBe(1)
+    expect(basket.requested).toBe(2)
+    expect(basket.saving).toBeNull()
   })
 })
 
