@@ -5,6 +5,7 @@ import { NotificationsDrawer } from './NotificationsDrawer'
 import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
+import { accountBrand, type AccountBrand } from '../lib/accountBrand'
 
 interface ShellProps {
   view: AppView
@@ -82,6 +83,46 @@ const CREATE_STEPS = [
 const isCreateFlow = (v: AppView) => v === 'create-upload' || v === 'create-proposals'
 const getStep = (v: AppView) => (v === 'create-upload' ? 1 : v === 'create-proposals' ? 2 : 3)
 
+/** The signed-in company's own mark, when Farq holds one for that account. */
+function useAccountBrand(): AccountBrand | null {
+  const [brand, setBrand] = useState<AccountBrand | null>(null)
+  useEffect(() => {
+    let alive = true
+    getConstructionMe()
+      .then((me) => alive && setBrand(accountBrand(me?.scope_owner_user_id)))
+      .catch(() => {
+        /* the header is not the place to report a failed lookup */
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+  return brand
+}
+
+/** A company mark tinted by `bg-*`, drawn from its own artwork. */
+function BrandMark({ mark, aspect, label, className = '' }: { mark: string; aspect: string; label: string; className?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={`inline-block ${className}`}
+      style={{
+        aspectRatio: aspect,
+        WebkitMaskImage: `url(${mark})`,
+        maskImage: `url(${mark})`,
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+        WebkitMaskSize: 'contain',
+        maskSize: 'contain',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+      }}
+    />
+  )
+}
+
 /**
  * The Farq wordmark as the brand file draws it, tinted by `bg-*`: the artwork is
  * a mask, so one file serves a light header and a dark one without a second
@@ -114,6 +155,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
   const [inboxUnread, setInboxUnread] = useState<number | null>(null)
   const [latestRfqId, setLatestRfqId] = useState<string | null>(null)
   const session = useFarqSession()
+  const brand = useAccountBrand()
   // The sidebar used to state «وضع تجريبي / بدون تسجيل دخول» unconditionally,
   // so a genuinely signed-in owner was told he was not signed in.
   const displayName = session.user?.displayName?.trim() || ''
@@ -204,10 +246,16 @@ export function Shell({ view, navigate, children }: ShellProps) {
     <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
       <aside className="hidden lg:flex fixed top-0 right-0 bottom-0 w-60 bg-[#123F3A] flex-col z-50">
         <div className="flex items-center gap-3 px-5 py-6 border-b border-white/10">
-          <div>
+          <div className="flex-1 min-w-0">
             <FarqWordmark className="h-7 bg-white" />
             <div className="text-white/50 text-xs mt-1.5">بناء</div>
           </div>
+          {brand && (
+            <div className="flex flex-col items-center gap-1 flex-shrink-0 max-w-[92px]">
+              <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-9 bg-[#CFF5DC]" />
+              <span className="text-white/60 text-[10px] leading-tight text-center line-clamp-2">{brand.name}</span>
+            </div>
+          )}
         </div>
 
         <div className="px-4 pt-4">
@@ -291,6 +339,12 @@ export function Shell({ view, navigate, children }: ShellProps) {
             <FarqWordmark className="h-5 bg-white" />
             <span className="text-white/40 text-base leading-none">|</span>
             <span className="text-white/90 font-bold text-base leading-none">بناء</span>
+            {brand && (
+              <>
+                <span className="w-px h-5 bg-white/20 mx-1" />
+                <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-7 bg-[#CFF5DC]" />
+              </>
+            )}
           </button>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowNotifs(true)} className="text-white/60 p-1 relative">
