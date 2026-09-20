@@ -1703,6 +1703,106 @@ export type OtherSourceSearch = {
 }
 
 /** Search other sources for one BOQ line; the server runs it as a job. */
+export type ConstructionReportProject = {
+  id: string
+  status: string
+  created_at: string
+  submission_closed_at?: string | null
+  site_address?: string | null
+  city?: string | null
+  engineering_department?: string | null
+  quote_deadline?: string | null
+  boq_document_id?: string | null
+  lines: number
+  priced_lines: number
+  single_offer_lines: number
+  strong_lines: number
+  line_offers_total: number
+  spread_value?: string | number | null
+  lowest_value?: string | number | null
+  invited: number
+  reached: number
+  opened: number
+  replied: number
+  quoted: number
+  complete_quotes: number
+  sent_at?: string | null
+  first_quote_at?: string | null
+  second_quote_at?: string | null
+  median_reply_hours?: string | number | null
+  fastest_reply_minutes?: string | number | null
+  award_at?: string | null
+  award_total?: string | number | null
+  award_status?: string | null
+}
+export type ConstructionReportSupplier = {
+  id: string
+  name_ar?: string | null
+  name_en?: string | null
+  city?: string | null
+  channel?: string | null
+  rfqs: number
+  replied: number
+  quotes: number
+  complete_quotes: number
+  partial_quotes: number
+  silent: number
+  projects: number
+  median_reply_hours?: string | number | null
+  avg_reply_hours?: string | number | null
+  last_activity?: string | null
+  offered_value?: string | number | null
+  wins: number
+}
+export type ConstructionReports = {
+  generated_at: string
+  filters: { days: number | null; rfq_id: string | null }
+  totals: {
+    projects: number; lines: number; priced_lines: number; single_offer_lines: number; strong_lines: number
+    line_offers_total: number; invited: number; reached: number; opened: number; replied: number; quoted: number
+    complete_quotes: number; coverage_percent: number | null; avg_offers_per_line: number | null
+    suppliers_participating: number; reply_rate: number | null; quote_rate: number | null
+    spread_value: number; lowest_value: number
+  }
+  savings: { basis: string; potential: number; potential_percent: number | null; realized: number; awarded_projects: number; note: string }
+  funnel: { lines: number; lines_with_suppliers: number; rfq_sent: number; one_offer: number; two_offers: number; three_offers: number; awarded_projects: number }
+  response_buckets: Array<{ bucket: string; suppliers: number }>
+  competition: Array<{ bucket: string; lines: number }>
+  categories: Array<{ category: string; lines: number; priced_lines: number; single_offer_lines: number; avg_offers_per_line?: string | number | null; lowest_value?: string | number | null; spread_value?: string | number | null }>
+  attention: { lines_no_offer_48h: number; lines_single_offer: number; rfqs_closing_today: number; suppliers_silent: number; quotes_last_24h: number }
+  projects: ConstructionReportProject[]
+  suppliers: ConstructionReportSupplier[]
+}
+export type ConstructionReportLine = {
+  rfq_id: string
+  line_id: string
+  line_number: number
+  item_name: string
+  category: string
+  quantity: string | number
+  offers: number
+  min_unit?: string | number | null
+  max_unit?: string | number | null
+  site_address?: string | null
+  reached: number
+  replied: number
+}
+
+/** Counted from the company's own records: sends, opens, replies, quotes, awards. */
+export async function getConstructionReports(options: { days?: number | null; rfqId?: string | null } = {}) {
+  const qs = new URLSearchParams()
+  if (options.days) qs.set('days', String(options.days))
+  if (options.rfqId) qs.set('rfq_id', options.rfqId)
+  return request<ConstructionReports>(`/api/construction/reports/overview${qs.toString() ? `?${qs}` : ''}`)
+}
+
+/** The rows behind a report number. */
+export async function getConstructionReportLines(filter: 'no_offer' | 'single_offer' | 'priced', rfqId?: string | null) {
+  const qs = new URLSearchParams({ filter })
+  if (rfqId) qs.set('rfq_id', rfqId)
+  return request<{ filter: string; rfq_id: string | null; lines: ConstructionReportLine[] }>(`/api/construction/reports/lines?${qs}`)
+}
+
 export async function startOtherSourceSearch(body: { item_name: string; spec?: string; city?: string; farq_spec_id: string }) {
   return request<{ job_id: string; status: string }>('/api/construction/haraj/search', {
     method: 'POST',

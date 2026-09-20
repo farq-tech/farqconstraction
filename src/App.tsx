@@ -15,6 +15,7 @@ import { ComparisonView } from './views/ComparisonView'
 import { AwardView } from './views/AwardView'
 import { AwardSuccessView } from './views/AwardSuccessView'
 import { SupplierManagementView } from './views/SupplierManagementView'
+import { ReportsView } from './views/ReportsView'
 import { SupplierDetailView } from './views/SupplierDetailView'
 import { SettingsView } from './views/SettingsView'
 import { AccessDeniedView } from './views/AccessDeniedView'
@@ -104,6 +105,7 @@ function AppRoutes() {
           setSelectedSupplierId={setSelectedSupplierId}
         />
       )}
+      {view === 'reports' && <ReportsView navigate={navigate} />}
       {view === 'settings' && <SettingsView navigate={navigate} />}
       {view === 'learning-review' && <LearningReviewView navigate={navigate} />}
       {view === 'inbox' && <InboxView navigate={navigate} />}

@@ -59,6 +59,12 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
         ]
       : []),
     {
+      id: 'reports' as AppView,
+      label: 'التقارير',
+      Icon: FileIcon,
+      active: (v: AppView) => v === 'reports',
+    },
+    {
       id: 'settings' as AppView,
       label: 'الإعدادات',
       Icon: SettingsIcon,

@@ -16,6 +16,7 @@ export type AppView =
   | 'supplier-management'
   | 'supplier-detail'
   | 'settings'
+  | 'reports'
   | 'learning-review'
   | 'access-denied'
   | 'supplier'
