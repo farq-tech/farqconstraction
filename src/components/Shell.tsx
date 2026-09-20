@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppView } from '../types'
-import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon } from '../icons'
+import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon } from '../icons'
 import { NotificationsDrawer } from './NotificationsDrawer'
 import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
@@ -179,12 +179,9 @@ export function Shell({ view, navigate, children }: ShellProps) {
     <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
       <aside className="hidden lg:flex fixed top-0 right-0 bottom-0 w-60 bg-[#123F3A] flex-col z-50">
         <div className="flex items-center gap-3 px-5 py-6 border-b border-white/10">
-          <div className="w-9 h-9 rounded-xl bg-[#CFF5DC] flex items-center justify-center flex-shrink-0">
-            <span className="text-[#123F3A] font-black text-base">ف</span>
-          </div>
           <div>
-            <div className="text-white font-bold text-xl leading-none tracking-tight">فرق</div>
-            <div className="text-white/40 text-xs mt-0.5">بناء</div>
+            <div className="text-white font-black text-2xl leading-none tracking-tight">Farq</div>
+            <div className="text-white/50 text-xs mt-1">بناء</div>
           </div>
         </div>
 
@@ -250,8 +247,8 @@ export function Shell({ view, navigate, children }: ShellProps) {
             )}
           </button>
           <button onClick={() => navigate('settings')} className="flex items-center gap-3 w-full">
-            <div className="w-8 h-8 rounded-full bg-[#CFF5DC] flex items-center justify-center flex-shrink-0">
-              <span className="text-[#123F3A] font-bold text-sm">ف</span>
+            <div className="w-8 h-8 rounded-full bg-[#CFF5DC] flex items-center justify-center flex-shrink-0 text-[#123F3A]">
+              <AccountIcon className="w-5 h-5" />
             </div>
             <div className="min-w-0 text-right">
               <div className="text-white text-sm font-semibold leading-none truncate">
@@ -266,10 +263,9 @@ export function Shell({ view, navigate, children }: ShellProps) {
       <div className="lg:mr-60">
         <header className="lg:hidden sticky top-0 z-40 bg-[#123F3A] px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate('home')} className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#CFF5DC] flex items-center justify-center">
-              <span className="text-[#123F3A] font-black text-xs">ف</span>
-            </div>
-            <span className="text-white font-bold text-base">فرق | بناء</span>
+            <span className="text-white font-black text-xl leading-none tracking-tight">Farq</span>
+            <span className="text-white/40 text-base leading-none">|</span>
+            <span className="text-white/90 font-bold text-base leading-none">بناء</span>
           </button>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowNotifs(true)} className="text-white/60 p-1 relative">
@@ -278,9 +274,9 @@ export function Shell({ view, navigate, children }: ShellProps) {
                 <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-[#CFF5DC] rounded-full" />
               )}
             </button>
-            <button onClick={() => navigate('settings')}>
-              <div className="w-7 h-7 rounded-full bg-[#CFF5DC] flex items-center justify-center">
-                <span className="text-[#123F3A] font-bold text-xs">ف</span>
+            <button onClick={() => navigate('settings')} aria-label="حسابك والإعدادات" title="حسابك">
+              <div className="w-8 h-8 rounded-full bg-[#CFF5DC] flex items-center justify-center text-[#123F3A]">
+                <AccountIcon className="w-5 h-5" />
               </div>
             </button>
           </div>
