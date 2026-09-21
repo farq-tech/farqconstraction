@@ -124,9 +124,9 @@ export type RfqEmailPreview = {
 export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPreview {
   const department = normalizeDepartment(input.engineeringDepartment)
   const reference = departmentReference(input.rfqId, department)
-  const company = String(input.buyerCompany || 'فرق للبناء').trim() || 'فرق للبناء'
+  const company = String(input.buyerCompany || 'فرق تسعير').trim() || 'فرق تسعير'
   const token = String(input.portalToken || 'PREVIEW-TOKEN').trim()
-  const replyUrl = `https://www.farq.sa/Construction?supplier_token=${encodeURIComponent(token)}`
+  const replyUrl = `https://saer.farq.sa/?supplier_token=${encodeURIComponent(token)}`
   const lines = input.lines.length
     ? input.lines
     : [{ original_name: '—', quantity: '—', uom: '' }]
@@ -152,13 +152,13 @@ export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPrevi
     .join('')
 
   const subject = `طلب عرض سعر ${reference}${department ? ` — ${department.label_ar}` : ''} — ${company}`
-  const from = `${company} — عبر فرق للبناء <info@farq.sa>`
+  const from = `${company} — عبر فرق تسعير <info@farq.sa>`
   const to = String(input.recipientEmail || input.supplierName || 'supplier@example.com')
 
   const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
       <body style="margin:0;background:#f3f5f3;color:#163f39;font-family:Tahoma,Arial,sans-serif">
         <div style="box-sizing:border-box;max-width:600px;margin:0 auto;background:#fff;border-radius:22px;padding:38px 40px 32px;text-align:right">
-          <div style="font-size:38px;line-height:1.25;font-weight:900;color:#0b4038">فرق للبناء</div>
+          <div style="font-size:38px;line-height:1.25;font-weight:900;color:#0b4038">فرق تسعير</div>
           <div style="margin-top:8px;color:#748a85;font-size:16px">شركة فرق للتكنولوجيا</div>
 
           <h1 style="margin:34px 0 26px;font-size:38px;line-height:1.35;color:#113e37">طلب عرض سعر</h1>

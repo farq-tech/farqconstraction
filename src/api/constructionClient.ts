@@ -375,7 +375,7 @@ function rateLimitWaitSec(now = Date.now()): number {
 
 function rateLimitErrorAr(sec: number): ConstructionApiError {
   return new ConstructionApiError(
-    `تجاوزنا حد المحاولات على واجهة البناء — أعد المحاولة بعد ${sec} ثانية. هذا حدّ سرعة مؤقّت، لا انقطاع في الربط ولا خطأ في الإعدادات.`,
+    `تجاوزنا حد المحاولات على واجهة التسعير — أعد المحاولة بعد ${sec} ثانية. هذا حدّ سرعة مؤقّت، لا انقطاع في الربط ولا خطأ في الإعدادات.`,
     429,
     CONSTRUCTION_RATE_LIMITED,
     sec,
@@ -595,7 +595,7 @@ async function rawFetch(
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new ConstructionApiError(
-        'انتهت مهلة الطلب إلى واجهة البناء — أعد المحاولة أو قلّل عدد البنود.',
+        'انتهت مهلة الطلب إلى واجهة التسعير — أعد المحاولة أو قلّل عدد البنود.',
         504,
         'CONSTRUCTION_REQUEST_TIMEOUT',
       )
@@ -689,7 +689,7 @@ function unwrap<T>(
       code === 'CONSTRUCTION_WRITE_DISABLED'
     ) {
       throw new ConstructionApiError(
-        `خدمة فرق للبناء متوقفة مؤقتًا من جهة الخادم (${code}). لم يُحفظ شيء؛ أعد المحاولة بعد قليل أو تواصل مع دعم فرق.`,
+        `خدمة فرق تسعير متوقفة مؤقتًا من جهة الخادم (${code}). لم يُحفظ شيء؛ أعد المحاولة بعد قليل أو تواصل مع دعم فرق.`,
         response.status,
         String(code),
       )

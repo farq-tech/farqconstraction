@@ -43,7 +43,7 @@ const preview = (lines: Array<Record<string, unknown>>) =>
     supplierName: 'AP Tools',
     recipientEmail: 'sales@example.com',
     engineeringDepartment: 'ELECTRICAL',
-    buyerCompany: 'فرق للبناء',
+    buyerCompany: 'فرق تسعير',
     lines: lines as never,
   })
 

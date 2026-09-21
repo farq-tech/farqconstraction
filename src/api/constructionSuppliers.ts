@@ -289,7 +289,7 @@ async function fetchCatalogPayload(extra: Record<string, string>): Promise<any> 
       code === 'CONSTRUCTION_READ_DISABLED'
     ) {
       throw new Error(
-        'خدمة البناء غير متاحة الآن. أعد المحاولة بعد قليل، وإن استمر الأمر تواصل مع فرق.',
+        'خدمة التسعير غير متاحة الآن. أعد المحاولة بعد قليل، وإن استمر الأمر تواصل مع فرق.',
       )
     }
     throw new Error(code || `Farq construction API error (${response.status})`)

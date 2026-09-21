@@ -46,7 +46,7 @@ export function LoginView({ navigate }: NavProps) {
           <div className="w-14 h-14 rounded-2xl bg-[#123F3A] flex items-center justify-center mb-4 shadow-lg">
             <span className="text-[#CFF5DC] font-black text-2xl">ف</span>
           </div>
-          <div className="text-2xl font-black text-[#0D1F1D]">فرق للبناء</div>
+          <div className="text-2xl font-black text-[#0D1F1D]">فرق تسعير</div>
           <div className="text-sm text-neutral-500 mt-1">منصة المشتريات الذكية</div>
         </div>
 

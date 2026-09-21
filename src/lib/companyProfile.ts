@@ -25,7 +25,7 @@ export type CompanyProfile = {
 const KEY = 'farq.construction.companyProfile.v1'
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = Object.freeze({
-  name: 'فرق للبناء',
+  name: 'فرق تسعير',
   city: 'الرياض',
   phone: '0563333463',
   email: 'info@farq.sa',

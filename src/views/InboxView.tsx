@@ -363,7 +363,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
       if (gmailError.includes('401') || gmailError.includes('AUTH')) {
         return {
           tone: 'warn',
-          title: 'الجلسة غير مصادَقة لواجهة البناء.',
+          title: 'الجلسة غير مصادَقة لواجهة التسعير.',
           action: 'سجّل الدخول بحساب مالك الشركة لإدارة ربط البريد.',
         }
       }

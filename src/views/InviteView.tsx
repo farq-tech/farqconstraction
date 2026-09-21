@@ -65,7 +65,7 @@ export function InviteView({ navigate }: NavProps) {
         {info && (
           <>
             <div className="text-sm text-neutral-600 mb-4 leading-relaxed">
-              دُعيت إلى <span className="font-bold text-[#0D1F1D]">{info.organization_name}</span> في فرق للبناء
+              دُعيت إلى <span className="font-bold text-[#0D1F1D]">{info.organization_name}</span> في فرق تسعير
               بالبريد <span dir="ltr" className="font-semibold">{info.email}</span>. اختر كلمة مرور لحسابك.
             </div>
             <div className="space-y-2.5">

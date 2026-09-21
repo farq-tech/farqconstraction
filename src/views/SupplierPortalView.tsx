@@ -101,7 +101,7 @@ export function SupplierPortalView({ navigate }: NavProps) {
           </div>
           <div>
             <div className="text-white font-bold">بوابة المورد</div>
-            <div className="text-white/40 text-xs">فرق بناء</div>
+            <div className="text-white/40 text-xs">فرق تسعير</div>
           </div>
         </div>
         <button onClick={() => navigate('home')} className="text-white/60 text-xs hover:text-white">

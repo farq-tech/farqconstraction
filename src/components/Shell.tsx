@@ -242,7 +242,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         <div className="flex items-center gap-3 px-5 py-6 border-b border-white/10">
           <div className="flex-1 min-w-0">
             <FarqWordmark className="h-7 bg-white" />
-            <div className="text-white/50 text-xs mt-1.5">بناء</div>
+            <div className="text-white/50 text-xs mt-1.5">تسعير</div>
           </div>
           {brand && (
             <div className="flex flex-col items-center gap-1 flex-shrink-0 max-w-[92px]">
@@ -332,7 +332,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
           <button onClick={() => navigate('home')} className="flex items-center gap-2">
             <FarqWordmark className="h-5 bg-white" />
             <span className="text-white/40 text-base leading-none">|</span>
-            <span className="text-white/90 font-bold text-base leading-none">بناء</span>
+            <span className="text-white/90 font-bold text-base leading-none">تسعير</span>
             {brand && (
               <>
                 <span className="w-px h-5 bg-white/20 mx-1" />
