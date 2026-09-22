@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { AppView } from '../types'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon } from '../icons'
 import { NotificationsDrawer } from './NotificationsDrawer'
 import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
-import { accountBrand, type AccountBrand } from '../lib/accountBrand'
+import { getNeedFlowStep, subscribeNeedFlowStep } from '../lib/needFlowStep'
 
 interface ShellProps {
   view: AppView
@@ -75,47 +75,12 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
 }
 
 const CREATE_STEPS = [
-  { n: 1, label: 'ارفع الكراسة', views: ['create-upload'] as AppView[] },
-  { n: 2, label: 'الموردون المقترحون', views: ['create-proposals'] as AppView[] },
-  { n: 3, label: 'إرسال الطلب', views: [] as AppView[] },
+  { n: 1, label: 'احتياجك', views: ['create-upload'] as AppView[] },
+  { n: 2, label: 'النتائج', views: ['create-upload'] as AppView[] },
+  { n: 3, label: 'الاختيار', views: ['create-upload'] as AppView[] },
 ]
 
 const isCreateFlow = (v: AppView) => v === 'create-upload' || v === 'create-proposals'
-const getStep = (v: AppView) => (v === 'create-upload' ? 1 : v === 'create-proposals' ? 2 : 3)
-
-/** The signed-in company's own mark, when Farq holds one for that account. */
-function useAccountBrand(): AccountBrand | null {
-  const [brand, setBrand] = useState<AccountBrand | null>(null)
-  useEffect(() => {
-    let alive = true
-    getConstructionMe()
-      .then((me) => alive && setBrand(accountBrand(me?.scope_owner_user_id)))
-      .catch(() => {
-        /* the header is not the place to report a failed lookup */
-      })
-    return () => {
-      alive = false
-    }
-  }, [])
-  return brand
-}
-
-/**
- * A company's own mark, in its own colours. Their identity is theirs: we place
- * the artwork as they print it and never recolour it to suit our interface.
- */
-function BrandMark({ mark, aspect, label, className = '' }: { mark: string; aspect: string; label: string; className?: string }) {
-  return (
-    <img
-      src={mark}
-      alt={label}
-      title={label}
-      loading="lazy"
-      className={`inline-block object-contain ${className}`}
-      style={{ aspectRatio: aspect }}
-    />
-  )
-}
 
 /**
  * The Farq wordmark as the brand file draws it, tinted by `bg-*`: the artwork is
@@ -149,7 +114,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
   const [inboxUnread, setInboxUnread] = useState<number | null>(null)
   const [latestRfqId, setLatestRfqId] = useState<string | null>(null)
   const session = useFarqSession()
-  const brand = useAccountBrand()
+  const needStep = useSyncExternalStore(subscribeNeedFlowStep, getNeedFlowStep, getNeedFlowStep)
   // The sidebar used to state «وضع تجريبي / بدون تسجيل دخول» unconditionally,
   // so a genuinely signed-in owner was told he was not signed in.
   const displayName = session.user?.displayName?.trim() || ''
@@ -161,7 +126,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
     ? (displayName && email ? email : 'مسجّل الدخول')
     : 'سجّل الدخول للمتابعة'
   const inCreate = isCreateFlow(view)
-  const step = getStep(view)
+  const step = view === 'create-upload' ? needStep : 2
   const [isScopeOwner, setIsScopeOwner] = useState(false)
   useEffect(() => {
     if (!session.isAuthenticated) return
@@ -244,12 +209,6 @@ export function Shell({ view, navigate, children }: ShellProps) {
             <FarqWordmark className="h-7 bg-white" />
             <div className="text-white/50 text-xs mt-1.5">تسعير</div>
           </div>
-          {brand && (
-            <div className="flex flex-col items-center gap-1 flex-shrink-0 max-w-[92px]">
-              <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-9" />
-              <span className="text-white/60 text-[10px] leading-tight text-center line-clamp-2">{brand.name}</span>
-            </div>
-          )}
         </div>
 
         <div className="px-4 pt-4">
@@ -333,12 +292,6 @@ export function Shell({ view, navigate, children }: ShellProps) {
             <FarqWordmark className="h-5 bg-white" />
             <span className="text-white/40 text-base leading-none">|</span>
             <span className="text-white/90 font-bold text-base leading-none">تسعير</span>
-            {brand && (
-              <>
-                <span className="w-px h-5 bg-white/20 mx-1" />
-                <BrandMark mark={brand.mark} aspect={brand.aspect} label={brand.name} className="h-7" />
-              </>
-            )}
           </button>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowNotifs(true)} className="text-white/60 p-1 relative">

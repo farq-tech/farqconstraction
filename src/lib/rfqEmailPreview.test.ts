@@ -47,6 +47,22 @@ const preview = (lines: Array<Record<string, unknown>>) =>
     lines: lines as never,
   })
 
+describe('Taseer identity on the invite', () => {
+  it('never prints a payment-company lockup', () => {
+    const p = preview(PPE_LINES.map(asSentLine))
+    expect(p.html).toContain('فارك تكنولوجي')
+    expect(p.html).not.toMatch(/شركة الدفع|aldafe/i)
+    const aldafe = buildRfqEmailPreview({
+      rfqId: 'X',
+      buyerCompany: 'شركة الدفع للتجارة والمقاولات',
+      lines: [{ original_name: 'سباك' }],
+    })
+    expect(aldafe.html).toContain('فرق تسعير')
+    expect(aldafe.html).not.toMatch(/شركة الدفع/)
+    expect(aldafe.subject).not.toMatch(/شركة الدفع/)
+  })
+})
+
 describe('an unmatched line is sent under its own name', () => {
   it('renders ten distinct PPE rows with their real descriptions', () => {
     const p = preview(PPE_LINES.map(asSentLine))

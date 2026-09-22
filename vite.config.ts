@@ -39,6 +39,7 @@ export default defineConfig(({ mode }) => {
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
+      harajApiDevMiddleware(),
     ],
     resolve: {
       alias: {
@@ -383,6 +384,39 @@ function figmaMakeKitPlugin(options: { storiesGlob: string | string[] }): Plugin
           res.end(await server.transformIndexHtml(url, HTML_BOOTSTRAP))
         } catch (err) {
           next(err as Error)
+        }
+      })
+    },
+  }
+}
+
+/**
+ * Serves `/api/haraj` in development with the same handler as the Vercel route.
+ */
+function harajApiDevMiddleware(): Plugin {
+  return {
+    name: 'farq-haraj-api-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/haraj')) return next()
+        try {
+          const url = new URL(req.url, 'http://localhost')
+          const { handleHarajRequest } = await server.ssrLoadModule(
+            '/src/lib/harajPublic/fetch.ts',
+          )
+          const limit = Number(url.searchParams.get('limit') ?? 8)
+          const { status, body } = await handleHarajRequest(
+            url.searchParams.getAll('q'),
+            Number.isFinite(limit) ? limit : 8,
+          )
+          res.statusCode = status
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify(body))
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify({ error: String(error).slice(0, 300) }))
         }
       })
     },

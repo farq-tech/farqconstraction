@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { setPendingUpload } from '../lib/pendingUpload'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { NavProps, RFQSummary } from '../types'
-import { UploadIcon, ArrowRightIcon, InboxIcon, FileIcon } from '../icons'
+import { SearchIcon, ArrowRightIcon, InboxIcon, FileIcon } from '../icons'
 import { getSession, subscribeSession } from '../store/session'
 import { listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
@@ -57,8 +56,6 @@ function AttentionCard({
 }
 
 export function HomeView({ navigate }: NavProps) {
-  const [dragging, setDragging] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
   const localRfqs = useLocalRfqs()
   const [apiRfqs, setApiRfqs] = useState<RFQSummary[]>([])
   const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
@@ -110,34 +107,8 @@ export function HomeView({ navigate }: NavProps) {
       ? navigate('create-proposals')
       : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
 
-  const pickFile = () => inputRef.current?.click()
-
   return (
-    <div
-      className="max-w-4xl mx-auto px-4 lg:px-8 py-8"
-      onDragOver={(e) => {
-        e.preventDefault()
-        setDragging(true)
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setDragging(false)
-        setPendingUpload(e.dataTransfer.files?.[0])
-        navigate('create-upload')
-      }}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,application/pdf"
-        className="hidden"
-        onChange={(e) => {
-          setPendingUpload(e.target.files?.[0])
-          navigate('create-upload')
-        }}
-      />
-
+    <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D]">
@@ -145,24 +116,18 @@ export function HomeView({ navigate }: NavProps) {
             {name ? `، ${name}` : ''}
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
-            {rfqs.length ? 'هذا ما يحتاج انتباهك اليوم.' : 'ارفع كراسة وسنقرأ البنود ونقترح لكل بند موردين مناسبين.'}
+            {rfqs.length ? 'هذا ما يحتاج انتباهك اليوم.' : 'اكتب احتياجك وندور لك.'}
           </p>
         </div>
         <button
           type="button"
-          onClick={pickFile}
+          onClick={() => navigate('create-upload')}
           className="flex items-center gap-2 px-5 py-3 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm shadow-sm"
         >
-          <UploadIcon className="w-4 h-4" />
-          طلب تسعير جديد
+          <SearchIcon className="w-4 h-4" />
+          اكتب احتياجك
         </button>
       </div>
-
-      {dragging && (
-        <div className="mb-6 rounded-2xl border-2 border-dashed border-[#123F3A] bg-[#f0faf7] py-10 text-center text-sm font-bold text-[#123F3A]">
-          أفلت الكراسة هنا لنبدأ القراءة
-        </div>
-      )}
 
       {rfqs.length > 0 && (
         <div className="flex flex-wrap gap-3 mb-8">
@@ -197,15 +162,15 @@ export function HomeView({ navigate }: NavProps) {
       ) : rfqs.length === 0 ? (
         <button
           type="button"
-          onClick={pickFile}
+          onClick={() => navigate('create-upload')}
           className="w-full rounded-2xl border-2 border-dashed border-neutral-200 bg-white hover:border-[#123F3A]/40 hover:bg-[#f0faf7]/50 transition-all py-16 px-8 flex flex-col items-center"
         >
           <div className="w-16 h-16 rounded-2xl bg-[#CFF5DC] flex items-center justify-center mb-5">
-            <UploadIcon className="w-8 h-8 text-[#123F3A]" />
+            <SearchIcon className="w-8 h-8 text-[#123F3A]" />
           </div>
-          <div className="text-xl font-bold text-[#0D1F1D] mb-2">ارفع أول كراسة</div>
+          <div className="text-xl font-bold text-[#0D1F1D] mb-2">اكتب احتياجك</div>
           <p className="text-neutral-500 text-sm text-center max-w-sm">
-            ملف PDF لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند خمسة موردين، وترسل لهم بضغطة.
+            سباك و كهربائي ودرابزين زجاج — ندور لك إعلانات لكل احتياج.
           </p>
         </button>
       ) : (

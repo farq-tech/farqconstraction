@@ -44,9 +44,14 @@ function days(value: unknown): number {
 
 const opt = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, 200)
 
+function isPaymentCompany(value: string): boolean {
+  return /شركة الدفع|aldafe/i.test(value)
+}
+
 function clean(value: unknown, fallback: string): string {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim()
-  return text || fallback
+  if (!text || isPaymentCompany(text)) return fallback
+  return text
 }
 
 export function loadCompanyProfile(): CompanyProfile {
@@ -59,7 +64,7 @@ export function loadCompanyProfile(): CompanyProfile {
       city: clean(parsed.city, DEFAULT_COMPANY_PROFILE.city),
       phone: clean(parsed.phone, DEFAULT_COMPANY_PROFILE.phone),
       email: clean(parsed.email, DEFAULT_COMPANY_PROFILE.email),
-      legalName: opt(parsed.legalName),
+      legalName: isPaymentCompany(opt(parsed.legalName)) ? '' : opt(parsed.legalName),
       crNumber: opt(parsed.crNumber),
       vatNumber: opt(parsed.vatNumber),
       nationalAddress: opt(parsed.nationalAddress),

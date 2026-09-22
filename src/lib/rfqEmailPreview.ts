@@ -124,7 +124,8 @@ export type RfqEmailPreview = {
 export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPreview {
   const department = normalizeDepartment(input.engineeringDepartment)
   const reference = departmentReference(input.rfqId, department)
-  const company = String(input.buyerCompany || 'فرق تسعير').trim() || 'فرق تسعير'
+  const rawCompany = String(input.buyerCompany || '').trim()
+  const company = !rawCompany || /شركة الدفع|aldafe/i.test(rawCompany) ? 'فرق تسعير' : rawCompany
   const token = String(input.portalToken || 'PREVIEW-TOKEN').trim()
   const replyUrl = `https://saer.farq.sa/?supplier_token=${encodeURIComponent(token)}`
   const lines = input.lines.length
@@ -159,7 +160,7 @@ export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPrevi
       <body style="margin:0;background:#f3f5f3;color:#163f39;font-family:Tahoma,Arial,sans-serif">
         <div style="box-sizing:border-box;max-width:600px;margin:0 auto;background:#fff;border-radius:22px;padding:38px 40px 32px;text-align:right">
           <div style="font-size:38px;line-height:1.25;font-weight:900;color:#0b4038">فرق تسعير</div>
-          <div style="margin-top:8px;color:#748a85;font-size:16px">شركة فرق للتكنولوجيا</div>
+          <div style="margin-top:8px;color:#748a85;font-size:16px">فارك تكنولوجي</div>
 
           <h1 style="margin:34px 0 26px;font-size:38px;line-height:1.35;color:#113e37">طلب عرض سعر</h1>
           <div style="font-size:19px;line-height:1.9;color:#3f615b">
