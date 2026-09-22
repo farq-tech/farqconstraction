@@ -4,5 +4,8 @@
   "installCommand": "npm install",
   "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!assets/|api/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/taseer/:path*", "destination": "/api/taseer?__taseer_path=:path*" },
+    { "source": "/((?!assets/|api/).*)", "destination": "/index.html" }
+  ]
 }
