@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { AppView } from '../types'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon } from '../icons'
 import { NotificationsDrawer } from './NotificationsDrawer'
-import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
+import { fetchTaseerRequests, fetchTaseerSuppliers } from '../api/taseerClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
 import { getNeedFlowStep, subscribeNeedFlowStep } from '../lib/needFlowStep'
@@ -32,6 +32,7 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
         [
           'rfq-list', 'create-upload', 'create-proposals', 'rfq-detail', 'rfq-closed', 'sent', 'sent-failure',
           'offers', 'offer-detail', 'comparison', 'award', 'award-success',
+          'taseer-need', 'taseer-compare', 'taseer-chat',
         ].includes(v),
     },
     {
@@ -42,10 +43,10 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
       active: (v: AppView) => v === 'inbox' || v === 'inbox-thread',
     },
     {
-      id: 'supplier-management' as AppView,
-      label: 'الموردون',
+      id: 'taseer-sellers' as AppView,
+      label: 'البائعون',
       Icon: UsersIcon,
-      active: (v: AppView) => ['supplier-management', 'supplier-detail'].includes(v),
+      active: (v: AppView) => v === 'taseer-sellers',
     },
     // «مراجعة المواد» is the owner's tool for teaching the resolver; it lists
     // lines from every booklet the company has read. Colleagues never see it.
@@ -127,19 +128,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
     : 'سجّل الدخول للمتابعة'
   const inCreate = isCreateFlow(view)
   const step = view === 'create-upload' ? needStep : 2
-  const [isScopeOwner, setIsScopeOwner] = useState(false)
-  useEffect(() => {
-    if (!session.isAuthenticated) return
-    let cancelled = false
-    getConstructionMe()
-      .then((me) => {
-        if (!cancelled) setIsScopeOwner(Boolean(me.user_id) && me.user_id === me.scope_owner_user_id)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [session.isAuthenticated, session.user?.id])
+  const [isScopeOwner] = useState(false)
   const NAV = buildNav(
     offerCount != null && offerCount > 0 ? String(offerCount) : null,
     isScopeOwner,
@@ -162,30 +151,24 @@ export function Shell({ view, navigate, children }: ShellProps) {
 
   useEffect(() => {
     let cancelled = false
-    listBuyerRfqs()
-      .then((overview) => {
-        if (cancelled) return
-        setOfferCount(overview.summary?.response_count ?? 0)
-        setLatestRfqId(overview.rfqs?.[0]?.id || null)
+    fetchTaseerSuppliers()
+      .then((rows) => {
+        if (!cancelled) setOfferCount(rows.reduce((sum, row) => sum + (row.offerCount || 0), 0))
       })
       .catch(() => {
-        if (!cancelled) {
-          setOfferCount(null)
-          setLatestRfqId(null)
-        }
+        if (!cancelled) setOfferCount(null)
       })
-    listConstructionInboxMessages()
-      .then((page) => {
-        if (!cancelled) setInboxUnread(page.unread_count ?? 0)
+    fetchTaseerRequests()
+      .then((rows) => {
+        if (!cancelled) setLatestRfqId(rows[0]?.token || null)
       })
       .catch(() => {
-        if (!cancelled) setInboxUnread(null)
+        if (!cancelled) setLatestRfqId(null)
       })
+    setInboxUnread(0)
     return () => {
       cancelled = true
     }
-    // The badges are counters, not the screen: they refresh on sign-in, every
-    // minute and when the tab regains focus, not on every tab change.
   }, [session.isAuthenticated, badgeTick])
 
 
@@ -202,8 +185,8 @@ export function Shell({ view, navigate, children }: ShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
-      <aside className="hidden lg:flex fixed top-0 right-0 bottom-0 w-60 bg-[#123F3A] flex-col z-50">
+    <div className="h-full min-h-0 flex flex-col bg-[#FAFAF8] relative" dir="rtl">
+      <aside className="hidden">
         <div className="flex items-center gap-3 px-5 py-6 border-b border-white/10">
           <div className="flex-1 min-w-0">
             <FarqWordmark className="h-7 bg-white" />
@@ -286,8 +269,8 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </div>
       </aside>
 
-      <div className="lg:mr-60">
-        <header className="lg:hidden sticky top-0 z-40 bg-[#123F3A] px-4 py-3 flex items-center justify-between">
+      <div className="flex-1 min-h-0 flex flex-col">
+        <header className="sticky top-0 z-40 bg-[#123F3A] px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate('home')} className="flex items-center gap-2">
             <FarqWordmark className="h-5 bg-white" />
             <span className="text-white/40 text-base leading-none">|</span>
@@ -308,7 +291,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
           </div>
         </header>
 
-        <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
+        <nav className="absolute bottom-0 inset-x-0 bg-white border-t border-neutral-100 z-40 flex">
           {NAV.filter((item) => item.id !== 'learning-review').slice(0, 5).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
@@ -363,7 +346,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
           </div>
         )}
 
-        <main className="pb-24 lg:pb-8">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24">{children}</main>
       </div>
 
       {showNotifs && (

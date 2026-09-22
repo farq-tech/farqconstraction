@@ -399,9 +399,38 @@ function harajApiDevMiddleware(): Plugin {
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/haraj')) return next()
+        const path = (req.url || '').split('?')[0]
+        if (
+          path.startsWith('/_api/api/construction') ||
+          path.startsWith('/api/construction')
+        ) {
+          try {
+            const { handleLocalConstructionRead } = await server.ssrLoadModule('/src/lib/taseerApi.ts')
+            const stub = handleLocalConstructionRead(req.method || 'GET', path)
+            if (stub) {
+              res.statusCode = stub.status
+              res.setHeader('content-type', 'application/json; charset=utf-8')
+              res.end(JSON.stringify(stub.body))
+              return
+            }
+          } catch (error) {
+            res.statusCode = 200
+            res.setHeader('content-type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify({ ok: true, data: {} }))
+            return
+          }
+        }
+        if (!path.startsWith('/api/haraj') && !path.startsWith('/api/taseer')) return next()
         try {
-          const url = new URL(req.url, 'http://localhost')
+          const url = new URL(req.url || '/', 'http://localhost')
+          if (path.startsWith('/api/taseer')) {
+            const { handleTaseerRoute } = await server.ssrLoadModule('/src/lib/taseerApi.ts')
+            const { status, body } = await handleTaseerRoute(req.method || 'GET', url, req)
+            res.statusCode = status
+            res.setHeader('content-type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify(body))
+            return
+          }
           const { handleHarajRequest } = await server.ssrLoadModule(
             '/src/lib/harajPublic/fetch.ts',
           )

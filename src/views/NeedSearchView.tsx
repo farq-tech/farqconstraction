@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { searchNeedListings, type NeedGroup } from '../api/needListings'
+import { requestPrices } from '../api/taseerClient'
 import { SearchIcon } from '../icons'
 import { setNeedFlowStep } from '../lib/needFlowStep'
 import { splitNeeds } from '../lib/needText'
+import { taseerSellerMessage, offerLink } from '../lib/taseerInvite'
 import type { HarajListing } from '../lib/harajPublic/parse'
 import type { NavProps } from '../types'
 
@@ -84,6 +86,9 @@ export function NeedSearchView(_props: NavProps) {
   const [error, setError] = useState('')
   const [groups, setGroups] = useState<NeedGroup[] | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [sending, setSending] = useState(false)
+  const [sentNote, setSentNote] = useState('')
+  const [preview, setPreview] = useState('')
 
   useEffect(() => {
     if (searching) setNeedFlowStep(2)
@@ -183,9 +188,47 @@ export function NeedSearchView(_props: NavProps) {
             </section>
           ))}
           {selected.size > 0 && (
-            <div className="sticky bottom-24 lg:bottom-6 rounded-2xl bg-[#123F3A] text-white px-5 py-4 flex items-center justify-between gap-3">
+            <div className="sticky bottom-20 z-20 rounded-2xl bg-[#123F3A] text-white px-4 py-3 space-y-2">
               <div className="text-sm font-bold">{selected.size} إعلان مختار</div>
-              <div className="text-xs text-white/70">طلب السعر يُجهَّز من المختارات — الإرسال غير مفعّل هنا.</div>
+              {preview && (
+                <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-white/80 max-h-28 overflow-y-auto break-words">{preview}</pre>
+              )}
+              {sentNote && <div className="text-xs text-[#CFF5DC] break-words">{sentNote}</div>}
+              <button
+                type="button"
+                disabled={sending}
+                onClick={() => {
+                  if (!groups) return
+                  const items: Array<{ listing: HarajListing; need: string }> = []
+                  for (const group of groups) {
+                    for (const listing of group.listings) {
+                      if (selected.has(listingKey(group.query, listing))) items.push({ listing, need: group.query })
+                    }
+                  }
+                  const first = items[0]
+                  if (first) setPreview(taseerSellerMessage(first.need, offerLink('…')))
+                  setSending(true)
+                  setSentNote('')
+                  void requestPrices(items)
+                    .then((result) => {
+                      setPreview(result.preview)
+                      const sent = result.invites.filter((i) => i.sendStatus === 'sent').length
+                      const failed = result.invites.filter((i) => i.sendStatus !== 'sent').length
+                      setSentNote(
+                        sent
+                          ? `أُرسل ${sent} طلب سعر.`
+                          : failed
+                            ? `تعذّر إرسال ${failed} طلب.`
+                            : 'تم تجهيز الطلب.',
+                      )
+                    })
+                    .catch(() => setSentNote('تعذّر الإرسال.'))
+                    .finally(() => setSending(false))
+                }}
+                className="w-full py-2.5 rounded-xl bg-white text-[#123F3A] font-bold text-sm disabled:opacity-40"
+              >
+                اطلب السعر
+              </button>
             </div>
           )}
         </div>

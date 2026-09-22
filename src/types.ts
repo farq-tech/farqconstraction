@@ -23,6 +23,11 @@ export type AppView =
   | 'inbox'
   | 'inbox-thread'
   | 'invite'
+  | 'taseer-offer'
+  | 'taseer-sellers'
+  | 'taseer-need'
+  | 'taseer-compare'
+  | 'taseer-chat'
 
 /**
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the

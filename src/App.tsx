@@ -26,6 +26,11 @@ import { useEffect, useRef } from 'react'
 import { useFarqSession } from './api/useFarqSession'
 import { restoreSession } from './store/session'
 import { LearningReviewView } from './views/LearningReviewView'
+import { SellerOfferView } from './views/SellerOfferView'
+import { TaseerSellersView } from './views/TaseerSellersView'
+import { TaseerNeedView } from './views/TaseerNeedView'
+import { TaseerCompareView } from './views/TaseerCompareView'
+import { TaseerChatView } from './views/TaseerChatView'
 
 function AppRoutes() {
   const {
@@ -54,6 +59,7 @@ function AppRoutes() {
     void restoreSession()
   }, [session.isAuthenticated])
 
+  if (view === 'taseer-offer') return <SellerOfferView />
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
   // An invited colleague arrives signed out; the page creates the session.
   if (view === 'invite') return <InviteView navigate={navigate} />
@@ -91,6 +97,10 @@ function AppRoutes() {
       {view === 'comparison' && <RequestFileView key="comparison" navigate={navigate} initialTab="quotes" />}
       {view === 'award' && <AwardView navigate={navigate} />}
       {view === 'award-success' && <AwardSuccessView navigate={navigate} />}
+      {view === 'taseer-sellers' && <TaseerSellersView />}
+      {view === 'taseer-need' && <TaseerNeedView />}
+      {view === 'taseer-compare' && <TaseerCompareView />}
+      {view === 'taseer-chat' && <TaseerChatView />}
       {view === 'supplier-management' && (
         <SupplierManagementView
           navigate={navigate}
@@ -131,9 +141,13 @@ function ReadOnlyBanner() {
 
 export default function App() {
   return (
-    <ProcurementProvider>
-      <ReadOnlyBanner />
-      <AppRoutes />
-    </ProcurementProvider>
+    <div dir="rtl" lang="ar" className="taseer-phone-root">
+      <div className="taseer-phone">
+        <ProcurementProvider>
+          <ReadOnlyBanner />
+          <AppRoutes />
+        </ProcurementProvider>
+      </div>
+    </div>
   )
 }

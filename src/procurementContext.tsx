@@ -37,6 +37,11 @@ type ProcurementContextValue = {
   /** Invitation id of the supplier conversation being read. */
   selectedThreadId: string | null
   openInboxThread: (inviteId: string) => void
+  taseerNeed: string | null
+  taseerToken: string | null
+  openTaseerNeed: (need: string) => void
+  openTaseerCompare: (need: string) => void
+  openTaseerChat: (token: string, need?: string) => void
 }
 
 const ProcurementContext = createContext<ProcurementContextValue | null>(null)
@@ -54,8 +59,15 @@ function initialParam(name: 'thread' | 'rfq'): string | null {
 
 function initialViewFromUrl(): AppView {
   try {
+    if (window.location.pathname.startsWith('/s/')) return 'taseer-offer'
     const params = new URLSearchParams(window.location.search)
     const view = params.get('view')
+    if (view === 'taseer-sellers') return 'taseer-sellers'
+    if (view === 'taseer-need') return 'taseer-need'
+    if (view === 'taseer-compare') return 'taseer-compare'
+    if (view === 'taseer-chat') return 'taseer-chat'
+    if (view === 'rfq-list') return 'rfq-list'
+    if (view === 'home') return 'home'
     // Links in the email alerts: a supplier conversation or a request.
     if (view === 'inbox' && UUID_PARAM.test(params.get('thread') || '')) return 'inbox-thread'
     if (view === 'rfq' && UUID_PARAM.test(params.get('rfq') || '')) return 'rfq-detail'
@@ -83,6 +95,20 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   const [draftBoq, setDraftBoq] = useState<DraftBoqState | null>(null)
   const [awardResult, setAwardResult] = useState<Record<string, unknown> | null>(null)
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() => initialParam('thread'))
+  const [taseerNeed, setTaseerNeed] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('need')
+    } catch {
+      return null
+    }
+  })
+  const [taseerToken, setTaseerToken] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('token')
+    } catch {
+      return null
+    }
+  })
 
   /*
    * THE BROWSER'S BACK BUTTON STAYS INSIDE THE APP.
@@ -136,6 +162,25 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     push({ farqView: next, rfqId: id })
   }, [])
 
+  const openTaseerNeed = useCallback((need: string) => {
+    setTaseerNeed(need)
+    setView('taseer-need')
+    push({ farqView: 'taseer-need' })
+  }, [])
+
+  const openTaseerCompare = useCallback((need: string) => {
+    setTaseerNeed(need)
+    setView('taseer-compare')
+    push({ farqView: 'taseer-compare' })
+  }, [])
+
+  const openTaseerChat = useCallback((token: string, need?: string) => {
+    setTaseerToken(token)
+    if (need) setTaseerNeed(need)
+    setView('taseer-chat')
+    push({ farqView: 'taseer-chat' })
+  }, [])
+
   const value = useMemo(
     () => ({
       view,
@@ -155,6 +200,11 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
       openRfq,
       selectedThreadId,
       openInboxThread,
+      taseerNeed,
+      taseerToken,
+      openTaseerNeed,
+      openTaseerCompare,
+      openTaseerChat,
     }),
     [
       view,
@@ -168,6 +218,11 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
       openRfq,
       selectedThreadId,
       openInboxThread,
+      taseerNeed,
+      taseerToken,
+      openTaseerNeed,
+      openTaseerCompare,
+      openTaseerChat,
     ],
   )
 

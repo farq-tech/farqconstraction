@@ -14,11 +14,46 @@
   --color-warm: #FAFAF8;
 }
 
-html, body {
+html, body, #root {
   font-family: 'Cairo', system-ui, sans-serif;
   direction: rtl;
-  background-color: #FAFAF8;
+  background-color: #142422;
   color: #0D1F1D;
+  overflow-x: hidden;
+}
+
+.taseer-phone-root {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #142422;
+}
+
+.taseer-phone {
+  width: 100%;
+  max-width: 390px;
+  height: min(844px, 100dvh);
+  background: #FAFAF8;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+}
+
+@media (max-width: 430px) {
+  html, body, #root,
+  .taseer-phone-root {
+    background: #FAFAF8;
+  }
+  .taseer-phone {
+    max-width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
 
 * {

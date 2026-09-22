@@ -10,6 +10,7 @@ build/
 .cache/
 .env*
 !.env.example
+.data/
 # Vercel CLI link state + pulled env (holds a short-lived OIDC token).
 .vercel/
 .vite/

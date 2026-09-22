@@ -1,114 +1,41 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
-import type { NavProps, RFQSummary } from '../types'
-import { SearchIcon, ArrowRightIcon, InboxIcon, FileIcon } from '../icons'
-import { getSession, subscribeSession } from '../store/session'
-import { listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
-import { useProcurement } from '../procurementContext'
+import { useEffect, useState } from 'react'
+import type { NavProps } from '../types'
+import { SearchIcon, ArrowRightIcon, FileIcon } from '../icons'
+import { fetchTaseerNeeds } from '../api/taseerClient'
 import { useFarqSession } from '../api/useFarqSession'
-import { toRfqSummary } from '../lib/rfqIdentity'
-import { RfqCard } from '../components/RfqCard'
-
-function useLocalRfqs() {
-  return useSyncExternalStore(
-    subscribeSession,
-    () => getSession().rfqs,
-    () => getSession().rfqs,
-  )
-}
+import { useProcurement } from '../procurementContext'
 
 function greeting(): string {
   const hour = new Date().getHours()
   return hour < 12 ? 'صباح الخير' : 'مساء الخير'
 }
 
-/** One thing waiting for the buyer, with the action that deals with it. */
-function AttentionCard({
-  count,
-  title,
-  hint,
-  tone,
-  onClick,
-}: {
-  count: number | null
-  title: string
-  hint: string
-  tone: 'green' | 'blue' | 'red'
-  onClick: () => void
-}) {
-  const active = (count ?? 0) > 0
-  const colours = {
-    green: active ? 'bg-[#f0faf7] border-[#123F3A]/20' : 'bg-white border-neutral-100',
-    blue: active ? 'bg-[#eef4fb] border-[#2F6CB5]/20' : 'bg-white border-neutral-100',
-    red: active ? 'bg-red-50 border-red-200' : 'bg-white border-neutral-100',
-  }[tone]
-  const number = { green: 'text-[#123F3A]', blue: 'text-[#2F6CB5]', red: 'text-red-600' }[tone]
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex-1 min-w-[150px] rounded-2xl border px-4 py-4 text-right transition-all hover:shadow-sm ${colours}`}
-    >
-      <div className={`text-3xl font-black tabular-nums ${active ? number : 'text-neutral-300'}`}>{count ?? '—'}</div>
-      <div className="mt-1 text-sm font-bold text-[#0D1F1D]">{title}</div>
-      <div className="text-xs text-neutral-500 mt-0.5">{active ? hint : 'لا جديد'}</div>
-    </button>
-  )
-}
+type TaseerNeed = Awaited<ReturnType<typeof fetchTaseerNeeds>>[number]
 
 export function HomeView({ navigate }: NavProps) {
-  const localRfqs = useLocalRfqs()
-  const [apiRfqs, setApiRfqs] = useState<RFQSummary[]>([])
-  const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
-  const [unread, setUnread] = useState<number | null>(null)
-  const { openRfq } = useProcurement()
+  const [needs, setNeeds] = useState<TaseerNeed[]>([])
   const session = useFarqSession()
+  const { openTaseerNeed } = useProcurement()
   const name = session.user?.displayName?.trim() || ''
 
   useEffect(() => {
     let cancelled = false
-    listBuyerRfqs()
-      .then((overview) => {
-        if (cancelled) return
-        setLoadState('ok')
-        setApiRfqs((overview.rfqs || []).map(toRfqSummary))
+    fetchTaseerNeeds()
+      .then((rows) => {
+        if (!cancelled) setNeeds(rows)
       })
       .catch(() => {
-        if (!cancelled) {
-          setApiRfqs([])
-          setLoadState('error')
-        }
-      })
-    listConstructionInboxMessages()
-      .then((page) => {
-        if (!cancelled) setUnread(page.unread_count ?? 0)
-      })
-      .catch(() => {
-        if (!cancelled) setUnread(null)
+        if (!cancelled) setNeeds([])
       })
     return () => {
       cancelled = true
     }
   }, [])
 
-  const seen = new Set<string>()
-  const rfqs: RFQSummary[] = []
-  for (const r of [...localRfqs, ...apiRfqs]) {
-    if (seen.has(r.id)) continue
-    seen.add(r.id)
-    rfqs.push(r)
-  }
-  const active = rfqs.filter((r) => r.status === 'active' || r.status === 'draft')
-  const offersTotal = rfqs.filter((r) => r.status === 'active').reduce((sum, r) => sum + (r.offers || 0), 0)
-  const withOffers = rfqs.find((r) => r.status === 'active' && r.offers > 0)
-  const closingSoon = rfqs.filter((r) => r.status === 'active' && r.closesUrgent)
-
-  const openCard = (rfq: RFQSummary) =>
-    rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
-      ? navigate('create-proposals')
-      : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
+  const offersTotal = needs.reduce((sum, row) => sum + (row.offers || 0), 0)
 
   return (
-    <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8" dir="rtl">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D]">
@@ -116,7 +43,7 @@ export function HomeView({ navigate }: NavProps) {
             {name ? `، ${name}` : ''}
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
-            {rfqs.length ? 'هذا ما يحتاج انتباهك اليوم.' : 'اكتب احتياجك وندور لك.'}
+            {needs.length ? 'هذا ما يحتاج انتباهك اليوم.' : 'اكتب احتياجك وندور لك.'}
           </p>
         </div>
         <button
@@ -129,37 +56,7 @@ export function HomeView({ navigate }: NavProps) {
         </button>
       </div>
 
-      {rfqs.length > 0 && (
-        <div className="flex flex-wrap gap-3 mb-8">
-          <AttentionCard
-            count={unread}
-            title="ردود جديدة من الموردين"
-            hint="افتح المراسلات للرد"
-            tone="blue"
-            onClick={() => navigate('inbox')}
-          />
-          <AttentionCard
-            count={offersTotal}
-            title="عروض أسعار مستلمة"
-            hint="راجعها وقارن بينها"
-            tone="green"
-            onClick={() => (withOffers ? openRfq(withOffers.id, 'offers') : navigate('rfq-list'))}
-          />
-          <AttentionCard
-            count={closingSoon.length}
-            title="طلبات تغلق قريبًا"
-            hint="خلال يومين — تابع الموردين"
-            tone="red"
-            onClick={() => (closingSoon[0] ? openRfq(closingSoon[0].id, 'rfq-detail') : navigate('rfq-list'))}
-          />
-        </div>
-      )}
-
-      {loadState !== 'ok' && !rfqs.length ? (
-        <div className="text-center py-16 text-sm text-neutral-500">
-          {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : 'تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد تحميل الصفحة.'}
-        </div>
-      ) : rfqs.length === 0 ? (
+      {needs.length === 0 ? (
         <button
           type="button"
           onClick={() => navigate('create-upload')}
@@ -179,7 +76,7 @@ export function HomeView({ navigate }: NavProps) {
             <h2 className="text-base font-bold text-[#0D1F1D] flex items-center gap-2">
               <FileIcon className="w-4 h-4 text-[#123F3A]" />
               الطلبات الجارية
-              <span className="text-xs font-semibold text-neutral-400">({active.length})</span>
+              <span className="text-xs font-semibold text-neutral-400">({needs.length})</span>
             </h2>
             <button
               onClick={() => navigate('rfq-list')}
@@ -188,20 +85,30 @@ export function HomeView({ navigate }: NavProps) {
               كل الطلبات <ArrowRightIcon className="w-3.5 h-3.5 rotate-180" />
             </button>
           </div>
-          {active.length === 0 ? (
-            <div className="rounded-2xl border border-neutral-100 bg-white py-10 text-center text-sm text-neutral-500">
-              لا طلبات جارية. كل طلباتك مغلقة أو تمت ترسيتها.
-              <button onClick={() => navigate('inbox')} className="mt-3 flex items-center gap-1 mx-auto text-[#123F3A] font-semibold">
-                <InboxIcon className="w-4 h-4" /> المراسلات
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {active.slice(0, 8).map((rfq) => (
-                <RfqCard key={rfq.id} rfq={rfq} onOpen={() => openCard(rfq)} />
-              ))}
-            </div>
+          {offersTotal > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate('taseer-sellers')}
+              className="mb-3 w-full rounded-2xl border border-[#123F3A]/20 bg-[#f0faf7] px-4 py-3 text-right"
+            >
+              <div className="text-sm font-bold text-[#123F3A]">{offersTotal} عرض مستلم — افتح البائعون</div>
+            </button>
           )}
+          <div className="space-y-3">
+            {needs.slice(0, 8).map((row) => (
+              <button
+                key={row.need}
+                type="button"
+                onClick={() => openTaseerNeed(row.need)}
+                className="w-full text-right rounded-2xl border border-neutral-100 bg-white px-4 py-3"
+              >
+                <div className="text-sm font-bold text-[#0D1F1D]">{row.need}</div>
+                <div className="text-xs text-neutral-400 mt-1">
+                  {row.conversations} محادثة · {row.offers} عرض
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
