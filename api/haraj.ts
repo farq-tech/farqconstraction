@@ -3,7 +3,7 @@
  *
  * Public read of search listings. No send, inbox, or authenticated session.
  */
-import { handleHarajRequest } from '../src/lib/harajPublic/fetch.ts'
+import { handleHarajRequest } from './_bundled/haraj.mjs'
 
 export const config = { runtime: 'nodejs' }
 

@@ -2,7 +2,7 @@
  * Vercel: /api/taseer and /api/taseer/*
  * Same handler as local Vite. Never Construction Production Postgres.
  */
-import { handleTaseerRoute } from '../src/lib/taseerApi.ts'
+import { handleTaseerRoute } from './_bundled/taseer.mjs'
 
 export const config = { runtime: 'nodejs' }
 
