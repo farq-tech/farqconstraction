@@ -60,3 +60,15 @@ html, body {
 .animate-scan {
   animation: scan 1.4s ease-in-out infinite;
 }
+
+@keyframes price-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(50%); }
+}
+.animate-price-ticker {
+  animation: price-ticker 300s linear infinite;
+  width: max-content;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-price-ticker { animation: none; }
+}

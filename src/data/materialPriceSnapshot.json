@@ -1,0 +1,375 @@
+{
+  "updated": "2026-07-01",
+  "materials": [
+    {
+      "id": "5487bff1-444f-4bab-9966-1b43581e2ec6",
+      "name_ar": "إسمنت أسود وطني",
+      "category": "cement",
+      "unit_ar": "50 كجم",
+      "display_order": 1,
+      "price": 15.53,
+      "monthly_change_pct": -1.21,
+      "annual_change_pct": -0.26
+    },
+    {
+      "id": "3bea4c82-3845-4f71-9676-ed23404305d0",
+      "name_ar": "إسمنت أبيض وطني",
+      "category": "cement",
+      "unit_ar": "50 كجم",
+      "display_order": 2,
+      "price": 37.73,
+      "monthly_change_pct": -2.31,
+      "annual_change_pct": -1.1
+    },
+    {
+      "id": "57519663-7af6-440b-80da-c143620d18a7",
+      "name_ar": "جبس وطني",
+      "category": "gypsum",
+      "unit_ar": "40 كجم",
+      "display_order": 3,
+      "price": 15.76,
+      "monthly_change_pct": -0.51,
+      "annual_change_pct": -0.13
+    },
+    {
+      "id": "906515e1-64bf-458d-8dd0-14d2f0fac651",
+      "name_ar": "رمل ناعم أبيض",
+      "category": "sand",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 10,
+      "price": 77.58,
+      "monthly_change_pct": 0.86,
+      "annual_change_pct": 0.35
+    },
+    {
+      "id": "4767b5ad-0f97-4cc8-9850-17fd7c0fc1fd",
+      "name_ar": "مخلوط (رمل وبحص)",
+      "category": "sand",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 11,
+      "price": 52.82,
+      "monthly_change_pct": 0.88,
+      "annual_change_pct": 0.73
+    },
+    {
+      "id": "98de4b60-de94-4684-8e7e-fd262a50f51f",
+      "name_ar": "رمل أحمر",
+      "category": "sand",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 12,
+      "price": 38.58,
+      "monthly_change_pct": 1.47,
+      "annual_change_pct": -0.67
+    },
+    {
+      "id": "279d25a1-5c17-403f-b0b2-d50b7584383b",
+      "name_ar": "بلوك أسود مقاس 15 سم",
+      "category": "blocks",
+      "unit_ar": "1000 حبة",
+      "display_order": 20,
+      "price": 1678.04,
+      "monthly_change_pct": 0.1,
+      "annual_change_pct": -1.55
+    },
+    {
+      "id": "1d24d842-ce40-436d-8f73-a9ac475a58f6",
+      "name_ar": "بلوك أسود مقاس 20 سم",
+      "category": "blocks",
+      "unit_ar": "1000 حبة",
+      "display_order": 21,
+      "price": 1735.87,
+      "monthly_change_pct": 0.18,
+      "annual_change_pct": -1.13
+    },
+    {
+      "id": "61557fab-1a4e-43ad-b023-e126e7694523",
+      "name_ar": "خرسانة مقاوم 350 ك",
+      "category": "concrete",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 30,
+      "price": 224.9,
+      "monthly_change_pct": 0.23,
+      "annual_change_pct": -2.28
+    },
+    {
+      "id": "7d01e866-6db3-4571-9c09-0b8ad299b76a",
+      "name_ar": "خرسانة مقاوم 250 ك",
+      "category": "concrete",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 31,
+      "price": 203.73,
+      "monthly_change_pct": -0.26,
+      "annual_change_pct": -2.62
+    },
+    {
+      "id": "0d650d82-3a40-4f65-b75e-026686aecc7e",
+      "name_ar": "خرسانة عادي 350 ك",
+      "category": "concrete",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 32,
+      "price": 215.42,
+      "monthly_change_pct": 0.5,
+      "annual_change_pct": -2.2
+    },
+    {
+      "id": "747f8aff-44ff-4335-8814-a940cf9efa5d",
+      "name_ar": "خرسانة عادي 250 ك",
+      "category": "concrete",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 33,
+      "price": 195.66,
+      "monthly_change_pct": 0.03,
+      "annual_change_pct": -2.46
+    },
+    {
+      "id": "3955ae6d-69eb-4f4b-959f-c03ea61fd68a",
+      "name_ar": "حديد تسليح 6 مم وطني",
+      "category": "iron",
+      "unit_ar": "1 طن",
+      "display_order": 40,
+      "price": 4110.92,
+      "monthly_change_pct": -0.83,
+      "annual_change_pct": 4.73
+    },
+    {
+      "id": "38b57e4a-def6-4590-b6eb-e5ec2949ee87",
+      "name_ar": "حديد تسليح 8 مم وطني",
+      "category": "iron",
+      "unit_ar": "1 طن",
+      "display_order": 41,
+      "price": 3181.84,
+      "monthly_change_pct": -3.88,
+      "annual_change_pct": 17.73
+    },
+    {
+      "id": "86075fa6-60b6-47a2-9a58-8e81e7d856bb",
+      "name_ar": "حديد تسليح 10 مم وطني",
+      "category": "iron",
+      "unit_ar": "1 طن",
+      "display_order": 42,
+      "price": 3242.62,
+      "monthly_change_pct": -3.46,
+      "annual_change_pct": 17.9
+    },
+    {
+      "id": "7ca1589a-7127-4f0d-a17d-1c6eddd07335",
+      "name_ar": "حديد تسليح 12 مم وطني",
+      "category": "iron",
+      "unit_ar": "1 طن",
+      "display_order": 43,
+      "price": 3163.36,
+      "monthly_change_pct": -3.54,
+      "annual_change_pct": 19.67
+    },
+    {
+      "id": "d2cc9e6e-e5af-43c7-a3d8-a0b4f72a201e",
+      "name_ar": "حديد تسليح 14 مم وطني",
+      "category": "iron",
+      "unit_ar": "1 طن",
+      "display_order": 44,
+      "price": 3166.55,
+      "monthly_change_pct": -3.53,
+      "annual_change_pct": 19.62
+    },
+    {
+      "id": "85731e30-83a9-46bd-84a6-81395770ea9c",
+      "name_ar": "حديد تسليح 16 مم وطني",
+      "category": "iron",
+      "unit_ar": "1 طن",
+      "display_order": 45,
+      "price": 3166.48,
+      "monthly_change_pct": -3.53,
+      "annual_change_pct": 19.52
+    },
+    {
+      "id": "c3a14d72-071c-4828-8150-c40335916b19",
+      "name_ar": "حديد تسليح 18 مم وطني",
+      "category": "iron",
+      "unit_ar": "1 طن",
+      "display_order": 46,
+      "price": 3156.11,
+      "monthly_change_pct": -3.59,
+      "annual_change_pct": 19.1
+    },
+    {
+      "id": "f5bdda4a-96fd-413e-b1bd-3c7e63017417",
+      "name_ar": "كيابل ربط الحديد صيني",
+      "category": "iron",
+      "unit_ar": "10 كجم",
+      "display_order": 47,
+      "price": 55.5,
+      "monthly_change_pct": 0.56,
+      "annual_change_pct": 15.07
+    },
+    {
+      "id": "eb81654b-7883-4b8e-b8ec-9ab7c2aaba12",
+      "name_ar": "أسلاك كهربائية 2.5 مم وطني",
+      "category": "electrical wire",
+      "unit_ar": "1 متر",
+      "display_order": 50,
+      "price": 1.47,
+      "monthly_change_pct": 1.38,
+      "annual_change_pct": 22.5
+    },
+    {
+      "id": "cd1c23d7-a737-413e-aa12-3599dd87e2db",
+      "name_ar": "أسلاك كهربائية 4 مم وطني",
+      "category": "electrical wire",
+      "unit_ar": "1 متر",
+      "display_order": 51,
+      "price": 2.16,
+      "monthly_change_pct": 0.47,
+      "annual_change_pct": 22.03
+    },
+    {
+      "id": "2bdfb3b5-70e3-4740-8a27-9959881607a5",
+      "name_ar": "أسلاك كهربائية 6 مم وطني",
+      "category": "electrical wire",
+      "unit_ar": "1 متر",
+      "display_order": 52,
+      "price": 3.31,
+      "monthly_change_pct": 0.92,
+      "annual_change_pct": 21.25
+    },
+    {
+      "id": "5bf3f8bf-11ff-47d5-8187-ee555c097b7e",
+      "name_ar": "كيابل كهربائية 10 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 53,
+      "price": 26.9,
+      "monthly_change_pct": 0.86,
+      "annual_change_pct": 24.31
+    },
+    {
+      "id": "fe4a9430-24e0-4591-8366-1c86b947ddbc",
+      "name_ar": "كيابل كهربائية 25 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 54,
+      "price": 59.75,
+      "monthly_change_pct": 0.12,
+      "annual_change_pct": 25.03
+    },
+    {
+      "id": "ad0921f7-9159-4e1d-b162-bfdd1cd4c0f9",
+      "name_ar": "كيابل كهربائية 35 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 55,
+      "price": 78.82,
+      "monthly_change_pct": 1.22,
+      "annual_change_pct": 26.21
+    },
+    {
+      "id": "ee19e00b-6abd-418d-87c6-9cd0da1e4169",
+      "name_ar": "كيابل كهربائية 50 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 56,
+      "price": 110.42,
+      "monthly_change_pct": 0.78,
+      "annual_change_pct": 25.26
+    },
+    {
+      "id": "fb5ebe99-6604-4809-aeb4-68db802bb1c7",
+      "name_ar": "كيابل كهربائية 70 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 57,
+      "price": 159.16,
+      "monthly_change_pct": 0.01,
+      "annual_change_pct": 25.11
+    },
+    {
+      "id": "ab995460-873b-4264-8694-efe91a657a85",
+      "name_ar": "كيابل كهربائية 95 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 58,
+      "price": 212.91,
+      "monthly_change_pct": 0.53,
+      "annual_change_pct": 23.4
+    },
+    {
+      "id": "571783b8-c301-4ba5-8162-735aa3aab84a",
+      "name_ar": "كيابل كهربائية 120 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 59,
+      "price": 257.84,
+      "monthly_change_pct": 0.32,
+      "annual_change_pct": 20.58
+    },
+    {
+      "id": "15fb4fe9-772d-4092-ba54-a957bf0c5756",
+      "name_ar": "كيابل كهربائية 300 مم وطني",
+      "category": "electrical cable",
+      "unit_ar": "1 متر",
+      "display_order": 60,
+      "price": 643.89,
+      "monthly_change_pct": 1.07,
+      "annual_change_pct": 20.64
+    },
+    {
+      "id": "a044be11-fad9-471b-959c-875c13b84c0a",
+      "name_ar": "ألمنيوم (حلق جنب سعودي)",
+      "category": "aluminum",
+      "unit_ar": "5.8 م",
+      "display_order": 70,
+      "price": 105.12,
+      "monthly_change_pct": 1.47,
+      "annual_change_pct": 16.63
+    },
+    {
+      "id": "fffc07ff-c6a9-4e97-a8c4-8fb258da6e35",
+      "name_ar": "بلاط كسر رخام بلدي",
+      "category": "tiles",
+      "unit_ar": "1 متر مربع",
+      "display_order": 80,
+      "price": 23.06,
+      "monthly_change_pct": -0.73,
+      "annual_change_pct": -2.86
+    },
+    {
+      "id": "4c57b1b2-3efb-49cd-9f77-d816be564706",
+      "name_ar": "خشب تشيلي",
+      "category": "wood",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 90,
+      "price": 1590.41,
+      "monthly_change_pct": -2.84,
+      "annual_change_pct": 7.11
+    },
+    {
+      "id": "3537f584-655b-4b1d-8d3a-16c1a5e85c14",
+      "name_ar": "خشب روماني",
+      "category": "wood",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 91,
+      "price": 1631.11,
+      "monthly_change_pct": -1.84,
+      "annual_change_pct": 10.04
+    },
+    {
+      "id": "459eb3e4-d666-4455-b7b4-86b71da7ea10",
+      "name_ar": "خشب تيك أفريقي",
+      "category": "wood",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 92,
+      "price": 6956.93,
+      "monthly_change_pct": -0.61,
+      "annual_change_pct": 3.68
+    },
+    {
+      "id": "f43e2516-9caa-4640-ad34-109c6e014041",
+      "name_ar": "خشب أبلاكاش إندونيسي",
+      "category": "wood",
+      "unit_ar": "1 متر مكعب",
+      "display_order": 93,
+      "price": 3150.49,
+      "monthly_change_pct": -1.49,
+      "annual_change_pct": 0.34
+    }
+  ]
+}

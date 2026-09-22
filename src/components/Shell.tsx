@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppView } from '../types'
-import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon } from '../icons'
+import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon, PriceIcon } from '../icons'
+import { MaterialPriceTicker } from './MaterialPriceTicker'
 import { NotificationsDrawer } from './NotificationsDrawer'
 import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
@@ -19,6 +20,12 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
       label: 'الرئيسية',
       Icon: HomeIcon,
       active: (v: AppView) => v === 'home',
+    },
+    {
+      id: 'material-prices' as AppView,
+      label: 'أسعار المواد',
+      Icon: PriceIcon,
+      active: (v: AppView) => v === 'material-prices',
     },
     {
       // Requests, their offers, the comparison and the award are one place:
@@ -308,7 +315,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.filter((item) => item.id !== 'learning-review').slice(0, 5).map(({ id, label, Icon, badge, active }) => {
+          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button
@@ -329,6 +336,8 @@ export function Shell({ view, navigate, children }: ShellProps) {
             )
           })}
         </nav>
+
+        <MaterialPriceTicker onOpen={() => navigate('material-prices')} />
 
         {inCreate && (
           <div className="bg-white border-b border-neutral-100 px-6 py-4 sticky top-0 lg:top-0 z-30">

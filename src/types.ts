@@ -1,6 +1,7 @@
 export type AppView =
   | 'login'
   | 'home'
+  | 'material-prices'
   | 'create-upload'
   | 'create-proposals'
   | 'sent'
