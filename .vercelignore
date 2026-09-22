@@ -6,3 +6,7 @@ fixtures/boq/heldout-*.json
 
 # Handoff notes and one-off analysis scripts — not part of the app.
 .handoff/
+
+# Staging installs with npm (vercel.json + packageManager). The leftover
+# pnpm lockfile is stale and makes Vercel’s function-install step fail.
+pnpm-lock.yaml
