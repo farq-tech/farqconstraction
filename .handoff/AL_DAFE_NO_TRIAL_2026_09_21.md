@@ -56,8 +56,33 @@ WHERE o.name ILIKE '%دفع%' OR o.slug ILIKE '%dafe%';
    org (or construction globally for Al-Dafe) off trial scope in the Farq API
    env/code — names only: `WHATSAPP_SEND_BUDGET*`, `WHATSAPP_SEND_BUDGET_SCOPE`.
 
-## Blocked in this agent run
+## Applied on production (2026-09-22)
 
-- `farq-tech/farq` is not reachable with this token.
-- Railway MCP / CLI login was waiting on owner OAuth (device code).
-- Without that, production `business.*` cannot be read or updated from here.
+Connected via Railway CLI → Postgres `DATABASE_PUBLIC_URL` (hayabusa).
+
+Root cause: `routes/construction.js` maps `TRIAL_ENDED` → the Arabic copy. Gate is
+`entitlements.access(actor.actorId)` in `lib/construction/entitlements.js`. Each
+@aldafe.com account had a 20-credit `TRIAL` grant; when credits ran out (or the
+legacy scope `7bb09c2e…` went negative), send refused with that message.
+
+### DB changes (`construction.buyer_entitlements`)
+
+1. Cancelled active `TRIAL` rows for:
+   - `admin@aldafe.com`, `awais@aldafe.com`
+   - Al-Dafe org scope `160d8668…`
+   - legacy construction scope `7bb09c2e…`
+2. Granted `source=GRANT` / `package_id=enterprise` (unlimited items + credits,
+   `expires_at=null`) to:
+   - `admin@aldafe.com`, `awais@aldafe.com`, `bader@aldafe.com`
+   - scopes `160d8668…` and `7bb09c2e…`
+3. `billing_audit` rows recorded with reason:
+   «فتح كامل لشركة الدفع — بلا فترة تجربة (توجيه المالك 2026-09-22)»
+
+Verified `can_send=True` / `last=GRANT` for all three @aldafe accounts and
+`abdulrhman@farq.sa`.
+
+### Env (Farq API / `farq-api-test-oregon`, `--skip-deploys`)
+
+`CONSTRUCTION_UNMETERED_OWNERS` extended with Farq owner + all three Al-Dafe
+users + Al-Dafe org scope. Takes effect on next API restart/deploy; the
+enterprise grants already unlock send without a restart.
