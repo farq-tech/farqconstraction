@@ -1779,7 +1779,13 @@ async function parseBoqFileInner(
   stage('match')
   try {
     const matched = await matchSuppliersForItems(lines, { onWork: work })
-    const ready = matched.items.filter((i) => i.suppliers.length > 0).length
+    const lineHasSuppliers = (item: BOQItem) =>
+      item.suppliers.length > 0 ||
+      (item.aiSuggestion?.suppliers.length ?? 0) > 0 ||
+      (item.mapSuggestion?.suppliers.length ?? 0) > 0 ||
+      (item.familySuggestion?.suppliers.length ?? 0) > 0 ||
+      (item.learnedSuggestion?.suppliers.length ?? 0) > 0
+    const ready = matched.items.filter(lineHasSuppliers).length
     return {
       items: matched.items,
       projectName,
