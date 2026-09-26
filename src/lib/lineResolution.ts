@@ -20,6 +20,27 @@ function named(r: LineResolution): boolean {
   return Boolean(r?.canonical_intent_id || r?.family)
 }
 
+const CONTINUATION_OPENERS =
+  /^(?:نفس|مثل|كما|كذلك|مثله|ذات|بنفس|بمقاس|مقاس|قطر|بقطر|سماكه|سماكة|بسماكه|بسماكة|طول|بطول|عرض|بعرض|ارتفاع|بارتفاع|لون|بلون|قياس|بقياس|حجم|بحجم|سعه|سعة|بسعه|بسعة|same|ditto|idem|as above|do\.)(?:\s|$)/i
+const SIZE_ONLY =
+  /^[\d\s.,×x*\/\-–]+(?:مم|سم|م|ملم|انش|بوصه|بوصة|كجم|كغم|لتر|mm|cm|m|inch|in|kg|l|kw|v|a|hp|w)?\.?\s*$/i
+
+/**
+ * A line that only varies the line above it: «نفس البند السابق مقاس 200»,
+ * «بقطر 4 بوصة», «200 x 100 مم». Only such a line borrows the material named
+ * above it. A bare weak word («كاميرا») or an unknown product («SD-WAN») after
+ * a cable line is not a cable, however close it sits: measured, the old rule
+ * named eight bare words after one cable line «cable accessories» at Level A.
+ */
+export function looksLikeContinuation(name: string): boolean {
+  const text = String(name || '')
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return false
+  return CONTINUATION_OPENERS.test(text) || SIZE_ONLY.test(text)
+}
+
 /** The rules the match request used to apply per row, applied once per line. */
 export function resolveLinesSync(lines: LineInput[], onEach?: (i: number) => void): LineResolution[] {
   const out: LineResolution[] = []
@@ -32,7 +53,7 @@ export function resolveLinesSync(lines: LineInput[], onEach?: (i: number) => voi
     }
     const context = last && i - last.at <= CONTEXT_REACH ? last.name : ''
     if (named(own)) last = { name: line.name, at: i }
-    if (!named(resolved) && !resolved?.not_supply && context) {
+    if (!named(resolved) && !resolved?.not_supply && context && looksLikeContinuation(line.name)) {
       const inherited = buildOntologyResolution(`${context} ${line.name}`.slice(0, 400))
       if (named(inherited)) resolved = { ...(inherited as OntologyResolutionWire), inherited_from_line_above: true } as LineResolution
     }

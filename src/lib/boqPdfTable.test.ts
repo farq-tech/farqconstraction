@@ -50,6 +50,47 @@ describe('foldPdfText', () => {
     expect(foldPdfText(RAW_AL_BAND)).toBe('البند')
     expect(foldPdfText(RAW_AL_KAMMIYA)).toBe('الكمية')
   })
+
+  // What Chrome, Edge and Google Docs write for the lam-alef ligature: the two
+  // letters swapped. Measured with Arial, Tahoma, Times and Geeza Pro.
+  it('puts a browser-printed lam-alef back in order where the order is unambiguous', () => {
+    expect(foldPdfText('الرمز اإلنشائي')).toBe('الرمز الإنشائي')
+    expect(foldPdfText('االختبار')).toBe('الاختبار')
+    expect(foldPdfText('األعمال')).toBe('الأعمال')
+    // Only the article's ligature is unambiguous: «الآلات» keeps its inner one.
+    expect(foldPdfText('اآلالت')).toBe('الآالت')
+  })
+
+  it('leaves a correct word alone, including one that holds «مال»', () => {
+    expect(foldPdfText('الإنشائي')).toBe('الإنشائي')
+    expect(foldPdfText('مالك الشركة')).toBe('مالك الشركة')
+    expect(foldPdfText('مالحظات')).toBe('مالحظات')
+  })
+})
+
+describe('extractBoqTable — header spellings from Excel, Word and the browser', () => {
+  const y = 647.1
+  const page = (labels: Array<[string, number, number]>) => {
+    const glyphs: PdfGlyph[] = labels.map(([str, x, w]) => g(str, x, y, w))
+    glyphs.push(g('1', 546, 620, 6), g('كابل نحاس 4x25', 420, 620, 80), g('م ط', 232, 620, 16), g('12', 290, 620, 12))
+    glyphs.push(g('2', 546, 600, 6), g('قاطع MCCB 160A', 420, 600, 80), g('عدد', 232, 600, 16), g('7', 290, 600, 6))
+    return extractBoqTable([{ page: 1, glyphs }])
+  }
+
+  it('reads a table headed رقم / الوصف, not only الرقم / البند', () => {
+    const t = page([['رقم', 542, 20], ['الوصف', 505, 30], ['الكمية', 272, 33], ['الوحدة', 224, 34]])
+    expect(t.rows.map((r) => [r.id, r.qty, r.unit])).toEqual([[1, '12', 'م ط'], [2, '7', 'عدد']])
+  })
+
+  it('reads a table headed م / البيان / الكميات / وحدة القياس', () => {
+    const t = page([['م', 542, 8], ['البيان', 505, 30], ['الكميات', 272, 33], ['وحدة القياس', 224, 50]])
+    expect(t.rows.map((r) => r.id)).toEqual([1, 2])
+  })
+
+  it('reads a header whose lam-alef ligatures came out of the browser reversed', () => {
+    const t = page([['الرقم', 542, 27], ['البند', 505, 23], ['الكمية', 272, 33], ['الوحدة', 224, 34], ['الرمز', 73, 24], ['اإلنشائي', 52, 45], ['مالحظات', 20, 30]])
+    expect(t.rows.map((r) => r.id)).toEqual([1, 2])
+  })
 })
 
 describe('readVisualUnit', () => {

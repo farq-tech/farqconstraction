@@ -1044,7 +1044,14 @@ export function resolveParsedLines(input: {
     const tableLines = tableRowsToLines(input.table)
     const expected = input.table?.expectedCount ?? 0
     const tableShare = expected > 0 ? tableLines.length / expected : tableLines.length > 0 ? 1 : 0
-    if (tableLines.length > 0 && tableShare >= TABLE_PREFERENCE_SHARE) {
+    //
+    // The share is of the numbering the reader could see. A booklet whose
+    // unnumbered pages sit beside numbered ones prints far more numbers than
+    // any reader can recover, and the text path is no better at them: measured
+    // on a 1,650-row booklet, 569 column rows lost to 47 text lines on share
+    // alone. So a column read that dwarfs the text path is preferred as well.
+    const tableDwarfsText = tableLines.length >= Math.max(20, 3 * clientBest.length)
+    if (tableLines.length > 0 && (tableShare >= TABLE_PREFERENCE_SHARE || tableDwarfsText)) {
       // Winning on values is not the same as carrying everything. The quantities
       // table prints no specification column — the technical text sits in a
       // separate section pages later — so the column reader's rows arrive

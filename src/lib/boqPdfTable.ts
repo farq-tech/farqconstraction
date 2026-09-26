@@ -58,6 +58,12 @@ export type BoqTableRow = {
   code?: string
   mandatory?: string
   page: number
+  /**
+   * The table printed no item number. This id counts rows, above every number
+   * the booklet does print, and says nothing about the booklet's numbering:
+   * such rows are never reported as gaps and never claim a printed number.
+   */
+  synthetic?: boolean
 }
 
 export type BoqTableIssueKind =
@@ -100,12 +106,28 @@ const TATWEEL = /\u0640/g
  * regex in the pipeline misses.
  */
 export function foldPdfText(raw: string): string {
-  return String(raw ?? '')
-    .normalize('NFKC')
-    .replace(ZERO_WIDTH, '')
-    .replace(TATWEEL, '')
+  return repairLamAlef(
+    String(raw ?? '')
+      .normalize('NFKC')
+      .replace(ZERO_WIDTH, '')
+      .replace(TATWEEL, ''),
+  )
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/**
+ * A PDF printed from a browser (Chrome, Edge, Google Docs: anything on Skia)
+ * writes the lam-alef ligature to the text layer with its two letters in the
+ * wrong order: «الإنشائي» arrives as «اإلنشائي», «الاختبار» as «االختبار».
+ * Measured with Arial, Tahoma, Times and Geeza Pro alike, so it is the printer,
+ * not a font. Only the article-plus-alef shapes are put back: «اا», «اإ», «اأ»
+ * and «اآ» never occur in Arabic, so the repair cannot touch a correct word. A
+ * ligature inside a word («ملاحظات» → «مالحظات») is left alone, because «مال»
+ * is a word too; see `labelKey` for how the header still matches.
+ */
+function repairLamAlef(text: string): string {
+  return text.replace(/ا([اإأآ])ل/g, 'ال$1')
 }
 
 /** Compare header labels without spelling drift (أ/ا, ة/ه, ى/ي). */
@@ -115,6 +137,15 @@ function foldLabel(raw: string): string {
     .replace(/ة/g, 'ه')
     .replace(/ى/g, 'ي')
     .replace(/\s+/g, '')
+}
+
+/**
+ * The key a header label is matched on. On top of `foldLabel`, every «لا» is
+ * written «ال», on the dictionary and on the page alike, so a label whose
+ * ligature came out reversed (see `repairLamAlef`) still meets its entry.
+ */
+function labelKey(raw: string): string {
+  return foldLabel(raw).replace(/لا/g, 'ال')
 }
 
 /** RTL visual order puts the opening bracket on the right; undo it with the order. */
@@ -230,16 +261,40 @@ type ColumnKey = 'number' | 'desc' | 'qty' | 'unit' | 'spec' | 'category' | 'man
  * البند · المواصفة المختصرة · الوحدة · الكمية, number column on the left).
  * Nothing here assumes which side the numbers are on; the x anchors decide.
  */
-const HEADER_LABELS: Record<ColumnKey, string[]> = {
-  number: ['الرقم', 'م', 'رقمالبند'],
-  desc: ['البند', 'وصفالبند', 'اسمالماده', 'اسمالمادهبالعربيه'],
-  qty: ['الكميه'],
-  unit: ['الوحده'],
+const HEADER_LABELS_RAW: Record<ColumnKey, string[]> = {
+  // «رقم» / «م» / «مسلسل» head the numbering in booklets printed from Excel and
+  // Word as often as Etimad's «الرقم» does; «الوصف» / «البيان» / «الصنف» head
+  // the description. A header the reader does not recognise is a table it never
+  // reads: measured on a clean 1,650-row booklet, 71 rows came back.
+  number: ['الرقم', 'م', 'رقمالبند', 'رقم', 'مسلسل', 'رقمالصنف', 'رقمالبند'],
+  desc: [
+    'البند',
+    'وصفالبند',
+    'اسمالماده',
+    'اسمالمادهبالعربيه',
+    'الوصف',
+    'البيان',
+    'الصنف',
+    'اسمالصنف',
+    'وصفالاعمال',
+    'بيانالاعمال',
+    'الوصفوالمواصفات',
+  ],
+  qty: ['الكميه', 'الكميات', 'كميه', 'الكميهالمطلوبه'],
+  unit: ['الوحده', 'وحده', 'وحدهالقياس', 'الوحدات'],
   spec: ['المواصفهالمختصره', 'المواصفهالفنيه', 'المواصفه'],
   category: ['الفئه', 'القسم'],
   mandatory: ['منتج', 'القائمه', 'الالزاميه'],
   code: ['الرمز', 'الانشائي'],
 }
+
+/** «الإنشائي» on the label key: the word that marks «الرمز» as a structural code. */
+const STRUCTURAL_CODE_LABEL = labelKey('الانشائي')
+
+/** The dictionary on the same key the page's labels are read on. */
+const HEADER_LABELS: Record<ColumnKey, string[]> = Object.fromEntries(
+  Object.entries(HEADER_LABELS_RAW).map(([key, labels]) => [key, labels.map(labelKey)]),
+) as Record<ColumnKey, string[]>
 
 /** Columns whose cells hold short right/centre-aligned tokens. Text columns are
  * allowed to absorb the empty space next to these; the reverse would pull
@@ -252,7 +307,7 @@ const NARROW_COLUMNS: ColumnKey[] = ['number', 'qty', 'unit', 'mandatory', 'code
  * row, and reading it as an item would invent a 69th item; it is reported as a
  * skipped table instead.
  */
-const SUMMARY_TABLE_LABELS = ['الاسم']
+const SUMMARY_TABLE_LABELS = ['الاسم'].map(labelKey)
 
 type Span = { left: number; right: number }
 type Columns = Record<ColumnKey, Span | null>
@@ -261,6 +316,37 @@ type HeaderMatch = {
   block: Block
   columns: Columns
   boundaries: Array<{ key: ColumnKey; left: number; right: number }>
+  /** False when the table prints no item number at all; ids are then counted. */
+  numbered: boolean
+}
+
+const KNOWN_LABEL_KEYS = new Set([...Object.values(HEADER_LABELS).flat(), ...SUMMARY_TABLE_LABELS])
+
+function dictionaryRole(key: string): ColumnKey | null {
+  for (const role of Object.keys(HEADER_LABELS) as ColumnKey[]) {
+    if (HEADER_LABELS[role].includes(key)) return role
+  }
+  return null
+}
+
+/**
+ * The label keys one header glyph run stands for. A run is usually one label,
+ * but a browser print keeps «الرمز الإنشائي» as a single run, which matched
+ * neither word and so left the structural code to fall into the description.
+ * A run whose words all name the same column is read as those words; a run
+ * whose words disagree («رقم البند» is a number, not a description) keeps its
+ * joined key.
+ */
+function headerKeysOf(str: string): string[] {
+  const joined = labelKey(str)
+  if (KNOWN_LABEL_KEYS.has(joined)) return [joined]
+  const words = foldPdfText(str)
+    .split(' ')
+    .map(labelKey)
+    .filter((w) => KNOWN_LABEL_KEYS.has(w))
+  if (!words.length) return [joined]
+  const roles = new Set(words.map((w) => dictionaryRole(w) ?? `other:${w}`))
+  return roles.size === 1 ? words : [joined]
 }
 
 function spanOf(glyph: PdfGlyph): Span {
@@ -279,7 +365,7 @@ function mergeSpan(a: Span | null, b: Span): Span {
  */
 function findBoqHeader(blocks: Block[]): HeaderMatch | null {
   for (const block of blocks) {
-    const labels = block.rows.flatMap((r) => r.glyphs.map((g) => ({ g, label: foldLabel(g.str) })))
+    const labels = block.rows.flatMap((r) => r.glyphs.flatMap((g) => headerKeysOf(g.str).map((label) => ({ g, label }))))
     const has = (key: ColumnKey) => labels.some(({ label }) => HEADER_LABELS[key].includes(label))
     // `الرمز` heads two different columns in the wild, and telling them apart is
     // what decides whether this table is read at all.
@@ -298,7 +384,7 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
     //
     // So: promote `الرمز` to the number column only when the block has no
     // dedicated number label and no `الانشائي` to mark it as a structural code.
-    const structuralCode = labels.some(({ label }) => HEADER_LABELS.code.includes(label) && label === 'الانشائي')
+    const structuralCode = labels.some(({ label }) => HEADER_LABELS.code.includes(label) && label === STRUCTURAL_CODE_LABEL)
     const codeIsNumber =
       !structuralCode && !has('number') && labels.some(({ label }) => label === 'الرمز')
     const roleOf = (label: string): ColumnKey | null => {
@@ -308,7 +394,11 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
       }
       return null
     }
-    if (!((has('number') || codeIsNumber) && has('desc') && has('qty') && has('unit'))) continue
+    // A table with no number column at all is still a table: description,
+    // quantity and unit are what a supplier is asked about. Its rows are
+    // counted rather than numbered (see `BoqTableRow.synthetic`).
+    const numbered = has('number') || codeIsNumber
+    if (!(has('desc') && has('qty') && has('unit'))) continue
     // The summary table on page 27 carries الفئة/الاسم/وصف alongside; different shape.
     if (labels.some(({ label }) => SUMMARY_TABLE_LABELS.includes(label))) continue
 
@@ -326,7 +416,7 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
       const key = roleOf(label)
       if (key) columns[key] = mergeSpan(columns[key], spanOf(g))
     }
-    if (!columns.number || !columns.desc || !columns.qty || !columns.unit) continue
+    if ((numbered && !columns.number) || !columns.desc || !columns.qty || !columns.unit) continue
 
     const ordered = (Object.keys(columns) as ColumnKey[])
       .filter((key) => columns[key])
@@ -365,7 +455,7 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
             : leftNeighbour.right + 2
       boundaries.push({ key, left, right })
     }
-    return { block, columns, boundaries }
+    return { block, columns, boundaries, numbered }
   }
   return null
 }
@@ -421,12 +511,75 @@ export function readVisualUnit(cell: string): string | null {
 }
 
 export function readQuantity(cell: string): string | null {
-  const text = foldPdfText(cell).replace(/[،,\s]/g, '')
+  let text = foldPdfText(cell)
+    .replace(/\s/g, '')
+    // Arabic-Indic digits and the Arabic decimal mark: «٣٫٥٠٠» is 3.5.
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/٫/g, '.')
   if (!text) return null
+  if (/^\d{1,3}(?:[,،]\d{3})+(?:\.\d+)?$/.test(text)) {
+    // «1,250.5»: commas group thousands.
+    text = text.replace(/[,،]/g, '')
+  } else if (/^\d+[,،]\d{1,2}$/.test(text)) {
+    // «12,75»: a comma before one or two digits is the decimal mark.
+    text = text.replace(/[,،]/, '.')
+  } else {
+    text = text.replace(/[,،]/g, '')
+  }
   if (!/^\d+(?:\.\d+)?$/.test(text)) return null
   const num = Number(text)
   if (!Number.isFinite(num) || num <= 0) return null
   return num.toLocaleString('en-US')
+}
+
+const ARABIC_LETTER = /[ء-يٱ-ۓ]/
+const LTR_TOKEN = /[A-Za-z0-9]/
+
+/**
+ * Words right-to-left, except that a Latin or numeric run inside the line
+ * keeps its own left-to-right order. «قطاع حديد IPE 200» is painted with «IPE»
+ * left of «200», so a plain right-to-left sort read it as «200 IPE», and
+ * «50x50 / Supply» came back as «Supply / 50x50». Neutral marks between two
+ * such runs («/», «-») travel with them.
+ */
+function readingOrder(glyphs: PdfGlyph[]): string[] {
+  const byX = glyphs
+    .slice()
+    .sort((a, b) => b.x - a.x)
+    .map((g) => ({ text: foldPdfText(g.str), x: g.x }))
+    .filter((g) => g.text)
+  const kind = (t: string) => (ARABIC_LETTER.test(t) ? 'rtl' : LTR_TOKEN.test(t) ? 'ltr' : 'neutral')
+  const out: string[] = []
+  let i = 0
+  while (i < byX.length) {
+    if (kind(byX[i]!.text) === 'rtl') {
+      out.push(byX[i]!.text)
+      i++
+      continue
+    }
+    // A run of non-Arabic glyphs: take it whole, then trim neutral edges back
+    // to the Arabic side so a dash between Arabic words stays where it was.
+    let j = i
+    while (j < byX.length && kind(byX[j]!.text) !== 'rtl') j++
+    const run = byX.slice(i, j)
+    if (run.some((g) => kind(g.text) === 'ltr')) {
+      let head = 0
+      while (head < run.length && kind(run[head]!.text) === 'neutral') out.push(run[head++]!.text)
+      let tail = run.length
+      while (tail > head && kind(run[tail - 1]!.text) === 'neutral') tail--
+      out.push(
+        ...run
+          .slice(head, tail)
+          .sort((a, b) => a.x - b.x)
+          .map((g) => g.text),
+      )
+      for (let k = tail; k < run.length; k++) out.push(run[k]!.text)
+    } else {
+      out.push(...run.map((g) => g.text))
+    }
+    i = j
+  }
+  return out
 }
 
 /** Restore reading order: rows top-down, words right-to-left, brackets mirrored. */
@@ -434,14 +587,7 @@ export function readDescription(rows: Array<{ y: number; glyphs: PdfGlyph[] }>):
   const ordered = rows
     .slice()
     .sort((a, b) => b.y - a.y)
-    .map((row) =>
-      row.glyphs
-        .slice()
-        .sort((a, b) => b.x - a.x)
-        .map((g) => foldPdfText(g.str))
-        .filter(Boolean)
-        .join(' '),
-    )
+    .map((row) => readingOrder(row.glyphs).join(' '))
     .filter(Boolean)
   return mirrorBrackets(ordered.join(' '))
     .replace(/\(\s+/g, '(')
@@ -483,12 +629,12 @@ function isFurniture(text: string): boolean {
   return FURNITURE.some((re) => re.test(folded))
 }
 
+const OTHER_TABLE_LABELS = ['المسمي', 'الوظيفي', 'العدد', 'ساعات', 'العمل', 'الفئه', 'الاسم'].map(labelKey)
+
 /** A different table starting below the BOQ (page 32 carries a labour table). */
 function isOtherTableHeader(block: Block): boolean {
-  const labels = block.rows.flatMap((r) => r.glyphs.map((g) => foldLabel(g.str)))
-  const hits = ['المسمي', 'الوظيفي', 'العدد', 'ساعات', 'العمل', 'الفئه', 'الاسم'].filter((l) =>
-    labels.includes(l),
-  )
+  const labels = block.rows.flatMap((r) => r.glyphs.map((g) => labelKey(g.str)))
+  const hits = OTHER_TABLE_LABELS.filter((l) => labels.includes(l))
   return hits.length >= 2
 }
 
@@ -606,12 +752,19 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
       // longer digit run. That is what keeps the Etimad structural code
       // (2001–2107) from being read as item 208 — reading that column as a
       // number is the defect this reader was written to prevent.
-      const idText = numberText.match(/^(\d{1,3})(?!\d)/)?.[1] ?? null
+      // Up to four digits: a tender runs past 999 lines (10,219 measured), and
+      // a three-digit cap silently turned every later row into «صف بلا رقم».
+      const idText = header.numbered ? (numberText.match(/^(\d{1,4})(?!\d)/)?.[1] ?? null) : null
       const idMatch = idText === null ? null : Number(idText)
+      const idLabel = idMatch === null ? 'بلا رقم' : String(idMatch)
+      // Digits run left to right whatever the page's direction, and a browser
+      // print splits «183.5» into three runs; joined right to left they read
+      // «5.183». The number cell keeps its right-to-left join because the
+      // DC/SITE category prefix must stay AFTER the digits («001DC-»).
       const qty = readQuantity(
         cells.qty
           .slice()
-          .sort((a, b) => b.x - a.x)
+          .sort((a, b) => a.x - b.x)
           .map((g) => g.str)
           .join(''),
       )
@@ -626,7 +779,7 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
       const looksLikeData = idMatch !== null || qty !== null || Boolean(unitCell)
       if (!looksLikeData) continue
 
-      if (idMatch === null) {
+      if (idMatch === null && header.numbered) {
         // Real values with no number: never guess an id, and never hide the row.
         issues.push({
           kind: 'row-without-number',
@@ -667,7 +820,7 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
           kind: 'missing-qty',
           page,
           id: idMatch,
-          detail: `البند ${idMatch} (صفحة ${page}): لم نقرأ كمية صالحة — لم نستخدم الرمز الإنشائي بدلًا منها`,
+          detail: `البند ${idLabel} (صفحة ${page}): لم نقرأ كمية صالحة — لم نستخدم الرمز الإنشائي بدلًا منها`,
         })
         continue
       }
@@ -676,7 +829,7 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
           kind: 'missing-unit',
           page,
           id: idMatch,
-          detail: `البند ${idMatch} (صفحة ${page}): خلية الوحدة فارغة`,
+          detail: `البند ${idLabel} (صفحة ${page}): خلية الوحدة فارغة`,
         })
         continue
       }
@@ -685,12 +838,12 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
           kind: 'unreadable-unit',
           page,
           id: idMatch,
-          detail: `البند ${idMatch} (صفحة ${page}): وحدة غير معروفة «${unitCell}» — لم نفترض «عدد»`,
+          detail: `البند ${idLabel} (صفحة ${page}): وحدة غير معروفة «${unitCell}» — لم نفترض «عدد»`,
         })
         continue
       }
 
-      const previous = seenIds.get(idMatch)
+      const previous = idMatch === null ? undefined : seenIds.get(idMatch)
       if (previous !== undefined) {
         issues.push({
           kind: 'duplicate-number',
@@ -700,11 +853,12 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
         })
         continue
       }
-      seenIds.set(idMatch, page)
+      if (idMatch !== null) seenIds.set(idMatch, page)
 
       rows.push({
-        id: idMatch,
-        name: name || `بند ${idMatch}`,
+        id: idMatch ?? 0,
+        synthetic: idMatch === null ? true : undefined,
+        name,
         qty,
         unit,
         spec: spec || undefined,
@@ -716,11 +870,18 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
     }
   }
 
+  // Counted rows take the ids above every printed number, in reading order.
+  const printed = rows.filter((r) => !r.synthetic)
+  const printedMax = maxId(printed, issues) ?? 0
+  let next = printedMax
+  for (const row of rows) if (row.synthetic) row.id = ++next
+  for (const row of rows) if (!row.name) row.name = `بند ${row.id}`
+
   rows.sort((a, b) => a.id - b.id)
 
   // The booklet numbers its own items, so a missing number is a dropped item —
   // the difference between an honest partial read and a silent one.
-  const expectedCount = rows.length || issues.length ? maxId(rows, issues) : null
+  const expectedCount = printed.length || issues.length ? maxId(printed, issues) : null
   if (expectedCount) {
     const have = new Set(rows.map((r) => r.id))
     const reported = new Set(issues.map((i) => i.id).filter((id): id is number => id !== null))
@@ -751,5 +912,5 @@ function maxId(rows: BoqTableRow[], issues: BoqTableIssue[]): number | null {
 /** Count of items the booklet has that we could not read. */
 export function unreadableCount(result: BoqTableResult): number {
   if (!result.expectedCount) return 0
-  return Math.max(0, result.expectedCount - result.rows.length)
+  return Math.max(0, result.expectedCount - result.rows.filter((r) => !r.synthetic).length)
 }
