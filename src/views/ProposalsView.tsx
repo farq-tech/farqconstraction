@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTO_PICK, autoPickFor } from '../lib/autoPick'
+import { AUTO_PICK, autoPickFor, buildPickContext } from '../lib/autoPick'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
   getBoqItems,
@@ -629,11 +629,13 @@ export function ProposalsView({ navigate }: NavProps) {
     const fresh = items.filter((item) => !item.workOnly && !autoDone.current.has(item.id))
     if (!fresh.length) return
     const picks: Record<number, Supplier[]> = {}
+    // Breadth is read from the whole booklet, not only the lines picked now.
+    const pickContext = buildPickContext(items)
     for (const item of fresh) {
       // Marked done only once something was chosen: a line whose suggestions
       // arrive later (a restored session, a retried chunk) is picked then,
       // instead of staying empty for good.
-      const chosen = autoPickFor(item, AUTO_PICK)
+      const chosen = autoPickFor(item, AUTO_PICK, pickContext)
       if (chosen.length) {
         autoDone.current.add(item.id)
         picks[item.id] = chosen

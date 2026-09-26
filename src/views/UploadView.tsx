@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { autoPickFor } from '../lib/autoPick'
+import { autoPickFor, buildPickContext } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
 import { parseBoqFile, resolveBoqCardFields } from '../lib/parseBoq'
@@ -634,7 +634,8 @@ export function UploadView({ navigate }: NavProps) {
   // allowed to depend on the count alone.
   const badRead = partialRead || Boolean(readReport?.descriptionColumnSuspect) || Boolean(readReport?.codedItemsSuspect)
   // The same choice the proposals page makes, so both screens say one thing.
-  const picksById = new Map(items.map((i) => [i.id, i.workOnly ? [] : autoPickFor(i)]))
+  const pickContext = buildPickContext(items)
+  const picksById = new Map(items.map((i) => [i.id, i.workOnly ? [] : autoPickFor(i, undefined, pickContext)]))
   const searchingCount = items.filter((i) => !i.workOnly && !(picksById.get(i.id) || []).length).length
   const supplierCount = new Set([...picksById.values()].flat().map((s) => s.id)).size
   const coveredCount = items.filter((i) => (picksById.get(i.id) || []).length > 0).length
