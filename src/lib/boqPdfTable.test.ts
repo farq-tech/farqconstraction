@@ -520,3 +520,103 @@ describe('the reference Etimad booklet end to end', () => {
     expect(byId.get(44)).toMatchObject({ name: 'قاطع 32 امبير', qty: '2' })
   }, 60_000)
 })
+
+/**
+ * A contractor's priced quotation («عرض سعر»), printed from a browser: header
+ * بند · المواصفات · الوحدة · الكمية · السعر · الإجمالي with its ligatures
+ * reversed («املواصفات», «االمجايل»), units in words split at a ligature
+ * («م» + «تر مربع»), and each item's second line one row-pitch below it.
+ * Coordinates measured on the real file. Before, the table was never found and
+ * the text path read «مقاس 2*30*60» as 2 عدد and «بسماكة 5 سم» as 5 عدد.
+ */
+describe('extractBoqTable — priced quotation', () => {
+  const page = {
+    page: 1,
+    glyphs: [
+      g('بند', 534.9, 607.5, 10.3),
+      g('املواصــــــــــــفات', 372.6, 607.5, 54.7),
+      g('الوحدة', 234.9, 607.5, 20.9),
+      g('الكمية', 189.4, 607.5, 19.7),
+      g('السعر', 148.0, 607.5, 17.5),
+      g('االمجايل', 81.6, 607.5, 22.6),
+      // 1 — 90 م ط; the «2» of «2*30*60» is in the description.
+      g('1', 537.6, 587.1, 5.0),
+      g('توريد وتركيب', 475.1, 586.1, 49.0),
+      g('رخام عماني', 430.0, 586.1, 42.2),
+      g('مقاس', 406.6, 586.1, 20.6),
+      g('*30*60', 368.2, 586.1, 33.1),
+      g('2', 362.7, 586.1, 5.5),
+      g('متر طولي', 227.9, 586.1, 34.8),
+      g('90', 193.6, 586.1, 11.0),
+      g('170', 148.2, 586.1, 16.6),
+      g('00.00', 90.1, 586.1, 24.8),
+      g('3', 84.6, 586.1, 5.5),
+      g(',', 81.9, 586.1, 2.8),
+      g('15', 70.8, 586.1, 11.0),
+      g('تركيب ميكانيكي مع تعبئة خلطة ومبروم من الحجر اعلى الرخام', 304.3, 573.4, 219.8),
+      // 2 — 25 م², the unit painted as «م» + «تر مربع».
+      g('2', 537.6, 559.9, 5.0),
+      g('توريد وتركيب', 475.1, 558.9, 49.0),
+      g('بورسالن (مصنع المستقبل)', 376.1, 558.9, 96.1),
+      g('م', 257.1, 558.9, 4.6),
+      g('تر مربع', 229.0, 558.9, 28.1),
+      g('25', 193.6, 558.9, 11.0),
+      g('180', 148.2, 558.9, 16.6),
+      g('4,500.00', 73.6, 558.9, 38.6),
+      g('اعلى المداخل وسط الواجهة حسب التصم', 351.9, 546.2, 142.7),
+      g('يم المعتمد', 317.3, 546.2, 34.6),
+      g('لألعمدة', 497.5, 546.2, 26.6),
+      // 6 — 190 م ط; «بسماكة 5 سم» is in the description.
+      g('3', 537.6, 533.8, 5.0),
+      g('توريد وتركيب', 475.1, 532.9, 49.0),
+      g('تيوبات الم', 436.3, 532.9, 36.0),
+      g('نيوم كالدينج شامل الحديد بسماكة', 319.1, 532.9, 117.1),
+      g('5', 311.0, 532.9, 5.5),
+      g('سم في', 285.0, 532.9, 23.2),
+      g('متر طولي', 227.9, 532.9, 34.8),
+      g('190', 191.0, 532.9, 16.6),
+      g('80', 151.2, 532.9, 11.0),
+      g('15,200.00', 70.8, 532.9, 41.0),
+      g('االعلى يمين ويسار الواجهة حسب التصميم المعتمد', 346.6, 520.2, 177.4),
+      // Total and notes: not items, and not a continuation of item 3.
+      g('اجمالي التكلفة التقديرية', 300.2, 506.9, 85.7),
+      g('81,380.00', 80.2, 506.9, 44.2),
+      g('لاير', 61.6, 506.9, 13.1),
+      g('الكميات الواردة في التكلفة التقديرية تقريبية', 317.1, 494.2, 152.3),
+      g('قابلة للزيادة او النقصان', 99.3, 494.2, 215.0),
+    ],
+  }
+
+  it('reads quantity and unit from their own columns, never from the description', () => {
+    const result = extractBoqTable([page])
+    expect(result.issues).toEqual([])
+    expect(result.rows.map((r) => [r.id, r.qty, r.unit])).toEqual([
+      [1, '90', 'م ط'],
+      [2, '25', 'م²'],
+      [3, '190', 'م ط'],
+    ])
+  })
+
+  it('keeps each item whole: its wrapped line, its words and its brackets', () => {
+    const [first, second, third] = extractBoqTable([page]).rows
+    expect(first!.name).toMatch(/مقاس 2 ?\*30\*60/)
+    expect(first!.name).toMatch(/ومبروم من الحجر اعلى الرخام$/)
+    expect(second!.name).toContain('(مصنع المستقبل)')
+    expect(second!.name).toMatch(/التصميم المعتمد$/)
+    expect(third!.name).toContain('تيوبات المنيوم كالدينج')
+    expect(third!.name).not.toMatch(/الكميات الواردة|اجمالي/)
+  })
+
+  it('is served over the text path', () => {
+    const table = extractBoqTable([page])
+    // The text path's own read of this page, which is what the table must beat.
+    const text = pageTextRows(page.glyphs).join('\n')
+    const resolved = resolveParsedLines({ apiLines: [], text, table, fileName: 'quote.pdf' })
+    expect(resolved.source).toBe('pdf-table')
+    expect(resolved.lines.map((l) => [l.qty, l.unit])).toEqual([
+      ['90', 'م ط'],
+      ['25', 'م²'],
+      ['190', 'م ط'],
+    ])
+  })
+})

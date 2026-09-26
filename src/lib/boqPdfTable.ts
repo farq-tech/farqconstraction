@@ -155,6 +155,18 @@ function mirrorBrackets(text: string): string {
   return text.replace(/[()[\]{}<>]/g, (ch) => MIRRORED[ch] ?? ch)
 }
 
+/**
+ * One run's brackets, mirrored only when they arrive in visual order. A run
+ * that already opens before it closes («بورسالن (مصنع المستقبل)», as a browser
+ * print writes it) is in reading order, and mirroring it printed «)مصنع(».
+ */
+function mirrorVisualBrackets(text: string): string {
+  const open = text.search(/[([{<]/)
+  const close = text.search(/[)\]}>]/)
+  if (open !== -1 && close !== -1 && open < close) return text
+  return mirrorBrackets(text)
+}
+
 /* -------------------------------------------------------------------------- */
 /* Geometry                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -172,8 +184,54 @@ const BLOCK_GAP_FALLBACK = 15
 type Row = { y: number; glyphs: PdfGlyph[] }
 type Block = { top: number; bottom: number; rows: Row[] }
 
+const ARABIC_EDGE_START = /^[\u0621-\u064A\u0671-\u06D3]/
+const ARABIC_EDGE_END = /[\u0621-\u064A\u0671-\u06D3]$/
+
+/**
+ * A browser print breaks a word at its ligatures into runs that touch with no
+ * gap: «متر» is painted as «م» and «تر», «الألمنيوم» as «الم» and «نيوم». Read
+ * apart, the «م» of a unit cell sits over the description's edge and the unit
+ * is lost. Two Arabic runs on one row whose edges meet are one word there.
+ *
+ * Only on a page whose producer writes spaces inside its runs: there a word
+ * break is a space, never a seam between runs. The Etimad booklet paints one
+ * word per run, edge to edge («درابزين» touches «حديدي»), and joining it would
+ * weld every description into one word. Digits and Latin never join, so a
+ * number is never glued to its neighbour.
+ */
+function writesSpacesInRuns(glyphs: PdfGlyph[]): boolean {
+  const arabic = glyphs.map((g) => foldPdfText(g.str)).filter((t) => ARABIC_EDGE_START.test(t))
+  if (arabic.length < 5) return false
+  return arabic.filter((t) => t.includes(' ')).length / arabic.length >= 0.2
+}
+
+function joinTouchingRuns(row: PdfGlyph[]): PdfGlyph[] {
+  const byX = row.slice().sort((a, b) => b.x - a.x)
+  const out: PdfGlyph[] = []
+  for (const glyph of byX) {
+    const prev = out[out.length - 1]
+    const width = Number.isFinite(glyph.width) ? glyph.width : 0
+    if (
+      prev &&
+      Math.abs(glyph.x + width - prev.x) <= 0.3 &&
+      ARABIC_EDGE_END.test(foldPdfText(prev.str)) &&
+      !/^[\u064B-\u065F]/.test(foldPdfText(prev.str)) &&
+      ARABIC_EDGE_START.test(foldPdfText(glyph.str)) &&
+      // A lone letter on the left is a stray glyph from a neighbouring cell as
+      // often as it is the end of a word; a ligature split leaves two or more.
+      foldPdfText(glyph.str).length >= 2
+    ) {
+      out[out.length - 1] = { str: prev.str + glyph.str, x: glyph.x, y: prev.y, width: prev.x + prev.width - glyph.x }
+      continue
+    }
+    out.push(glyph)
+  }
+  return out
+}
+
 function groupRows(glyphs: PdfGlyph[]): Row[] {
   const kept = glyphs.filter((g) => foldPdfText(g.str).length > 0)
+  const joinRuns = writesSpacesInRuns(kept)
   kept.sort((a, b) => b.y - a.y || b.x - a.x)
   const rows: Row[] = []
   for (const glyph of kept) {
@@ -192,6 +250,7 @@ function groupRows(glyphs: PdfGlyph[]): Row[] {
         seen.add(key)
         return true
       })
+    if (joinRuns) row.glyphs = joinTouchingRuns(row.glyphs)
   }
   return rows
 }
@@ -252,7 +311,17 @@ export function pageTextRows(glyphs: PdfGlyph[]): string[] {
 /* Columns                                                                    */
 /* -------------------------------------------------------------------------- */
 
-type ColumnKey = 'number' | 'desc' | 'qty' | 'unit' | 'spec' | 'category' | 'mandatory' | 'code'
+type ColumnKey =
+  | 'number'
+  | 'desc'
+  | 'qty'
+  | 'unit'
+  | 'spec'
+  | 'category'
+  | 'mandatory'
+  | 'code'
+  | 'price'
+  | 'total'
 
 /**
  * Header labels, folded. Two real shapes are read with the same machinery:
@@ -282,11 +351,24 @@ const HEADER_LABELS_RAW: Record<ColumnKey, string[]> = {
   ],
   qty: ['الكميه', 'الكميات', 'كميه', 'الكميهالمطلوبه'],
   unit: ['الوحده', 'وحده', 'وحدهالقياس', 'الوحدات'],
-  spec: ['المواصفهالمختصره', 'المواصفهالفنيه', 'المواصفه'],
+  spec: ['المواصفهالمختصره', 'المواصفهالفنيه', 'المواصفه', 'المواصفات'],
   category: ['الفئه', 'القسم'],
   mandatory: ['منتج', 'القائمه', 'الالزاميه'],
   code: ['الرمز', 'الانشائي'],
+  // A contractor's priced quotation («عرض سعر») carries rate and amount columns
+  // to the left of the quantity. Unnamed, their digits had no column to fall
+  // into and the table was never read; the text path then took «مقاس 2*30*60»
+  // for a quantity of 2.
+  price: ['السعر', 'سعرالوحده', 'السعرالافرادي', 'الافرادي', 'فئهالسعر'],
+  total: ['الاجمالي', 'السعرالاجمالي', 'اجماليالسعر', 'المبلغ', 'القيمه', 'القيمهالاجماليه'],
 }
+
+/**
+ * «بند» alone heads the item number in a quotation (بند · المواصفات · الوحدة ·
+ * الكمية), while «البند» heads the description in Etimad. It is read as the
+ * number only when another label in the same header names the description.
+ */
+const BARE_ITEM_LABEL = 'بند'
 
 /** «الإنشائي» on the label key: the word that marks «الرمز» as a structural code. */
 const STRUCTURAL_CODE_LABEL = labelKey('الانشائي')
@@ -299,7 +381,7 @@ const HEADER_LABELS: Record<ColumnKey, string[]> = Object.fromEntries(
 /** Columns whose cells hold short right/centre-aligned tokens. Text columns are
  * allowed to absorb the empty space next to these; the reverse would pull
  * description words into a numeric cell — the original defect. */
-const NARROW_COLUMNS: ColumnKey[] = ['number', 'qty', 'unit', 'mandatory', 'code']
+const NARROW_COLUMNS: ColumnKey[] = ['number', 'qty', 'unit', 'mandatory', 'code', 'price', 'total']
 
 /**
  * Page 27 of the reference booklet carries a summary table with an `الاسم`
@@ -320,7 +402,40 @@ type HeaderMatch = {
   numbered: boolean
 }
 
-const KNOWN_LABEL_KEYS = new Set([...Object.values(HEADER_LABELS).flat(), ...SUMMARY_TABLE_LABELS])
+const KNOWN_LABEL_KEYS = new Set([
+  ...Object.values(HEADER_LABELS).flat(),
+  ...SUMMARY_TABLE_LABELS,
+  labelKey(BARE_ITEM_LABEL),
+])
+
+const lettersKey = (key: string) => [...key].sort().join('')
+
+/**
+ * The same browser printers that reverse «لا» reverse other ligature pairs as
+ * well: «المواصفات» arrives as «املواصفات», «الإجمالي» as «االمجايل». The
+ * letters are all there, only their order inside a ligature is not, so a label
+ * that misses the dictionary is looked up by its letters. Short labels are
+ * left out (too many words share three letters), and so is any letter set two
+ * dictionary entries share.
+ */
+const LABEL_BY_LETTERS: Map<string, string> = (() => {
+  const map = new Map<string, string>()
+  const clash = new Set<string>()
+  for (const label of KNOWN_LABEL_KEYS) {
+    if (label.length < 5) continue
+    const key = lettersKey(label)
+    const seen = map.get(key)
+    if (seen !== undefined && seen !== label) clash.add(key)
+    else map.set(key, label)
+  }
+  for (const key of clash) map.delete(key)
+  return map
+})()
+
+function knownLabel(key: string): string | null {
+  if (KNOWN_LABEL_KEYS.has(key)) return key
+  return key.length >= 5 ? (LABEL_BY_LETTERS.get(lettersKey(key)) ?? null) : null
+}
 
 function dictionaryRole(key: string): ColumnKey | null {
   for (const role of Object.keys(HEADER_LABELS) as ColumnKey[]) {
@@ -339,11 +454,12 @@ function dictionaryRole(key: string): ColumnKey | null {
  */
 function headerKeysOf(str: string): string[] {
   const joined = labelKey(str)
-  if (KNOWN_LABEL_KEYS.has(joined)) return [joined]
+  const whole = knownLabel(joined)
+  if (whole) return [whole]
   const words = foldPdfText(str)
     .split(' ')
-    .map(labelKey)
-    .filter((w) => KNOWN_LABEL_KEYS.has(w))
+    .map((w) => knownLabel(labelKey(w)))
+    .filter((w): w is string => w !== null)
   if (!words.length) return [joined]
   const roles = new Set(words.map((w) => dictionaryRole(w) ?? `other:${w}`))
   return roles.size === 1 ? words : [joined]
@@ -387,8 +503,19 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
     const structuralCode = labels.some(({ label }) => HEADER_LABELS.code.includes(label) && label === STRUCTURAL_CODE_LABEL)
     const codeIsNumber =
       !structuralCode && !has('number') && labels.some(({ label }) => label === 'الرمز')
+    // «المواصفات» is the specification beside an «البند» description, and the
+    // description itself when the header names nothing else for it.
+    const specIsDesc = !has('desc') && labels.some(({ label }) => label === labelKey('المواصفات'))
+    const bareItemIsNumber =
+      !has('number') &&
+      !codeIsNumber &&
+      (has('desc') || specIsDesc) &&
+      labels.some(({ label }) => label === labelKey(BARE_ITEM_LABEL))
+    const bareItemIsDesc = !bareItemIsNumber && !has('desc') && !specIsDesc
     const roleOf = (label: string): ColumnKey | null => {
       if (codeIsNumber && label === 'الرمز') return 'number'
+      if (label === labelKey(BARE_ITEM_LABEL)) return bareItemIsNumber ? 'number' : bareItemIsDesc ? 'desc' : null
+      if (specIsDesc && label === labelKey('المواصفات')) return 'desc'
       for (const key of Object.keys(HEADER_LABELS) as ColumnKey[]) {
         if (HEADER_LABELS[key].includes(label)) return key
       }
@@ -397,8 +524,8 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
     // A table with no number column at all is still a table: description,
     // quantity and unit are what a supplier is asked about. Its rows are
     // counted rather than numbered (see `BoqTableRow.synthetic`).
-    const numbered = has('number') || codeIsNumber
-    if (!(has('desc') && has('qty') && has('unit'))) continue
+    const numbered = has('number') || codeIsNumber || bareItemIsNumber
+    if (!((has('desc') || specIsDesc || bareItemIsDesc) && has('qty') && has('unit'))) continue
     // The summary table on page 27 carries الفئة/الاسم/وصف alongside; different shape.
     if (labels.some(({ label }) => SUMMARY_TABLE_LABELS.includes(label))) continue
 
@@ -411,6 +538,8 @@ function findBoqHeader(blocks: Block[]): HeaderMatch | null {
       category: null,
       mandatory: null,
       code: null,
+      price: null,
+      total: null,
     }
     for (const { g, label } of labels) {
       const key = roleOf(label)
@@ -491,9 +620,23 @@ const UNIT_FROM_VISUAL: Array<[RegExp, string]> = [
  */
 const PLAIN_UNIT = /^[\u0600-\u06FF]{2,10}$/
 
+/**
+ * Units written out in words. Matched with the spaces removed, because a
+ * browser print splits «متر» at its ligature and paints «م» apart from «تر».
+ */
+const UNIT_IN_WORDS: Array<[RegExp, string]> = [
+  [/^(?:مترطولي|طوليمتر|مترطول|طولمتر)$/, 'م ط'],
+  [/^(?:مترمربع|مربعمتر)$/, 'م²'],
+  [/^(?:مترمكعب|مكعبمتر)$/, 'م³'],
+]
+
 export function readVisualUnit(cell: string): string | null {
   const text = foldPdfText(cell)
   if (!text) return null
+  const compact = text.replace(/\s/g, '')
+  for (const [re, unit] of UNIT_IN_WORDS) {
+    if (re.test(compact)) return unit
+  }
   for (const [re, unit] of UNIT_FROM_VISUAL) {
     if (re.test(text)) return unit
   }
@@ -546,7 +689,7 @@ function readingOrder(glyphs: PdfGlyph[]): string[] {
   const byX = glyphs
     .slice()
     .sort((a, b) => b.x - a.x)
-    .map((g) => ({ text: foldPdfText(g.str), x: g.x }))
+    .map((g) => ({ text: mirrorVisualBrackets(foldPdfText(g.str)), x: g.x }))
     .filter((g) => g.text)
   const kind = (t: string) => (ARABIC_LETTER.test(t) ? 'rtl' : LTR_TOKEN.test(t) ? 'ltr' : 'neutral')
   const out: string[] = []
@@ -589,7 +732,8 @@ export function readDescription(rows: Array<{ y: number; glyphs: PdfGlyph[] }>):
     .sort((a, b) => b.y - a.y)
     .map((row) => readingOrder(row.glyphs).join(' '))
     .filter(Boolean)
-  return mirrorBrackets(ordered.join(' '))
+  return ordered
+    .join(' ')
     .replace(/\(\s+/g, '(')
     .replace(/\s+\)/g, ')')
     .replace(/\s+/g, ' ')
@@ -713,8 +857,14 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
       blockGap,
     )
 
+    // The row last read on this page, for a wrapped line that fell outside its
+    // block (see the continuation rule below).
+    let last: { row: BoqTableRow; bottom: number; edge: number | null } | null = null
+    let closed = false
+
     for (const block of below) {
       const text = blockText(block)
+      if (closed) break
 
       // Classify every glyph in the block by column.
       const cells: Record<ColumnKey, PdfGlyph[]> = {
@@ -726,6 +876,8 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
         category: [],
         mandatory: [],
         code: [],
+        price: [],
+        total: [],
       }
       for (const row of block.rows) {
         for (const glyph of row.glyphs) {
@@ -777,7 +929,47 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
       const unit = readVisualUnit(unitCell)
 
       const looksLikeData = idMatch !== null || qty !== null || Boolean(unitCell)
-      if (!looksLikeData) continue
+      if (!looksLikeData) {
+        // «إجمالي التكلفة» closes a quotation's table; what follows are its
+        // notes, never a wrapped line of the last item.
+        if (TOTAL_ROW.test(text)) {
+          closed = true
+          continue
+        }
+        // A quotation prints one line per row at a fixed pitch, so the wrapped
+        // second line of an item sits as far below it as the next item does
+        // and the measured gap cannot hold them together. Text that holds only
+        // description cells, directly under a row just read, is that row's
+        // continuation; dropping it cut «شامل الحديد» off the line it priced.
+        // It must also start where that row's text starts: a line of the same
+        // cell shares its right edge, a page stamp («بيانات اختبارية») does not.
+        const textOnly = block.rows.every((row) =>
+          row.glyphs.every((g) => CONTINUATION_COLUMNS.includes(columnOf(header.boundaries, g) as ColumnKey)),
+        )
+        const edge = rightEdge(block.rows.flatMap((row) => row.glyphs))
+        if (
+          last &&
+          textOnly &&
+          last.edge !== null &&
+          edge !== null &&
+          Math.abs(edge - last.edge) <= 3 &&
+          last.bottom - block.top <= blockGap * 1.5
+        ) {
+          const more = (key: ColumnKey) =>
+            readDescription(
+              block.rows
+                .map((row) => ({ y: row.y, glyphs: row.glyphs.filter((g) => columnOf(header.boundaries, g) === key) }))
+                .filter((row) => row.glyphs.length > 0),
+            )
+          const name = more('desc')
+          const spec = more('spec')
+          if (name) last.row.name = `${last.row.name} ${name}`.trim()
+          if (spec) last.row.spec = `${last.row.spec ?? ''} ${spec}`.trim()
+          last.bottom = block.bottom
+        }
+        continue
+      }
+      last = null
 
       if (idMatch === null && header.numbered) {
         // Real values with no number: never guess an id, and never hide the row.
@@ -855,7 +1047,7 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
       }
       if (idMatch !== null) seenIds.set(idMatch, page)
 
-      rows.push({
+      const row: BoqTableRow = {
         id: idMatch ?? 0,
         synthetic: idMatch === null ? true : undefined,
         name,
@@ -866,7 +1058,9 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
         code: /^\d{3,5}$/.test(code) ? code : undefined,
         mandatory: mandatory || undefined,
         page,
-      })
+      }
+      rows.push(row)
+      last = { row, bottom: block.bottom, edge: rightEdge(cells.desc) }
     }
   }
 
@@ -901,6 +1095,18 @@ export function extractBoqTable(pages: PdfPageGlyphs[]): BoqTableResult {
 
   return { rows, issues, pages: tablePages, otherTables, expectedCount }
 }
+
+/** Right edge of a set of runs, where right-to-left text starts. */
+function rightEdge(glyphs: PdfGlyph[]): number | null {
+  if (!glyphs.length) return null
+  return Math.max(...glyphs.map((g) => g.x + (Number.isFinite(g.width) ? g.width : 0)))
+}
+
+/** Columns a wrapped description line may occupy. */
+const CONTINUATION_COLUMNS: ColumnKey[] = ['desc', 'spec', 'category']
+
+/** A total row: «إجمالي …», «المجموع», at the start of the row's text. */
+const TOTAL_ROW = /^(?:ال)?(?:اجمالي|إجمالي|مجموع)(?![\u0600-\u06FF])/
 
 function maxId(rows: BoqTableRow[], issues: BoqTableIssue[]): number | null {
   let max = 0
