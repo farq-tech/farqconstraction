@@ -1,6 +1,35 @@
 {
- "version": "cpo-v10",
+ "version": "cpo-v11",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
+ "morphology_rule": {
+  "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
+  "inflection": {
+   "definition": "Changes the FORM of a word and keeps its meaning. One lexeme, so matching across the forms is always right and the rule generates them freely.",
+   "handled": [
+    "proclitics — the conjunctions و/ف and the definite article in its attached forms",
+    "sound feminine plural — «لوحة» → «لوحات», which REPLACES the taa marbuta rather than following it",
+    "sound plural on a loanword — «كابل» → «كابلات»"
+   ],
+   "attribution_rule": "When both «X» and «Xة» are vocabulary, «Xات» is attributed to the FEMININE and withheld from the bare noun. «لوح» sheet pluralises to «ألواح»; «لوحات» is the plural of «لوحة» board. One attribution both gained «لوحة» its plural and took «لوحات توزيع» away from «لوح» — two entries on the collision list that pointed at each other."
+  },
+  "derivation": {
+   "definition": "Builds a NEW word from an old one. The nisba does this: «خشب» wood → «خشبي» wooden, «أرض» ground → «أرضية» flooring, «معدن» metal → «معدني», which also means mineral. The result is a different lexeme that may name a different product, so generating it is a guess rather than a transformation.",
+   "gate": "A derived form is generated only where no family already owns it that does not also own the base. Computed from this payload's own ownership — there is no exception list, by the same discipline the guard predicate runs under.",
+   "phrase_exemption": "Inside a MULTI-WORD term the derivation is free, because the neighbouring word has already pinned the trade. «زجاج» alone reaching «زجاجي» is a guess — «صوف زجاجي» is insulation and «ألياف زجاجية» is an admixture. «باب زجاج» reaching «باب زجاجي» is one product written two ways, which is «باب خشب / باب خشبي» exactly. Gating the word in isolation cost «باب زجاجي سحاب» its family on evidence from phrases where the head was doing the work all along."
+  },
+  "out_of_scope": {
+   "broken_plural": "NOT REACHABLE, and the limit is stated rather than left to be discovered. «حريق» → «حرائق», «لوح» → «ألواح», «كتاب» → «كتب»: the plural is formed by re-templating the root, not by adding to it, so no affix rule can reach it — not this one and not a longer suffix list. Broken plurals are VOCABULARY. «حرايق» was listed in v9 for this reason. A reader who assumes plurals are handled is half right, and the wrong half is silent, so a test enforces this limit instead of a comment describing it.",
+   "also_out_of_scope": "Internal orthographic variation that is not affixal — «اسمني» for «اسمنتي» — which v8 closed as a class by removing adjacency rather than by morphology."
+  },
+  "measured": {
+   "cross_family_collisions_v9": 67,
+   "cross_family_collisions_v10": 41,
+   "removed": 34,
+   "added": 8,
+   "added_note": "All eight are sound feminine plurals where base and plural are genuinely one lexeme — «لوحة»→«لوحات إنذار حريق», «بطاقة»→«قارئ بطاقات», «أرضية»→«هاردنر أرضيات». Every one was checked at LINE level and resolves to the correct family, because the head concept decides there. Term-level collision count is an upper bound on risk, not a prediction of behaviour.",
+   "removed_note": "Includes all three glass/mineral-fibre collisions — «زجاج» reaching «ألياف زجاجية», «خزان ألياف زجاجية» and «صوف زجاجي» — which is the case that had bitten three times."
+  }
+ },
  "learning": {
   "promote_after_occurrences": 5
  },
@@ -13772,7 +13801,7 @@
          "supplier_pool_affecting": false
         }
        ],
-       "note": "Split from card_printers in cpo-v10: a supplier who sells card printers is not thereby a supplier of blank cards, and matching runs on the intent."
+       "note": "Split from card_printers in cpo-v11: a supplier who sells card printers is not thereby a supplier of blank cards, and matching runs on the intent."
       }
      ],
      "note": "Blank cards are a consumables trade. A card-printer supplier is ALLOWED here (it often stocks cards) but never PREFERRED: preference belongs to the supplier who names the cards."

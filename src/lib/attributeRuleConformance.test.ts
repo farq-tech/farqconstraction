@@ -58,6 +58,14 @@ const CASES: Array<{ text: string; term: string; note: string; register?: 'suppl
   // the map builder actually matches against.
   { text: 'مؤسسة الكابلات الوطنية كابلات نحاس XLPE', term: 'كابلات', note: 'supplier name, no clause' },
   { text: 'فلتر أولي لمكنسة ماكيتا مقاس 100 مم', term: 'فلتر', note: 'product word before a size clause' },
+
+  // The morphology rule, published so the supply side can be held to it: a
+  // nisba inside a phrase is free, bare it is gated; the sound feminine
+  // plural belongs to the feminine noun.
+  { text: 'باب زجاجي سحاب منزلق', term: 'باب زجاج', note: 'nisba inside a phrase: the head has pinned the trade' },
+  { text: 'صوف زجاجي', term: 'زجاج', note: 'the same derivation, bare: three trades own glass' },
+  { text: 'قارئ بطاقات', term: 'بطاقه', note: 'sound feminine plural, gained' },
+  { text: 'مبدلات شبكات', term: 'شبك', note: 'plural belongs to «شبكة», not to rebar «شبك»' },
   { text: 'مضخة حريق مطابق NFPA 20', term: 'مضخة حريق', note: 'compliance clause after the product' },
   { text: 'لوحة كهربائية درجة حماية IP65 مادة صلب', term: 'صلب', note: 'steel only as a material value' },
   { text: 'عزل مواسير تكييف سماكة 25 مم', term: 'مواسير', note: 'product-head case with a clause too' },

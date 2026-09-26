@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v10')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v11')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -2463,7 +2463,7 @@ describe('cpo-v9: supplier prose is its own register', () => {
 
 
 /**
- * cpo-v10. Two findings from the 1,650-row stress booklet.
+ * cpo-v11. Two findings from the 1,650-row stress booklet.
  *
  * English technical lines arrived intact from the reader and left without a
  * family: «Power cable 4x35mm2», «PVC Pipe DN110», «Motor 220V 2kW». Not a
@@ -2476,7 +2476,7 @@ describe('cpo-v9: supplier prose is its own register', () => {
  * so a card-printer supplier was a specialist in blank cards. One family for
  * grouping, two intents for matching.
  */
-describe('cpo-v10: English technical lines resolve, and attributes are read', () => {
+describe('cpo-v11: English technical lines resolve, and attributes are read', () => {
   const cases: Array<[string, string, string | null, Record<string, string>]> = [
     ['Power cable 4x35mm2', 'power_cables', null, { cable_cores: '4', cross_section_mm2: '35' }],
     ['LV cable 4x35 mm²', 'power_cables', null, { cable_cores: '4', cross_section_mm2: '35' }],
@@ -2522,7 +2522,7 @@ describe('cpo-v10: English technical lines resolve, and attributes are read', ()
   })
 })
 
-describe('cpo-v10: blank cards and the printer are one family and two pools', () => {
+describe('cpo-v11: blank cards and the printer are one family and two pools', () => {
   const cards = ['بطاقات PVC', 'PVC cards', 'blank PVC cards', 'بطاقات PVC بيضاء', 'توريد بطاقات هوية PVC فارغة']
   const printers = ['طابعة بطاقات', 'طابعة بطاقات PVC', 'PVC card printer', 'ID card printer', 'توريد طابعة بطاقات PVC هوية مع تشفير']
   for (const line of cards) {
@@ -2554,7 +2554,7 @@ describe('cpo-v10: blank cards and the printer are one family and two pools', ()
   })
 })
 
-describe('cpo-v10: sibling intents that share a word never share a pool', () => {
+describe('cpo-v11: sibling intents that share a word never share a pool', () => {
   const pairs: Array<[string, string]> = [
     ['Fiber optic cable 24 core', 'Power cable 4x35mm2'],
     ['كابل ألياف بصرية 24 كور', 'كابل نحاس 4x25 مم2'],
