@@ -308,17 +308,49 @@ export function normalizeProcurementText(text: string): string {
     .replace(/ؤ/g, 'و')
     .replace(/ئ/g, 'ي')
     .replace(/[×xX*ｘ]/g, 'x')
+    // A decimal point inside a number is part of the number: «2.5mm2» is a
+    // 2.5 mm² cable, not a 2 and a 5.
+    .replace(/(\d)\.(\d)/g, '$1\u0001$2')
     .replace(/[-–—_/\\،,.:;()[\]{}"'“”«»]+/g, ' ')
+    .replace(/\u0001/g, '.')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
+    .replace(UNIT_GLUED, '$1 $2')
+    .replace(PREFIX_GLUED, '$1 $2')
+    .trim()
 }
+
+/**
+ * Technical shorthand is written both ways: «35mm2» and «35 mm2», «220V» and
+ * «220 V», «DN110» and «DN 110», «2kW» and «2 kW». Terms and lines both pass
+ * through here, so the two spellings meet on one form, and a unit written
+ * against its number («220v») still counts as the context word «v» that the
+ * three-tier rule needs. Only unit words follow a number; «cat6», «om3»,
+ * «ip54» and «m20» are product names and stay whole.
+ */
+const UNIT_GLUED = /(\d)(mm2|sqmm|mm|cm|kva|kv|kw|hp|hz|rpm|bar|inch|v|a|w)\b/g
+const PREFIX_GLUED = /\b(dn|pn|sch|nps)(\d)/g
 
 const LEAD_VERBS =
   /^(?:و?توريد\s+وتركيب|و?توريد|و?تركيب|و?تنفيذ|اعمال|عمل|شراء|supply\s+and\s+install|supply\s*&\s*install|supply|install(?:ation)?\s+of|install)\s+/
 
 const PURE_SERVICE =
   /(?:اجور\s*تركيب\s*فقط|اجور\s*فقط|صيانه\s*فقط|عماله\s*(?:بلا|بدون)\s*ماده|labor\s*only|installation\s*only|اختبار\s*وتشغيل\s*فقط)/
+
+/**
+ * Earthwork is work, not a material. «حفر وردم ودك» used to resolve to sand
+ * fill at Level A on the strength of «ردم», and a sand supplier was asked to
+ * price an excavation. A line that names earthwork and no material or supply
+ * word is refused like any other labour-only line. «توريد رمل ردم» still buys
+ * sand: it names the material.
+ */
+const EARTHWORK =
+  /(?:^|\s)(?:اعمال\s+)?(?:حفر|حفريات|ردم|دك|هدم|ازاله|ازالات|تسويه|excavation|excavating|backfill|backfilling|compaction|demolition|earthworks?)(?:\s|$)/
+const NAMES_A_MATERIAL = /(?:توريد|supply|رمل|بحص|تربه|مواد|خرسانه|اسفلت|بلوك|حجر|sand|gravel|aggregate|soil|material)/
+function isWorkOnly(normalized: string): boolean {
+  return PURE_SERVICE.test(normalized) || (EARTHWORK.test(normalized) && !NAMES_A_MATERIAL.test(normalized))
+}
 
 /** Boilerplate tails the booklets append after the product name. */
 const BOILERPLATE_MARKERS = [
@@ -1217,7 +1249,7 @@ function unresolvedResolution(
       matched_term: null,
       decided_by: 'none',
       elapsed_ms: Date.now() - started,
-      not_supply: bucket === 'rejected' && PURE_SERVICE.test(normalized),
+      not_supply: bucket === 'rejected' && isWorkOnly(normalized),
     },
   }
 }
@@ -1446,7 +1478,7 @@ export function resolveOntology(lineName: string): OntologyResolution {
   const raw = String(lineName || '').replace(/\s+/g, ' ').trim()
   const normalized = normalizeProcurementText(raw)
   if (!normalized) return unresolvedResolution(raw, normalized, '', started, 'rejected')
-  if (PURE_SERVICE.test(normalized)) {
+  if (isWorkOnly(normalized)) {
     return unresolvedResolution(raw, normalized, '', started, 'rejected')
   }
 

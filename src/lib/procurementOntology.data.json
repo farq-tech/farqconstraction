@@ -1,5 +1,5 @@
 {
- "version": "cpo-v9",
+ "version": "cpo-v10",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "learning": {
   "promote_after_occurrences": 5
@@ -1011,6 +1011,22 @@
     "نجاره",
     "joinery"
    ]
+  },
+  "card_consumables_supplier": {
+   "label_ar": "موردو البطاقات البلاستيكية ومستلزماتها",
+   "patterns": [
+    "بطاقات pvc",
+    "pvc cards",
+    "pvc card",
+    "بطاقات بلاستيكيه",
+    "plastic cards",
+    "مستلزمات بطاقات",
+    "card consumables",
+    "بطاقات هويه",
+    "id cards",
+    "بطاقات ذكيه",
+    "smart cards"
+   ]
   }
  },
  "facets": {
@@ -1458,7 +1474,7 @@
    "kind": "measure",
    "label_ar": "القدرة",
    "supplier_pool_affecting": false,
-   "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kw|كيلو\\s*واط|hp|حصان)\\b"
+   "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kw|كيلو\\s*واط|hp|حصان)(?![a-z0-9ء-ي])"
   },
   "capacity": {
    "kind": "measure",
@@ -1470,7 +1486,7 @@
    "kind": "measure",
    "label_ar": "الجهد",
    "supplier_pool_affecting": true,
-   "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kv|vdc|vac|volt)\\b"
+   "pattern": "(\\d+(?:\\.\\d+)?)\\s*(?:kv|vdc|vac|volt|v)\\b"
   },
   "protection_ip": {
    "kind": "measure",
@@ -1676,6 +1692,18 @@
      "nfc"
     ]
    }
+  },
+  "cable_cores": {
+   "kind": "measure",
+   "label_ar": "عدد القلوب",
+   "supplier_pool_affecting": false,
+   "pattern": "(\\d+)\\s*x\\s*\\d+(?:\\.\\d+)?\\s*(?:mm2|sqmm|مم2)|(\\d+)\\s*(?:core|cores|كور|قلب|قلوب)\\b"
+  },
+  "cross_section_mm2": {
+   "kind": "measure",
+   "label_ar": "مساحة المقطع",
+   "supplier_pool_affecting": false,
+   "pattern": "\\d+\\s*x\\s*(\\d+(?:\\.\\d+)?)\\s*(?:mm2|sqmm|مم2)|(\\d+(?:\\.\\d+)?)\\s*(?:mm2|sqmm|مم2)"
   }
  },
  "sectors": {
@@ -5077,7 +5105,36 @@
     "ماسوره ستانلس",
     "بايب ستانلس",
     "ppr pn20",
-    "بولي ايثيلين مياه"
+    "بولي ايثيلين مياه",
+    "pvc pipe",
+    "pvc pipes",
+    "cpvc pipe",
+    "pex pipe",
+    "copper pipe",
+    "copper pipes",
+    "gi pipe",
+    "galvanized pipe",
+    "galvanised pipe",
+    "galvanized steel pipe",
+    "plastic pipe",
+    "pe pipe",
+    "ductile iron pipe",
+    "di pipe",
+    "stainless pipe",
+    "stainless steel pipe",
+    "carbon steel pipe",
+    "seamless pipe",
+    "erw pipe",
+    "drain pipe",
+    "drainage pipe",
+    "ماسوره pvc",
+    "مواسير pvc",
+    "ماسوره بلاستيك",
+    "مواسير بلاستيك",
+    "ماسوره حديد",
+    "مواسير حديد",
+    "ماسوره كربون ستيل",
+    "مواسير كربون ستيل"
    ],
    "weak_terms": [
     "pipe",
@@ -5108,7 +5165,17 @@
     "sch80",
     "butt fusion",
     "socket fusion",
-    "electrofusion"
+    "electrofusion",
+    "pvc",
+    "copper",
+    "galvanized",
+    "galvanised",
+    "gi",
+    "plastic",
+    "stainless",
+    "seamless",
+    "nb",
+    "od"
    ],
    "term_guards": [
     {
@@ -5118,7 +5185,36 @@
       "انبوب",
       "انابيب",
       "pipe",
-      "piping"
+      "piping",
+      "pvc pipe",
+      "pvc pipes",
+      "cpvc pipe",
+      "pex pipe",
+      "copper pipe",
+      "copper pipes",
+      "gi pipe",
+      "galvanized pipe",
+      "galvanised pipe",
+      "galvanized steel pipe",
+      "plastic pipe",
+      "pe pipe",
+      "ductile iron pipe",
+      "di pipe",
+      "stainless pipe",
+      "stainless steel pipe",
+      "carbon steel pipe",
+      "seamless pipe",
+      "erw pipe",
+      "drain pipe",
+      "drainage pipe",
+      "ماسوره pvc",
+      "مواسير pvc",
+      "ماسوره بلاستيك",
+      "مواسير بلاستيك",
+      "ماسوره حديد",
+      "مواسير حديد",
+      "ماسوره كربون ستيل",
+      "مواسير كربون ستيل"
      ],
      "blocked_by_head": [
       "عزل",
@@ -7501,7 +7597,28 @@
     "كيبل نحاس",
     "سلك كهرباء",
     "سلك نحاس",
-    "واير كهرباء"
+    "واير كهرباء",
+    "power cable",
+    "power cables",
+    "lv cable",
+    "mv cable",
+    "electrical cable",
+    "electric cable",
+    "copper cable",
+    "armoured cable",
+    "armored cable",
+    "xlpe cable",
+    "pvc cable",
+    "cu xlpe",
+    "cu pvc",
+    "nyy j",
+    "yjv",
+    "كابل كهرباء",
+    "كابل قدره",
+    "كابل قدرة",
+    "كابلات قدره",
+    "كابل ضغط منخفض",
+    "كابل جهد متوسط"
    ],
    "weak_terms": [
     "cable",
@@ -7516,7 +7633,15 @@
     "copper",
     "armored",
     "iec",
-    "core"
+    "core",
+    "mm2",
+    "sqmm",
+    "lv",
+    "mv",
+    "power",
+    "cu",
+    "cores",
+    "pvc"
    ],
    "term_guards": [
     {
@@ -7524,7 +7649,16 @@
       "كابل",
       "كابلات",
       "كيبل",
-      "cable"
+      "cable",
+      "power cable",
+      "power cables",
+      "lv cable",
+      "mv cable",
+      "electrical cable",
+      "electric cable",
+      "copper cable",
+      "armoured cable",
+      "armored cable"
      ],
      "block_any": [
       "الياف",
@@ -7584,6 +7718,14 @@
     {
      "name": "standard",
      "supplier_pool_affecting": true
+    },
+    {
+     "name": "cable_cores",
+     "supplier_pool_affecting": false
+    },
+    {
+     "name": "cross_section_mm2",
+     "supplier_pool_affecting": false
     }
    ],
    "intents": [
@@ -13155,13 +13297,13 @@
     "computers"
    ],
    "preferred_archetypes": [
-    "it_hardware_supplier",
-    "printing_supplier"
+    "it_hardware_supplier"
    ],
    "allowed_archetypes": [
     "network_integrator",
     "general_trading",
-    "access_control_supplier"
+    "access_control_supplier",
+    "printing_supplier"
    ],
    "facets": [
     {
@@ -13270,22 +13412,33 @@
         "card printer",
         "id card printer",
         "retransfer printer",
-        "بطاقات pvc",
-        "pvc card",
-        "بطاقه هويه"
+        "طابعه بطاقات pvc",
+        "pvc card printer",
+        "طابعه هويات",
+        "طابعه بطاقات هويه",
+        "وحده اصدار بطاقات",
+        "وحدة إصدار بطاقات",
+        "card issuance",
+        "card issuer",
+        "card issuing",
+        "بطاقات هويه ذكيه اصدار"
        ],
        "weak_terms": [
-        "بطاقات",
-        "cards",
-        "بطاقه"
+        "طابعه",
+        "printer"
        ],
        "context_terms": [
-        "pvc",
-        "تشفير",
-        "هويه",
-        "طباعه",
+        "card",
+        "cards",
+        "dye sublimation",
         "hologram",
-        "dye sublimation"
+        "id",
+        "pvc",
+        "بطاقات",
+        "بطاقه",
+        "تشفير",
+        "طباعه",
+        "هويه"
        ],
        "facets": [
         {
@@ -13296,8 +13449,12 @@
          "name": "credential_type",
          "supplier_pool_affecting": false
         }
-       ]
+       ],
+       "note": "The printer, never the card it prints: a card-printer supplier is not a blank-card supplier. Blank PVC cards are the sibling intent pvc_cards in card_consumables, same family, different pool."
       }
+     ],
+     "preferred_archetypes": [
+      "printing_supplier"
      ]
     },
     {
@@ -13480,6 +13637,145 @@
        ]
       }
      ]
+    },
+    {
+     "id": "card_consumables",
+     "label_ar": "البطاقات البلاستيكية ومستلزمات الطباعة",
+     "strong_terms": [],
+     "weak_terms": [],
+     "context_terms": [
+      "pvc",
+      "cr80",
+      "بيضاء",
+      "فارغه",
+      "blank",
+      "مطبوعه",
+      "printable",
+      "هويه"
+     ],
+     "preferred_archetypes": [
+      "card_consumables_supplier"
+     ],
+     "allowed_archetypes": [
+      "printing_supplier",
+      "it_hardware_supplier",
+      "general_trading"
+     ],
+     "intents": [
+      {
+       "id": "pvc_cards",
+       "label_ar": "بطاقات PVC فارغة",
+       "strong_terms": [
+        "بطاقات pvc",
+        "بطاقه pvc",
+        "pvc card",
+        "pvc cards",
+        "blank card",
+        "blank cards",
+        "blank pvc cards",
+        "بطاقات بيضاء",
+        "بطاقات فارغه",
+        "بطاقات طباعه",
+        "printable cards",
+        "بطاقات بلاستيكيه",
+        "plastic cards",
+        "بطاقات هويه",
+        "بطاقه هويه",
+        "id cards",
+        "cr80 cards",
+        "smart card",
+        "smart cards",
+        "بطاقه ذكيه",
+        "بطاقات ذكيه"
+       ],
+       "weak_terms": [
+        "بطاقات",
+        "cards",
+        "بطاقه",
+        "card"
+       ],
+       "context_terms": [
+        "pvc",
+        "cr80",
+        "بيضاء",
+        "فارغه",
+        "blank",
+        "مطبوعه",
+        "printable",
+        "هويه",
+        "id",
+        "mil",
+        "ميكرون"
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "بطاقات pvc",
+          "بطاقه pvc",
+          "pvc card",
+          "pvc cards",
+          "blank card",
+          "blank cards",
+          "blank pvc cards",
+          "بطاقات بيضاء",
+          "بطاقات فارغه",
+          "بطاقات طباعه",
+          "printable cards",
+          "بطاقات بلاستيكيه",
+          "plastic cards",
+          "بطاقات هويه",
+          "بطاقه هويه",
+          "id cards",
+          "cr80 cards",
+          "بطاقات",
+          "cards",
+          "بطاقه",
+          "card",
+          "smart card",
+          "smart cards",
+          "بطاقه ذكيه",
+          "بطاقات ذكيه"
+         ],
+         "block_any": [
+          "طابعه",
+          "printer",
+          "print head",
+          "printhead",
+          "ribbon",
+          "ريبون",
+          "قارئ",
+          "reader",
+          "تحكم بالدخول",
+          "access control",
+          "rfid",
+          "mifare",
+          "proximity",
+          "برنامج",
+          "software",
+          "اصدار",
+          "إصدار",
+          "issuance",
+          "issuer",
+          "issuing",
+          "encoder",
+          "وحده",
+          "unit",
+          "جهاز",
+          "device"
+         ],
+         "note": "The card, never the printer that prints it nor the reader that reads it: those are card_printers and the access-control credentials, each its own supplier pool."
+        }
+       ],
+       "facets": [
+        {
+         "name": "credential_type",
+         "supplier_pool_affecting": false
+        }
+       ],
+       "note": "Split from card_printers in cpo-v10: a supplier who sells card printers is not thereby a supplier of blank cards, and matching runs on the intent."
+      }
+     ],
+     "note": "Blank cards are a consumables trade. A card-printer supplier is ALLOWED here (it often stocks cards) but never PREFERRED: preference belongs to the supplier who names the cards."
     }
    ]
   },
@@ -18217,7 +18513,14 @@
     "b3",
     "b5",
     "ie3",
-    "efficiency"
+    "efficiency",
+    "volt",
+    "volts",
+    "phase",
+    "ie2",
+    "ie4",
+    "فولت",
+    "كيلو واط"
    ],
    "supplier_terms": [
     "مواتير",
@@ -18253,6 +18556,10 @@
     },
     {
      "name": "voltage",
+     "supplier_pool_affecting": false
+    },
+    {
+     "name": "power_kw",
      "supplier_pool_affecting": false
     }
    ],

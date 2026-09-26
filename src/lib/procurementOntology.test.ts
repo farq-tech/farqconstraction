@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v9')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v10')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -1203,9 +1203,10 @@ describe('access_control corrections', () => {
     expect(JSON.stringify(FAMILIES)).not.toContain('كالب')
   })
 
-  it('PVC cards belong to card printing, not access control', () => {
+  it('PVC cards belong to the card family, not access control, and not to the printer', () => {
     const r = resolve('توريد بطاقات PVC للطباعة')
-    expect(r.intent).toBe('card_printers')
+    expect(r.family).toBe('it_peripherals')
+    expect(r.intent).toBe('pvc_cards')
     expect(r.category).not.toBe('access_control')
   })
 
@@ -1443,6 +1444,17 @@ describe('batch pooling and levels', () => {
     expect(batch.pools.length).toBe(2)
     const steel = batch.pools.find((p) => p.intent === 'structural_steel_section')!
     expect(steel.line_ids.length).toBe(3)
+  })
+
+  it('earthwork is work: no sand supplier is asked to price an excavation', () => {
+    for (const line of ['حفر وردم ودك', 'أعمال حفر وردم ودك للتأسيس', 'Excavation backfilling and compaction']) {
+      const r = resolveOntology(line)
+      expect(r.level, line).toBe('unresolved')
+      expect(r.debug.not_supply, line).toBe(true)
+      expect(r.poolable, line).toBe(false)
+    }
+    // Naming the material still buys it.
+    expect(resolveOntology('توريد رمل ردم').family).toBe('aggregates_fill')
   })
 
   it('a labour-only line is flagged not_supply and never pooled', () => {
@@ -2447,4 +2459,120 @@ describe('cpo-v9: supplier prose is its own register', () => {
       expect(evaluateSupplier(s, sprinkler).verdict).toBe('PREFERRED')
     }
   })
+})
+
+
+/**
+ * cpo-v10. Two findings from the 1,650-row stress booklet.
+ *
+ * English technical lines arrived intact from the reader and left without a
+ * family: «Power cable 4x35mm2», «PVC Pipe DN110», «Motor 220V 2kW». Not a
+ * translation problem — a vocabulary one: the aliases were Arabic, and the
+ * unit glued to its number («220V», «DN110») hid the context word the
+ * three-tier rule needed. Every intent now carries both languages and the
+ * shorthand is normalised on both sides of the match.
+ *
+ * And blank PVC cards were the same intent as the printer that prints them,
+ * so a card-printer supplier was a specialist in blank cards. One family for
+ * grouping, two intents for matching.
+ */
+describe('cpo-v10: English technical lines resolve, and attributes are read', () => {
+  const cases: Array<[string, string, string | null, Record<string, string>]> = [
+    ['Power cable 4x35mm2', 'power_cables', null, { cable_cores: '4', cross_section_mm2: '35' }],
+    ['LV cable 4x35 mm²', 'power_cables', null, { cable_cores: '4', cross_section_mm2: '35' }],
+    ['XLPE cable 4x70mm2', 'power_cables', null, { cable_cores: '4', cross_section_mm2: '70' }],
+    ['electrical cable 3x2.5mm2', 'power_cables', null, { cable_cores: '3', cross_section_mm2: '2.5' }],
+    ['كابل كهرباء 4x35 مم2', 'power_cables', null, { cable_cores: '4', cross_section_mm2: '35' }],
+    ['كابل قدرة', 'power_cables', null, {}],
+    ['PVC Pipe DN110', 'pipes_fittings', null, { material: 'pvc', diameter: '110' }],
+    ['UPVC pipe DN 110', 'pipes_fittings', null, { material: 'pvc', diameter: '110' }],
+    ['CPVC pipe 2 inch', 'pipes_fittings', null, { diameter: '2' }],
+    ['plastic pipe 110mm', 'pipes_fittings', null, {}],
+    ['Steel Pipe DN110', 'pipes_fittings', null, { material: 'steel', diameter: '110' }],
+    ['Copper Pipe DN110', 'pipes_fittings', null, { material: 'copper', diameter: '110' }],
+    ['مواسير pvc', 'pipes_fittings', null, { material: 'pvc' }],
+    ['Motor 220V 2kW', 'electric_motors', null, { voltage: '220', power_kw: '2' }],
+    ['Motor 380V 2kW', 'electric_motors', null, { voltage: '380', power_kw: '2' }],
+    ['electric motor 5.5 kW', 'electric_motors', 'induction_motor', { power_kw: '5.5' }],
+    ['محرك كهربائي 3 حصان', 'electric_motors', 'induction_motor', { power_kw: '3' }],
+  ]
+  for (const [line, family, intent, facets] of cases) {
+    it(`${line} → ${family}${intent ? '/' + intent : ''}`, () => {
+      const r = resolveOntology(line)
+      expect(r.level, line).not.toBe('unresolved')
+      expect(r.family, line).toBe(family)
+      if (intent) expect(r.intent, line).toBe(intent)
+      for (const [name, value] of Object.entries(facets)) expect(r.facets[name], `${line} · ${name}`).toBe(value)
+    })
+  }
+
+  it('the shorthand is one form on both sides of the match', () => {
+    expect(normalizeProcurementText('35 mm2')).toBe(normalizeProcurementText('35mm²'))
+    expect(normalizeProcurementText('220 V')).toBe(normalizeProcurementText('220V'))
+    expect(normalizeProcurementText('DN 110')).toBe(normalizeProcurementText('DN110'))
+    expect(normalizeProcurementText('2 kW')).toBe(normalizeProcurementText('2kW'))
+    expect(normalizeProcurementText('2.5mm2')).toContain('2.5')
+    // Product names keep their digits glued.
+    expect(normalizeProcurementText('cat6 om3 ip54 m20')).toBe('cat6 om3 ip54 m20')
+  })
+
+  it('a rating written as a term still meets the same rating on a line', () => {
+    expect(resolveOntology('قاطع MCCB 160A').intent).toBe('mccb')
+    expect(resolveOntology('MCCB 160 A 3P').intent).toBe('mccb')
+  })
+})
+
+describe('cpo-v10: blank cards and the printer are one family and two pools', () => {
+  const cards = ['بطاقات PVC', 'PVC cards', 'blank PVC cards', 'بطاقات PVC بيضاء', 'توريد بطاقات هوية PVC فارغة']
+  const printers = ['طابعة بطاقات', 'طابعة بطاقات PVC', 'PVC card printer', 'ID card printer', 'توريد طابعة بطاقات PVC هوية مع تشفير']
+  for (const line of cards) {
+    it(`${line} → it_peripherals / pvc_cards`, () => {
+      const r = resolveOntology(line)
+      expect(r.family).toBe('it_peripherals')
+      expect(r.intent).toBe('pvc_cards')
+    })
+  }
+  for (const line of printers) {
+    it(`${line} → it_peripherals / card_printers`, () => {
+      const r = resolveOntology(line)
+      expect(r.family).toBe('it_peripherals')
+      expect(r.intent).toBe('card_printers')
+    })
+  }
+  it('supplier matching keys on the intent: the two never share a pool', () => {
+    expect(resolveOntology('بطاقات PVC').pool_key).not.toBe(resolveOntology('طابعة بطاقات').pool_key)
+    expect(resolveOntology('بطاقات PVC').cache_key).not.toBe(resolveOntology('طابعة بطاقات').cache_key)
+  })
+  it('a card-printer supplier is not preferred for blank cards, and the card supplier not for printers', () => {
+    const cards = resolveOntology('بطاقات PVC بيضاء')
+    const printer = resolveOntology('طابعة بطاقات PVC')
+    const printerOnly = 'مؤسسة طباعة البطاقات — طابعات بطاقات وأحبار'
+    const cardsOnly = 'شركة البطاقات البلاستيكية — بطاقات PVC ومستلزمات بطاقات'
+    expect(evaluateSupplier(cardsOnly, cards).verdict).toBe('PREFERRED')
+    expect(evaluateSupplier(printerOnly, cards).verdict).not.toBe('PREFERRED')
+    expect(evaluateSupplier(cardsOnly, printer).verdict).not.toBe('PREFERRED')
+  })
+})
+
+describe('cpo-v10: sibling intents that share a word never share a pool', () => {
+  const pairs: Array<[string, string]> = [
+    ['Fiber optic cable 24 core', 'Power cable 4x35mm2'],
+    ['كابل ألياف بصرية 24 كور', 'كابل نحاس 4x25 مم2'],
+    ['رشاش ري pop-up', 'رشاش حريق upright'],
+    ['Irrigation sprinkler head', 'Fire sprinkler K80 pendent'],
+    ['مواسير كهرباء EMT', 'مواسير مياه PPR'],
+    ['electrical conduit 25mm', 'water pipe DN25'],
+    ['بطاقات PVC', 'طابعة بطاقات PVC'],
+    ['كاميرا حرارية أمنية perimeter', 'كاميرا حرارية للفحص والصيانة'],
+  ]
+  for (const [a, b] of pairs) {
+    it(`${a} ≠ ${b}`, () => {
+      const ra = resolveOntology(a)
+      const rb = resolveOntology(b)
+      expect(ra.level, a).not.toBe('unresolved')
+      expect(rb.level, b).not.toBe('unresolved')
+      expect(ra.pool_key, `${a} vs ${b}`).not.toBe(rb.pool_key)
+      expect(`${ra.family}/${ra.intent}`).not.toBe(`${rb.family}/${rb.intent}`)
+    })
+  }
 })

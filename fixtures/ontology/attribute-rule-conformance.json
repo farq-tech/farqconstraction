@@ -61,7 +61,7 @@
       "text": "كابل نحاس XLPE مقاس 4x16 مم2 جهد 0.6/1kV",
       "term": "كابل نحاس",
       "note": "product before size and voltage",
-      "normalized": "كابل نحاس xlpe مقاس 4x16 مم2 جهد 0 6 1kv",
+      "normalized": "كابل نحاس xlpe مقاس 4x16 مم2 جهد 0.6 1 kv",
       "term_index": 0,
       "decides": true
     },
@@ -85,7 +85,7 @@
       "text": "صاج معدني مجلفن سماكة 0.7 مم",
       "term": "صاج معدني",
       "note": "genuine metal sheet still decides",
-      "normalized": "صاج معدني مجلفن سماكه 0 7 مم",
+      "normalized": "صاج معدني مجلفن سماكه 0.7 مم",
       "term_index": 0,
       "decides": true
     },
@@ -157,7 +157,7 @@
       "text": "كابل تيار خفيف 2x1.5",
       "term": "تيار خفيف",
       "note": "ELV cable: a BOQ line, not a supplier quirk",
-      "normalized": "كابل تيار خفيف 2x1 5",
+      "normalized": "كابل تيار خفيف 2x1.5",
       "term_index": 5,
       "decides": true
     },
