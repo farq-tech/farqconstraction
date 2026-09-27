@@ -882,6 +882,62 @@ export async function getConstructionRfqBooklet(rfqId: string): Promise<Construc
   }
 }
 
+/**
+ * «الاسم الدارج بالسوق» remembered from earlier requests (the API's market-name
+ * memory). Both calls are memory only: nothing here asks a model, and a server
+ * without the memory (404/501) reads as «nothing remembered».
+ */
+export type NameSynonymSuggestion = {
+  market_name_ar: string
+  booklet_text: string | null
+  source: 'MODEL' | 'BUYER' | 'SEED'
+  confirmed: boolean
+  uses: number
+}
+
+export type NameSynonymHit = { market_name_ar: string; source: 'MODEL' | 'BUYER' | 'SEED'; confirmed: boolean }
+
+function memoryUnavailable(err: unknown): boolean {
+  return err instanceof ConstructionApiError && (err.status === 404 || err.status === 501)
+}
+
+export async function searchNameSynonyms(q: string, options: { signal?: AbortSignal } = {}): Promise<NameSynonymSuggestion[]> {
+  const text = String(q || '').replace(/\s+/g, ' ').trim()
+  if (text.length < 2) return []
+  try {
+    const result = await request<{ suggestions?: NameSynonymSuggestion[] } | null>(
+      `/api/construction/name-synonyms?q=${encodeURIComponent(text.slice(0, 120))}`,
+      { signal: options.signal },
+    )
+    return Array.isArray(result?.suggestions) ? result!.suggestions : []
+  } catch (err) {
+    if (memoryUnavailable(err)) return []
+    throw err
+  }
+}
+
+/** One answer per line, in order: the remembered name, or null. */
+export async function lookupNameSynonyms(
+  lines: Array<{ name: string; spec?: string }>,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<Array<NameSynonymHit | null>> {
+  if (!lines.length) return []
+  try {
+    const result = await request<{ lines?: Array<NameSynonymHit | null> } | null>('/api/construction/name-synonyms/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lines: lines.map((line) => ({ name: line.name, spec: line.spec || '' })) }),
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
+    })
+    const out = Array.isArray(result?.lines) ? result!.lines : []
+    return lines.map((_, index) => out[index] ?? null)
+  } catch (err) {
+    if (memoryUnavailable(err)) return lines.map(() => null)
+    throw err
+  }
+}
+
 export async function getConstructionProjects(): Promise<{ projects: ConstructionProject[] }> {
   return request<{ projects: ConstructionProject[] }>('/api/construction/projects')
 }

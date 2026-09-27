@@ -52,6 +52,8 @@ export type ParsedLine = {
    * never instead of it. Absent when the reader had none.
    */
   marketName?: string
+  /** 'memory' when the server named this line from the market-name memory. */
+  marketNameSource?: 'memory'
 }
 
 const UNIT_NORMALIZE: Record<string, string> = {
@@ -780,6 +782,7 @@ export async function matchSuppliersForItems(
           : undefined,
       itemCode: line.itemCode,
       ...(line.marketName ? { marketName: line.marketName } : {}),
+      ...(line.marketName && line.marketNameSource ? { marketNameSource: line.marketNameSource } : {}),
     })
 
     if (items.length % lineChunk === 0 || items.length === cleanLines.length) {
@@ -1213,6 +1216,8 @@ const SPEC_ALIASES = ['المواصفة الفنية', 'specification', 'spec'] 
 const NOTES_ALIASES = ['ملاحظات', 'notes'] as const
 /** The optional seventh column the server's AI/vision readers add. */
 const MARKET_NAME_HEADER = 'الاسم الدارج بالسوق'
+/** The optional eighth column: MEMORY when the seventh came from the name memory. */
+const MARKET_SOURCE_HEADER = 'مصدر الاسم الدارج'
 const ID_ALIASES = ['البند', 'item no', 'item #', 'no', '#'] as const
 
 const HEADER_NAME_RE =
@@ -1422,6 +1427,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
   const idCol = farqShaped ? -1 : headers.length ? columnIndex(headers, ID_ALIASES) : -1
   // Exact header only: a fuzzy alias must never turn another column into a name.
   const marketCol = headers.length ? headers.indexOf(normalizeHeaderCell(MARKET_NAME_HEADER)) : -1
+  const marketSourceCol = headers.length ? headers.indexOf(normalizeHeaderCell(MARKET_SOURCE_HEADER)) : -1
 
   const dataStart = headerIndex >= 0 ? headerIndex + 1 : 0
   const out: ParsedLine[] = []
@@ -1439,6 +1445,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     let idHint: number | null = null
     let notesText = ''
     let marketRaw = ''
+    let marketSource = ''
 
     if (nameCol >= 0) {
       name = cellAt(row, nameCol)
@@ -1449,6 +1456,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       const notes = cellAt(row, notesCol)
       notesText = notes
       marketRaw = cellAt(row, marketCol)
+      marketSource = cellAt(row, marketSourceCol)
       idHint = extractBoqItemNumber(notes)
       if (idCol >= 0) {
         const rawId = Number(cellAt(row, idCol))
@@ -1500,6 +1508,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       spec,
       ...facts,
       ...(marketName ? { marketName } : {}),
+      ...(marketName && marketSource.trim().toUpperCase() === 'MEMORY' ? { marketNameSource: 'memory' as const } : {}),
     })
   }
   return sanitizeBoqLines(out)
@@ -1522,6 +1531,49 @@ export type BoqReadFacts = {
   descriptionColumnDetail?: string
   codedItemsSuspect?: boolean
   codedItemsDetail?: string
+}
+
+const NAME_MEMORY_TIMEOUT_MS = 4_000
+const NAME_MEMORY_MAX_LINES = 3_000
+
+type NameMemoryLookup = (
+  lines: Array<{ name: string; spec?: string }>,
+  options: { timeoutMs?: number },
+) => Promise<Array<{ market_name_ar: string } | null>>
+
+/**
+ * «الاسم الدارج بالسوق» from the market-name memory for lines that have none.
+ * A line the server already named (reader or memory) is not asked again, and
+ * pure-work lines have nothing to buy. Any failure returns the lines as they
+ * were.
+ */
+export async function applyNameMemory<T extends ParsedLine>(
+  lines: T[],
+  lookup?: NameMemoryLookup,
+): Promise<T[]> {
+  const ask = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => !line.marketName && !line.workOnly && String(line.name || '').trim())
+    .slice(0, NAME_MEMORY_MAX_LINES)
+  if (!ask.length) return lines
+  try {
+    const call: NameMemoryLookup =
+      lookup || (await import('../api/constructionClient')).lookupNameSynonyms
+    const hits = await Promise.race([
+      call(ask.map(({ line }) => ({ name: line.name, spec: line.spec || '' })), { timeoutMs: NAME_MEMORY_TIMEOUT_MS }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), NAME_MEMORY_TIMEOUT_MS + 500)),
+    ])
+    if (!Array.isArray(hits) || !hits.some(Boolean)) return lines
+    const out = [...lines]
+    ask.forEach(({ line, index }, i) => {
+      const name = marketNameFor(hits[i]?.market_name_ar, line.name)
+      if (name) out[index] = { ...line, marketName: name, marketNameSource: 'memory' as const }
+    })
+    return out
+  } catch (err) {
+    console.warn('Market-name memory unavailable; lines kept as read', err)
+    return lines
+  }
 }
 
 export async function parseBoqFile(
@@ -1676,7 +1728,12 @@ async function parseBoqFileInner(
     table,
     fileName: file.name,
   })
-  const { lines, source, projectName, specsFromApi } = resolved
+  const { source, projectName, specsFromApi } = resolved
+  // Lines read here in the browser (text, CSV, the local column reader) never
+  // met the server's name memory: ask it — memory only, never a model — for
+  // the ones without a name. Capped and silent: without an answer the lines
+  // read exactly as before.
+  const lines = await applyNameMemory(resolved.lines)
   work({ kind: 'end', leg: 'resolve' })
 
   // What the booklet says it contains versus what we produced. Reported on every
@@ -1858,6 +1915,7 @@ async function parseBoqFileInner(
         suppliers: [],
         lineKey: `line-${line.id}`,
         ...(line.marketName ? { marketName: line.marketName } : {}),
+        ...(line.marketName && line.marketNameSource ? { marketNameSource: line.marketNameSource } : {}),
       })),
       projectName,
       documentId,

@@ -85,6 +85,12 @@ export interface BOQItem {
    */
   marketName?: string
   /**
+   * 'memory': `marketName` came from the market-name memory (a name a buyer
+   * sent, or the reader proposed, for the same booklet wording before) — shown
+   * as «محفوظ من طلب سابق». Absent: the reader's own suggestion, or none.
+   */
+  marketNameSource?: 'memory'
+  /**
    * The ontology NAMED this material and Farq's intent→supplier map was read
    * for that name. Not a catalogue match: `farqSpecId` stays unset and nothing
    * is preselected. `supplierCount: 0` means «معروف بلا مورد» — a fact about
