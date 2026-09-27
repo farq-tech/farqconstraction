@@ -58,6 +58,10 @@ export type ConversationListProps = {
   tabNote?: ReactNode
   /** Mark whole conversations read or unread (listed invites, or 'all'). */
   onMarkThreads?: (target: string[] | 'all', read: boolean) => Promise<{ messages?: number } | void>
+  /** Filter button, «محفوظاتي» and the active filter chips, under the tabs. */
+  filterBar?: ReactNode
+  /** Extra chips on a row (channel, what the reply means) — only what is known. */
+  rowBadges?: (thread: ConstructionInboxThread) => ReactNode
 }
 
 export function ConversationList({
@@ -79,6 +83,8 @@ export function ConversationList({
   emptyState,
   tabNote,
   onMarkThreads,
+  filterBar,
+  rowBadges,
 }: ConversationListProps) {
   const [query, setQuery] = useState('')
   const [selecting, setSelecting] = useState(false)
@@ -172,6 +178,7 @@ export function ConversationList({
           )}
         </div>
         {tabNote}
+        {filterBar}
         {onMarkThreads && threads.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px]">
             {!selecting ? (
@@ -243,6 +250,7 @@ export function ConversationList({
               const selected = activeKey != null && key === activeKey
               const time = listTimeLabel(thread.last_received_at, now)
               const reference = thread.request_context?.reference
+              const badges = rowBadges?.(thread)
               return (
                 <li key={key}>
                   <button
@@ -296,8 +304,8 @@ export function ConversationList({
                           </span>
                         )}
                       </div>
-                      {(reference || thread.needs_reply) && (
-                        <div className="flex items-center gap-1.5 mt-1">
+                      {(reference || thread.needs_reply || badges) && (
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {reference && (
                             <bdi className="truncate text-[10px] text-neutral-500 bg-neutral-100 rounded-md px-1.5 py-0.5">
                               {reference}
@@ -308,6 +316,7 @@ export function ConversationList({
                               تحتاج ردًا
                             </span>
                           )}
+                          {badges}
                         </div>
                       )}
                     </div>

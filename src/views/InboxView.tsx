@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { NavProps } from '../types'
 import { apiUnreachableAdvice } from '../api/apiBase'
 import {
@@ -6,12 +6,15 @@ import {
   constructionRateLimitSec,
   getConstructionGmailStatus,
   getConstructionInboxStatus,
+  getConstructionMe,
+  getConstructionRfqBooklet,
   isOutboundInviteSnapshot,
   listConstructionInboxThreads,
   startConstructionGmailConnect,
   type ConstructionGmailStatus,
   type ConstructionInboxStatus,
   type ConstructionInboxThread,
+  type ConstructionInboxThreadDetail,
   type ConstructionInboxThreadsResult,
   markConstructionInboxThreads,
 } from '../api/constructionClient'
@@ -20,6 +23,73 @@ import { ChatPane } from '../components/inbox/ChatPane'
 import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
 import { useFillViewport } from '../components/inbox/useFillViewport'
 import { applyThreadReadState } from '../lib/inboxChat'
+import { ChannelBadge, ReplyMeaningChip } from '../components/inbox/Badges'
+import {
+  FilterPanel,
+  FilterToolbar,
+  NoFilterResults,
+  type BookletOption,
+  type RequestOption,
+} from '../components/inbox/InboxFilterControls'
+import {
+  activeChips,
+  activeFilterCount,
+  applyFilters,
+  deleteSavedView,
+  emptyFilters,
+  hasAccountData,
+  loadSavedViews,
+  noResultSuggestion,
+  removeCriterion,
+  saveView,
+  suggestViewName,
+  threadFacts,
+  unknownFacts,
+  type BookletLink,
+  type FilterContext,
+  type InboxFilters,
+  type Labels,
+  type SavedView,
+  type ThreadInsight,
+} from '../lib/inboxFilters'
+
+/** What an opened conversation tells the filters that its list row does not. */
+export function insightFromDetail(detail: ConstructionInboxThreadDetail): ThreadInsight {
+  const inbound = (detail.messages || []).filter((m) => m.direction === 'INBOUND')
+  const last = inbound[inbound.length - 1]
+  return {
+    channel: last?.channel ?? null,
+    replyKind: last?.reply_kind ?? null,
+    // Only a complete thread can say «no attachment»; a partial one only «yes».
+    hasFiles: inbound.some((m) => (m.files || []).length > 0) ? true : detail.older_than ? undefined : false,
+  }
+}
+
+/** Booklet links are read once per request for the whole session. */
+const bookletLinkCache = new Map<string, Promise<BookletLink | null>>()
+function bookletLinkFor(rfqId: string): Promise<BookletLink | null> {
+  const hit = bookletLinkCache.get(rfqId)
+  if (hit) return hit
+  const promise = getConstructionRfqBooklet(rfqId)
+    .then((link) =>
+      link
+        ? {
+            bookletId: link.booklet_id,
+            reference: link.reference,
+            waveNumber: link.wave_number,
+            waves: Array.isArray(link.waves) ? link.waves.length : typeof link.waves === 'number' ? link.waves : null,
+          }
+        : null,
+    )
+    .catch(() => {
+      bookletLinkCache.delete(rfqId)
+      return null
+    })
+  bookletLinkCache.set(rfqId, promise)
+  return promise
+}
+/** At most this many booklet lookups per panel opening — the API limiter is shared. */
+const BOOKLET_LOOKUPS = 12
 
 function readGmailReturnQuery(): { status: string | null; error: string | null } {
   try {
@@ -150,6 +220,16 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const [error, setError] = useState<string | null>(null)
   /** Default وارد — not «الكل» which mixes DISPATCH invite spam from the API. */
   const [tab, setTab] = useState<InboxTab>('inbound')
+  /** Applied filters. Only `rfqId` reaches the server; the rest filter the loaded rows. */
+  const [filters, setFilters] = useState<InboxFilters>(() => emptyFilters())
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
+  const [savedViews, setSavedViews] = useState<SavedView[]>(() => loadSavedViews())
+  /** Facts learnt from conversations opened in this session, keyed by invite. */
+  const [insights, setInsights] = useState<Record<string, ThreadInsight>>({})
+  const [meId, setMeId] = useState<string | null>(null)
+  const [bookletByRfq, setBookletByRfq] = useState<Record<string, BookletLink | null>>({})
+  /** Every request seen in this session's lists, so its pill survives a server-side filter. */
+  const [knownRequests, setKnownRequests] = useState<Record<string, { reference: string; count: number }>>({})
 
   const applyGmailStatus = (g: ConstructionGmailStatus) => {
     setGmail(g)
@@ -244,9 +324,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         if (!cancelled) applyGmailFailure(err)
       })
 
+    const rfqFilter = filters.rfqId
     Promise.all([
       getConstructionInboxStatus(),
-      listConstructionInboxThreads({ filter: apiFilter }),
+      listConstructionInboxThreads({ filter: apiFilter, rfq_id: rfqFilter }),
     ])
       .then(([inboxStatus, threadResult]) => {
         if (cancelled) return
@@ -256,6 +337,24 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         const visible = applyInboxTab(tab, raw)
         setThreads(visible)
         setTotal(displayTotal(tab, visible, threadResult))
+        setKnownRequests((prev) => {
+          const next = rfqFilter ? { ...prev } : {}
+          const counts: Record<string, { reference: string; count: number }> = {}
+          for (const row of visible) {
+            const id = row.request_context?.rfq_id
+            if (!id) continue
+            const entry = counts[id] || { reference: row.request_context?.reference || id.slice(0, 8), count: 0 }
+            entry.count += 1
+            counts[id] = entry
+          }
+          // Without a request filter the loaded page is the reference; with one,
+          // only that request's count is refreshed and the others are kept.
+          if (!rfqFilter) {
+            for (const [id, known] of Object.entries(prev)) next[id] = { ...known, count: 0 }
+          }
+          for (const [id, entry] of Object.entries(counts)) next[id] = entry
+          return next
+        })
       })
       .catch((err: Error) => {
         if (cancelled) return
@@ -279,7 +378,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     return () => {
       cancelled = true
     }
-  }, [tab, reloadKey])
+  }, [tab, reloadKey, filters.rfqId])
 
   const handleGmailConnect = async () => {
     if (connectInFlight.current) return
@@ -485,6 +584,95 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         : rows,
     )
   }, [])
+
+  const handleDetail = useCallback((inviteId: string, detail: ConstructionInboxThreadDetail) => {
+    setInsights((prev) => ({ ...prev, [inviteId]: { ...prev[inviteId], ...insightFromDetail(detail) } }))
+  }, [])
+
+  const handleQuoteVersion = useCallback((inviteId: string, version: number | null) => {
+    setInsights((prev) =>
+      prev[inviteId]?.quoteVersion === version ? prev : { ...prev, [inviteId]: { ...prev[inviteId], quoteVersion: version } },
+    )
+  }, [])
+
+  // The panel needs who «me» is (for «محادثاتي») and which booklet each loaded
+  // request belongs to. Both are read only when the panel opens, and cached.
+  useEffect(() => {
+    if (!filterPanelOpen) return
+    let cancelled = false
+    if (meId == null) {
+      getConstructionMe()
+        .then((me) => {
+          if (!cancelled && me?.user_id) setMeId(String(me.user_id))
+        })
+        .catch(() => {})
+    }
+    const pending = Object.keys(knownRequests)
+      .filter((id) => !(id in bookletByRfq))
+      .slice(0, BOOKLET_LOOKUPS)
+    ;(async () => {
+      for (const id of pending) {
+        const link = await bookletLinkFor(id)
+        if (cancelled) return
+        setBookletByRfq((prev) => ({ ...prev, [id]: link }))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterPanelOpen])
+
+  const filterCtx = useMemo<FilterContext>(
+    () => ({ now: Date.now(), meId, insights, bookletByRfq }),
+    [meId, insights, bookletByRfq],
+  )
+  const labels = useMemo<Labels>(
+    () => ({
+      request: (id) => knownRequests[id]?.reference,
+      booklet: (id) => {
+        const link = Object.values(bookletByRfq).find((l) => l?.bookletId === id)
+        return link?.reference || null
+      },
+    }),
+    [knownRequests, bookletByRfq],
+  )
+  const filteredThreads = useMemo(() => applyFilters(threads, filters, filterCtx), [threads, filters, filterCtx])
+  const chips = useMemo(() => activeChips(threads, filters, filterCtx, labels), [threads, filters, filterCtx, labels])
+  const filtersActive = activeFilterCount(filters) > 0
+  const requestOptions = useMemo<RequestOption[]>(
+    () =>
+      Object.entries(knownRequests)
+        .sort((a, b) => b[1].count - a[1].count || a[1].reference.localeCompare(b[1].reference))
+        .map(([rfqId, known]) => {
+          const link = bookletByRfq[rfqId]
+          const wave = link?.waveNumber && link.waves && link.waves > 1 ? ` · دفعة ${link.waveNumber} من ${link.waves}` : ''
+          return { rfqId, label: `${known.reference}${wave}`, count: known.count || null }
+        }),
+    [knownRequests, bookletByRfq],
+  )
+  const bookletOptions = useMemo<BookletOption[]>(() => {
+    const byBooklet = new Map<string, { label: string; rfqs: Set<string> }>()
+    for (const [rfqId, link] of Object.entries(bookletByRfq)) {
+      if (!link) continue
+      const entry = byBooklet.get(link.bookletId) || { label: `كراسة ${link.reference || link.bookletId.slice(0, 8)}`, rfqs: new Set<string>() }
+      entry.rfqs.add(rfqId)
+      byBooklet.set(link.bookletId, entry)
+    }
+    return [...byBooklet.entries()]
+      .map(([bookletId, entry]) => ({
+        bookletId,
+        label: entry.label,
+        count: threads.filter((t) => entry.rfqs.has(String(t.request_context?.rfq_id || ''))).length,
+      }))
+      // A booklet is worth its own pill only when it spans more than one loaded request.
+      .filter((b) => byBooklet.get(b.bookletId)!.rfqs.size > 1 || filters.bookletId === b.bookletId)
+  }, [bookletByRfq, threads, filters.bookletId])
+
+  const applyFilterSet = (next: InboxFilters) => {
+    setFilters(next)
+    setFilterPanelOpen(false)
+  }
 
   const closeDetail = () => {
     setActiveId(null)
@@ -714,15 +902,38 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           ? { height: viewport.height, marginBottom: viewport.marginBottom }
           : { height: 'calc(100dvh - 8rem)' }
       }
-      className="flex overflow-hidden bg-white lg:border-s border-neutral-200"
+      className="relative flex overflow-hidden bg-white lg:border-s border-neutral-200"
     >
+      {filterPanelOpen && (
+        <>
+          <div className="absolute inset-0 z-30 bg-[#0D1F1D]/5" aria-hidden="true" onClick={() => setFilterPanelOpen(false)} />
+          <div className="absolute z-40 inset-2 lg:inset-auto lg:top-3 lg:bottom-3 lg:start-[372px] xl:start-[412px] lg:w-[min(720px,calc(100%-392px))] xl:w-[min(720px,calc(100%-432px))] flex flex-col">
+            <FilterPanel
+              initial={filters}
+              threads={threads}
+              ctx={filterCtx}
+              labels={labels}
+              requests={requestOptions}
+              booklets={bookletOptions}
+              showAccount={hasAccountData(threads)}
+              unknown={unknownFacts(threads, filterCtx)}
+              onApply={applyFilterSet}
+              onSave={(name, next) => {
+                setSavedViews(saveView(name, next))
+                applyFilterSet(next)
+              }}
+              onClose={() => setFilterPanelOpen(false)}
+            />
+          </div>
+        </>
+      )}
       {/* First child = the right-hand pane in RTL, where Arabic WhatsApp keeps its list. */}
       <section
         aria-label="قائمة المحادثات"
         className={`${detailOpen ? 'hidden lg:flex' : 'flex'} flex-col min-h-0 w-full lg:w-[360px] xl:w-[400px] lg:flex-shrink-0 lg:border-e border-neutral-200`}
       >
         <ConversationList
-          threads={threads}
+          threads={filteredThreads}
           loading={loading}
           error={error}
           rateLimitSec={rateLimitSec}
@@ -804,7 +1015,44 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               </p>
             ) : null
           }
-          emptyState={emptyState}
+          emptyState={
+            filtersActive && threads.length > 0 ? (
+              <NoFilterResults
+                suggestion={noResultSuggestion(threads, filters, filterCtx, labels)}
+                onClearAll={() => setFilters(emptyFilters())}
+                onRemove={(chip) => setFilters((f) => removeCriterion(f, chip.criterion))}
+              />
+            ) : (
+              emptyState
+            )
+          }
+          filterBar={
+            <FilterToolbar
+              activeCount={activeFilterCount(filters)}
+              panelOpen={filterPanelOpen}
+              onTogglePanel={() => setFilterPanelOpen((open) => !open)}
+              chips={chips}
+              onRemoveChip={(chip) => setFilters((f) => removeCriterion(f, chip.criterion))}
+              onClearAll={() => setFilters(emptyFilters())}
+              savedViews={savedViews}
+              viewCount={(view) => applyFilters(threads, view.filters, filterCtx).length}
+              onApplyView={(view) => applyFilterSet(view.filters)}
+              onDeleteView={(view) => setSavedViews(deleteSavedView(view.id))}
+              onSaveCurrent={(name) => setSavedViews(saveView(name, filters))}
+              suggestedName={suggestViewName(filters, labels)}
+              summary={filtersActive && !loading && !error ? `${filteredThreads.length} من ${threads.length}` : null}
+            />
+          }
+          rowBadges={(thread) => {
+            const facts = threadFacts(thread, filterCtx)
+            if (!facts.channel && !facts.meaning) return null
+            return (
+              <>
+                {facts.channel && <ChannelBadge channel={facts.channel} short={facts.channel === 'email'} />}
+                {facts.meaning && <ReplyMeaningChip meaning={facts.meaning} />}
+              </>
+            )
+          }}
         />
       </section>
 
@@ -821,6 +1069,8 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
             onBack={closeDetail}
             onOpenRfq={(rfqId) => openRfq(rfqId, 'rfq-detail')}
             onUnreadKnown={handleUnreadKnown}
+            onDetail={handleDetail}
+            onQuoteVersion={handleQuoteVersion}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#F7F6F2]">
