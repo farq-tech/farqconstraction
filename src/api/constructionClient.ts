@@ -1472,7 +1472,7 @@ export function formatChannelLabel(channel: string): string {
   const key = String(channel || '').toUpperCase()
   if (key === 'EMAIL') return 'بريد'
   if (key === 'WHATSAPP') return 'واتساب'
-  if (key === 'HARAJ') return 'حراج'
+  if (key === 'HARAJ') return 'محادثة'
   return channel || '—'
 }
 
@@ -1676,7 +1676,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         city: (s.city as string | undefined) || undefined,
         evidence,
         learned: s.learned_choice === true,
-        channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
+        channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
         rfq_eligible: false,
       }
     })
@@ -1973,7 +1973,7 @@ export async function matchConstructionBoqCatalog(payload: {
               ? 'دليل منتج'
               : 'من الكتالوج',
           learned: s.learned_choice === true,
-          channel: channels.email ? 'بريد' : isHaraj ? 'حراج' : 'واتساب',
+          channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
       }),

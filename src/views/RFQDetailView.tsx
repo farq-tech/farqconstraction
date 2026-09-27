@@ -30,7 +30,7 @@ const TABS: [Tab, string][] = [
   ['log', 'السجل'],
 ]
 
-const CHANNEL_LABEL: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'حراج' }
+const CHANNEL_LABEL: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'محادثة' }
 
 /** Where one supplier stands, in the buyer's words, with the colour that says it. */
 function supplierStage(invite: { response_status?: string; opened_at?: string | null; dispatch_attempts?: Array<{ status: string; channel: string }> }): { label: string; cls: string } {
@@ -146,7 +146,7 @@ export function RFQDetailView({ navigate }: NavProps) {
         const channel = invitePreferredChannel(invite)
         const supplierId = String(invite.supplier?.id || invite.supplier_id || '')
         setDispatchProgress(
-          `إرسال ${i + 1}/${pending.length} (${channel === 'HARAJ' ? 'حراج' : channel === 'WHATSAPP' ? 'واتساب' : 'بريد'})…`,
+          `إرسال ${i + 1}/${pending.length} (${channel === 'HARAJ' ? 'محادثة' : channel === 'WHATSAPP' ? 'واتساب' : 'بريد'})…`,
         )
         if (channel === 'WHATSAPP') {
           try {

@@ -94,7 +94,7 @@ function statusLabel(status: InviteRowStatus): string {
 
 function channelAr(channel: LiveProgress['channel'] | InviteProgressRow['channel']): string {
   if (channel === 'EMAIL') return 'بريد'
-  if (channel === 'HARAJ') return 'حراج'
+  if (channel === 'HARAJ') return 'محادثة'
   if (channel === 'WHATSAPP') return 'واتساب'
   return 'تحضير'
 }
@@ -515,7 +515,7 @@ export function SendModal({
     const supplierId = String(invite.supplier?.id || invite.supplier_id || '')
     const startedAt = Date.now()
     touchActivity({
-      step: `حراج ${index + 1}/${total} (قد ينتظر ≥20ث)`,
+      step: `محادثة ${index + 1}/${total} (قد ينتظر ≥20ث)`,
       index: index + 1,
       total,
       supplierName: name,
@@ -524,7 +524,7 @@ export function SendModal({
     })
     updateRow(invite.id, {
       status: 'sending',
-      detail: 'حراج — تباعد ≥20ث بين الرسائل أمر طبيعي',
+      detail: 'محادثة — تباعد ≥20ث بين الرسائل أمر طبيعي',
       startedAt,
     })
     const ctrl = beginAbortable()
@@ -538,7 +538,7 @@ export function SendModal({
       activeAbortsRef.current.delete(ctrl)
       updateRow(invite.id, {
         status: 'sent',
-        detail: 'حراج · قبول المزوّد',
+        detail: 'محادثة · قبول المزوّد',
         code: 'SENT',
         finishedAt: Date.now(),
       })
@@ -558,7 +558,7 @@ export function SendModal({
       }
       updateRow(invite.id, {
         status: 'failed',
-        detail: err instanceof Error ? err.message : 'فشل حراج',
+        detail: err instanceof Error ? err.message : 'فشلت المحادثة',
         code: err instanceof ConstructionApiError ? err.code : 'SEND_FAILED',
         finishedAt: Date.now(),
       })
@@ -571,7 +571,7 @@ export function SendModal({
     const attempts = invite.dispatch_attempts || []
     const ok = attempts.find((a) => a.status === 'SENT')
     if (ok) {
-      const label = ok.channel === 'WHATSAPP' ? 'واتساب · أُرسل من رقم فرق' : ok.channel === 'HARAJ' ? 'حراج · أُرسل' : 'بريد · قبله مزود البريد'
+      const label = ok.channel === 'WHATSAPP' ? 'واتساب · أُرسل من رقم فرق' : ok.channel === 'HARAJ' ? 'محادثة · أُرسلت' : 'بريد · قبله مزود البريد'
       updateRow(invite.id, { status: 'sent', detail: label, code: 'SENT', finishedAt: Date.now() })
       return 'sent' as const
     }
@@ -607,7 +607,7 @@ export function SendModal({
     for (const invite of invites) {
       const channel = invitePreferredChannel(invite)
       if (channel === 'HARAJ' && !opts.includeHaraj) {
-        updateRow(invite.id, { status: 'skipped', detail: 'مؤجّل — «إرسال حراج الآن» بعد الدفعة.', code: 'DEFERRED_FAST_MODE' })
+        updateRow(invite.id, { status: 'skipped', detail: 'مؤجّل — «إرسال المحادثات الآن» بعد الدفعة.', code: 'DEFERRED_FAST_MODE' })
       } else if (channel === 'WHATSAPP' && !waPaid) {
         updateRow(invite.id, { status: 'pending', detail: 'رابط واتساب ويب بعد الدفعة' })
       } else {
@@ -692,7 +692,7 @@ export function SendModal({
       (opts.sendHaraj ? harajInvites.length : 0)
 
     touchActivity({
-      step: `مسار سريع: بريد (${emailInvites.length}) ← واتساب (${waInvites.length}) ← حراج (${opts.sendHaraj ? harajInvites.length : 0} ${opts.sendHaraj ? '' : 'مؤجّل'})`,
+      step: `مسار سريع: بريد (${emailInvites.length}) ← واتساب (${waInvites.length}) ← محادثة (${opts.sendHaraj ? harajInvites.length : 0} ${opts.sendHaraj ? '' : 'مؤجّل'})`,
       index: 0,
       total: Math.max(totalWork, invites.length),
       channel: 'SETUP',
@@ -776,7 +776,7 @@ export function SendModal({
       for (const invite of harajInvites) {
         updateRow(invite.id, {
           status: 'skipped',
-          detail: 'مؤجّل — وضع الإرسال السريع (بريد أولًا). يمكنك إرسال حراج لاحقًا.',
+          detail: 'مؤجّل — وضع الإرسال السريع (بريد أولًا). يمكنك إرسال المحادثات لاحقًا.',
           code: 'DEFERRED_FAST_MODE',
         })
       }
@@ -824,7 +824,7 @@ export function SendModal({
     setError(null)
     const batchStartedAt = Date.now()
     setLive({
-      step: 'إرسال حراج المؤجّل…',
+      step: 'إرسال المحادثات المؤجّلة…',
       index: 0,
       total: deferredHaraj.length,
       supplierName: '—',
@@ -834,19 +834,19 @@ export function SendModal({
       inviteStartedAt: null,
     })
     for (const invite of deferredHaraj) {
-      updateRow(invite.id, { status: 'pending', detail: 'في طابور حراج…', code: undefined })
+      updateRow(invite.id, { status: 'pending', detail: 'في طابور المحادثات…', code: undefined })
     }
     try {
       const result = await runServerDispatch(rfqId, deferredHaraj, { includeHaraj: true })
       setDeferredHaraj([])
       setPhase('done')
       if (result.cancelled) {
-        setError(`توقّف إرسال حراج. أُرسل ${result.sent} · فشل ${result.failed}.`)
+        setError(`توقّف إرسال المحادثات. أُرسل ${result.sent} · فشل ${result.failed}.`)
       } else if (result.failed > 0) {
-        setError(`حراج جزئي: أُرسل ${result.sent} · فشل ${result.failed}.`)
+        setError(`المحادثات جزئية: أُرسل ${result.sent} · فشل ${result.failed}.`)
       } else {
         touchActivity({
-          step: 'اكتمل حراج المؤجّل',
+          step: 'اكتملت المحادثات المؤجّلة',
           channel: 'HARAJ',
           index: deferredHaraj.length,
           total: deferredHaraj.length,
@@ -1084,7 +1084,7 @@ export function SendModal({
               ? `جزئي: أُرسل ${result.sent} · واتساب ${result.waPrepared} · فشل ${result.failed}.`
               : `تم البريد/واتساب: أُرسل ${result.sent} · واتساب ${result.waPrepared}.`,
             result.deferredHaraj.length
-              ? `${result.deferredHaraj.length} حراج مؤجّل — اضغط «إرسال حراج الآن» أو تابع للمراسلات.`
+              ? `${result.deferredHaraj.length} محادثة مؤجّلة — اضغط «إرسال المحادثات الآن» أو تابع للمراسلات.`
               : '',
           ]
             .filter(Boolean)
@@ -1114,7 +1114,7 @@ export function SendModal({
         err instanceof ConstructionApiError &&
         err.code === 'CONSTRUCTION_HARAJ_LIMIT_REQUIRED'
       ) {
-        setError('يلزم تمرير haraj_limit عند اختيار بائعي حراج.')
+        setError('يلزم تمرير haraj_limit عند اختيار موردي المحادثة.')
       } else {
         setError(err instanceof Error ? err.message : 'فشل إنشاء الطلب')
       }
@@ -1264,7 +1264,7 @@ export function SendModal({
                 <span>
                   <span className="block text-sm font-bold text-[#0D1F1D]">إرسال سريع: بريد أولًا</span>
                   <span className="block text-[11px] text-neutral-500 leading-relaxed mt-0.5">
-                    يرسل البريد وواتساب ويؤجّل حراج لزر منفصل. بدون هذا الخيار يُرسل حراج تلقائيًا في نفس الدفعة بعدهما.
+                    يرسل البريد وواتساب ويؤجّل المحادثات لزر منفصل. بدون هذا الخيار تُرسل المحادثات تلقائيًا في نفس الدفعة بعدهما.
                   </span>
                 </span>
               </label>
@@ -1317,7 +1317,7 @@ export function SendModal({
 
               {harajSelected > 0 && (
                 <p className="text-xs text-[#123F3A] mb-4 leading-relaxed bg-[#f0faf7] rounded-xl px-3 py-2">
-                  {harajSelected} بائع حراج —{' '}
+                  {harajSelected} مورد محادثة —{' '}
                   {fastEmailFirst
                     ? 'سيُؤجَّلون لزر منفصل بعد البريد.'
                     : `يُرسلون تلقائيًا بعد البريد وواتساب، رسالة كل 20 ثانية (قرابة ${Math.max(1, Math.ceil((harajSelected * 20) / 60))} دقيقة). أبقِ الصفحة مفتوحة حتى ينتهي.`}
@@ -1394,7 +1394,7 @@ export function SendModal({
               {isStalled && (
                 <div className="mt-2 text-xs font-semibold text-amber-900 leading-relaxed">
                   {live.channel === 'HARAJ'
-                    ? 'قد يكون متوقفًا أو ينتظر حراج (تباعد ≥20ث) — انتظر أو ألغِ.'
+                    ? 'قد يكون متوقفًا أو ينتظر المحادثات (تباعد ≥20ث) — انتظر أو ألغِ.'
                     : 'لا نشاط منذ فترة — شبكة/API قد يكون معلّقًا. يمكنك الإلغاء.'}
                 </div>
               )}
@@ -1457,7 +1457,7 @@ export function SendModal({
               {phase === 'done' && (
                 <p className="text-xs text-neutral-500 pt-1">
                   أُرسل {sentCount} · واتساب {waCount} · فشل {failedCount}
-                  {deferredCount > 0 ? ` · حراج مؤجّل ${deferredCount}` : ''}
+                  {deferredCount > 0 ? ` · محادثة مؤجّلة ${deferredCount}` : ''}
                 </p>
               )}
             </div>
@@ -1496,7 +1496,7 @@ export function SendModal({
                 onClick={handleSendHarajDeferred}
                 className="w-full py-3 text-sm font-bold text-[#123F3A] border border-[#123F3A] rounded-xl disabled:opacity-50"
               >
-                إرسال حراج الآن ({deferredHaraj.length}) — بطيء ≥20ث لكل بائع
+                إرسال المحادثات الآن ({deferredHaraj.length}) — بطيء ≥20ث لكل بائع
               </button>
             )}
             {canContinue && (

@@ -278,7 +278,7 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
         return
       }
       if (replyChannel === 'HARAJ' && files.length) {
-        setError('محادثة حراج تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.')
+        setError('هذه المحادثة تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.')
         return
       }
       const attachments = files.length ? await readConstructionInboxAttachments(files) : []

@@ -720,7 +720,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
 
 function friendlyFailure(code?: string | null): string {
   const c = String(code || '')
-  if (/HARAJ_SESSION/.test(c)) return 'جلسة حراج غير متاحة الآن. حاول بعد دقائق.'
+  if (/HARAJ_SESSION/.test(c)) return 'قناة المحادثة غير متاحة الآن. حاول بعد دقائق.'
   if (/REFUSED|RATE/.test(c)) return 'رفض المزوّد الإرسال مؤقتًا. حاول لاحقًا.'
   if (/HTTP_4|INVALID/.test(c)) return 'عنوان المورد غير صالح.'
   if (/MANUAL_WHATSAPP/.test(c)) return 'هذا المورد له واتساب فقط — أرسل له من شاشة الإرسال.'
@@ -880,7 +880,7 @@ function BroadcastDialog({ rfqId, count, onClose }: { rfqId: string; count: numb
     <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
       <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-black text-[#0D1F1D] mb-1">رسالة لكل الموردين</h2>
-        <p className="text-sm text-neutral-600 mb-3">تصل لـ{count} موردين، كل مورد في محادثته وعلى نفس قناته (حراج أو بريد). الخادم يرسلها واحدة واحدة، ويمكنك إغلاق النافذة.</p>
+        <p className="text-sm text-neutral-600 mb-3">تصل لـ{count} موردين، كل مورد في محادثته وعلى نفس قناته (محادثة أو بريد). الخادم يرسلها واحدة واحدة، ويمكنك إغلاق النافذة.</p>
         {!status ? (
           <>
             <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={4000} className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm min-h-32" placeholder="اكتب الرسالة…" />

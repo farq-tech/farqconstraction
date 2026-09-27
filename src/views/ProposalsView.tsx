@@ -34,7 +34,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
 const CHANNEL_ICON: Record<string, string> = {
   'بريد': '✉',
   'واتساب': '🟢',
-  'حراج': '🏷',
+  'محادثة': '🏷',
 }
 
 interface CatalogHit {
@@ -282,7 +282,7 @@ function BOQCard({
       name: hit.name,
       city: hit.city,
       evidence: 'اختيارك',
-      channel: hit.hasEmail ? 'بريد' : hit.hasHaraj ? 'حراج' : 'واتساب',
+      channel: hit.hasEmail ? 'بريد' : hit.hasHaraj ? 'محادثة' : 'واتساب',
     })
     setSearch('')
     setHits([])

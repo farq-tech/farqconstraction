@@ -30,7 +30,7 @@ export type AppView =
  * catalog returned the supplier and nothing says how strong the link is.
  */
 export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
-export type ChannelType = 'بريد' | 'واتساب' | 'حراج'
+export type ChannelType = 'بريد' | 'واتساب' | 'محادثة'
 
 export interface Supplier {
   id: string

@@ -550,7 +550,7 @@ function mapApiSuppliers(
           : // Never grade a supplier by its position in the list.
             'من الكتالوج'
       const channel: Supplier['channel'] =
-        s.channel === 'واتساب' ? 'واتساب' : s.channel === 'حراج' ? 'حراج' : 'بريد'
+        s.channel === 'واتساب' ? 'واتساب' : s.channel === 'محادثة' ? 'محادثة' : 'بريد'
       return {
         id: s.id,
         name: String(s.name_ar || s.name_en || s.id).trim(),

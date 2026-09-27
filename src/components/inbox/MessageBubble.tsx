@@ -122,9 +122,9 @@ export function ChannelTag({ channel }: { channel?: string | null }) {
   }
   if (key === 'HARAJ') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#2F6CB5]/12 text-[#2F6CB5] px-1.5 py-0.5 text-[9px] font-bold" title="حراج">
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#2F6CB5]/12 text-[#2F6CB5] px-1.5 py-0.5 text-[9px] font-bold" title="محادثة">
         <span className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-[3px] bg-[#2F6CB5] text-white text-[7px] leading-none">ح</span>
-        حراج
+        محادثة
       </span>
     )
   }

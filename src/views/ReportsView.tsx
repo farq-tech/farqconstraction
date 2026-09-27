@@ -19,7 +19,7 @@ import {
  * instead of being estimated.
  */
 const PERIODS: Array<[string, number | null]> = [['اليوم', 1], ['7 أيام', 7], ['30 يومًا', 30], ['هذا الربع', 90], ['هذه السنة', 365], ['كل الفترات', null]]
-const CHANNEL_AR: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'حراج' }
+const CHANNEL_AR: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'محادثة' }
 const BUCKET_AR: Record<string, string> = { H1: 'أقل من ساعة', H4: '1–4 ساعات', H12: '4–12 ساعة', H24: '12–24 ساعة', D3: '1–3 أيام', D3P: 'أكثر من 3 أيام', NONE: 'لم يرد' }
 const BUCKET_ORDER = ['H1', 'H4', 'H12', 'H24', 'D3', 'D3P', 'NONE']
 const STATUS_AR: Record<string, string> = { SENT: 'بانتظار العروض', PARTIALLY_SENT: 'أُرسل جزئيًا', CLOSED: 'مغلق', DRAFT_NOT_SENT: 'لم يُرسل', DISPATCHING: 'جارٍ الإرسال', CANCELLED: 'ملغى' }

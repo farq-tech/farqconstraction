@@ -26,7 +26,7 @@ type RowFilter = 'received' | 'all' | 'pending' | 'sent'
 
 function formatAttempt(channel: string, status: string): string {
   const ch =
-    channel === 'EMAIL' ? 'بريد' : channel === 'WHATSAPP' ? 'واتساب' : channel === 'HARAJ' ? 'حراج' : channel
+    channel === 'EMAIL' ? 'بريد' : channel === 'WHATSAPP' ? 'واتساب' : channel === 'HARAJ' ? 'محادثة' : channel
   const st =
     status === 'SENT' || status === 'DELIVERED'
       ? 'أُرسل'

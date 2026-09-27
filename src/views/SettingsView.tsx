@@ -214,7 +214,7 @@ export function SettingsView({ navigate }: NavProps) {
           detail="رابط واتساب تفتحه أنت وترسله بنفسك: متاح دائمًا"
         />
         <ChannelRow
-          label="حراج"
+          label="محادثة"
           on={channels.haraj}
           detail="HARAJ_SEND_ENABLED + HARAJ_USER_ID + HARAJ_TOKEN · يلزم haraj_limit"
         />

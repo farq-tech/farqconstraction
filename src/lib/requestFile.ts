@@ -49,7 +49,7 @@ export type SupplierState = {
   channel?: string
 }
 
-const CHANNEL_AR: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'حراج' }
+const CHANNEL_AR: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'محادثة' }
 
 /**
  * Where the request stands with one supplier. «Sent» means an attempt the

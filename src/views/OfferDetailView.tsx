@@ -137,7 +137,7 @@ export function OfferDetailView({ navigate }: NavProps) {
       const harajAttempt = attempts.find((a) => a.channel === 'HARAJ')
       if (isHaraj && harajAttempt) {
         setSendNote(
-          `حراج: ${formatDispatchAttemptStatus(harajAttempt.status)}${
+          `محادثة: ${formatDispatchAttemptStatus(harajAttempt.status)}${
             harajAttempt.failure_code ? ` · ${harajAttempt.failure_code}` : ''
           }`,
         )
@@ -244,7 +244,7 @@ export function OfferDetailView({ navigate }: NavProps) {
   })
   const attempts = invite.dispatch_attempts || []
   const alreadySent = String(invite.delivery_status || '').toUpperCase() === 'SENT'
-  const sendLabel = isHaraj ? 'إرسال عبر حراج' : 'إرسال البريد'
+  const sendLabel = isHaraj ? 'إرسال عبر المحادثة' : 'إرسال البريد'
 
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
@@ -266,7 +266,7 @@ export function OfferDetailView({ navigate }: NavProps) {
         القناة المفضّلة: {formatChannelLabel(preferred)}
         {hasEmail ? ' · بريد متاح' : ''}
         {hasWhatsapp ? ' · واتساب متاح' : ''}
-        {isHaraj ? ' · بائع حراج' : ''}
+        {isHaraj ? '' : ''}
       </p>
 
       <div className="grid sm:grid-cols-3 gap-3 mb-6">
@@ -350,7 +350,7 @@ export function OfferDetailView({ navigate }: NavProps) {
           </div>
         </div>
         <p className="text-[11px] text-neutral-400 mb-3 leading-relaxed">
-          بريد عبر Resend · حراج عند التفعيل · واتساب ويب يدوي دائمًا. Cloud WhatsApp يعمل فقط إذا أظهر
+          بريد عبر Resend · المحادثات عند التفعيل · واتساب ويب يدوي دائمًا. Cloud WhatsApp يعمل فقط إذا أظهر
           `/status` القناة ON وبعد موافقة صريحة (`send_consent`) و`WHATSAPP_ENABLED` — SENT = قبول المزوّد.
         </p>
         {sendNote && <p className="text-xs text-[#123F3A] mb-3">{sendNote}</p>}
