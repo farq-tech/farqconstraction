@@ -92,3 +92,19 @@ describe('captureSupplierLink', () => {
     expect(b.replaced).toEqual([])
   })
 })
+
+describe('the «رسالة جديدة» email link (?supplier_token=…&tab=chat)', () => {
+  it('reads tab=chat and nothing else as a tab', () => {
+    expect(readSupplierLink(`?supplier_token=${TOKEN}&tab=chat`)).toEqual({ token: TOKEN, intent: null, tab: 'chat' })
+    expect(readSupplierLink(`?supplier_token=${TOKEN}&tab=quote`)?.tab).toBeUndefined()
+    expect(readSupplierLink(`?supplier_token=${TOKEN}`)?.tab).toBeUndefined()
+  })
+  it('captures it and takes both token and tab out of the address bar', () => {
+    const b = fakeBrowser(`https://construction.farq.sa/?supplier_token=${TOKEN}&tab=chat`)
+    expect(captureSupplierLink(b.env)).toEqual({ token: TOKEN, intent: null, tab: 'chat' })
+    expect(b.replaced).toEqual(['/?view=supplier'])
+  })
+  it('leaves tab alone on pages that are not a supplier link', () => {
+    expect(stripSupplierLink({ pathname: '/', search: '?view=inbox&tab=chat', hash: '' })).toBe('/?view=inbox&tab=chat')
+  })
+})

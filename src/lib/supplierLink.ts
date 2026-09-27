@@ -7,7 +7,8 @@
  * The portal's own documented shape is `/?view=supplier&token=<token>`.
  * Both land on SupplierPortalView here; nothing about the links already
  * delivered has to change. `&intent=decline` (the «لست أنت؟» link) is kept
- * for the portal to read.
+ * for the portal to read, and so is `&tab=chat` (the «رسالة جديدة» email opens
+ * the conversation of that request).
  *
  * The token is a 30-day bearer credential. It is lifted out of the address
  * bar as soon as it is read (no Referer, no history entry, no screenshot of
@@ -19,7 +20,8 @@
  */
 
 export type SupplierIntent = 'decline'
-export type SupplierLink = { token: string; intent: SupplierIntent | null }
+export type SupplierTab = 'chat'
+export type SupplierLink = { token: string; intent: SupplierIntent | null; tab?: SupplierTab }
 
 /** Same key the farq.sa Construction page uses for the same token. */
 export const SUPPLIER_TOKEN_STORAGE_KEY = 'farq_supplier_token'
@@ -45,7 +47,9 @@ export function readSupplierLink(search: string): SupplierLink | null {
   const raw = params.get('supplier_token') || (params.get('view') === 'supplier' ? params.get('token') : null) || ''
   const token = raw.trim()
   if (!TOKEN.test(token)) return null
-  return { token, intent: params.get('intent') === 'decline' ? 'decline' : null }
+  const link: SupplierLink = { token, intent: params.get('intent') === 'decline' ? 'decline' : null }
+  if (params.get('tab') === 'chat') link.tab = 'chat'
+  return link
 }
 
 /** The address without the token (and its intent); `view=supplier` stays so a reload routes back here. */
@@ -55,6 +59,7 @@ export function stripSupplierLink(location: LocationLike): string {
   params.delete('supplier_token')
   if (params.get('view') === 'supplier') params.delete('token')
   params.delete('intent')
+  if (supplier) params.delete('tab')
   if (supplier) params.set('view', 'supplier')
   const rest = params.toString()
   return `${location.pathname}${rest ? `?${rest}` : ''}${location.hash}`

@@ -144,7 +144,9 @@ export function SupplierPortalView(_props: NavProps) {
       const first = legacyInvite?.invite_id || list[0]?.invite_id || null
       setSelectedId(first)
       setScreen(first ? 'request' : 'list')
-      setTab(legacyInvite ? 'quote' : 'status')
+      // «رسالة جديدة» email: `&tab=chat` opens the conversation of the linked request.
+      const openChat = link?.tab === 'chat' && Boolean(legacyInvite) && held.account.status !== 'DECLINED'
+      setTab(openChat ? 'chat' : legacyInvite ? 'quote' : 'status')
       if (link?.intent === 'decline' && held.account.status !== 'DECLINED') setDeclineOpen(true)
       setPhase('ready')
       return
