@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { NavProps } from '../types'
 import { ClockIcon } from '../icons'
 import { useProcurement } from '../procurementContext'
+import MarketNameNote from '../components/MarketNameNote'
+import { lineMarketName } from '../lib/marketName'
 import { rfqClosing, rfqProjectName } from '../lib/rfqIdentity'
 import {
   formatArDate,
@@ -406,6 +408,7 @@ export function RFQDetailView({ navigate }: NavProps) {
                     {/* Line's own text first; the catalog name is a fallback. */}
                     {String(line.original_name || line.name_ar || line.farq_spec_id || 'بند')}
                   </div>
+                  <MarketNameNote name={lineMarketName(line)} />
                   <div className="text-xs text-neutral-400">
                     {String(line.quantity ?? '—')} {String(line.uom || '')}
                   </div>

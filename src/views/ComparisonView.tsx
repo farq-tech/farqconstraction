@@ -6,6 +6,7 @@ import {
   type ConstructionComparison,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
+import MarketNameNote from '../components/MarketNameNote'
 
 /**
  * Side-by-side prices for one request.
@@ -125,6 +126,7 @@ export function ComparisonView({ navigate }: NavProps) {
                 <tr key={line.id} className="border-b border-neutral-50 align-top">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-[#0D1F1D]">{line.name_ar || line.name_en || '—'}</div>
+                    <MarketNameNote name={line.market_name_ar} />
                     <div className="text-xs text-neutral-400">{line.quantity} {line.uom}</div>
                   </td>
                   {responses.map((r) => {

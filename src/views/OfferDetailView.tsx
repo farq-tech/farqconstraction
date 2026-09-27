@@ -107,6 +107,7 @@ export function OfferDetailView({ navigate }: NavProps) {
         line_key: line.line_key != null ? String(line.line_key) : undefined,
         quantity: line.quantity as string | number | undefined,
         uom: line.uom != null ? String(line.uom) : undefined,
+        market_name_ar: line.market_name_ar != null ? String(line.market_name_ar) : undefined,
       })),
     })
   }, [rfq, invite])

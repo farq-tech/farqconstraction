@@ -46,6 +46,12 @@ export type ParsedLine = {
   codeVerified?: boolean
   /** Pure work (excavation, backfill…): nothing to buy, so nothing to match. */
   workOnly?: boolean
+  /**
+   * «الاسم الدارج بالسوق»: the reader's suggestion of the name suppliers use,
+   * checked on the server against this row's own text. Shown BESIDE `name`,
+   * never instead of it. Absent when the reader had none.
+   */
+  marketName?: string
 }
 
 const UNIT_NORMALIZE: Record<string, string> = {
@@ -773,6 +779,7 @@ export async function matchSuppliersForItems(
           ? true
           : undefined,
       itemCode: line.itemCode,
+      ...(line.marketName ? { marketName: line.marketName } : {}),
     })
 
     if (items.length % lineChunk === 0 || items.length === cleanLines.length) {
@@ -1204,6 +1211,8 @@ const QTY_ALIASES = ['الكمية', 'quantity', 'qty'] as const
 const UOM_ALIASES = ['الوحدة', 'unit', 'uom'] as const
 const SPEC_ALIASES = ['المواصفة الفنية', 'specification', 'spec'] as const
 const NOTES_ALIASES = ['ملاحظات', 'notes'] as const
+/** The optional seventh column the server's AI/vision readers add. */
+const MARKET_NAME_HEADER = 'الاسم الدارج بالسوق'
 const ID_ALIASES = ['البند', 'item no', 'item #', 'no', '#'] as const
 
 const HEADER_NAME_RE =
@@ -1381,6 +1390,14 @@ function serverReadFacts(notes: string): Pick<ParsedLine, 'itemCode' | 'codeVeri
   return { itemCode: code || undefined, codeVerified: true, workOnly: /عمل بلا توريد/.test(text) || undefined }
 }
 
+/** A market-name cell worth showing: text, not a header, not the booklet name again. */
+export function marketNameFor(raw: unknown, bookletName: string): string | undefined {
+  const text = String(raw ?? '').replace(/\s+/g, ' ').trim()
+  if (!text || isHeaderLabel(text) || foldHeader(text) === foldHeader(MARKET_NAME_HEADER)) return undefined
+  if (foldHeader(text) === foldHeader(bookletName)) return undefined
+  return text.slice(0, 240)
+}
+
 export function rowsToLines(rows: unknown[]): ParsedLine[] {
   if (!Array.isArray(rows) || rows.length === 0) return []
 
@@ -1403,6 +1420,8 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
   const specCol = farqShaped ? 3 : headers.length ? columnIndex(headers, SPEC_ALIASES) : -1
   const notesCol = farqShaped ? 5 : headers.length ? columnIndex(headers, NOTES_ALIASES) : -1
   const idCol = farqShaped ? -1 : headers.length ? columnIndex(headers, ID_ALIASES) : -1
+  // Exact header only: a fuzzy alias must never turn another column into a name.
+  const marketCol = headers.length ? headers.indexOf(normalizeHeaderCell(MARKET_NAME_HEADER)) : -1
 
   const dataStart = headerIndex >= 0 ? headerIndex + 1 : 0
   const out: ParsedLine[] = []
@@ -1419,6 +1438,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     let spec: string | undefined
     let idHint: number | null = null
     let notesText = ''
+    let marketRaw = ''
 
     if (nameCol >= 0) {
       name = cellAt(row, nameCol)
@@ -1428,6 +1448,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       if (specVal && !isHeaderLabel(specVal)) spec = specVal
       const notes = cellAt(row, notesCol)
       notesText = notes
+      marketRaw = cellAt(row, marketCol)
       idHint = extractBoqItemNumber(notes)
       if (idCol >= 0) {
         const rawId = Number(cellAt(row, idCol))
@@ -1470,6 +1491,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     }
     usedIds.add(id)
 
+    const marketName = marketNameFor(marketRaw, cleanedName)
     out.push({
       id,
       name: cleanedName,
@@ -1477,6 +1499,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       unit: normalizeUnit(String(unitRaw || 'عدد')),
       spec,
       ...facts,
+      ...(marketName ? { marketName } : {}),
     })
   }
   return sanitizeBoqLines(out)
@@ -1834,6 +1857,7 @@ async function parseBoqFileInner(
         supplierCount: 0,
         suppliers: [],
         lineKey: `line-${line.id}`,
+        ...(line.marketName ? { marketName: line.marketName } : {}),
       })),
       projectName,
       documentId,

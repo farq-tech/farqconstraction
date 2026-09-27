@@ -182,8 +182,11 @@ export type ConstructionComparison = {
     complete_quote_count: number
     lines: Array<{
       id: string
+      /** The booklet's own text (Arabic when the booklet had it). */
       name_ar: string
       name_en?: string
+      /** «الاسم الدارج بالسوق», when the request carried one. */
+      market_name_ar?: string
       quantity: number
       uom: string
       offers: Array<{
@@ -256,6 +259,10 @@ export type PublicSupplierInvite = {
     original_name?: string
     name_ar?: string
     name_en?: string
+    /** The booklet's own text for this line, as the buyer sent it. */
+    booklet_name_ar?: string | null
+    /** «الاسم الدارج بالسوق», when the buyer kept one. */
+    market_name_ar?: string
     item_note?: string | null
     technical_specification?: Record<string, unknown>
   }>
@@ -774,6 +781,8 @@ export type ConstructionBookletLine = {
   line_key: string
   position: number | null
   name_ar: string | null
+  /** «الاسم الدارج بالسوق», as the latest wave that carried one sent it. */
+  market_name_ar?: string
   quantity: number | null
   uom: string | null
 }

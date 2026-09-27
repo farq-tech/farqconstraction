@@ -30,6 +30,8 @@ export type BookletRow = {
   line_key: string
   position: number | null
   name: string
+  /** «الاسم الدارج بالسوق», when a wave carried one. Absent otherwise. */
+  market_name?: string
   quantity: number | null
   uom: string | null
   /** supplier_id → the offer; one per supplier per line. */
@@ -104,10 +106,13 @@ export function buildBookletMatrix(detail: Partial<ConstructionBookletDetail> | 
       const serverBest = entry?.best_supplier_id != null ? String(entry.best_supplier_id) : null
       const best = serverBest && cells.has(serverBest) ? serverBest : cheapestSupplier(offered)
       if (best) cells.get(best)!.best = true
+      const name = String(line.name_ar || '').trim() || '—'
+      const market = String(line.market_name_ar || '').trim()
       return {
         line_key: String(line.line_key),
         position: num(line.position),
-        name: String(line.name_ar || '').trim() || '—',
+        name,
+        ...(market && market !== name ? { market_name: market } : {}),
         quantity: num(line.quantity),
         uom: line.uom || null,
         cells,

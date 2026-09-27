@@ -16,6 +16,7 @@ import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
+import MarketNameField from '../components/MarketNameField'
 import { useProcurement } from '../procurementContext'
 
 type Filter = 'all' | 'ready' | 'needs'
@@ -58,6 +59,8 @@ interface BOQCardProps {
   onDelete: () => void
   /** «طيّ الكل / فتح الكل»: every card follows the latest request. */
   openAll: { open: boolean; at: number }
+  /** The buyer edited or cleared «الاسم الدارج بالسوق». */
+  onMarketName: (next: string) => void
 }
 
 const SUGGESTION_TONE = {
@@ -170,6 +173,7 @@ function BOQCard({
   onRejectSupplier,
   onDelete,
   openAll,
+  onMarketName,
 }: BOQCardProps) {
   const [expanded, setExpanded] = useState(openAll.open)
   useEffect(() => {
@@ -348,6 +352,11 @@ function BOQCard({
           </div>
         </div>
       </button>
+
+      {/* Only where the reader proposed one: every other card reads as before. */}
+      {item.marketName !== undefined && !item.workOnly && (
+        <MarketNameField value={item.marketName} bookletText={name} onCommit={onMarketName} />
+      )}
 
       {expanded && (
         <div className="px-5 pb-5 border-t border-neutral-50 pt-4">
@@ -728,6 +737,11 @@ export function ProposalsView({ navigate }: NavProps) {
   // at once, and «تراجع» puts it back where it was with its ticks.
   const [deleted, setDeleted] = useState<{ item: BOQItem; index: number; picks: string[] } | null>(null)
   const deletedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // «الاسم الدارج بالسوق»: '' keeps the field (cleared), and nothing is sent for it.
+  const setMarketName = (itemId: number, next: string) => {
+    persistItems(items.map((item) => (item.id === itemId ? { ...item, marketName: next } : item)))
+  }
+
   const deleteItem = (itemId: number) => {
     const index = items.findIndex((i) => i.id === itemId)
     if (index < 0) return
@@ -1051,6 +1065,7 @@ export function ProposalsView({ navigate }: NavProps) {
                     onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
                     onDelete={() => deleteItem(item.id)}
                     openAll={openAll}
+                    onMarketName={(next) => setMarketName(item.id, next)}
                   />
                 ))}
               </div>

@@ -8,6 +8,7 @@ import {
   type ConstructionBookletDetail,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
+import MarketNameNote from '../components/MarketNameNote'
 import {
   bookletDeadline,
   bookletMoney,
@@ -244,6 +245,7 @@ export function BookletView({ navigate }: NavProps) {
                         {row.position != null && <span className="text-neutral-400 tabular-nums me-1">{row.position}.</span>}
                         {row.name}
                       </div>
+                      <MarketNameNote name={row.market_name} />
                       <div className="text-xs text-neutral-400">{formatQuantity(row.quantity, row.uom)}</div>
                       {row.no_offers && (
                         <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">بلا عروض</span>

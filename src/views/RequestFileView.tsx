@@ -27,6 +27,8 @@ import {
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
 import { BookletChip } from '../components/BookletChip'
+import MarketNameNote from '../components/MarketNameNote'
+import { bookletText, lineMarketName } from '../lib/marketName'
 import {
   CELL_LABEL,
   buildTimeline,
@@ -85,15 +87,15 @@ function writeUrl(rfqId: string, tab: Tab, supplier: string | null) {
   }
 }
 
-function lineText(line: Record<string, unknown>): { name: string; spec: string } {
-  const name = String(line.original_name || line.name_ar || line.farq_spec_id || 'بند')
+function lineText(line: Record<string, unknown>): { name: string; spec: string; market: string } {
+  const name = String(bookletText(line) || line.farq_spec_id || 'بند')
   const tech = line.technical_specification
   const specParts = [
     typeof line.spec === 'string' ? line.spec : '',
     tech && typeof tech === 'object' ? Object.values(tech as Record<string, unknown>).filter((v) => typeof v === 'string').join(' — ') : '',
     typeof line.item_note === 'string' ? line.item_note : '',
   ].filter((v) => v && v.trim())
-  return { name, spec: specParts.join(' · ') }
+  return { name, spec: specParts.join(' · '), market: lineMarketName(line) }
 }
 
 export function RequestFileView({ navigate, initialTab }: NavProps & { initialTab?: Tab }) {
@@ -421,7 +423,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
           ) : (
             lines.map((line, index) => {
               const key = String(line.line_key || index)
-              const { name, spec } = lineText(line)
+              const { name, spec, market } = lineText(line)
               const open = expanded.has(key)
               const long = spec.length > 140
               return (
@@ -430,6 +432,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                     <span className="text-xs font-bold text-neutral-400 w-6 pt-0.5">{String(line.line_number ?? index + 1)}</span>
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-[#0D1F1D] text-sm">{name}</div>
+                      <MarketNameNote name={market} className="mt-0.5" />
                       {spec && (
                         <div className={`text-xs text-neutral-600 mt-1 leading-relaxed whitespace-pre-line ${long && !open ? 'line-clamp-2' : ''}`}>{spec}</div>
                       )}
@@ -525,6 +528,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                           <tr key={line.id}>
                             <td className="px-3 py-2.5 align-top">
                               <div className="font-semibold text-[#0D1F1D]">{line.name_ar}</div>
+                              <MarketNameNote name={line.market_name_ar} />
                               <div className="text-[11px] text-neutral-500">{line.quantity} {line.uom}</div>
                             </td>
                             {offers.map((row) => {
@@ -558,6 +562,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                     {sortedLines.map((line) => (
                       <div key={line.id} className="bg-white border border-neutral-100 rounded-2xl p-3">
                         <div className="font-bold text-[#0D1F1D] text-sm">{line.name_ar}</div>
+                        <MarketNameNote name={line.market_name_ar} />
                         <div className="text-[11px] text-neutral-500 mb-2">{line.quantity} {line.uom}</div>
                         <div className="divide-y divide-neutral-100">
                           {offers.map((row) => {

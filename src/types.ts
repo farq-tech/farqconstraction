@@ -79,6 +79,12 @@ export interface BOQItem {
   /** The item code the booklet prints for this row. */
   itemCode?: string
   /**
+   * «الاسم الدارج بالسوق (اقتراح)»: the reader's suggestion, which the buyer may
+   * edit or clear before sending. Sent beside the booklet text (`name`), never
+   * instead of it. Undefined: the reader had none. '': the buyer cleared it.
+   */
+  marketName?: string
+  /**
    * The ontology NAMED this material and Farq's intent→supplier map was read
    * for that name. Not a catalogue match: `farqSpecId` stays unset and nothing
    * is preselected. `supplierCount: 0` means «معروف بلا مورد» — a fact about

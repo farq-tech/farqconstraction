@@ -27,6 +27,8 @@ export type RfqEmailPreviewInput = {
     line_key?: string
     quantity?: number | string
     uom?: string
+    /** «الاسم الدارج بالسوق», when the buyer kept one: shown first, the booklet text under it. */
+    market_name_ar?: string
   }>
   /** Optional portal token; preview uses a placeholder when missing. */
   portalToken?: string | null
@@ -136,7 +138,12 @@ export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPrevi
 
   const rows = lines
     .map((line, index) => {
-      const name = escapeHtml(rfqLineLabel(line))
+      const market = String(line.market_name_ar || '').trim()
+      const booklet = rfqLineLabel(line)
+      const name = market && market !== booklet
+        ? `${escapeHtml(market)}</div>
+        <div style="margin-top:2px;color:#4d6a64;font-size:14px;line-height:1.7">كما في الكراسة: ${escapeHtml(booklet)}`
+        : escapeHtml(booklet)
       const en = line.name_en
         ? `<div dir="ltr" style="margin-top:2px;color:#69807a;font-size:13px;text-align:right">${escapeHtml(line.name_en)}</div>`
         : ''

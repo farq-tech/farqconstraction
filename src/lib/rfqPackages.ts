@@ -23,6 +23,8 @@ export type RfqLineDraft = {
   name_ar: string
   original_name: string
   original_description: string
+  /** «الاسم الدارج بالسوق», when the buyer kept one. Absent otherwise. */
+  market_name_ar?: string
 }
 
 /**
@@ -44,6 +46,7 @@ export function buildRfqLinesFromItems(
   const parseQty = input.parseQty || ((qty: string) => Number(String(qty).replace(/,/g, '')) || 1)
   return items.map((item) => {
     const lineKey = String(item.lineKey || `line-${item.id}`)
+    const market = marketNameToSend(item)
     return {
       line_key: lineKey,
       farq_spec_id: item.farqSpecId || input.specIdForLine?.(lineKey) || null,
@@ -56,8 +59,19 @@ export function buildRfqLinesFromItems(
       name_ar: item.name,
       original_name: item.name,
       original_description: item.spec || '',
+      // Beside the booklet text, never instead of it; a line without one is
+      // sent exactly as before.
+      ...(market ? { market_name_ar: market } : {}),
     }
   })
+}
+
+/** The market name the buyer kept for a line, or null (none, cleared, or a copy of the name). */
+export function marketNameToSend(item: Pick<BOQItem, 'name' | 'marketName'>): string | null {
+  const market = String(item.marketName || '').replace(/\s+/g, ' ').trim()
+  if (!market) return null
+  if (market === String(item.name || '').replace(/\s+/g, ' ').trim()) return null
+  return market.slice(0, 240)
 }
 
 export function departmentForBoqItem(item: Pick<BOQItem, 'name' | 'spec'>): string | null {

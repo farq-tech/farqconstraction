@@ -171,11 +171,24 @@ export function SupplierPortalView({ navigate }: NavProps) {
             <div className="space-y-3 mb-6">
               {invite.lines.map((line) => (
                 <div key={line.id} className="bg-white border border-neutral-100 rounded-2xl p-4">
-                  <div className="font-bold text-[#0D1F1D] text-sm mb-1">
-                    {/* The real item first: `name_ar` is a catalog label and is
-                        null for a line the catalog never matched. */}
-                    {line.original_name || line.name_ar || line.name_en || line.line_key}
-                  </div>
+                  {line.market_name_ar ? (
+                    <>
+                      {/* The name the market uses, large; the booklet's own
+                          text under it, unchanged. */}
+                      <div className="font-black text-[#0D1F1D] text-base leading-snug break-words">
+                        {line.market_name_ar}
+                      </div>
+                      <div className="text-xs text-neutral-500 mt-0.5 mb-1 leading-relaxed break-words">
+                        كما في الكراسة: {line.booklet_name_ar || line.original_name || line.name_ar || line.name_en || line.line_key}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="font-bold text-[#0D1F1D] text-sm mb-1">
+                      {/* The real item first: `name_ar` is a catalog label and is
+                          null for a line the catalog never matched. */}
+                      {line.original_name || line.name_ar || line.name_en || line.line_key}
+                    </div>
+                  )}
                   <div className="text-xs text-neutral-500 mb-3">
                     {line.quantity} {line.uom}
                     {line.item_note ? ` · ${line.item_note}` : ''}
