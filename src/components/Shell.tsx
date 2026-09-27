@@ -41,6 +41,13 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
         ].includes(v),
     },
     {
+      // One purchase request sent as several RFQs («دفعات»), compared as one.
+      id: 'booklets' as AppView,
+      label: 'الكراسات',
+      Icon: FileIcon,
+      active: (v: AppView) => v === 'booklets' || v === 'booklet-detail',
+    },
+    {
       id: 'inbox' as AppView,
       label: 'المراسلات',
       Icon: InboxIcon,
@@ -315,7 +322,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
+          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button

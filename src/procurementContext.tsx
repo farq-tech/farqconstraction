@@ -34,6 +34,9 @@ type ProcurementContextValue = {
   awardResult: Record<string, unknown> | null
   setAwardResult: (value: Record<string, unknown> | null) => void
   openRfq: (id: string, next?: AppView) => void
+  /** The booklet (الكراسة) being read: one comparison across its waves. */
+  selectedBookletId: string | null
+  openBooklet: (id: string) => void
   /** Invitation id of the supplier conversation being read. */
   selectedThreadId: string | null
   openInboxThread: (inviteId: string) => void
@@ -52,6 +55,18 @@ function initialParam(name: 'thread' | 'rfq'): string | null {
   }
 }
 
+/** Booklet ids are opaque; anything URL-safe and short is accepted. */
+const BOOKLET_PARAM = /^[A-Za-z0-9_-]{1,80}$/
+
+function initialBookletParam(): string | null {
+  try {
+    const value = new URLSearchParams(window.location.search).get('booklet') || ''
+    return BOOKLET_PARAM.test(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
 function initialViewFromUrl(): AppView {
   try {
     const params = new URLSearchParams(window.location.search)
@@ -60,6 +75,8 @@ function initialViewFromUrl(): AppView {
     if (view === 'inbox' && UUID_PARAM.test(params.get('thread') || '')) return 'inbox-thread'
     if (view === 'rfq' && UUID_PARAM.test(params.get('rfq') || '')) return 'rfq-detail'
     if (view === 'inbox') return 'inbox'
+    if (view === 'booklet' && BOOKLET_PARAM.test(params.get('booklet') || '')) return 'booklet-detail'
+    if (view === 'booklets') return 'booklets'
     // An invitation link from the team screen: no session yet, by design.
     if (view === 'invite') return 'invite'
     // Deployed builds have no demo mode (the API refuses
@@ -83,6 +100,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   const [draftBoq, setDraftBoq] = useState<DraftBoqState | null>(null)
   const [awardResult, setAwardResult] = useState<Record<string, unknown> | null>(null)
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() => initialParam('thread'))
+  const [selectedBookletId, setSelectedBookletId] = useState<string | null>(initialBookletParam)
 
   /*
    * THE BROWSER'S BACK BUTTON STAYS INSIDE THE APP.
@@ -91,7 +109,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
    * move now pushes a history entry carrying the view and the record it shows,
    * and Back/Forward put them back. The address bar is left as it is.
    */
-  type HistoryEntry = { farqView: AppView; rfqId?: string | null; threadId?: string | null }
+  type HistoryEntry = { farqView: AppView; rfqId?: string | null; threadId?: string | null; bookletId?: string | null }
   const push = (entry: HistoryEntry) => {
     try {
       window.history.pushState(entry, '')
@@ -110,6 +128,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
       if (!entry?.farqView) return
       if (entry.rfqId !== undefined) setSelectedRfqId(entry.rfqId)
       if (entry.threadId !== undefined) setSelectedThreadId(entry.threadId)
+      if (entry.bookletId !== undefined) setSelectedBookletId(entry.bookletId)
       setView(entry.farqView)
     }
     window.addEventListener('popstate', onPop)
@@ -136,6 +155,12 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     push({ farqView: next, rfqId: id })
   }, [])
 
+  const openBooklet = useCallback((id: string) => {
+    setSelectedBookletId(id)
+    setView('booklet-detail')
+    push({ farqView: 'booklet-detail', bookletId: id })
+  }, [])
+
   const value = useMemo(
     () => ({
       view,
@@ -155,6 +180,8 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
       openRfq,
       selectedThreadId,
       openInboxThread,
+      selectedBookletId,
+      openBooklet,
     }),
     [
       view,
@@ -168,6 +195,8 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
       openRfq,
       selectedThreadId,
       openInboxThread,
+      selectedBookletId,
+      openBooklet,
     ],
   )
 

@@ -741,6 +741,138 @@ export async function getConstructionComparison(id: string): Promise<Constructio
   )
 }
 
+/*
+ * BOOKLETS (الكراسات).
+ *
+ * One purchase request / BOQ document sent as several RFQs («دفعات»). The
+ * booklet is a read-only layer over those RFQs: one deadline, one comparison
+ * across every wave. The RFQ endpoints above are untouched by it.
+ */
+export type ConstructionBookletSummary = {
+  id: string
+  reference: string | null
+  title: string | null
+  quote_deadline: string | null
+  created_at: string | null
+  /** Number of waves; tolerated as an array of waves too. */
+  waves: number | unknown[] | null
+  lines_total: number | null
+  lines_with_quotes: number | null
+  unique_suppliers_invited: number | null
+  quotes_count: number | null
+}
+
+export type ConstructionBookletWave = {
+  wave_number: number
+  rfq_id: string
+  status: string
+  invites: number | null
+  created_at: string | null
+}
+
+export type ConstructionBookletLine = {
+  line_key: string
+  position: number | null
+  name_ar: string | null
+  quantity: number | null
+  uom: string | null
+}
+
+export type ConstructionBookletSupplier = {
+  supplier_id: string
+  name: string | null
+  waves: number[]
+  quoted: boolean
+  quote_submitted_at: string | null
+  quote_total: number | null
+  currency: string | null
+  rfq_id: string | null
+}
+
+export type ConstructionBookletOffer = {
+  supplier_id: string
+  unit_price: number | null
+  total: number | null
+  currency: string | null
+  uom: string | null
+  rfq_id: string | null
+  quote_version_id: string | null
+  notes: string | null
+}
+
+export type ConstructionBookletDetail = {
+  booklet: {
+    id: string
+    reference: string | null
+    title: string | null
+    quote_deadline: string | null
+    created_at: string | null
+  }
+  waves: ConstructionBookletWave[]
+  lines: ConstructionBookletLine[]
+  suppliers: ConstructionBookletSupplier[]
+  matrix: Array<{
+    line_key: string
+    offers: ConstructionBookletOffer[]
+    best_supplier_id: string | null
+  }>
+  summary: {
+    unique_suppliers_invited: number | null
+    replies: number | null
+    quotes: number | null
+    lines_with_quotes: number | null
+    lines_total: number | null
+    best_full_booklet: { supplier_id: string; total: number | null; currency: string | null } | null
+  }
+}
+
+export type ConstructionRfqBookletLink = {
+  booklet_id: string
+  reference: string | null
+  wave_number: number | null
+  /** Number of waves in the booklet; tolerated as an array of waves too. */
+  waves: number | unknown[] | null
+}
+
+function isNotFound(err: unknown): boolean {
+  return err instanceof ConstructionApiError && err.status === 404
+}
+
+/**
+ * Every booklet of the company. A 404 means the booklets surface is not on this
+ * API yet, which reads as «no booklets», never as a broken requests screen.
+ */
+export async function listConstructionBooklets(): Promise<{ booklets: ConstructionBookletSummary[] }> {
+  try {
+    const result = await request<{ booklets?: ConstructionBookletSummary[] } | null>('/api/construction/booklets')
+    return { booklets: Array.isArray(result?.booklets) ? result!.booklets : [] }
+  } catch (err) {
+    if (isNotFound(err)) return { booklets: [] }
+    throw err
+  }
+}
+
+export async function getConstructionBooklet(id: string): Promise<ConstructionBookletDetail> {
+  return request<ConstructionBookletDetail>(`/api/construction/booklets/${encodeURIComponent(id)}`)
+}
+
+/**
+ * The booklet an RFQ belongs to, or `null` when it belongs to none
+ * (404 `BOOKLET_NOT_FOUND`, or the route is not deployed yet). Other failures
+ * still throw; the caller decides to stay silent.
+ */
+export async function getConstructionRfqBooklet(rfqId: string): Promise<ConstructionRfqBookletLink | null> {
+  try {
+    const result = await request<ConstructionRfqBookletLink | null>(
+      `/api/construction/rfqs/${encodeURIComponent(rfqId)}/booklet`,
+    )
+    return result && result.booklet_id ? result : null
+  } catch (err) {
+    if (isNotFound(err)) return null
+    throw err
+  }
+}
+
 export async function getConstructionProjects(): Promise<{ projects: ConstructionProject[] }> {
   return request<{ projects: ConstructionProject[] }>('/api/construction/projects')
 }

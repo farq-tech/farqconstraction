@@ -26,6 +26,7 @@ import {
   type ConstructionSupplierOutcomeEvent,
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
+import { BookletChip } from '../components/BookletChip'
 import {
   CELL_LABEL,
   buildTimeline,
@@ -304,6 +305,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
           <span dir="ltr" className="font-mono text-neutral-400">{reference}</span>
           <span className={`px-2 py-0.5 rounded-full font-semibold ${state.cls}`}>{state.label}</span>
           {deadline?.passed && state.key === 'OPEN' && <span className="px-2 py-0.5 rounded-full font-bold bg-red-50 text-red-700">انتهى الموعد</span>}
+          <BookletChip rfqId={rfq.id} />
         </div>
         <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D] leading-tight">{title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-neutral-600">

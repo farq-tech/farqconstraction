@@ -9,6 +9,8 @@ import { MaterialPricesView } from './views/MaterialPricesView'
 import { UploadView } from './views/UploadView'
 import { ProposalsView } from './views/ProposalsView'
 import { RFQListView } from './views/RFQListView'
+import { BookletsView } from './views/BookletsView'
+import { BookletView } from './views/BookletView'
 import { RequestFileView } from './views/RequestFileView'
 import { OffersView } from './views/OffersView'
 import { OfferDetailView } from './views/OfferDetailView'
@@ -86,6 +88,8 @@ function AppRoutes() {
       {view === 'create-upload' && <UploadView navigate={navigate} />}
       {view === 'create-proposals' && <ProposalsView navigate={navigate} />}
       {view === 'rfq-list' && <RFQListView navigate={navigate} />}
+      {view === 'booklets' && <BookletsView navigate={navigate} />}
+      {view === 'booklet-detail' && <BookletView navigate={navigate} />}
       {/* One page per request — the whole deal file (overview, items, quotes, suppliers, messages, history). */}
       {(view === 'rfq-detail' || view === 'rfq-closed') && <RequestFileView key={view} navigate={navigate} />}
       {view === 'offers' && <RequestFileView key="offers" navigate={navigate} initialTab="quotes" />}

@@ -7,6 +7,8 @@ export type AppView =
   | 'sent'
   | 'sent-failure'
   | 'rfq-list'
+  | 'booklets'
+  | 'booklet-detail'
   | 'rfq-detail'
   | 'rfq-closed'
   | 'offers'
