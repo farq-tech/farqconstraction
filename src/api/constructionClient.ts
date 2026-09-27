@@ -1938,7 +1938,10 @@ export type ConstructionReportProject = {
   invited: number
   reached: number
   opened: number
+  /** Invites that answered the request — an automatic greeting is not an answer. */
   replied: number
+  /** Invites whose only messages were automatic (greeting / away) replies. */
+  auto_only?: number
   quoted: number
   complete_quotes: number
   sent_at?: string | null
@@ -1962,6 +1965,7 @@ export type ConstructionReportSupplier = {
   complete_quotes: number
   partial_quotes: number
   silent: number
+  auto_only?: number
   projects: number
   median_reply_hours?: string | number | null
   avg_reply_hours?: string | number | null
@@ -1974,7 +1978,7 @@ export type ConstructionReports = {
   filters: { days: number | null; rfq_id: string | null }
   totals: {
     projects: number; lines: number; priced_lines: number; single_offer_lines: number; strong_lines: number
-    line_offers_total: number; invited: number; reached: number; opened: number; replied: number; quoted: number
+    line_offers_total: number; invited: number; reached: number; opened: number; replied: number; auto_only?: number; quoted: number
     complete_quotes: number; coverage_percent: number | null; avg_offers_per_line: number | null
     suppliers_participating: number; reply_rate: number | null; quote_rate: number | null
     spread_value: number; lowest_value: number
@@ -2012,9 +2016,10 @@ export async function getConstructionReports(options: { days?: number | null; rf
 }
 
 /** The rows behind a report number. */
-export async function getConstructionReportLines(filter: 'no_offer' | 'single_offer' | 'priced', rfqId?: string | null) {
+export async function getConstructionReportLines(filter: 'no_offer' | 'single_offer' | 'priced', rfqId?: string | null, days?: number | null) {
   const qs = new URLSearchParams({ filter })
   if (rfqId) qs.set('rfq_id', rfqId)
+  if (days) qs.set('days', String(days))
   return request<{ filter: string; rfq_id: string | null; lines: ConstructionReportLine[] }>(`/api/construction/reports/lines?${qs}`)
 }
 

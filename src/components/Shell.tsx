@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import FarqWordmark from './FarqWordmark'
 import type { AppView } from '../types'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon, PriceIcon } from '../icons'
 import { MaterialPriceTicker } from './MaterialPriceTicker'
@@ -95,31 +96,6 @@ const CREATE_STEPS = [
 
 const isCreateFlow = (v: AppView) => v === 'create-upload' || v === 'create-proposals'
 const getStep = (v: AppView) => (v === 'create-upload' ? 1 : v === 'create-proposals' ? 2 : 3)
-
-/**
- * The Farq wordmark as the brand file draws it, tinted by `bg-*`: the artwork is
- * a mask, so one file serves a light header and a dark one without a second
- * export and without ever re-drawing the letters.
- */
-function FarqWordmark({ className = '' }: { className?: string }) {
-  return (
-    <span
-      role="img"
-      aria-label="فرق"
-      className={`inline-block aspect-[1564/648] ${className}`}
-      style={{
-        WebkitMaskImage: 'url(/brand/farq-wordmark.png)',
-        maskImage: 'url(/brand/farq-wordmark.png)',
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
-        WebkitMaskSize: 'contain',
-        maskSize: 'contain',
-        WebkitMaskPosition: 'center',
-        maskPosition: 'center',
-      }}
-    />
-  )
-}
 
 export function Shell({ view, navigate, children }: ShellProps) {
   const { selectedRfqId, openRfq } = useProcurement()
