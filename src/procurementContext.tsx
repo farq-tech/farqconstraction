@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { AppView, BOQItem } from './types'
+import { captureSupplierLink } from './lib/supplierLink'
 
 export type DraftBoqState = {
   /** Content hash for the active upload — items must match this document only. */
@@ -69,6 +70,9 @@ function initialBookletParam(): string | null {
 
 function initialViewFromUrl(): AppView {
   try {
+    // A supplier's invitation link (`?supplier_token=`, or `?view=supplier&token=`)
+    // opens the supplier portal, never a buyer screen or the sign-in form.
+    if (captureSupplierLink()) return 'supplier'
     const params = new URLSearchParams(window.location.search)
     const view = params.get('view')
     // Links in the email alerts: a supplier conversation or a request.
