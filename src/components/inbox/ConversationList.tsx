@@ -57,7 +57,7 @@ export type ConversationListProps = {
   /** Extra line under the tabs (the «مرسَل» explanation). */
   tabNote?: ReactNode
   /** Mark whole conversations read or unread (listed invites, or 'all'). */
-  onMarkThreads?: (target: string[] | 'all', read: boolean) => Promise<void>
+  onMarkThreads?: (target: string[] | 'all', read: boolean) => Promise<{ messages?: number } | void>
 }
 
 export function ConversationList({
@@ -90,8 +90,9 @@ export function ConversationList({
     setMarking(true)
     setMarkNote(null)
     try {
-      await onMarkThreads(target, read)
-      setMarkNote(target === 'all' ? (read ? 'عُلّمت كل المحادثات كمقروءة.' : 'عُلّمت كل المحادثات كغير مقروءة.') : `عُلّمت ${target.length} محادثة ${read ? 'كمقروءة' : 'كغير مقروءة'}.`)
+      const result = await onMarkThreads(target, read)
+      const nothing = !read && result && Number(result.messages || 0) === 0
+      setMarkNote(nothing ? 'لا رسالة واردة من المورد في المحدد لتُعلَّم غير مقروءة.' : target === 'all' ? (read ? 'عُلّمت كل المحادثات كمقروءة.' : 'عُلّمت كل المحادثات كغير مقروءة.') : `عُلّمت ${target.length} محادثة ${read ? 'كمقروءة' : 'كغير مقروءة'}.`)
       setPicked(new Set())
       setSelecting(false)
     } catch (err) {

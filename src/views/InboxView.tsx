@@ -19,6 +19,7 @@ import { useProcurement } from '../procurementContext'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
 import { useFillViewport } from '../components/inbox/useFillViewport'
+import { applyThreadReadState } from '../lib/inboxChat'
 
 function readGmailReturnQuery(): { status: string | null; error: string | null } {
   try {
@@ -735,8 +736,14 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           activeKey={activeId}
           onSelect={handleSelect}
           onMarkThreads={async (target, read) => {
-            await markConstructionInboxThreads(target, read)
+            const result = await markConstructionInboxThreads(target, read)
+            // Show the new state at once; the refetch below then confirms it from
+            // the server. Unread with no supplier message behind it cannot show.
+            if (read || Number(result?.messages || 0) > 0) {
+              setThreads((rows) => applyThreadReadState(rows, target, read))
+            }
             setReloadKey((n) => n + 1)
+            return result
           }}
           actions={
             <>

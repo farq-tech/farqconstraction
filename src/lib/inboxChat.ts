@@ -50,6 +50,30 @@ export function sortThreadsNewestFirst<T extends { last_received_at?: string | n
 }
 
 /**
+ * What «مقروءة» / «غير مقروءة» on selected conversations means for the list
+ * right away, before the refetch confirms it: read clears the badge, unread
+ * shows at least one (a known larger count stays). Rows outside the target are
+ * returned as they were; nothing to change returns the same array.
+ */
+export function applyThreadReadState<T extends { invite_id?: string; unread_count?: number }>(
+  rows: T[],
+  target: readonly string[] | 'all',
+  read: boolean,
+): T[] {
+  const picked = target === 'all' ? null : new Set(target.map(String))
+  let changed = false
+  const next = rows.map((row) => {
+    if (picked && !picked.has(String(row.invite_id || ''))) return row
+    const current = Number(row.unread_count || 0)
+    const wanted = read ? 0 : Math.max(current, 1)
+    if (wanted === current) return row
+    changed = true
+    return { ...row, unread_count: wanted }
+  })
+  return changed ? next : rows
+}
+
+/**
  * Folds the spelling differences an Arabic reader does not type on purpose:
  * diacritics, tatweel, hamza seats on alef, ى/ي and ة/ه — so «الجزيره» finds
  * «الجزيرة». Latin text is lower-cased.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ConstructionInboxThread } from '../api/constructionClient'
 import {
+  applyThreadReadState,
   attachmentKind,
   avatarTone,
   chatDayLabel,
@@ -182,5 +183,34 @@ describe('attachmentKind', () => {
     expect(attachmentKind({ filename: 'scan', content_type: 'image/png' })).toBe('PNG')
     expect(attachmentKind({ content_type: 'application/pdf' })).toBe('PDF')
     expect(attachmentKind({})).toBe('')
+  })
+})
+
+describe('applyThreadReadState', () => {
+  const rows = [
+    thread({ invite_id: 'a', unread_count: 0 }),
+    thread({ invite_id: 'b', unread_count: 3 }),
+    thread({ invite_id: 'c', unread_count: 0 }),
+  ]
+
+  it('shows the selected conversations unread at once, the rest untouched', () => {
+    const next = applyThreadReadState(rows, ['a', 'c'], false)
+    expect(next.map((row) => row.unread_count)).toEqual([1, 3, 1])
+  })
+
+  it('keeps a known unread count instead of shrinking it to one', () => {
+    expect(applyThreadReadState(rows, ['b'], false)[1].unread_count).toBe(3)
+  })
+
+  it('clears the badge of the selected conversations when marked read', () => {
+    expect(applyThreadReadState(rows, ['b'], true).map((row) => row.unread_count)).toEqual([0, 0, 0])
+  })
+
+  it("'all' covers every row", () => {
+    expect(applyThreadReadState(rows, 'all', false).map((row) => row.unread_count)).toEqual([1, 3, 1])
+  })
+
+  it('returns the same array when nothing changes, so React skips the render', () => {
+    expect(applyThreadReadState(rows, ['zzz'], false)).toBe(rows)
   })
 })
