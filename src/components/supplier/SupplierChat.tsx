@@ -103,7 +103,7 @@ function KindSquare({ kind }: { kind: string }) {
   )
 }
 
-function AttachmentRow({ file }: { file: SupplierAttachment }) {
+function AttachmentRow({ file, onDownload }: { file: SupplierAttachment; onDownload?: (file: SupplierAttachment) => void }) {
   const kind = attachmentKind({ filename: file.filename, content_type: file.content_type })
   const size = fileSizeAr(file.size)
   const body = (
@@ -113,7 +113,7 @@ function AttachmentRow({ file }: { file: SupplierAttachment }) {
         <bdi className="block truncate text-[11px] font-bold text-[#0D1F1D]">{file.filename}</bdi>
         <span className="block text-[10px] text-neutral-500">{[kind, size].filter(Boolean).join(' · ')}</span>
       </span>
-      {file.url && <DownloadIcon className="w-4 h-4 flex-shrink-0 text-[#123F3A]" />}
+      {(file.url || (file.id && onDownload)) && <DownloadIcon className="w-4 h-4 flex-shrink-0 text-[#123F3A]" />}
     </>
   )
   const frame = 'w-full flex items-center gap-2.5 rounded-xl border border-black/5 bg-white px-2.5 py-2'
@@ -121,6 +121,10 @@ function AttachmentRow({ file }: { file: SupplierAttachment }) {
     <a href={file.url} target="_blank" rel="noopener noreferrer" download={file.filename} className={`${frame} hover:border-[#123F3A]/40`}>
       {body}
     </a>
+  ) : file.id && onDownload ? (
+    <button type="button" onClick={() => onDownload(file)} className={`${frame} hover:border-[#123F3A]/40`}>
+      {body}
+    </button>
   ) : (
     <div className={frame}>{body}</div>
   )
@@ -166,7 +170,15 @@ function Body({ text }: { text: string }) {
   return <p className="text-[13px] leading-[1.65] text-[#0D1F1D] whitespace-pre-wrap break-words" dir="auto">{text}</p>
 }
 
-function ServerBubble({ message, author }: { message: SupplierMessage; author: string | null }) {
+function ServerBubble({
+  message,
+  author,
+  onDownload,
+}: {
+  message: SupplierMessage
+  author: string | null
+  onDownload?: (file: SupplierAttachment) => void
+}) {
   const mine = message.direction === 'OUT'
   const status = deliveryLabel(message)
   return (
@@ -175,7 +187,7 @@ function ServerBubble({ message, author }: { message: SupplierMessage; author: s
         {!mine && author && <div className="text-[11px] font-bold text-[#123F3A]">{author}</div>}
         <Body text={message.body} />
         {message.attachments.map((file, index) => (
-          <AttachmentRow key={file.id || index} file={file} />
+          <AttachmentRow key={file.id || index} file={file} onDownload={onDownload} />
         ))}
         <div className="flex items-center gap-2 text-[10px]">
           <span className="text-neutral-400">{formatTimeAr(message.created_at)}</span>
@@ -275,6 +287,27 @@ export function SupplierChat({
   const picker = useRef<HTMLInputElement | null>(null)
   const outboxRef = useRef(outbox)
   outboxRef.current = outbox
+
+  // The supplier's own files: fetched with the session, then saved.
+  const download = useCallback(
+    async (file: SupplierAttachment) => {
+      if (!file.id) return
+      try {
+        const blob = await client.downloadFile(inviteId, file.id)
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = file.filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'تعذّر تحميل الملف.')
+      }
+    },
+    [client, inviteId],
+  )
 
   const load = useCallback(async () => {
     try {
@@ -458,7 +491,7 @@ export function SupplierChat({
             ) : row.type === 'system' ? (
               <SystemPill key={row.key} label={row.label} event />
             ) : row.type === 'message' ? (
-              <ServerBubble key={row.key} message={row.message} author={row.author} />
+              <ServerBubble key={row.key} message={row.message} author={row.author} onDownload={download} />
             ) : (
               <PendingBubble key={row.key} pending={row.pending} online={online} onRetry={() => void deliver(row.pending)} />
             ),

@@ -33,9 +33,11 @@ function Row({ label, value, muted = false, ltr = false }: { label: string; valu
 }
 
 function linkReach(account: SupplierAccount): string {
-  if (account.email && account.phone) return 'يصلكم على الإيميل والجوال'
-  if (account.email) return 'يصلكم على الإيميل'
-  if (account.phone) return 'يصلكم على الجوال'
+  const email = Boolean(account.email || account.has_email)
+  const phone = Boolean(account.phone || account.has_phone)
+  if (email && phone) return 'يصلكم على الإيميل والجوال'
+  if (email) return 'يصلكم على الإيميل'
+  if (phone) return 'يصلكم على الجوال'
   return '—'
 }
 
@@ -128,7 +130,7 @@ export function AccountView({
     setBusy(true)
     setError(null)
     try {
-      const next = await client.verifyOtp(code, password)
+      const next = await client.verifyOtp(code, purpose === 'SET_PASSWORD' ? password : undefined, purpose)
       onAccountChange(
         next || {
           ...account,

@@ -17,6 +17,7 @@ const BADGES: Record<string, ReplyKindBadge> = {
   INTERESTED: { label: 'مهتم / متوفر', className: 'bg-green-100 text-green-800' },
   QUOTE_FILE: { label: 'أرسل عرض سعر (ملف)', className: 'bg-emerald-600 text-white' },
   PRICE_IN_TEXT: { label: 'ذكر سعراً', className: 'bg-emerald-100 text-emerald-800' },
+  CLARIFICATION_NEEDED: { label: 'يطلب توضيح', className: 'bg-sky-100 text-sky-800' },
   QUESTION: { label: 'يسأل', className: 'bg-blue-100 text-blue-700' },
 }
 

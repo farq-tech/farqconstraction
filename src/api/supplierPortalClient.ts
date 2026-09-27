@@ -2,16 +2,22 @@
  * THE SUPPLIER PORTAL'S ONE DOOR TO THE API.
  *
  * Everything the supplier screens send or read goes through here, so the
- * shapes of the session/chat routes (being built on the API branch
- * `feat/supplier-portal-session-chat`) can be adjusted in one place.
+ * shapes of the API's session/chat routes (farq api
+ * lib/construction/supplier-portal-http.js) are read in one place. Every
+ * answer is the envelope {ok, data, errors[{code}]}.
  *
  *   POST /api/construction/supplier/session                  {token}
- *   GET  /api/construction/supplier/requests
- *   GET  /api/construction/supplier/requests/:inviteId/messages
- *   POST /api/construction/supplier/requests/:inviteId/messages
- *   POST /api/construction/supplier/account/decline
- *   POST /api/construction/supplier/account/otp               {purpose, email?}
- *   POST /api/construction/supplier/account/otp/verify        {code, password?}
+ *        → {session_token, expires_at, scope, invite_id, supplier, account}
+ *   GET  /api/construction/supplier/account                  → {scope, supplier, account}
+ *   POST /api/construction/supplier/account/decline          → {status: 'DECLINED'}
+ *   POST /api/construction/supplier/account/codes            {purpose, email?} → {otp_id, purpose, expires_at, sent_to}
+ *   POST /api/construction/supplier/account/password         {code, password} → {status, login_email}
+ *   POST /api/construction/supplier/account/email            {purpose, code} → {account}
+ *   GET  /api/construction/supplier/requests                 → {requests: [...]}
+ *   GET  /api/construction/supplier/requests/:inviteId/messages → {messages: [...]}
+ *   POST /api/construction/supplier/requests/:inviteId/messages {body, client_message_id, attachments}
+ *   GET  /api/construction/supplier/requests/:inviteId/files/:fileId (the file itself)
+ *   POST /api/construction/supplier/requests/:inviteId/quotes
  *
  * When the session route is not there yet (404) or switched off (503 /
  * *_DISABLED), `openSession` answers `{ mode: 'legacy' }` and the portal keeps
@@ -32,8 +38,11 @@ export type AccountStatus = 'PROVISIONED' | 'ACTIVE' | 'DECLINED'
 export type SupplierAccount = {
   status: AccountStatus
   has_password: boolean
+  /** The address, or the API's masked hint of it («a***@example.com»). */
   email: string | null
   phone: string | null
+  has_email?: boolean
+  has_phone?: boolean
   password_set_at?: string | null
 }
 
@@ -147,11 +156,15 @@ function unwrapData(payload: unknown): unknown {
 export function normalizeAccount(raw: unknown): SupplierAccount {
   const r = record(raw)
   const status = str(r.status).toUpperCase()
+  const email = strOrNull(r.email) || strOrNull(r.email_hint)
+  const phone = strOrNull(r.phone)
   return {
     status: status === 'ACTIVE' || status === 'DECLINED' ? status : 'PROVISIONED',
     has_password: r.has_password === true,
-    email: strOrNull(r.email),
-    phone: strOrNull(r.phone),
+    email,
+    phone,
+    has_email: r.has_email === true || Boolean(email),
+    has_phone: r.has_phone === true || Boolean(phone),
     password_set_at: strOrNull(r.password_set_at),
   }
 }
@@ -188,25 +201,76 @@ export function normalizeTimeline(raw: unknown): TimelineStep[] {
   return TIMELINE_ORDER.filter((kind) => byKind.has(kind)).map((kind) => byKind.get(kind) as TimelineStep)
 }
 
+/**
+ * The API's path: [{step, state: RECORDED|UNKNOWN|AWARDED|NOT_AWARDED, at}],
+ * AWARD being one step whose state says the outcome. A recorded step is DONE;
+ * the closing step not yet recorded is UPCOMING at the deadline when there is one.
+ */
+export function timelineFromApi(raw: unknown, deadline: string | null): TimelineStep[] {
+  const list = Array.isArray(raw) ? raw : []
+  const steps: TimelineStep[] = []
+  for (const item of list) {
+    const r = record(item)
+    const step = str(r.step || r.kind).toUpperCase()
+    const state = str(r.state).toUpperCase()
+    const at = strOrNull(r.at)
+    if (step === 'AWARD' || step === 'AWARDED' || step === 'NOT_AWARDED') {
+      if (state === 'AWARDED' || (step === 'AWARDED' && (state === 'DONE' || state === 'RECORDED')))
+        steps.push({ kind: 'AWARDED', state: 'DONE', at })
+      else if (state === 'NOT_AWARDED' || (step === 'NOT_AWARDED' && (state === 'DONE' || state === 'RECORDED')))
+        steps.push({ kind: 'NOT_AWARDED', state: 'DONE', at })
+      else steps.push({ kind: 'AWARDED', state: 'UNKNOWN', at: null })
+      continue
+    }
+    const kind = step as TimelineKind
+    if (!TIMELINE_ORDER.includes(kind)) continue
+    if (state === 'RECORDED' || state === 'DONE') steps.push({ kind, state: 'DONE', at })
+    else if (kind === 'SUBMISSION_CLOSED' && deadline) steps.push({ kind, state: 'UPCOMING', at: deadline })
+    else steps.push({ kind, state: state === 'UPCOMING' ? 'UPCOMING' : 'UNKNOWN', at: state === 'UPCOMING' ? at : null })
+  }
+  return normalizeTimeline(steps)
+}
+
+/** {date, time, state} (Riyadh) or a plain string → one ISO instant. */
+export function deadlineFromApi(raw: unknown): string | null {
+  if (raw == null) return null
+  if (typeof raw === 'string') return strOrNull(raw)
+  const r = record(raw)
+  const date = str(r.date).trim().slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  const time = /^\d{2}:\d{2}$/.test(str(r.time)) ? str(r.time) : '23:59'
+  const iso = `${date}T${time}:00+03:00`
+  return Number.isNaN(Date.parse(iso)) ? null : iso
+}
+
 export function normalizeRequest(raw: unknown): SupplierRequest {
   const r = record(raw)
+  const deadline = deadlineFromApi(r.deadline ?? r.quote_deadline)
+  const apiTimeline = Array.isArray(r.timeline) ? r.timeline : null
+  // The newest quote version the path recorded (QUOTE_RECEIVED.versions).
+  const versions = (apiTimeline || [])
+    .map(record)
+    .filter((step) => str(step.step).toUpperCase() === 'QUOTE_RECEIVED')
+    .flatMap((step) => (Array.isArray(step.versions) ? step.versions : []))
+    .map((v) => num(record(v).version))
+    .filter((v): v is number => v != null)
   return {
     invite_id: str(r.invite_id || r.id),
-    buyer_company: str(r.buyer_company || record(r.buyer).company_name),
+    buyer_company: str(r.buyer_company_name || r.buyer_company || record(r.buyer).company_name),
     reference: str(r.reference || r.rfq_reference),
     title: str(r.title),
-    deadline: strOrNull(r.deadline || r.quote_deadline),
-    status_timeline: normalizeTimeline(r.status_timeline),
+    deadline,
+    status_timeline: apiTimeline ? timelineFromApi(apiTimeline, deadline) : normalizeTimeline(r.status_timeline),
     unread_count: Math.max(0, num(r.unread_count) ?? 0),
-    line_count: num(r.line_count),
-    quote_version: num(r.quote_version),
+    line_count: num(r.item_count ?? r.line_count),
+    quote_version: versions.length ? Math.max(...versions) : num(r.quote_version),
   }
 }
 
 function normalizeAttachment(raw: unknown): SupplierAttachment {
   const r = record(raw)
   return {
-    id: strOrNull(r.id || r.file_id),
+    id: str(r.state).toUpperCase() === 'TOO_LARGE' ? null : strOrNull(r.id || r.file_id),
     filename: str(r.filename || r.name) || 'مرفق',
     content_type: str(r.content_type || r.type),
     size: num(r.size ?? r.size_bytes),
@@ -219,19 +283,33 @@ function normalizeAttachment(raw: unknown): SupplierAttachment {
   }
 }
 
+/**
+ * One chat row. The API speaks from the conversation's point of view
+ * (direction SUPPLIER = this supplier wrote it, BUYER = the buying company;
+ * kind SYSTEM = a platform fact with its own `text`); the screens speak from
+ * the supplier's (OUT = mine).
+ */
 export function normalizeMessage(raw: unknown): SupplierMessage {
   const r = record(raw)
-  const direction = str(r.direction).toUpperCase() === 'OUT' ? 'OUT' : 'IN'
+  const rawDirection = str(r.direction).toUpperCase()
+  const direction = rawDirection === 'OUT' || rawDirection === 'SUPPLIER' ? 'OUT' : 'IN'
+  const system = str(r.kind).toUpperCase() === 'SYSTEM'
+  const at = strOrNull(r.created_at) || strOrNull(r.at)
+  const readState = str(r.read_state).toUpperCase()
+  const author = strOrNull(r.author || r.author_name || r.sender_name)
   return {
     id: str(r.id || r.client_message_id),
-    direction,
-    channel: str(r.channel || 'PORTAL').toUpperCase(),
-    body: str(r.body),
-    attachments: (Array.isArray(r.attachments) ? r.attachments : []).map(normalizeAttachment),
-    created_at: strOrNull(r.created_at),
-    read_at: strOrNull(r.read_at),
-    system_kind: strOrNull(r.system_kind),
-    author: strOrNull(r.author || r.author_name || r.sender_name),
+    direction: system ? 'IN' : direction,
+    channel: system ? 'SYSTEM' : str(r.channel || 'PORTAL').toUpperCase(),
+    body: str(system ? r.text || r.body : r.body),
+    attachments: (Array.isArray(r.attachments) ? r.attachments : Array.isArray(r.files) ? r.files : []).map(
+      normalizeAttachment,
+    ),
+    created_at: at,
+    read_at: strOrNull(r.read_at) || (readState === 'READ' ? at : null),
+    system_kind: system ? str(r.event) || 'SYSTEM' : strOrNull(r.system_kind),
+    // The buyer's rows carry the company name the screen already shows.
+    author: rawDirection === 'BUYER' ? null : author,
     client_message_id: strOrNull(r.client_message_id),
   }
 }
@@ -253,16 +331,30 @@ const EXPIRED_CODES = new Set([
 ])
 
 export function supplierErrorMessageAr(status: number, code: string): string {
-  if (code === 'SUPPLIER_SESSION_EXPIRED' || (status === 401 && !EXPIRED_CODES.has(code)))
+  if (code === 'SUPPLIER_SESSION_EXPIRED' || code === 'SUPPLIER_SESSION_REQUIRED' || (status === 401 && !EXPIRED_CODES.has(code)))
     return 'انتهت الجلسة — افتح رابط الدعوة من جديد.'
   if (EXPIRED_CODES.has(code) || status === 410) return 'انتهت صلاحية هذا الرابط.'
   if (code === 'SUPPLIER_ACCOUNT_DECLINED') return 'ألغيتم الحساب — الرابط صالح لتقديم العرض فقط.'
   if (code === 'OTP_INVALID') return 'الرمز غير صحيح — تأكد منه وأعد المحاولة.'
+  if (code === 'OTP_LOCKED') return 'محاولات كثيرة على هذا الرمز — اطلب رمزاً جديداً.'
+  if (code === 'OTP_SEND_FAILED') return 'تعذّر إرسال الرمز إلى الإيميل — أعد المحاولة بعد قليل.'
+  if (code === 'EMAIL_REQUIRED') return 'أضيفوا إيميل أولاً — يصلكم عليه رمز التحقق.'
+  if (code === 'EMAIL_ALREADY_SET') return 'الحساب له إيميل مسجّل.'
+  if (code === 'EMAIL_UNCHANGED') return 'هذا هو الإيميل المسجّل نفسه.'
+  if (code === 'FULL_SESSION_REQUIRED') return 'سجّلوا الدخول بكلمة المرور لتغيير الإيميل.'
+  if (code === 'PASSWORD_ALREADY_SET') return 'كلمة المرور معيّنة من قبل — سجّلوا الدخول بها.'
+  if (code === 'EMAIL_BELONGS_TO_BUYER_ACCOUNT' || code === 'EMAIL_LINKED_TO_ANOTHER_SUPPLIER' || code === 'EMAIL_UNAVAILABLE')
+    return 'هذا الإيميل مرتبط بحساب آخر — استخدموا إيميلاً غيره.'
+  if (code === 'SUPPLIER_ACCOUNT_REQUIRED') return 'لا يوجد حساب لهذا المورد بعد.'
+  if (code === 'PORTAL_MESSAGE_TOO_LONG') return 'الرسالة طويلة — قسّمها على أكثر من رسالة.'
+  if (code === 'PORTAL_EMPTY_MESSAGE') return 'اكتب رسالة أو أرفق ملفاً.'
+  if (code === 'PORTAL_INVALID_FILES') return 'تعذّر قراءة أحد الملفات — أعد اختياره.'
+  if (code === 'PORTAL_FILE_UNAVAILABLE') return 'هذا الملف غير متاح للتحميل.'
   if (code === 'OTP_EXPIRED') return 'انتهت صلاحية الرمز — اطلب رمزاً جديداً.'
   if (code === 'OTP_RATE_LIMITED' || status === 429) return 'طلبات كثيرة — انتظر قليلاً ثم أعد المحاولة.'
   if (code === 'EMAIL_INVALID') return 'الإيميل غير صحيح.'
   if (code === 'EMAIL_TAKEN') return 'هذا الإيميل مسجّل لحساب آخر.'
-  if (code === 'PASSWORD_TOO_SHORT' || code === 'PASSWORD_WEAK') return 'كلمة المرور قصيرة — 8 أحرف على الأقل.'
+  if (/^PASSWORD_/.test(code) && code !== 'PASSWORD_ALREADY_SET') return 'كلمة المرور قصيرة — 8 أحرف على الأقل.'
   if (code === 'MESSAGE_FILES_TOO_LARGE' || code === 'INBOX_FILES_TOO_LARGE')
     return 'المرفقات أكبر من 18 ميجابايت للرسالة — قسّمها على أكثر من رسالة.'
   if (code === 'MESSAGE_FILES_TOO_MANY' || code === 'INBOX_FILES_TOO_MANY') return 'الحد 10 ملفات في الرسالة.'
@@ -430,6 +522,12 @@ export function createSupplierPortalClient(options: SupplierPortalClientOptions 
     return read(payload)
   }
 
+  function getAccount(): Promise<SupplierAccount> {
+    return call('GET', '/api/construction/supplier/account', undefined, (payload) =>
+      normalizeAccount(record(unwrapData(payload)).account),
+    )
+  }
+
   return {
     /** The session in hand (memory, then this tab's storage). */
     currentSession: stored,
@@ -450,6 +548,8 @@ export function createSupplierPortalClient(options: SupplierPortalClientOptions 
         return { mode: 'session', session }
       } catch (err) {
         if (!(err instanceof SupplierPortalError)) throw err
+        // «لست أنت؟» was answered: the link still takes a quote, nothing more.
+        if (err.code === 'SUPPLIER_ACCOUNT_DECLINED') return { mode: 'legacy' }
         if (isRouteUnavailable(err.status, err.code)) return { mode: 'legacy' }
         if (err.status === 0) {
           const held = stored()
@@ -500,21 +600,39 @@ export function createSupplierPortalClient(options: SupplierPortalClientOptions 
         },
         (payload) => {
           const data = record(unwrapData(payload))
-          return normalizeMessage('message' in data ? data.message : data)
+          // The API answers {duplicate, message: {id, at, files, read_state}}:
+          // the text and direction are what this tab just sent.
+          const stored = record('message' in data ? data.message : data)
+          return normalizeMessage({
+            direction: 'SUPPLIER',
+            channel: 'PORTAL',
+            body: input.body,
+            client_message_id: input.client_message_id,
+            ...stored,
+          })
         },
         { onProgress: input.attachments.length ? onProgress : undefined },
       )
     },
 
     async declineAccount(): Promise<SupplierAccount | null> {
-      return call('POST', '/api/construction/supplier/account/decline', {}, (payload) => {
+      const account = await call('POST', '/api/construction/supplier/account/decline', {}, (payload) => {
         const data = record(unwrapData(payload))
-        return 'account' in data ? normalizeAccount(data.account) : null
+        if ('account' in data) return normalizeAccount(data.account)
+        return str(data.status).toUpperCase() === 'DECLINED' ? ('DECLINED' as const) : null
       })
+      const held = current
+      // Declining revokes every session of this supplier.
+      if (account) remember(null)
+      if (account === 'DECLINED') return held ? { ...held.account, status: 'DECLINED' } : null
+      return account
     },
 
+    /** The account as the API holds it now (after a code, a password…). */
+    getAccount,
+
     requestOtp(purpose: OtpPurpose, email?: string): Promise<{ sent_to: string | null; resend_after_sec: number }> {
-      return call('POST', '/api/construction/supplier/account/otp', email ? { purpose, email } : { purpose }, (payload) => {
+      return call('POST', '/api/construction/supplier/account/codes', email ? { purpose, email } : { purpose }, (payload) => {
         const data = record(unwrapData(payload))
         return {
           sent_to: strOrNull(data.sent_to || data.email),
@@ -523,15 +641,62 @@ export function createSupplierPortalClient(options: SupplierPortalClientOptions 
       })
     },
 
-    verifyOtp(code: string, password?: string): Promise<SupplierAccount | null> {
-      return call(
-        'POST',
-        '/api/construction/supplier/account/otp/verify',
-        password ? { code, password } : { code },
-        (payload) => {
-          const data = record(unwrapData(payload))
-          return 'account' in data ? normalizeAccount(data.account) : null
-        },
+    /**
+     * The code from the email: with a password it sets the password
+     * (SET_PASSWORD); without one it confirms the new email (ADD_EMAIL /
+     * CHANGE_EMAIL). Answers the account as it now is.
+     */
+    async verifyOtp(code: string, password?: string, purpose?: OtpPurpose): Promise<SupplierAccount | null> {
+      const setting = password != null && password !== '' && (purpose == null || purpose === 'SET_PASSWORD')
+      if (setting) {
+        await call('POST', '/api/construction/supplier/account/password', { code, password })
+      } else {
+        const confirmed = await call(
+          'POST',
+          '/api/construction/supplier/account/email',
+          { purpose: purpose || 'ADD_EMAIL', code },
+          (payload) => {
+            const data = record(unwrapData(payload))
+            return 'account' in data ? normalizeAccount(data.account) : null
+          },
+        )
+        if (confirmed) return confirmed
+      }
+      try {
+        const account = await getAccount()
+        if (current) remember({ ...current, account })
+        return account
+      } catch {
+        return null
+      }
+    },
+
+    /** One of this supplier's own files in the conversation (needs the session header). */
+    async downloadFile(inviteId: string, fileId: string): Promise<Blob> {
+      const session = stored()
+      if (!session) throw new SupplierPortalError(supplierErrorMessageAr(401, 'SUPPLIER_SESSION_EXPIRED'), 401, 'SUPPLIER_SESSION_EXPIRED')
+      let response: Response
+      try {
+        response = await fetch(
+          `${apiBase()}/api/construction/supplier/requests/${encodeURIComponent(inviteId)}/files/${encodeURIComponent(fileId)}`,
+          { headers: { Authorization: `Bearer ${session.session}` } },
+        )
+      } catch {
+        throw new SupplierPortalError(supplierErrorMessageAr(0, ''), 0, 'HTTP_0')
+      }
+      if (!response.ok) {
+        const r = record(await parseJson(await response.text()))
+        const code = str(record(Array.isArray(r.errors) ? r.errors[0] : null).code)
+        if (response.status === 401) remember(null)
+        throw new SupplierPortalError(supplierErrorMessageAr(response.status, code), response.status, code || `HTTP_${response.status}`)
+      }
+      return response.blob()
+    },
+
+    /** The attested quote through the session (the same validated path as the link). */
+    submitQuote(inviteId: string, body: unknown): Promise<Record<string, unknown>> {
+      return call('POST', `/api/construction/supplier/requests/${encodeURIComponent(inviteId)}/quotes`, body, (payload) =>
+        record(unwrapData(payload)),
       )
     },
 

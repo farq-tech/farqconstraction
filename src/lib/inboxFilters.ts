@@ -25,6 +25,7 @@ export type MeaningKey =
   | 'QUOTE_FILE'
   | 'PRICE_IN_TEXT'
   | 'QUESTION'
+  | 'CLARIFICATION_NEEDED'
   | 'DECLINED'
   | 'ALT_CONTACT'
   | 'INTERESTED'
@@ -125,7 +126,7 @@ export function channelKey(value: string | null | undefined): ChannelKey | null 
   return null
 }
 
-const MEANINGS: MeaningKey[] = ['QUOTE_FILE', 'PRICE_IN_TEXT', 'QUESTION', 'DECLINED', 'ALT_CONTACT', 'INTERESTED', 'AUTO_REPLY', 'VOICE']
+const MEANINGS: MeaningKey[] = ['QUOTE_FILE', 'PRICE_IN_TEXT', 'QUESTION', 'CLARIFICATION_NEEDED', 'DECLINED', 'ALT_CONTACT', 'INTERESTED', 'AUTO_REPLY', 'VOICE']
 
 export function meaningKey(value: string | null | undefined): MeaningKey | null {
   const key = String(value || '').toUpperCase()
@@ -435,6 +436,7 @@ export const MEANING_LABEL: Record<MeaningKey, string> = {
   QUOTE_FILE: 'عرض سعر',
   PRICE_IN_TEXT: 'ذكر سعراً',
   QUESTION: 'استفسار',
+  CLARIFICATION_NEEDED: 'يطلب توضيح',
   DECLINED: 'اعتذار',
   ALT_CONTACT: 'رقم بديل',
   INTERESTED: 'مهتم',

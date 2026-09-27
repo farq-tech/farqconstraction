@@ -1381,6 +1381,7 @@ export type ConstructionReplyKind =
   | 'INTERESTED'
   | 'QUOTE_FILE'
   | 'PRICE_IN_TEXT'
+  | 'CLARIFICATION_NEEDED'
   | 'QUESTION'
   | 'OTHER'
 

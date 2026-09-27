@@ -18,6 +18,7 @@ describe('replyKindBadge', () => {
     expect(replyKindBadge('QUOTE_FILE')?.label).toBe('أرسل عرض سعر (ملف)')
     expect(replyKindBadge('PRICE_IN_TEXT')?.label).toBe('ذكر سعراً')
     expect(replyKindBadge('QUESTION')?.label).toBe('يسأل')
+    expect(replyKindBadge('CLARIFICATION_NEEDED')?.label).toBe('يطلب توضيح')
   })
 
   it('shows nothing for OTHER, missing or unknown kinds', () => {
