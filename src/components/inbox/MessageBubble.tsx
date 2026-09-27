@@ -4,6 +4,14 @@ import {
 } from '../../api/constructionClient'
 import { attachmentKind, chatTimeLabel } from '../../lib/inboxChat'
 import { splitQuotedReply } from '../../lib/quotedEmail'
+import {
+  isAutoReply,
+  mailtoHref,
+  replyKindBadge,
+  telHref,
+  usableReplyContacts,
+  whatsappHref,
+} from '../../lib/supplierReply'
 import { InlineImage, isShowableImage } from './InlineImage'
 
 /**
@@ -148,6 +156,69 @@ export function ChannelTag({ channel }: { channel?: string | null }) {
   )
 }
 
+/**
+ * What the supplier's reply means, as the server read it: a coloured chip,
+ * the one-line summary, and any contact the supplier asked us to use. Contacts
+ * are exactly what the API returned — nothing is inferred here.
+ */
+export function ReplyInsight({ message }: { message: ConstructionInboxThreadMessage }) {
+  if (message.direction !== 'INBOUND') return null
+  const badge = replyKindBadge(message.reply_kind)
+  const summary = badge ? String(message.reply_summary_ar || '').trim() : ''
+  const contacts = usableReplyContacts(message.reply_contacts)
+  if (!badge && contacts.length === 0) return null
+  return (
+    <div className="mt-2 pt-2 border-t border-black/5 flex flex-col gap-1">
+      {badge && (
+        <div className="flex items-start gap-1.5 flex-wrap">
+          <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${badge.className}`}>
+            {badge.label}
+          </span>
+          {summary && (
+            <span dir="auto" className="text-[11px] text-neutral-600 leading-relaxed text-start">
+              {summary}
+            </span>
+          )}
+        </div>
+      )}
+      {contacts.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {contacts.map((c) => {
+            if (c.type === 'email') {
+              return (
+                <li key={`e:${c.value}`}>
+                  <a href={mailtoHref(c.value) || undefined} className="text-[11px] font-bold text-[#123F3A] hover:underline">
+                    <bdi dir="ltr">{c.value}</bdi>
+                  </a>
+                </li>
+              )
+            }
+            const tel = telHref(c.value)
+            const wa = whatsappHref(c.value)
+            return (
+              <li key={`p:${c.value}`} className="flex items-center gap-2">
+                <a href={tel || undefined} className="text-[11px] font-bold text-[#123F3A] hover:underline">
+                  <bdi dir="ltr">{c.value}</bdi>
+                </a>
+                {wa && (
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-full bg-[#25D366]/12 text-[#128C4B] px-1.5 py-0.5 text-[9px] font-bold hover:underline"
+                  >
+                    واتساب
+                  </a>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function MessageBubble({
   message,
   author,
@@ -173,6 +244,8 @@ export function MessageBubble({
     ? split.visible.replace(/^[ \t]*\[image:[^\]\n]*\][ \t]*$/gim, '').replace(/\n{3,}/g, '\n\n').trim()
     : split.visible
   const time = chatTimeLabel(message.created_at)
+  // An out-of-office note is not an answer; let the real replies stand out.
+  const muted = inbound && isAutoReply(message.reply_kind)
 
   return (
     // RTL-aware sides: `self-start` follows the app direction, so theirs lands
@@ -181,7 +254,9 @@ export function MessageBubble({
     <div
       className={`max-w-[88%] sm:max-w-[75%] xl:max-w-[62%] rounded-2xl px-3.5 py-2.5 shadow-[0_1px_1px_rgba(13,31,29,0.08)] ${
         inbound ? 'self-start bg-white' : 'self-end bg-[#DCF2E4]'
-      } ${leadsGroup ? (inbound ? 'rounded-ss-md mt-2' : 'rounded-se-md mt-2') : 'mt-0.5'}`}
+      } ${leadsGroup ? (inbound ? 'rounded-ss-md mt-2' : 'rounded-se-md mt-2') : 'mt-0.5'} ${
+        muted ? 'opacity-60 hover:opacity-100 transition-opacity' : ''
+      }`}
     >
       {(leadsGroup || message.kind_hint === 'DISPATCH' || (inbound && message.unread)) && (
         <div className="flex items-center gap-2 mb-1">
@@ -243,6 +318,8 @@ export function MessageBubble({
           )}
         </div>
       )}
+
+      <ReplyInsight message={message} />
 
       <div className="mt-1 flex items-center gap-2 justify-end">
         <ChannelTag channel={message.channel} />

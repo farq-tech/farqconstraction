@@ -1154,7 +1154,25 @@ export type ConstructionInboxThreadMessage = {
   can_retry?: boolean
   files?: ConstructionInboxThreadFile[]
   request_context?: { reference?: string; rfq_id?: string }
+  /** INBOUND only: what the supplier's reply means, as classified by the server. */
+  reply_kind?: ConstructionReplyKind | null
+  /** INBOUND only: contacts the supplier named in the reply — never inferred client-side. */
+  reply_contacts?: ConstructionReplyContact[] | null
+  /** INBOUND only: one short Arabic line summarising the reply. */
+  reply_summary_ar?: string | null
 }
+
+export type ConstructionReplyKind =
+  | 'AUTO_REPLY'
+  | 'ALT_CONTACT'
+  | 'DECLINED'
+  | 'INTERESTED'
+  | 'QUOTE_FILE'
+  | 'PRICE_IN_TEXT'
+  | 'QUESTION'
+  | 'OTHER'
+
+export type ConstructionReplyContact = { type: 'phone' | 'email'; value: string }
 
 export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
   rfq_id?: string
