@@ -17,6 +17,7 @@ import {
   type ConstructionInboxThreadDetail,
   type ConstructionInboxThreadsResult,
   markConstructionInboxThreads,
+  setConstructionInboxThreadsVisibility,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { ChatPane } from '../components/inbox/ChatPane'
@@ -136,6 +137,8 @@ function applyInboxTab(
   tab: InboxTab,
   rows: ConstructionInboxThread[],
 ): ConstructionInboxThread[] {
+  // مخفية: the server already returned only hidden conversations.
+  if (tab === 'hidden') return rows
   if (tab === 'needs_reply') return rows.filter((t) => Boolean(t.needs_reply))
   if (tab === 'sent') return rows.filter((t) => isOutboundInviteSnapshot(t))
   // وارد: supplier replies / conversations — never outbound invite snapshots
@@ -148,6 +151,7 @@ function displayTotal(
   result: ConstructionInboxThreadsResult | null,
 ): number {
   const counts = result?.follow_up_counts
+  if (tab === 'hidden') return result?.total_count ?? visible.length
   if (tab === 'needs_reply') {
     return counts?.action ?? result?.total_count ?? visible.length
   }
@@ -220,6 +224,8 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const [error, setError] = useState<string | null>(null)
   /** Default وارد — not «الكل» which mixes DISPATCH invite spam from the API. */
   const [tab, setTab] = useState<InboxTab>('inbound')
+  /** «مخفية» count from the last list the server returned; null = server does not report it. */
+  const [hiddenCount, setHiddenCount] = useState<number | null>(null)
   /** Applied filters. Only `rfqId` reaches the server; the rest filter the loaded rows. */
   const [filters, setFilters] = useState<InboxFilters>(() => emptyFilters())
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
@@ -327,12 +333,13 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     const rfqFilter = filters.rfqId
     Promise.all([
       getConstructionInboxStatus(),
-      listConstructionInboxThreads({ filter: apiFilter, rfq_id: rfqFilter }),
+      listConstructionInboxThreads({ filter: apiFilter, rfq_id: rfqFilter, ...(tab === 'hidden' ? { visibility: 'hidden' as const } : {}) }),
     ])
       .then(([inboxStatus, threadResult]) => {
         if (cancelled) return
         setStatus(inboxStatus)
         setThreadMeta(threadResult)
+        if (typeof threadResult.hidden_count === 'number') setHiddenCount(threadResult.hidden_count)
         const raw = threadResult.threads || []
         const visible = applyInboxTab(tab, raw)
         setThreads(visible)
@@ -862,7 +869,14 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   )
 
   const emptyState =
-    tab === 'sent' ? (
+    tab === 'hidden' ? (
+      <>
+        <p className="text-sm text-neutral-500 mb-1">لا محادثات مخفية.</p>
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          تُخفى المحادثة تلقائيًا عندما يرد المورد بأنه لا يوفّر المطلوب، أو يدويًا بـ«إخفاء». لا يُحذف شيء، وتعود إلى الوارد إذا كتب المورد من جديد.
+        </p>
+      </>
+    ) : tab === 'sent' ? (
       <>
         <p className="text-sm text-neutral-500 mb-1">لا دعوات مرسلة ظاهرة في هذه الصفحة.</p>
         <p className="text-xs text-neutral-400 leading-relaxed">
@@ -942,6 +956,16 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           onTabChange={setTab}
           needsReplyCount={needsReplyCount ?? null}
           sentCount={sentCount ?? null}
+          hiddenCount={hiddenCount}
+          onVisibility={async (inviteIds, hidden) => {
+            const result = await setConstructionInboxThreadsVisibility(inviteIds, hidden)
+            const picked = new Set(inviteIds)
+            // Out of this tab at once; the refetch below confirms it from the server.
+            setThreads((rows) => rows.filter((row) => !picked.has(String(row.invite_id))))
+            if (activeId && picked.has(activeId)) setActiveId(null)
+            setReloadKey((n) => n + 1)
+            return result
+          }}
           total={error ? null : total}
           hasMore={Boolean(threadMeta?.next_cursor)}
           activeKey={activeId}
@@ -1070,6 +1094,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
             onOpenRfq={(rfqId) => openRfq(rfqId, 'rfq-detail')}
             onUnreadKnown={handleUnreadKnown}
             onDetail={handleDetail}
+            onVisibilityChange={() => setReloadKey((n) => n + 1)}
             onQuoteVersion={handleQuoteVersion}
           />
         ) : (

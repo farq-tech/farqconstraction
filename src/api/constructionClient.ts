@@ -1183,6 +1183,10 @@ export type ConstructionInboxThread = {
 export type ConstructionInboxThreadsResult = {
   threads: ConstructionInboxThread[]
   total_count?: number
+  /** Which list this is: the default one, or «مخفية» (hidden after a decline or by hand). */
+  visibility?: 'visible' | 'hidden'
+  /** Conversations under «مخفية» — sent by servers that know hidden conversations. */
+  hidden_count?: number
   next_cursor?: string | null
   haraj_sync?: { state?: string }
   follow_up_counts?: {
@@ -1317,6 +1321,20 @@ export async function markConstructionInboxThreads(target: string[] | 'all', rea
   })
 }
 
+/**
+ * «إخفاء» / «إظهار» whole conversations. A row of the list stands for the
+ * supplier's conversation within the company, so the server changes every
+ * request of that supplier. Nothing is deleted; a new supplier message shows
+ * a hidden conversation again by itself.
+ */
+export async function setConstructionInboxThreadsVisibility(inviteIds: string[], hidden: boolean) {
+  return request<{ hidden: boolean; threads: number }>('/api/construction/inbox/threads/visibility', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invite_ids: inviteIds, hidden }),
+  })
+}
+
 export async function markConstructionInboxMessageUnread(messageId: string) {
   return request<{ read: boolean }>(
     `/api/construction/inbox/messages/${encodeURIComponent(messageId)}/unread`,
@@ -1330,9 +1348,12 @@ export async function listConstructionInboxThreads(query: {
   cursor?: string
   /** One request only — applied by the server before it groups rows per supplier. */
   rfq_id?: string | null
+  /** «مخفية»: only conversations hidden after a supplier's «ما عندنا» or by hand. */
+  visibility?: 'hidden'
 } = {}) {
   const params = new URLSearchParams()
   if (query.filter) params.set('filter', query.filter)
+  if (query.visibility) params.set('visibility', query.visibility)
   if (query.cursor) params.set('cursor', query.cursor)
   if (query.rfq_id) params.set('rfq_id', query.rfq_id)
   const qs = params.toString()
@@ -1388,6 +1409,12 @@ export type ConstructionReplyKind =
 export type ConstructionReplyContact = { type: 'phone' | 'email'; value: string }
 
 export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
+  /** Hidden from the default list (after «ما عندنا», or by hand) — never deleted. */
+  hidden?: boolean
+  hidden_at?: string | null
+  hidden_reason?: 'SUPPLIER_DECLINED' | 'MANUAL' | string | null
+  /** What the supplier said it sells, newest first («ما عندنا X، عندنا Y»). */
+  supplier_activity_updates?: Array<{ activity: string; at?: string | null; channel?: string | null }>
   rfq_id?: string
   version_number?: string | number | null
   owner_user_id?: string | null

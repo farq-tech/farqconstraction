@@ -6,7 +6,7 @@ import {
 import { filterThreads, listTimeLabel, sortThreadsNewestFirst, threadSnippet } from '../../lib/inboxChat'
 import { SupplierAvatar } from './SupplierAvatar'
 
-export type InboxTab = 'inbound' | 'needs_reply' | 'sent'
+export type InboxTab = 'inbound' | 'needs_reply' | 'sent' | 'hidden'
 
 /** Stable identity of a row: the invitation id when there is one. */
 export function threadRowKey(thread: ConstructionInboxThread): string {
@@ -42,6 +42,10 @@ export type ConversationListProps = {
   /** Server counters (`follow_up_counts`), shown only when the server sent them. */
   needsReplyCount: number | null
   sentCount: number | null
+  /** Conversations under «مخفية»; the tab shows only when the server reports it. */
+  hiddenCount?: number | null
+  /** «إخفاء» / «إظهار» the picked conversations. */
+  onVisibility?: (inviteIds: string[], hidden: boolean) => Promise<{ threads?: number } | void>
   /** Server-derived total for the tab; null while unknown. */
   total: number | null
   /** The server has another page this screen does not load. */
@@ -74,6 +78,8 @@ export function ConversationList({
   onTabChange,
   needsReplyCount,
   sentCount,
+  hiddenCount = null,
+  onVisibility,
   total,
   hasMore,
   activeKey,
@@ -103,6 +109,22 @@ export function ConversationList({
       setSelecting(false)
     } catch (err) {
       setMarkNote(err instanceof Error ? err.message : 'تعذّر التعليم.')
+    } finally {
+      setMarking(false)
+    }
+  }
+  const changeVisibility = async (ids: string[], hidden: boolean) => {
+    if (!onVisibility || !ids.length) return
+    setMarking(true)
+    setMarkNote(null)
+    try {
+      const result = await onVisibility(ids, hidden)
+      const n = Number(result?.threads ?? ids.length)
+      setMarkNote(hidden ? `أُخفيت ${n} محادثة — تجدها في «مخفية»، وتعود وحدها إذا كتب المورد من جديد.` : `أُظهرت ${n} محادثة في الوارد.`)
+      setPicked(new Set())
+      setSelecting(false)
+    } catch (err) {
+      setMarkNote(err instanceof Error ? err.message : 'تعذّر تغيير الإظهار.')
     } finally {
       setMarking(false)
     }
@@ -142,6 +164,7 @@ export function ConversationList({
               ['inbound', 'وارد', null],
               ['needs_reply', 'تحتاج ردًا', needsReplyCount],
               ['sent', 'مرسَل', sentCount],
+              ...(hiddenCount != null || tab === 'hidden' ? [['hidden', 'مخفية', hiddenCount] as [InboxTab, string, number | null]] : []),
             ] as [InboxTab, string, number | null][]
           ).map(([id, label, badge]) => (
             <button
@@ -172,7 +195,9 @@ export function ConversationList({
                 : total != null
                   ? tab === 'sent'
                     ? `${total} دعوة مرسلة`
-                    : `${total} محادثة`
+                    : tab === 'hidden'
+                      ? `${total} مخفية`
+                      : `${total} محادثة`
                   : ''}
             </span>
           )}
@@ -194,6 +219,16 @@ export function ConversationList({
                 <span className="flex-1" />
                 <button type="button" disabled={!picked.size || marking} onClick={() => void mark([...picked], true)} className="px-2.5 py-1 rounded-lg bg-white border border-neutral-200 font-bold text-[#123F3A] disabled:opacity-40">مقروءة</button>
                 <button type="button" disabled={!picked.size || marking} onClick={() => void mark([...picked], false)} className="px-2.5 py-1 rounded-lg bg-[#123F3A] text-white font-bold disabled:opacity-40">غير مقروءة</button>
+                {onVisibility && (
+                  <button
+                    type="button"
+                    disabled={!picked.size || marking}
+                    onClick={() => void changeVisibility([...picked], tab !== 'hidden')}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-neutral-200 font-bold text-[#123F3A] disabled:opacity-40"
+                  >
+                    {tab === 'hidden' ? 'إظهار' : 'إخفاء'}
+                  </button>
+                )}
                 <button type="button" onClick={() => { setSelecting(false); setPicked(new Set()) }} className="text-neutral-500 hover:underline">إلغاء</button>
               </>
             )}
@@ -304,12 +339,17 @@ export function ConversationList({
                           </span>
                         )}
                       </div>
-                      {(reference || thread.needs_reply || badges) && (
+                      {(reference || thread.needs_reply || badges || tab === 'hidden') && (
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {reference && (
                             <bdi className="truncate text-[10px] text-neutral-500 bg-neutral-100 rounded-md px-1.5 py-0.5">
                               {reference}
                             </bdi>
+                          )}
+                          {tab === 'hidden' && (
+                            <span className="flex-shrink-0 bg-neutral-100 text-neutral-600 text-[10px] font-bold rounded-full px-1.5 py-0.5">
+                              مخفية
+                            </span>
                           )}
                           {thread.needs_reply && (
                             <span className="flex-shrink-0 bg-amber-50 text-amber-800 text-[10px] font-bold rounded-full px-1.5 py-0.5">

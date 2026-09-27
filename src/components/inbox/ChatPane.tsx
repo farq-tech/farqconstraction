@@ -7,6 +7,7 @@ import {
   inboxThreadSupplierLabel,
   markConstructionInboxMessageRead,
   markConstructionInboxMessageUnread,
+  setConstructionInboxThreadsVisibility,
   readConstructionInboxAttachments,
   replyToConstructionInboxThread,
   retryConstructionInboxReply,
@@ -141,6 +142,8 @@ export type ChatPaneProps = {
   onDetail?: (inviteId: string, detail: ConstructionInboxThreadDetail) => void
   /** Latest quote version known for this invite (null = no quote). */
   onQuoteVersion?: (inviteId: string, version: number | null) => void
+  /** The conversation was shown again («إظهار») — the list should refetch. */
+  onVisibilityChange?: (inviteId: string, hidden: boolean) => void
 }
 
 export function ChatPane({
@@ -151,6 +154,7 @@ export function ChatPane({
   requestScoped = false,
   onDetail,
   onQuoteVersion,
+  onVisibilityChange,
 }: ChatPaneProps) {
   const readOnly = isReadOnlyBuild()
   const [thread, setThread] = useState<ConstructionInboxThreadDetail | null>(null)
@@ -169,6 +173,7 @@ export function ChatPane({
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [marking, setMarking] = useState(false)
+  const [showing, setShowing] = useState(false)
   const fileInput = useRef<HTMLInputElement | null>(null)
   const scroller = useRef<HTMLDivElement | null>(null)
   const markedRef = useRef<Set<string>>(new Set())
@@ -290,6 +295,30 @@ export function ChatPane({
       setPicked(new Set())
     }
   }
+
+  /** «إظهار»: back in the default inbox list. Nothing was ever deleted. */
+  const showAgain = async () => {
+    if (showing) return
+    setShowing(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await setConstructionInboxThreadsVisibility([inviteId], false)
+      try {
+        publish(await getConstructionInboxThread(inviteId))
+      } catch {
+        /* the notice below still says what was done */
+      }
+      if (!alive.current) return
+      setNotice('أُظهرت المحادثة في الوارد.')
+      onVisibilityChange?.(inviteId, false)
+    } catch (err) {
+      if (alive.current) setError(err instanceof Error ? err.message : 'تعذّر إظهار المحادثة.')
+    } finally {
+      if (alive.current) setShowing(false)
+    }
+  }
+  const latestActivity = thread?.supplier_activity_updates?.find((u) => u && u.activity) ?? null
 
   // Newest message in view on open, like any chat app. The pane's own scroller
   // is moved — `scrollIntoView` would also drag the page, which must not scroll.
@@ -487,6 +516,11 @@ export function ChatPane({
               </span>
             )}
             {thread?.owner_name && <span>المسؤول: {thread.owner_name}</span>}
+            {latestActivity && (
+              <span className="truncate" title={latestActivity.at ? `من رد المورد ${latestActivity.at.slice(0, 10)}` : 'من رد المورد'}>
+                يبيع: <bdi className="font-bold text-[#0D1F1D]">{latestActivity.activity}</bdi>
+              </span>
+            )}
           </div>
         </div>
         {thread && !thread.locked && thread.messages.some((m) => m.direction === 'INBOUND') && (
@@ -525,6 +559,25 @@ export function ChatPane({
           </button>
         )}
       </div>
+
+      {thread?.hidden && (
+        <div className="flex-shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 bg-neutral-50 border-b border-neutral-200 text-xs">
+          <span className="text-neutral-700 leading-relaxed">
+            {thread.hidden_reason === 'SUPPLIER_DECLINED'
+              ? 'هذه المحادثة مخفية من الوارد: رد المورد بأنه لا يوفّر المطلوب. لم يُحذف شيء، وتعود وحدها إذا كتب من جديد.'
+              : 'هذه المحادثة مخفية من الوارد. لم يُحذف شيء، وتعود وحدها إذا كتب المورد من جديد.'}
+          </span>
+          <span className="flex-1" />
+          <button
+            type="button"
+            disabled={showing || readOnly}
+            onClick={() => void showAgain()}
+            className="px-3 py-1.5 rounded-lg bg-white border border-neutral-200 font-bold text-[#123F3A] disabled:opacity-40"
+          >
+            إظهار
+          </button>
+        </div>
+      )}
 
       {selecting && thread && (
         <div className="flex-shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 bg-[#f0faf7] border-b border-[#d7efe6] text-xs">
