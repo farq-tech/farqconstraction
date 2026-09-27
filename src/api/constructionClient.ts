@@ -1103,7 +1103,19 @@ export type ConstructionInboxThread = {
     reference?: string
     supplier_name_ar?: string
     supplier_name?: string
+    /** First three lines of the supplier's scope, as the list API returns them. */
+    items?: Array<{ name_ar?: string | null; name_en?: string | null; quantity?: string | null; uom?: string | null }>
+    item_count?: number
+    response_status?: string | null
+    request_status?: string | null
+    version_number?: string | number | null
   }
+  /** Who answers this request's correspondence; null = nobody took it yet. */
+  owner_user_id?: string | null
+  owner_name?: string | null
+  can_reply?: boolean
+  can_claim?: boolean
+  can_take_over?: boolean
   /**
    * Latest activity kind from correspondence.listThreads.
    * `DISPATCH` = outbound RFQ invite SENT snapshot («دعوة طلب عرض مرسلة»),
@@ -1260,10 +1272,13 @@ export async function listConstructionInboxThreads(query: {
   /** API only accepts needs_reply | all. Use client helpers for inbound vs مرسل. */
   filter?: 'needs_reply' | 'all'
   cursor?: string
+  /** One request only — applied by the server before it groups rows per supplier. */
+  rfq_id?: string | null
 } = {}) {
   const params = new URLSearchParams()
   if (query.filter) params.set('filter', query.filter)
   if (query.cursor) params.set('cursor', query.cursor)
+  if (query.rfq_id) params.set('rfq_id', query.rfq_id)
   const qs = params.toString()
   return request<ConstructionInboxThreadsResult>(
     `/api/construction/inbox/threads${qs ? `?${qs}` : ''}`,
