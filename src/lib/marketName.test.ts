@@ -67,7 +67,10 @@ describe('market name on the request lines', () => {
   it('cleared, absent or a copy of the booklet text: the line is sent exactly as before', () => {
     const before = buildRfqLinesFromItems([item()])
     expect(Object.keys(before[0]!)).not.toContain('market_name_ar')
-    expect(buildRfqLinesFromItems([item({ marketName: '' })])).toEqual(before)
+    // A cleared suggestion carries only the clear flag (read by the API's name
+    // memory, never stored on the line); the line itself is as before.
+    const [cleared] = buildRfqLinesFromItems([item({ marketName: '' })])
+    expect(cleared).toEqual({ ...before[0], market_name_cleared: true })
     expect(buildRfqLinesFromItems([item({ marketName: 'فوم فاير ريت' })])).toEqual(before)
     expect(marketNameToSend({ name: 'x', marketName: '   ' })).toBeNull()
   })

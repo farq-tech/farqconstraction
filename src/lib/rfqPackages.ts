@@ -25,6 +25,11 @@ export type RfqLineDraft = {
   original_description: string
   /** «الاسم الدارج بالسوق», when the buyer kept one. Absent otherwise. */
   market_name_ar?: string
+  /**
+   * The buyer cleared the suggested name: the API's name memory stops serving
+   * it for this wording. Absent otherwise; never stored on the request line.
+   */
+  market_name_cleared?: true
 }
 
 /**
@@ -62,8 +67,14 @@ export function buildRfqLinesFromItems(
       // Beside the booklet text, never instead of it; a line without one is
       // sent exactly as before.
       ...(market ? { market_name_ar: market } : {}),
+      ...(!market && marketNameCleared(item) ? { market_name_cleared: true as const } : {}),
     }
   })
+}
+
+/** The reader or the memory proposed a name and the buyer emptied the field. */
+export function marketNameCleared(item: Pick<BOQItem, 'marketName'>): boolean {
+  return item.marketName !== undefined && String(item.marketName).trim() === ''
 }
 
 /** The market name the buyer kept for a line, or null (none, cleared, or a copy of the name). */

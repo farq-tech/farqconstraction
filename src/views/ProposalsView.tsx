@@ -355,7 +355,12 @@ function BOQCard({
 
       {/* Only where the reader proposed one: every other card reads as before. */}
       {item.marketName !== undefined && !item.workOnly && (
-        <MarketNameField value={item.marketName} bookletText={name} onCommit={onMarketName} />
+        <MarketNameField
+          value={item.marketName}
+          bookletText={name}
+          onCommit={onMarketName}
+          fromMemory={item.marketNameSource === 'memory'}
+        />
       )}
 
       {expanded && (
@@ -739,7 +744,14 @@ export function ProposalsView({ navigate }: NavProps) {
   const deletedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // «الاسم الدارج بالسوق»: '' keeps the field (cleared), and nothing is sent for it.
   const setMarketName = (itemId: number, next: string) => {
-    persistItems(items.map((item) => (item.id === itemId ? { ...item, marketName: next } : item)))
+    // An edited or cleared name is the buyer's own, no longer the remembered one.
+    persistItems(
+      items.map((item) => {
+        if (item.id !== itemId) return item
+        const { marketNameSource: _source, ...rest } = item
+        return { ...rest, marketName: next }
+      }),
+    )
   }
 
   const deleteItem = (itemId: number) => {
