@@ -5,6 +5,7 @@ import {
   submitPublicSupplierQuote,
   type PublicSupplierInvite,
 } from '../api/constructionClient'
+import { captureSupplierLink } from '../lib/supplierLink'
 
 type LineDraft = {
   unitPrice: string
@@ -13,13 +14,9 @@ type LineDraft = {
 }
 
 export function SupplierPortalView({ navigate }: NavProps) {
-  const token = useMemo(() => {
-    try {
-      return new URLSearchParams(window.location.search).get('token') || ''
-    } catch {
-      return ''
-    }
-  }, [])
+  // Read once from the address bar (then removed from it) or, after a
+  // reload, from this tab's session: see lib/supplierLink.
+  const token = useMemo(() => captureSupplierLink()?.token || '', [])
   const [invite, setInvite] = useState<PublicSupplierInvite | null>(null)
   const [loading, setLoading] = useState(Boolean(token))
   const [error, setError] = useState<string | null>(null)
