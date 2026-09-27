@@ -205,7 +205,7 @@ export function HomeView({ navigate }: NavProps) {
           </div>
           <div className="text-xl font-bold text-[#0D1F1D] mb-2">ارفع أول كراسة</div>
           <p className="text-neutral-500 text-sm text-center max-w-sm">
-            ملف PDF لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند خمسة موردين، وترسل لهم بضغطة.
+            ملف PDF لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند عشرة موردين، وترسل لهم بضغطة.
           </p>
         </button>
       ) : (

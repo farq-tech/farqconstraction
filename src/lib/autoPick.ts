@@ -1,7 +1,7 @@
 import type { BOQItem, Supplier } from '../types'
 
 /** How many suppliers the system chooses for a line on its own. */
-export const AUTO_PICK = 5
+export const AUTO_PICK = 10
 
 const ACTIVITY_GRADE = 'على مستوى النشاط'
 

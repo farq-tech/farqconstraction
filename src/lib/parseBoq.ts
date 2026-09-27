@@ -515,7 +515,7 @@ async function extractPlainText(file: File, work: BoqWorkProgress = noWork): Pro
 }
 
 /** Cap UI proposals so a 10k+ directory response cannot freeze the tab. */
-const MATCH_SUPPLIERS_PER_LINE = 12
+const MATCH_SUPPLIERS_PER_LINE = 20
 /** Prefer Farq BOQ match for at most this many lines (API max is 200). */
 const MATCH_API_LINE_CAP = 80
 
