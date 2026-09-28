@@ -12,6 +12,7 @@ import MarketNameNote from '../components/MarketNameNote'
 import {
   bookletDeadline,
   bookletMoney,
+  columnTotal,
   buildBookletMatrix,
   coverage,
   formatQuantity,
@@ -279,7 +280,20 @@ export function BookletView({ navigate }: NavProps) {
                   <td className="sticky right-0 z-10 bg-[#f0faf7] px-4 py-3 font-black text-[#0D1F1D]">إجمالي العرض</td>
                   {matrix.columns.map((c) => (
                     <td key={c.supplier_id} className="px-4 py-3">
-                      <div className="font-black text-[#123F3A]">{bookletMoney(c.quote_total, c.currency)}</div>
+                      {(() => {
+                        const t = columnTotal(matrix, c)
+                        return (
+                          <>
+                            <div className="font-black text-[#123F3A]">{bookletMoney(t.value, c.currency)}</div>
+                            {t.value != null && t.of > 0 && (
+                              <div className="text-[10px] text-neutral-500">
+                                {t.priced === t.of ? 'كل البنود' : `سعّر ${t.priced} من ${t.of} بنود`}
+                                {!t.complete && ' · بدون التوصيل'}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                       {bestFull && String(bestFull.supplier_id) === c.supplier_id && (
                         <div className="text-[10px] font-semibold text-[#1a7a45]">الأفضل للكراسة كاملة</div>
                       )}

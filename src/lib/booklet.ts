@@ -209,6 +209,26 @@ export function bookletDeadline(value: string | null | undefined, now = Date.now
 }
 
 /** Money as the request's comparison shows it; «—» when there is none. */
+/**
+ * «إجمالي العرض» of one supplier column: the server's full total when every
+ * charge is stated, otherwise the sum of the lines this supplier priced — so a
+ * supplier who left delivery unstated still shows a figure, labelled as such.
+ */
+export function columnTotal(matrix: BookletMatrix, column: BookletColumn): { value: number | null; priced: number; of: number; complete: boolean } {
+  let sum = 0
+  let priced = 0
+  for (const row of matrix.rows) {
+    const t = num(row.cells.get(column.supplier_id)?.total)
+    if (t == null) continue
+    sum += t
+    priced += 1
+  }
+  const full = num(column.quote_total)
+  const of = matrix.rows.length
+  if (full != null) return { value: full, priced, of, complete: true }
+  return { value: priced ? Math.round(sum * 100) / 100 : null, priced, of, complete: false }
+}
+
 export function bookletMoney(value: number | null | undefined, currency?: string | null): string {
   return formatMoney(num(value), currency || 'SAR') || '—'
 }

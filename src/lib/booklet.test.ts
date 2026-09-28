@@ -10,6 +10,7 @@ import {
   sortWaves,
   waveCount,
   waveLabel,
+  columnTotal,
 } from './booklet'
 
 const offer = (over: Partial<ConstructionBookletOffer>): ConstructionBookletOffer => ({
@@ -205,5 +206,15 @@ describe('booklet formatting', () => {
     expect(ts.label).toContain('3:00 مساءً')
     expect(bookletDeadline(null)).toBeNull()
     expect(bookletDeadline('not a date')).toBeNull()
+  })
+})
+
+describe('columnTotal', () => {
+  it('sums priced lines when the full total is unknown, and says so', () => {
+    const cells = (v: number | null) => new Map(v == null ? [] : [['s1', { supplier_id: 's1', total: v, unit_price: v, currency: 'SAR', best: false } as never]])
+    const matrix = { columns: [], rows: [{ cells: cells(100) }, { cells: cells(50.5) }, { cells: cells(null) }], lines_total: 3, lines_with_offers: 2 } as never
+    const col = { supplier_id: 's1', name: 'x', waves: [1], quote_total: null, currency: 'SAR', rfq_id: null, priced_lines: 2 }
+    expect(columnTotal(matrix, col)).toEqual({ value: 150.5, priced: 2, of: 3, complete: false })
+    expect(columnTotal(matrix, { ...col, quote_total: 200 })).toEqual({ value: 200, priced: 2, of: 3, complete: true })
   })
 })

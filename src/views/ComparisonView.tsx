@@ -154,7 +154,12 @@ export function ComparisonView({ navigate }: NavProps) {
                   const id = String(r.offer.quoteVersionId || r.offer.offerId || '')
                   return (
                     <td key={String(r.supplier.id)} className="px-4 py-3">
-                      <div className="font-black text-[#123F3A]">{money(r.offer.totals?.total, r.offer.currency)}</div>
+                      <div className="font-black text-[#123F3A]">
+                        {money(r.offer.totals?.total ?? (r.offer.totals as { minimum_total?: number } | undefined)?.minimum_total ?? r.offer.totals?.goods_total, r.offer.currency)}
+                      </div>
+                      {r.offer.totals?.total == null && r.offer.totals?.goods_total != null && (
+                        <div className="text-[10px] text-neutral-500">بدون التوصيل — لم يذكره المورد</div>
+                      )}
                       {cheapestTotal != null && total === cheapestTotal && (
                         <div className="text-[10px] font-semibold text-[#1a7a45]">الأقل إجمالًا بين المستلَم</div>
                       )}
