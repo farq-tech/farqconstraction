@@ -13,6 +13,7 @@ import {
 } from './constructionClient'
 import {
   canTransferOwnership,
+  displayName,
   ownerLabel,
   roleLabel,
   transferSuccessMessage,
@@ -110,6 +111,15 @@ describe('owner wording', () => {
     expect(ownerLabel(null, 'u2', members)).toBe('sara@aldafe.com')
     expect(ownerLabel(null)).toBe('غير محدد')
     expect(ownerLabel(undefined, null, members)).toBe('غير محدد')
+  })
+
+  it('prefers label over email, and survives a scrubbed email', () => {
+    expect(ownerLabel({ user_id: 'u1', label: 'Bader', email: 'bader@aldafe.com' })).toBe('Bader')
+    expect(ownerLabel({ user_id: 'u1', label: 'bader@aldafe.com' })).toBe('bader@aldafe.com')
+    expect(ownerLabel({ user_id: 'u9' }, null, [{ user_id: 'u9', label: 'Sara', role: 'ENGINEER' }])).toBe('Sara')
+    expect(ownerLabel({ user_id: 'u9' }, null, [{ user_id: 'u9', role: 'ENGINEER' }])).toBe('غير محدد')
+    expect(displayName({ label: null, email: 'x@y.com' })).toBe('x@y.com')
+    expect(displayName({})).toBeNull()
   })
 
   it('labels roles in Arabic and keeps unknown ones', () => {

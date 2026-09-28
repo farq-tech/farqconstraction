@@ -13,6 +13,11 @@ import type {
 
 export type OwnerSubject = 'rfq' | 'booklet'
 
+/** `label ?? email` — the server may strip `email` for colleagues who are not the owner. */
+export function displayName(person: { label?: string | null; email?: string | null } | null | undefined): string | null {
+  return person?.label || person?.email || null
+}
+
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'مدير',
   PROCUREMENT: 'مشتريات',
@@ -30,7 +35,7 @@ export function currentOwnerId(owner: ConstructionOwner | null | undefined, assi
 }
 
 /**
- * «المسؤول: …» — the owner's email; falls back to the member list when the API
+ * «المسؤول: …» — the owner's label (or email); falls back to the member list when the API
  * sent only the id, and to «غير محدد» when there is no owner.
  */
 export function ownerLabel(
@@ -38,10 +43,11 @@ export function ownerLabel(
   assignedUserId?: string | null,
   members: ConstructionCompanyMember[] = [],
 ): string {
-  if (owner?.email) return owner.email
+  const own = displayName(owner)
+  if (own) return own
   const id = currentOwnerId(owner, assignedUserId)
   const member = id ? members.find((m) => m.user_id === id) : undefined
-  return member?.email || 'غير محدد'
+  return displayName(member) || 'غير محدد'
 }
 
 /** The control renders only when GET /members says so (ADMIN). */

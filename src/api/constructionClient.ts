@@ -26,7 +26,8 @@ import { farqSession } from './farqSession'
 export { constructionHeaders }
 
 /** The colleague responsible for a request or a booklet. Absent on older APIs. */
-export type ConstructionOwner = { user_id: string; email?: string | null; role?: string | null }
+/** `label` is the display text; `email` may be stripped by the server's contact scrubber. */
+export type ConstructionOwner = { user_id: string; label?: string | null; email?: string | null; role?: string | null }
 
 export type ConstructionRfqSummary = {
   id: string
@@ -766,7 +767,9 @@ export type ConstructionRequestScope = 'ALL' | 'OWN_REQUESTS'
 
 export type ConstructionCompanyMember = {
   user_id: string
-  email: string
+  /** Display text (currently the email); always prefer it over `email`. */
+  label?: string | null
+  email?: string | null
   role: string
   request_scope?: ConstructionRequestScope
 }

@@ -9,6 +9,7 @@ import {
 import {
   canTransferOwnership,
   currentOwnerId,
+  displayName,
   ownerLabel,
   roleLabel,
   transferSuccessMessage,
@@ -70,7 +71,7 @@ export function OwnerControl({ subject, id, owner, assignedUserId, onTransferred
     try {
       const result =
         subject === 'booklet' ? await transferBookletOwner(id, picked) : await transferRfqOwner(id, picked)
-      setNotice(transferSuccessMessage(subject, target?.email || picked, result))
+      setNotice(transferSuccessMessage(subject, displayName(target) || 'غير محدد', result))
       setOpen(false)
       setPicked(null)
       try {
@@ -142,7 +143,7 @@ export function OwnerControl({ subject, id, owner, assignedUserId, onTransferred
                     />
                     <div className="min-w-0 flex-1">
                       <div dir="ltr" className="text-sm font-semibold text-[#0D1F1D] truncate text-right">
-                        {m.email}
+                        {displayName(m) || 'غير محدد'}
                       </div>
                       <div className="text-xs text-neutral-500">{roleLabel(m.role)}</div>
                     </div>
