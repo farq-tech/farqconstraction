@@ -37,7 +37,18 @@ import { useSupplierContext } from './useSupplierContext'
 
 const PANEL_PREF_KEY = 'farq.inbox.supplierPanel.v1'
 
+// Below xl the panel covers the whole chat, so it never opens by itself there:
+// the remembered choice applies only where the panel sits beside the chat.
+function isWide(): boolean {
+  try {
+    return window.matchMedia('(min-width: 1280px)').matches
+  } catch {
+    return false
+  }
+}
+
 function readPanelPref(): boolean {
+  if (!isWide()) return false
   try {
     return window.localStorage.getItem(PANEL_PREF_KEY) === 'open'
   } catch {
@@ -46,6 +57,7 @@ function readPanelPref(): boolean {
 }
 
 function writePanelPref(open: boolean) {
+  if (!isWide()) return
   try {
     window.localStorage.setItem(PANEL_PREF_KEY, open ? 'open' : 'closed')
   } catch {
@@ -184,6 +196,10 @@ export function ChatPane({
   detailRef.current = onDetail
   const textArea = useRef<HTMLTextAreaElement | null>(null)
   const [panelOpen, setPanelOpen] = useState(readPanelPref)
+  // A new conversation on a phone opens on the chat, never on the panel.
+  useEffect(() => {
+    if (!isWide()) setPanelOpen(false)
+  }, [inviteId])
   const [customReplies, setCustomReplies] = useState<QuickReply[]>(() => loadCustomReplies())
   const [linkHintHidden, setLinkHintHidden] = useState(() => dismissedLinkHints.has(inviteId))
 
