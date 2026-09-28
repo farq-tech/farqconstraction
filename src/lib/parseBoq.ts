@@ -497,6 +497,21 @@ export function isStaleBundleError(message: string | null | undefined): boolean 
   )
 }
 
+/**
+ * Loads the booklet reader's chunks once the page is idle, so a later deploy
+ * (which renames them) can never leave an open tab without its reader. Errors
+ * are ignored: the reader still loads on demand when a booklet is uploaded.
+ */
+export function warmBoqReader(): void {
+  const run = () => {
+    void import('pdfjs-dist').catch(() => {})
+    void import('./lineResolution').catch(() => {})
+  }
+  const idle = (globalThis as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback
+  if (idle) idle(run)
+  else setTimeout(run, 3000)
+}
+
 export const STALE_BUNDLE_MESSAGE =
   'نُشرت نسخة أحدث من التطبيق أثناء فتح هذه الصفحة، فلم يعد قارئ الملفات الذي تحمله صفحتك موجودًا. ' +
   'أعد تحميل الصفحة ثم ارفع الكراسة من جديد. لم تُقرأ الكراسة، ولم نُعد استخدام كراسة سابقة.'

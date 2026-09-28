@@ -20,6 +20,12 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload()
 })
 
+// Load the booklet reader in the background once the app is up, so a later
+// deploy cannot strand this tab without it.
+setTimeout(() => {
+  void import('./lib/parseBoq').then((m) => m.warmBoqReader()).catch(() => {})
+}, 2000)
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
