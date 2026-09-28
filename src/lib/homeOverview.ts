@@ -3,7 +3,7 @@ import type {
   ConstructionBookletOffer,
   ConstructionBookletSummary,
 } from '../api/constructionClient'
-import { bookletDeadline, buildBookletMatrix, type BookletCell } from './booklet'
+import { bookletClosed, bookletDeadline, buildBookletMatrix, type BookletCell } from './booklet'
 
 /**
  * The home page («الرئيسية»): the booklets and their lines in one picture,
@@ -15,8 +15,6 @@ export const FARQ_FROM_CHAT = 'FARQ_FROM_CHAT'
 const HOUR = 3_600_000
 /** A deadline this close is «needs attention». */
 export const DEADLINE_SOON_MS = 48 * HOUR
-/** A quote whose stated validity ends this soon is «expiring». */
-export const EXPIRING_SOON_MS = 72 * HOUR
 /** Lines shown on a booklet card before «عرض كل البنود». */
 export const CARD_LINES = 8
 
@@ -63,7 +61,6 @@ export type HomeBooklet = {
 export type AttentionItem =
   | { kind: 'no_quotes'; bookletId: string; reference: string; lines: string[]; count: number }
   | { kind: 'deadline'; bookletId: string; reference: string; at: number; label: string }
-  | { kind: 'expiring'; bookletId: string; reference: string; supplierName: string; at: number; expired: boolean; lines: number }
   | { kind: 'from_chat'; bookletId: string; reference: string; supplierName: string; lines: number }
 
 export type HomeTotals = {
@@ -272,35 +269,32 @@ export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now(
   }
 }
 
-/** What the booklet asks of the buyer: unquoted lines, a close deadline, expiring or chat-entered quotes. */
+/**
+ * What the booklet asks of the buyer: unquoted lines, a close deadline, and
+ * chat-entered quotes. Never «expiring» quotes: supplier quotes do not expire
+ * (only closing the booklet ends quoting), so a stated validity is no alert.
+ * A closed booklet asks for no more quotes and has no deadline to watch.
+ */
 export function attentionFor(raw: ConstructionBookletDetail, card: HomeBooklet, now = Date.now()): AttentionItem[] {
   const detail = withoutCancelledWaves(raw)
   const items: AttentionItem[] = []
   const ref = card.reference
+  const closed = bookletClosed(detail.booklet)
   const missing = card.lines.filter((l) => l.offers === 0)
-  if (missing.length) {
+  if (missing.length && !closed) {
     items.push({ kind: 'no_quotes', bookletId: card.id, reference: ref, lines: missing.map((l) => l.name), count: missing.length })
   }
-  if (card.deadlineAt != null && !card.deadlinePassed && card.deadlineAt - now <= DEADLINE_SOON_MS) {
+  if (!closed && card.deadlineAt != null && !card.deadlinePassed && card.deadlineAt - now <= DEADLINE_SOON_MS) {
     items.push({ kind: 'deadline', bookletId: card.id, reference: ref, at: card.deadlineAt, label: card.deadlineLabel || '' })
   }
   const names = supplierNames(detail)
-  const expiring = new Map<string, { at: number; lines: number }>()
   const chat = new Map<string, number>()
   for (const m of detail.matrix || []) {
     for (const o of (m.offers || []) as ConstructionBookletOffer[]) {
       if (num(o.unit_price) == null && num(o.total) == null) continue
       const id = String(o.supplier_id)
-      const until = time(o.valid_until)
-      if (until != null && until - now <= EXPIRING_SOON_MS) {
-        const prev = expiring.get(id)
-        expiring.set(id, { at: prev ? Math.min(prev.at, until) : until, lines: (prev?.lines || 0) + 1 })
-      }
       if (upper(o.entered_by) === FARQ_FROM_CHAT) chat.set(id, (chat.get(id) || 0) + 1)
     }
-  }
-  for (const [id, e] of expiring) {
-    items.push({ kind: 'expiring', bookletId: card.id, reference: ref, supplierName: names.get(id) || 'مورد', at: e.at, expired: e.at <= now, lines: e.lines })
   }
   for (const [id, lines] of chat) {
     items.push({ kind: 'from_chat', bookletId: card.id, reference: ref, supplierName: names.get(id) || 'مورد', lines })
@@ -348,7 +342,7 @@ export function priceCutsFor(raw: ConstructionBookletDetail, card: HomeBooklet):
   return out
 }
 
-const ATTENTION_ORDER: Record<AttentionItem['kind'], number> = { deadline: 0, no_quotes: 1, expiring: 2, from_chat: 3 }
+const ATTENTION_ORDER: Record<AttentionItem['kind'], number> = { deadline: 0, no_quotes: 1, from_chat: 2 }
 
 /**
  * The whole page from the booklets' comparisons: active booklets only, nearest

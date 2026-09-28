@@ -52,15 +52,21 @@ export function QuoteForm({
 }) {
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>(() => {
     const next: Record<string, LineDraft> = {}
-    // Opt-in: unchecked until the supplier says they can supply it.
-    for (const line of invite.lines || []) next[line.id] = { unitPrice: '', available: false, notes: '' }
+    // Opt-in: unchecked until the supplier says they can supply it — or, when
+    // he already quoted, what he quoted (he sees it, and updates it while open).
+    const mine = new Map((invite.my_quote?.lines || []).map((l) => [String(l.line_id), l]))
+    for (const line of invite.lines || []) {
+      const q = mine.get(String(line.id))
+      const price = q?.unit_price == null || q.unit_price === '' ? '' : String(q.unit_price)
+      next[line.id] = q ? { unitPrice: price, available: q.available ?? price !== '', notes: q.notes || '' } : { unitPrice: '', available: false, notes: '' }
+    }
     return next
   })
   const [personName, setPersonName] = useState(invite.supplier.contact_name || '')
   const [personEmail, setPersonEmail] = useState(invite.supplier.email || '')
   // Both were once sent as `true` on the supplier's behalf with nothing on screen:
   // a quote went in as tax-inclusive under a declaration nobody had seen.
-  const [pricesIncludeTax, setPricesIncludeTax] = useState<boolean | null>(null)
+  const [pricesIncludeTax, setPricesIncludeTax] = useState<boolean | null>(invite.my_quote?.prices_include_tax ?? null)
   const [declarationAccepted, setDeclarationAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -131,6 +137,12 @@ export function QuoteForm({
         {closed && (
           <div className="mt-3 text-xs text-neutral-600 bg-neutral-100 rounded-xl px-3 py-2">
             أُغلق استلام العروض — العرض للقراءة فقط.
+          </div>
+        )}
+        {invite.my_quote && (
+          <div className="mt-3 text-xs text-[#123F3A] bg-[#f0faf7] rounded-xl px-3 py-2">
+            عرضك المسجّل{invite.my_quote.submitted_at ? ` بتاريخ ${formatDateTimeAr(invite.my_quote.submitted_at)}` : ''} ظاهر أدناه
+            {closed ? '.' : ' — يمكنك تعديله وإرساله من جديد.'}
           </div>
         )}
       </div>

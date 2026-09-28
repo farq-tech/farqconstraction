@@ -3,6 +3,7 @@ import type { NavProps } from '../types'
 import { ClockIcon } from '../icons'
 import {
   ConstructionApiError,
+  closeConstructionBooklet,
   formatRfqApiStatus,
   getConstructionBooklet,
   type ConstructionBookletDetail,
@@ -10,13 +11,16 @@ import {
 import { useProcurement } from '../procurementContext'
 import MarketNameNote from '../components/MarketNameNote'
 import {
+  bookletClosed,
   bookletDeadline,
   bookletMoney,
+  bookletStateLabel,
   columnTotal,
   buildBookletMatrix,
   coverage,
   formatQuantity,
   sortWaves,
+  statedValidityLabel,
   waveLabel,
 } from '../lib/booklet'
 
@@ -25,8 +29,13 @@ import {
  *
  * The same BOQ sent as several RFQs used to leave its quotes scattered across
  * as many comparisons. Here each supplier who quoted is one column, however
- * many waves invited him, and each line shows its best offer. Read-only: the
- * award still happens inside each request.
+ * many waves invited him, and each line shows its best offer. The award still
+ * happens inside each request.
+ *
+ * Supplier quotes never expire («عروض الموردين لا تنتهي الصلاحية»): the
+ * booklet is «مفتوحة» until the account admin closes it here («إغلاق
+ * الكراسة»), which ends quoting on every wave. A supplier's stated validity is
+ * shown as neutral information only.
  */
 export function BookletView({ navigate }: NavProps) {
   const { selectedBookletId, openRfq } = useProcurement()
@@ -34,6 +43,25 @@ export function BookletView({ navigate }: NavProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ status?: number; message: string } | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [confirmingClose, setConfirmingClose] = useState(false)
+  const [closeNote, setCloseNote] = useState('')
+  const [closing, setClosing] = useState(false)
+  const [closeError, setCloseError] = useState<string | null>(null)
+
+  async function closeBooklet() {
+    if (!selectedBookletId || closing) return
+    setClosing(true)
+    setCloseError(null)
+    try {
+      setData(await closeConstructionBooklet(selectedBookletId, closeNote.trim()))
+      setConfirmingClose(false)
+    } catch (err) {
+      const status = err instanceof ConstructionApiError ? err.status : undefined
+      setCloseError(status === 403 ? 'إغلاق الكراسة يحتاج صلاحية مدير الحساب.' : err instanceof Error ? err.message : 'تعذّر إغلاق الكراسة')
+    } finally {
+      setClosing(false)
+    }
+  }
 
   useEffect(() => {
     if (!selectedBookletId) {
@@ -117,6 +145,7 @@ export function BookletView({ navigate }: NavProps) {
       'مورد'
     : null
   const noQuotes = matrix.columns.length === 0
+  const closed = bookletClosed(booklet)
 
   return (
     <div className="max-w-6xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
@@ -133,24 +162,92 @@ export function BookletView({ navigate }: NavProps) {
           <span className="px-2 py-0.5 rounded-full font-semibold bg-[#f0faf7] text-[#123F3A]">
             {waves.length} {waves.length === 1 ? 'دفعة' : 'دفعات'}
           </span>
-          {deadline?.passed && <span className="px-2 py-0.5 rounded-full font-bold bg-red-50 text-red-700">انتهى الموعد</span>}
+          <span
+            className={`px-2 py-0.5 rounded-full font-bold ${closed ? 'bg-neutral-100 text-neutral-600' : 'bg-[#e8f5ee] text-[#1a7a45]'}`}
+          >
+            {bookletStateLabel(booklet)}
+          </span>
         </div>
         <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D] leading-tight">
           {booklet?.title || booklet?.reference || 'كراسة'}
         </h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-neutral-600">
           {deadline ? (
-            <span className={`flex items-center gap-1 ${deadline.passed ? 'text-red-600 font-semibold' : ''}`}>
-              <ClockIcon className="w-4 h-4" /> إغلاق العروض: {deadline.label}
+            <span className="flex items-center gap-1">
+              <ClockIcon className="w-4 h-4" /> الموعد المطلوب للعروض: {deadline.label}
             </span>
           ) : (
             <span className="flex items-center gap-1 text-neutral-400">
-              <ClockIcon className="w-4 h-4" /> لم يُحدَّد موعد الإغلاق
+              <ClockIcon className="w-4 h-4" /> لم يُحدَّد موعد للعروض
             </span>
           )}
-          <span className="text-xs text-neutral-400">موعد إغلاق واحد لكل الدفعات</span>
+          <span className="text-xs text-neutral-400">
+            {closed ? 'العروض نهائية منذ إغلاق الكراسة' : 'العروض سارية حتى إغلاق الكراسة'}
+          </span>
         </div>
       </div>
+
+      {/* Booklet state: open until the admin closes it */}
+      {closed ? (
+        <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm">
+          <div className="font-bold text-[#0D1F1D]">
+            الكراسة مغلقة{booklet?.closed_at ? ` منذ ${bookletDeadline(booklet.closed_at)?.label || ''}` : ''}
+          </div>
+          <div className="text-xs text-neutral-600 mt-1">
+            لا يستطيع الموردون تقديم عروض جديدة أو تعديل عروضهم، ويبقى بإمكانهم الاطلاع عليها. كل العروض المستلمة متاحة للمقارنة
+            والترسية.
+          </div>
+          {booklet?.closure_note && <div className="text-xs text-neutral-500 mt-1">سبب الإغلاق: {booklet.closure_note}</div>}
+        </div>
+      ) : confirmingClose ? (
+        <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <div className="font-bold text-[#0D1F1D]">إغلاق الكراسة؟</div>
+          <p className="text-xs text-neutral-700 mt-1">
+            يُغلق استقبال العروض في كل الدفعات ({waves.length}). لن يستطيع أي مورد تقديم عرض جديد أو تعديل عرضه بعد الإغلاق، وتبقى
+            العروض المستلمة متاحة للمقارنة والترسية. لا يمكن التراجع عن الإغلاق من هنا.
+          </p>
+          <textarea
+            value={closeNote}
+            onChange={(e) => setCloseNote(e.target.value)}
+            maxLength={1000}
+            rows={2}
+            placeholder="سبب الإغلاق (اختياري)"
+            className="mt-2 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm"
+          />
+          {closeError && <div className="text-xs text-red-700 mt-1">{closeError}</div>}
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={() => void closeBooklet()}
+              disabled={closing}
+              className="px-4 py-2 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-60"
+            >
+              {closing ? 'جارٍ الإغلاق…' : 'تأكيد إغلاق الكراسة'}
+            </button>
+            <button
+              onClick={() => {
+                setConfirmingClose(false)
+                setCloseError(null)
+              }}
+              disabled={closing}
+              className="px-4 py-2 border border-neutral-200 text-[#123F3A] font-bold rounded-xl text-sm"
+            >
+              تراجع
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-100 bg-white px-4 py-3 text-sm">
+          <span className="text-neutral-600">
+            الكراسة مفتوحة: عروض الموردين لا تنتهي صلاحيتها، ويستطيعون تقديمها وتعديلها حتى تُغلق الكراسة.
+          </span>
+          <button
+            onClick={() => setConfirmingClose(true)}
+            className="shrink-0 px-3 py-1.5 border border-neutral-200 text-[#123F3A] font-bold rounded-lg text-xs hover:bg-neutral-50"
+          >
+            إغلاق الكراسة
+          </button>
+        </div>
+      )}
 
       {/* Summary tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
@@ -267,6 +364,9 @@ export function BookletView({ navigate }: NavProps) {
                               <div className="text-xs text-neutral-400">الإجمالي {bookletMoney(cell.total, cell.currency)}</div>
                               {cell.best && <div className="text-[10px] font-bold text-[#1a7a45] mt-0.5">الأفضل لهذا البند</div>}
                               {cell.notes && <div className="text-[10px] text-neutral-500 mt-0.5 line-clamp-2">{cell.notes}</div>}
+                              {statedValidityLabel(cell.valid_until) && (
+                                <div className="text-[10px] text-neutral-400 mt-0.5">{statedValidityLabel(cell.valid_until)}</div>
+                              )}
                             </>
                           ) : (
                             <span className="text-xs text-neutral-400">لم يسعّره</span>

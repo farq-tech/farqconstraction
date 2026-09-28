@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { ConstructionBookletDetail, ConstructionBookletOffer } from '../api/constructionClient'
 import {
   bookletChipText,
+  bookletClosed,
+  bookletStateLabel,
+  statedValidityLabel,
   bookletDeadline,
   bookletMoney,
   buildBookletMatrix,
@@ -216,5 +219,24 @@ describe('columnTotal', () => {
     const col = { supplier_id: 's1', name: 'x', waves: [1], quote_total: null, currency: 'SAR', rfq_id: null, priced_lines: 2 }
     expect(columnTotal(matrix, col)).toEqual({ value: 150.5, priced: 2, of: 3, complete: false })
     expect(columnTotal(matrix, { ...col, quote_total: 200 })).toEqual({ value: 200, priced: 2, of: 3, complete: true })
+  })
+})
+
+describe('booklet state and stated validity («عروض الموردين لا تنتهي الصلاحية»)', () => {
+  it('open until explicitly CLOSED; an older API with no state reads as open', () => {
+    expect(bookletClosed({ state: 'CLOSED', closed_at: '2026-09-28T10:00:00Z' })).toBe(true)
+    expect(bookletStateLabel({ state: 'CLOSED' })).toBe('مغلقة')
+    for (const b of [{ state: 'OPEN' }, {}, null, undefined]) {
+      expect(bookletClosed(b)).toBe(false)
+      expect(bookletStateLabel(b)).toBe('مفتوحة')
+    }
+  })
+
+  it('the supplier’s stated validity is neutral information, past or not; none when not stated', () => {
+    const past = statedValidityLabel('2020-01-05T00:00:00Z')
+    expect(past).toMatch(/^الصلاحية كما ذكرها المورد: /)
+    expect(past).not.toMatch(/انتهت|منتهي|تنتهي/)
+    expect(statedValidityLabel(null)).toBeNull()
+    expect(statedValidityLabel('not a date')).toBeNull()
   })
 })

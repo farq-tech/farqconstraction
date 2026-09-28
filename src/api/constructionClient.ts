@@ -234,6 +234,18 @@ export type PublicSupplierInvite = {
   expires_at?: string
   response_status: string
   submission_closed_at?: string | null
+  /**
+   * The supplier's own current quote, read-only (newer APIs). A link never
+   * expires, so he always sees what he quoted — after the request closed too.
+   */
+  my_quote?: {
+    quote_version: number
+    submitted_at: string | null
+    currency: string | null
+    prices_include_tax: boolean | null
+    valid_until?: string | null
+    lines: Array<{ line_id: string | null; unit_price: number | string | null; available: boolean | null; notes: string | null }>
+  } | null
   supplier: {
     name_ar?: string
     name_en?: string
@@ -773,6 +785,17 @@ export type ConstructionBookletSummary = {
   lines_with_quotes: number | null
   unique_suppliers_invited: number | null
   quotes_count: number | null
+} & ConstructionBookletState
+
+/**
+ * «مفتوحة / مغلقة». Supplier quotes never expire; a booklet stays open until
+ * the account admin closes it («إغلاق الكراسة»). Older APIs send none of these
+ * fields — the booklet then reads as open.
+ */
+export type ConstructionBookletState = {
+  state?: 'OPEN' | 'CLOSED' | string | null
+  closed_at?: string | null
+  closure_note?: string | null
 }
 
 export type ConstructionBookletWave = {
@@ -822,7 +845,10 @@ export type ConstructionBookletOffer = {
   submitted_at?: string | null
   /** `FARQ_FROM_CHAT` when Farq recorded the price from the supplier's chat. */
   entered_by?: string | null
-  /** The quote's stated validity; absent when the quote states none. */
+  /**
+   * The validity the supplier stated, as information only: a quote never
+   * expires on it (only closing the booklet ends quoting). Absent when none.
+   */
   valid_until?: string | null
   /**
    * When a newer version of this supplier's quote lowered this line: the
@@ -845,7 +871,7 @@ export type ConstructionBookletDetail = {
     title: string | null
     quote_deadline: string | null
     created_at: string | null
-  }
+  } & ConstructionBookletState
   waves: ConstructionBookletWave[]
   lines: ConstructionBookletLine[]
   suppliers: ConstructionBookletSupplier[]
@@ -892,6 +918,20 @@ export async function listConstructionBooklets(): Promise<{ booklets: Constructi
 
 export async function getConstructionBooklet(id: string): Promise<ConstructionBookletDetail> {
   return request<ConstructionBookletDetail>(`/api/construction/booklets/${encodeURIComponent(id)}`)
+}
+
+/**
+ * «إغلاق الكراسة»: ends supplier quoting on every wave of the booklet — the
+ * only thing that does; quotes never expire otherwise. The quotes stay
+ * viewable, comparable and awardable. Account admin only (403 otherwise).
+ * Returns the booklet as `getConstructionBooklet` does, now closed.
+ */
+export async function closeConstructionBooklet(id: string, note: string): Promise<ConstructionBookletDetail> {
+  return request<ConstructionBookletDetail>(`/api/construction/booklets/${encodeURIComponent(id)}/close`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  })
 }
 
 /**
@@ -2724,7 +2764,8 @@ export function formatInviteResponseStatus(status: string): string {
   if (key === 'AWAITING_QUOTE' || key === 'PENDING') return 'بانتظار الرد'
   if (key === 'QUOTED' || key === 'RESPONDED') return 'وصل عرض'
   if (key === 'DECLINED') return 'رفض'
-  if (key === 'EXPIRED') return 'منتهٍ'
+  // Invitations no longer expire; a legacy EXPIRED row is still waiting.
+  if (key === 'EXPIRED') return 'بانتظار الرد'
   return status || '—'
 }
 

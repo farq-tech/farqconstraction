@@ -112,18 +112,16 @@ describe('buildHomeOverview', () => {
     expect(o.booklets.map((b) => b.reference)).toEqual(['PR-580', 'PR-H288'])
   })
 
-  it('attention: deadline within 48h, unquoted lines per booklet, expiring and chat-entered quotes', () => {
+  it('attention: deadline within 48h, unquoted lines per booklet and chat-entered quotes — never «expiring»', () => {
     expect(o.attention.map((a) => [a.kind, a.reference])).toEqual([
       ['deadline', 'PR-580'],
       ['no_quotes', 'PR-580'],
       ['no_quotes', 'PR-H288'],
-      ['expiring', 'PR-580'],
       ['from_chat', 'PR-580'],
       ['from_chat', 'PR-H288'],
     ])
     expect(o.attention[1]).toMatchObject({ lines: ['جسر أوميجا', 'جسر رئيسي C'], count: 2 })
-    expect(o.attention[3]).toMatchObject({ supplierName: 'مؤسسة الركن المتين', lines: 3, expired: false })
-    expect(o.attention[5]).toMatchObject({ supplierName: 'شركة النور الكهربائية', lines: 6 })
+    expect(o.attention[4]).toMatchObject({ supplierName: 'شركة النور الكهربائية', lines: 6 })
   })
 
   it('no deadline item once the deadline passed, or when it is days away', () => {
@@ -134,9 +132,17 @@ describe('buildHomeOverview', () => {
     expect(passed.totals.nearestDeadline).toBeNull()
   })
 
-  it('an expired quote is marked expired', () => {
-    const later = buildHomeOverview([PR580], Date.parse('2026-10-01T00:00:00Z'))
-    expect(later.attention.find((a) => a.kind === 'expiring')).toMatchObject({ expired: true })
+  it('«عروض الموردين لا تنتهي الصلاحية»: a quote past its stated validity raises no alert and still counts', () => {
+    const later = buildHomeOverview([PR580], Date.parse('2027-06-01T00:00:00Z'))
+    expect(later.attention.map((a) => a.kind as string)).not.toContain('expiring')
+    expect(later.booklets[0].linesWithQuotes).toBe(buildHomeOverview([PR580], FIXTURE_NOW).booklets[0].linesWithQuotes)
+    expect(JSON.stringify(later.attention)).not.toMatch(/صلاحي|expir/i)
+  })
+
+  it('a closed booklet asks for no more quotes and has no deadline to watch', () => {
+    const closed = { ...PR580, booklet: { ...PR580.booklet, state: 'CLOSED', closed_at: '2026-09-28T10:00:00Z' } }
+    const out = buildHomeOverview([closed], FIXTURE_NOW)
+    expect(out.attention.map((a) => a.kind)).toEqual(['from_chat'])
   })
 
   it('empty input is an empty page, not NaN', () => {

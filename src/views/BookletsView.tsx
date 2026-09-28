@@ -3,7 +3,7 @@ import type { NavProps } from '../types'
 import { ClockIcon } from '../icons'
 import { listConstructionBooklets, type ConstructionBookletSummary } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
-import { bookletDeadline, coverage, waveCount } from '../lib/booklet'
+import { bookletClosed, bookletDeadline, bookletStateLabel, coverage, waveCount } from '../lib/booklet'
 
 /**
  * Every booklet (الكراسة) of the company: one purchase request / BOQ document
@@ -94,8 +94,15 @@ export function BookletsView({ navigate }: NavProps) {
                     )}
                     <div className="font-bold text-[#0D1F1D] truncate">{b.title || b.reference || 'كراسة'}</div>
                   </div>
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#f0faf7] text-[#123F3A]">
-                    {waves} {waves === 1 ? 'دفعة' : 'دفعات'}
+                  <span className="shrink-0 flex items-center gap-1">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold ${bookletClosed(b) ? 'bg-neutral-100 text-neutral-600' : 'bg-[#e8f5ee] text-[#1a7a45]'}`}
+                    >
+                      {bookletStateLabel(b)}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#f0faf7] text-[#123F3A]">
+                      {waves} {waves === 1 ? 'دفعة' : 'دفعات'}
+                    </span>
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-3 text-center">
@@ -107,8 +114,8 @@ export function BookletsView({ navigate }: NavProps) {
                   <div className="h-full rounded-full bg-[#1a7a45]" style={{ width: `${cov.percent}%` }} />
                 </div>
                 {deadline && (
-                  <div className={`mt-2 flex items-center gap-1 text-xs ${deadline.passed ? 'text-red-600 font-semibold' : 'text-neutral-500'}`}>
-                    <ClockIcon className="w-3.5 h-3.5" /> إغلاق العروض: {deadline.label}
+                  <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500">
+                    <ClockIcon className="w-3.5 h-3.5" /> الموعد المطلوب للعروض: {deadline.label}
                   </div>
                 )}
               </button>

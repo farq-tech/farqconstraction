@@ -1,5 +1,6 @@
 import type {
   ConstructionBookletDetail,
+  ConstructionBookletState,
   ConstructionBookletOffer,
   ConstructionBookletSupplier,
   ConstructionBookletWave,
@@ -237,4 +238,29 @@ export function formatQuantity(quantity: number | null | undefined, uom?: string
   const q = num(quantity)
   const n = q == null ? '' : q.toLocaleString('en-US', { maximumFractionDigits: 3 })
   return [n, uom || ''].filter(Boolean).join(' ') || '—'
+}
+
+/**
+ * «مفتوحة / مغلقة». Quotes never expire, whatever the supplier's stated
+ * validity or the requested deadline: only an explicit close ends quoting.
+ * Anything but CLOSED (including an older API that sends no state) is open.
+ */
+export function bookletClosed(booklet: ConstructionBookletState | null | undefined): boolean {
+  return String(booklet?.state || '').toUpperCase() === 'CLOSED'
+}
+
+export function bookletStateLabel(booklet: ConstructionBookletState | null | undefined): string {
+  return bookletClosed(booklet) ? 'مغلقة' : 'مفتوحة'
+}
+
+/**
+ * The supplier's stated validity, as neutral information, or null when he
+ * stated none. Never a warning: the quote stands until the booklet is closed.
+ */
+export function statedValidityLabel(value: string | null | undefined): string | null {
+  if (!value) return null
+  const at = new Date(value)
+  if (Number.isNaN(at.getTime())) return null
+  const day = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Riyadh' }).format(at)
+  return `الصلاحية كما ذكرها المورد: ${day}`
 }

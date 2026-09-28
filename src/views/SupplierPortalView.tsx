@@ -490,9 +490,9 @@ function ExpiredLink({ token }: { token: string }) {
       <span className="mx-auto mb-4 w-12 h-12 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center">
         <LockIcon className="w-5 h-5" />
       </span>
-      <h1 className="text-[20px] font-black text-[#0D1F1D] mb-2">انتهت صلاحية هذا الرابط</h1>
+      <h1 className="text-[20px] font-black text-[#0D1F1D] mb-2">تعذّر فتح هذا الرابط</h1>
       <p className="text-[13px] text-neutral-600 leading-relaxed mb-5">
-        لحمايتكم، روابط الدخول لها مدة صلاحية. حسابكم وعروضكم محفوظة.
+        قد يكون الرابط ناقصاً أو أُلغي. روابط الدعوة لا تنتهي صلاحيتها، وحسابكم وعروضكم محفوظة.
       </p>
       {state === 'sent' ? (
         <div className="text-[13px] font-bold text-[#1a7a45]">

@@ -626,7 +626,6 @@ function AttentionDot({ kind }: { kind: AttentionItem['kind'] }) {
   const cls = {
     deadline: 'bg-red-50 text-red-600',
     no_quotes: 'bg-amber-50 text-amber-700',
-    expiring: 'bg-orange-50 text-orange-600',
     from_chat: 'bg-[#eef4fb] text-[#2F6CB5]',
   }[kind]
   const Icon = kind === 'from_chat' ? ChatIcon : kind === 'no_quotes' ? FileIcon : ClockIcon
@@ -663,18 +662,6 @@ function AttentionText({ item, now }: { item: AttentionItem; now: number }) {
             {linesWord(item.count)} بدون عروض <span className="font-normal text-neutral-400">في</span> <Ref value={item.reference} />
           </div>
           <div className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{item.lines.join('، ')}</div>
-        </>
-      )
-    case 'expiring':
-      return (
-        <>
-          <div className="font-bold text-orange-700">
-            {item.expired ? 'انتهت صلاحية عرض' : 'عرض تنتهي صلاحيته قريبًا'}
-          </div>
-          <div className="text-xs text-neutral-500 mt-0.5">
-            {item.supplierName} · {linesWord(item.lines)} · <Ref value={item.reference} />
-            {!item.expired && <> · {countdownLabel(item.at, now)}</>}
-          </div>
         </>
       )
     case 'from_chat':

@@ -333,7 +333,8 @@ const EXPIRED_CODES = new Set([
 export function supplierErrorMessageAr(status: number, code: string): string {
   if (code === 'SUPPLIER_SESSION_EXPIRED' || code === 'SUPPLIER_SESSION_REQUIRED' || (status === 401 && !EXPIRED_CODES.has(code)))
     return 'انتهت الجلسة — افتح رابط الدعوة من جديد.'
-  if (EXPIRED_CODES.has(code) || status === 410) return 'انتهت صلاحية هذا الرابط.'
+  // Links never expire; this is a link that is wrong, incomplete or revoked.
+  if (EXPIRED_CODES.has(code) || status === 410) return 'تعذّر فتح هذا الرابط.'
   if (code === 'SUPPLIER_ACCOUNT_DECLINED') return 'ألغيتم الحساب — الرابط صالح لتقديم العرض فقط.'
   if (code === 'OTP_INVALID') return 'الرمز غير صحيح — تأكد منه وأعد المحاولة.'
   if (code === 'OTP_LOCKED') return 'محاولات كثيرة على هذا الرمز — اطلب رمزاً جديداً.'
