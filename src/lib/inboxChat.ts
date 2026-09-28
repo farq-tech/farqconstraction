@@ -50,11 +50,11 @@ export function sortThreadsNewestFirst<T extends { last_received_at?: string | n
 }
 
 /**
- * The owner's rule for the conversation list: oldest activity first, newest
- * last, so conversations are handled in the order they came. Undated rows go
- * last; ties keep the server's order (stable), so a refresh never shuffles.
+ * The owner's rule for the conversation list: newest activity first, always,
+ * so the latest reply is at the top. Undated rows go last; ties keep the
+ * server's order (stable), so a refresh never shuffles.
  */
-export function sortThreadsOldestFirst<T extends { last_received_at?: string | null }>(
+export function sortThreadsNewestFirst<T extends { last_received_at?: string | null }>(
   threads: readonly T[],
 ): T[] {
   return threads
@@ -63,7 +63,7 @@ export function sortThreadsOldestFirst<T extends { last_received_at?: string | n
       if (a.ts == null && b.ts == null) return a.index - b.index
       if (a.ts == null) return 1
       if (b.ts == null) return -1
-      if (a.ts !== b.ts) return a.ts - b.ts
+      if (a.ts !== b.ts) return b.ts - a.ts
       return a.index - b.index
     })
     .map((entry) => entry.thread)
