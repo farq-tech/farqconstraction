@@ -10,6 +10,7 @@ import {
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import MarketNameNote from '../components/MarketNameNote'
+import OwnerControl from '../components/OwnerControl'
 import {
   bookletClosed,
   bookletDeadline,
@@ -91,6 +92,12 @@ export function BookletView({ navigate }: NavProps) {
       cancelled = true
     }
   }, [selectedBookletId, attempt])
+
+  // After an ownership transfer: re-read in place, without the loading screen.
+  const refresh = async () => {
+    if (!selectedBookletId) return
+    setData(await getConstructionBooklet(selectedBookletId))
+  }
 
   const matrix = useMemo(() => buildBookletMatrix(data), [data])
   const waves = useMemo(() => sortWaves(data?.waves), [data])
@@ -184,6 +191,15 @@ export function BookletView({ navigate }: NavProps) {
           <span className="text-xs text-neutral-400">
             {closed ? 'العروض نهائية منذ إغلاق الكراسة' : 'العروض سارية حتى إغلاق الكراسة'}
           </span>
+          {booklet?.id && (
+            <OwnerControl
+              subject="booklet"
+              id={booklet.id}
+              owner={booklet.owner}
+              assignedUserId={booklet.assigned_user_id}
+              onTransferred={refresh}
+            />
+          )}
         </div>
       </div>
 

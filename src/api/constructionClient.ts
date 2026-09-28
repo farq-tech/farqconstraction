@@ -25,9 +25,14 @@ import { farqSession } from './farqSession'
 
 export { constructionHeaders }
 
+/** The colleague responsible for a request or a booklet. Absent on older APIs. */
+export type ConstructionOwner = { user_id: string; email?: string | null; role?: string | null }
+
 export type ConstructionRfqSummary = {
   id: string
   status: string
+  assigned_user_id?: string | null
+  owner?: ConstructionOwner | null
   created_at: string
   updated_at?: string
   submission_closed_at?: string | null
@@ -104,6 +109,9 @@ export type ConstructionInvitation = {
 export type ConstructionRfq = {
   id: string
   status: string
+  assigned_user_id?: string | null
+  created_by_user_id?: string | null
+  owner?: ConstructionOwner | null
   created_at: string
   submission_closed_at?: string | null
   envelopes_opened_at?: string | null
@@ -695,6 +703,14 @@ function unwrap<T>(
         String(code),
       )
     }
+    // Ownership transfer names its own two refusals; the generic 403 below
+    // talks about supplier roles, which is not what happened here.
+    if (code === 'CONSTRUCTION_ADMIN_REQUIRED') {
+      throw new ConstructionApiError('نقل الملكية متاح للمدير (ADMIN) فقط.', response.status, String(code))
+    }
+    if (code === 'CONSTRUCTION_TRANSFER_TARGET_INVALID') {
+      throw new ConstructionApiError('لا يمكن النقل إلى هذا الزميل: ليس عضوًا نشطًا في الشركة.', response.status, String(code))
+    }
     // A role refusal is not a misconfiguration. Suppliers, RFQs and the inbox
     // are gated to ADMIN / PROCUREMENT / ENGINEER, and reporting that as a
     // missing server flag sends the reader to change env vars that are already
@@ -734,9 +750,75 @@ export async function getConstructionStatus() {
 }
 
 export async function getConstructionMe() {
-  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string }>(
+  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string; request_scope?: ConstructionRequestScope }>(
     '/api/construction/me',
   )
+}
+
+/*
+ * REQUEST OWNERSHIP.
+ *
+ * Every request and booklet has a responsible colleague. Only an ADMIN can move
+ * it to another colleague (`can_transfer`); moving an RFQ that is a wave of a
+ * booklet moves the whole booklet.
+ */
+export type ConstructionRequestScope = 'ALL' | 'OWN_REQUESTS'
+
+export type ConstructionCompanyMember = {
+  user_id: string
+  email: string
+  role: string
+  request_scope?: ConstructionRequestScope
+}
+
+export type ConstructionCompanyMembers = {
+  members: ConstructionCompanyMember[]
+  department_rules: Array<{ department: string; user_id: string }>
+  can_transfer: boolean
+}
+
+export type ConstructionRfqOwnerTransfer = {
+  rfq_id: string
+  booklet_id: string | null
+  rfq_ids: string[]
+  from_user_id: string | null
+  to_user_id: string
+}
+
+export type ConstructionBookletOwnerTransfer = {
+  booklet_id: string
+  rfq_ids: string[]
+  from_user_id: string | null
+  to_user_id: string
+}
+
+export async function listCompanyMembers(): Promise<ConstructionCompanyMembers> {
+  const result = await request<Partial<ConstructionCompanyMembers> | null>('/api/construction/members')
+  return {
+    members: Array.isArray(result?.members) ? result!.members : [],
+    department_rules: Array.isArray(result?.department_rules) ? result!.department_rules : [],
+    can_transfer: result?.can_transfer === true,
+  }
+}
+
+function ownerBody(userId: string, note?: string): string {
+  return JSON.stringify(note && note.trim() ? { user_id: userId, note: note.trim() } : { user_id: userId })
+}
+
+export async function transferRfqOwner(rfqId: string, userId: string, note?: string): Promise<ConstructionRfqOwnerTransfer> {
+  return request<ConstructionRfqOwnerTransfer>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/owner`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: ownerBody(userId, note),
+  })
+}
+
+export async function transferBookletOwner(bookletId: string, userId: string, note?: string): Promise<ConstructionBookletOwnerTransfer> {
+  return request<ConstructionBookletOwnerTransfer>(`/api/construction/booklets/${encodeURIComponent(bookletId)}/owner`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: ownerBody(userId, note),
+  })
 }
 
 export async function listBuyerRfqs(): Promise<ConstructionManagementOverview> {
@@ -785,6 +867,8 @@ export type ConstructionBookletSummary = {
   lines_with_quotes: number | null
   unique_suppliers_invited: number | null
   quotes_count: number | null
+  assigned_user_id?: string | null
+  owner?: ConstructionOwner | null
 } & ConstructionBookletState
 
 /**
@@ -871,6 +955,8 @@ export type ConstructionBookletDetail = {
     title: string | null
     quote_deadline: string | null
     created_at: string | null
+    assigned_user_id?: string | null
+    owner?: ConstructionOwner | null
   } & ConstructionBookletState
   waves: ConstructionBookletWave[]
   lines: ConstructionBookletLine[]

@@ -3,6 +3,7 @@ import type { NavProps } from '../types'
 import { ClockIcon } from '../icons'
 import { useProcurement } from '../procurementContext'
 import MarketNameNote from '../components/MarketNameNote'
+import OwnerControl from '../components/OwnerControl'
 import { lineMarketName } from '../lib/marketName'
 import { rfqClosing, rfqProjectName } from '../lib/rfqIdentity'
 import {
@@ -303,6 +304,15 @@ export function RFQDetailView({ navigate }: NavProps) {
             </span>
           )}
           {deadline && <span>التوريد: <span className="font-semibold text-[#0D1F1D]">{formatArDate(deadline)}</span></span>}
+          <OwnerControl
+            subject="rfq"
+            id={rfq.id}
+            owner={rfq.owner}
+            assignedUserId={rfq.assigned_user_id}
+            onTransferred={async () => {
+              await reload(rfq.id)
+            }}
+          />
         </div>
       </div>
 
