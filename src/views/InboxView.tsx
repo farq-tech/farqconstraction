@@ -514,7 +514,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     }
   })()
 
-  /** «تحميل المزيد»: the next page of the same tab, after the loaded rows. */
+  /** «تحميل الأقدم»: the page before the loaded rows (the server serves the newest first); the list re-sorts oldest → newest. */
   const loadMore = async () => {
     if (!nextCursor || loadingMore) return
     const generation = listGeneration.current

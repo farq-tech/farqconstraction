@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   inboxThreadSupplierLabel,
   type ConstructionInboxThread,
@@ -49,10 +49,14 @@ export type ConversationListProps = {
   onVisibility?: (inviteIds: string[], hidden: boolean) => Promise<{ threads?: number } | void>
   /** Server-derived total for the tab; null while unknown. */
   total: number | null
-  /** The server has another page of this tab (`next_cursor`). */
+  /** The server has older conversations in this tab (`next_cursor`). */
   hasMore: boolean
   loadingMore?: boolean
-  /** «تحميل المزيد»: the next page of this tab. */
+  /**
+   * «تحميل الأقدم»: the page before the loaded rows. The list reads oldest →
+   * newest like a chat: it opens scrolled to the newest (bottom) and older
+   * pages appear above without moving what is on screen.
+   */
   onLoadMore?: () => void
   activeKey: string | null
   onSelect: (thread: ConstructionInboxThread) => void
@@ -138,6 +142,54 @@ export function ConversationList({
   const sorted = useMemo(() => sortThreadsOldestFirst(threads), [threads])
   const visible = useMemo(() => filterThreads(sorted, query), [sorted, query])
   const searching = query.trim().length > 0
+
+  // Chat-style scrolling: newest at the bottom and on screen.
+  const scroller = useRef<HTMLDivElement | null>(null)
+  /** A fresh read (tab change, filter, retry) lands on the newest row. */
+  const pinBottom = useRef(true)
+  /** Stay at the bottom across refreshes when the reader already was there. */
+  const atBottom = useRef(true)
+  /** Distance from the bottom before older rows were put above. */
+  const keepFromBottom = useRef<number | null>(null)
+  if (loading) pinBottom.current = true
+  const previousTab = useRef(tab)
+  if (previousTab.current !== tab) {
+    previousTab.current = tab
+    pinBottom.current = true
+  }
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (!el || loading) return
+    if (keepFromBottom.current != null) {
+      el.scrollTop = el.scrollHeight - keepFromBottom.current
+      keepFromBottom.current = null
+    } else if ((pinBottom.current || atBottom.current) && sorted.length > 0) {
+      el.scrollTop = el.scrollHeight
+      pinBottom.current = false
+    }
+  }, [sorted, loading])
+  const loadOlder = () => {
+    const el = scroller.current
+    if (el) keepFromBottom.current = el.scrollHeight - el.scrollTop
+    onLoadMore?.()
+  }
+  const olderBar = !loading && hasMore && threads.length > 0 && (
+    <div className="px-5 py-3 text-center border-b border-neutral-100">
+      {onLoadMore ? (
+        <button
+          type="button"
+          disabled={loadingMore}
+          onClick={loadOlder}
+          className="rounded-full border border-neutral-200 px-4 py-2 text-xs font-bold text-[#123F3A] hover:border-[#123F3A]/40 disabled:opacity-50"
+        >
+          {loadingMore ? 'جارٍ التحميل…' : 'تحميل الأقدم'}
+        </button>
+      ) : null}
+      <p className="mt-2 text-[11px] text-neutral-400 leading-relaxed">
+        {total != null ? `معروضة أحدث ${threads.length} من ${total} محادثة — الأقدم فوق، الأحدث في الأسفل.` : 'توجد محادثات أقدم غير محمّلة بعد.'}
+      </p>
+    </div>
+  )
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-white">
@@ -239,8 +291,16 @@ export function ConversationList({
 
       {alert && <div className="flex-shrink-0 px-4 pb-2">{alert}</div>}
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain border-t border-neutral-100">
+      <div
+        ref={scroller}
+        onScroll={(event) => {
+          const el = event.currentTarget
+          atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+        }}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain border-t border-neutral-100"
+      >
         {loading && <ListSkeleton />}
+        {olderBar}
 
         {!loading && error && (
           <div role="alert" className="m-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -367,23 +427,6 @@ export function ConversationList({
           </ul>
         )}
 
-        {!loading && hasMore && threads.length > 0 && (
-          <div className="px-5 py-4 text-center">
-            {onLoadMore ? (
-              <button
-                type="button"
-                disabled={loadingMore}
-                onClick={onLoadMore}
-                className="rounded-full border border-neutral-200 px-4 py-2 text-xs font-bold text-[#123F3A] hover:border-[#123F3A]/40 disabled:opacity-50"
-              >
-                {loadingMore ? 'جارٍ التحميل…' : 'تحميل المزيد'}
-              </button>
-            ) : null}
-            <p className="mt-2 text-[11px] text-neutral-400 leading-relaxed">
-              {total != null ? `معروضة ${threads.length} من ${total} محادثة.` : 'توجد محادثات أقدم غير محمّلة بعد.'}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   )

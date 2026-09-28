@@ -3,7 +3,10 @@
  *
  * The API filters each tab itself (`filter=inbound|sent|needs_reply|hidden`)
  * and answers `tab_counts` from the same grouped rows, so a chip is exactly
- * the `total_count` of its tab and «تحميل المزيد» pages with `next_cursor`.
+ * the `total_count` of its tab. Each tab reads oldest → newest like a chat:
+ * the first page is the tab's NEWEST conversations and «تحميل الأقدم» follows
+ * `next_cursor` to the ones before them (the list re-sorts ascending, so
+ * pages from an older API that still answers newest-first read the same).
  *
  * An API from before that change refuses the new filters (400
  * INBOX_INVALID_FILTER) and sends no `tab_counts`. Against it we fall back to
