@@ -1550,6 +1550,13 @@ export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
   last_message_id?: string | null
   reply_channel?: string | null
   reply_recipient?: string | null
+  /**
+   * WhatsApp's free 24-hour reply window, measured from the supplier's own last
+   * WhatsApp message (less a minute of margin). Open → the composer sends a
+   * plain-text WhatsApp reply; closed → the server refuses WHATSAPP_WINDOW_CLOSED.
+   */
+  whatsapp_window_open?: boolean
+  whatsapp_window_until?: string | null
   send_channels?: Array<{
     channel: string
     reason?: string | null
@@ -1610,7 +1617,7 @@ export async function replyToConstructionInboxThread(
     parent_message_id?: string | null
     attachments?: ConstructionInboxOutboundAttachment[]
     include_items?: boolean
-    channel?: 'EMAIL' | 'HARAJ' | 'PORTAL'
+    channel?: 'EMAIL' | 'HARAJ' | 'PORTAL' | 'WHATSAPP'
   },
 ) {
   return request<ConstructionInboxReplyResult>(
@@ -1744,6 +1751,10 @@ export function inboxReplyErrorMessageAr(code: string): string {
       return 'الطلب بظرف مختوم — لا مراسلات قبل فتح المظاريف.'
     case 'INBOX_REPLY_CHANNEL_MISMATCH':
       return 'آخر رسالة وصلت على قناة أخرى — الرد يجب أن يكون على نفس القناة.'
+    case 'WHATSAPP_WINDOW_CLOSED':
+      return 'مرّت 24 ساعة على آخر رسالة من المورد — الرد المجاني غير متاح؛ استخدم رابط المحادثة أو انتظر رده.'
+    case 'INBOX_ATTACHMENTS_EMAIL_ONLY':
+      return 'هذه القناة تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.'
     case 'INBOX_SEND_IN_PROGRESS':
       return 'هناك إرسال جارٍ لنفس الرسالة — انتظر النتيجة قبل إعادة المحاولة.'
     case 'INBOX_RECONCILIATION_REQUIRED':

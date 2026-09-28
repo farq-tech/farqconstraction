@@ -16,7 +16,7 @@ import {
   type ConstructionInboxThreadMessage,
 } from '../../api/constructionClient'
 import { isReadOnlyBuild, READ_ONLY_MESSAGE } from '../../api/readOnlyMode'
-import { chatDayLabel } from '../../lib/inboxChat'
+import { WHATSAPP_WINDOW_CLOSED_AR, chatDayLabel, whatsappReplyWindow } from '../../lib/inboxChat'
 import { channelKey } from '../../lib/inboxFilters'
 import {
   DEFAULT_QUICK_REPLIES,
@@ -202,6 +202,10 @@ export function ChatPane({
   }, [inviteId])
   const [customReplies, setCustomReplies] = useState<QuickReply[]>(() => loadCustomReplies())
   const [linkHintHidden, setLinkHintHidden] = useState(() => dismissedLinkHints.has(inviteId))
+  /** The buyer's pick between the free WhatsApp reply and the portal, when both are open. */
+  const [channelChoice, setChannelChoice] = useState<'WHATSAPP' | 'PORTAL' | null>(null)
+  /** Re-read every 30s so the «يتبقى …» countdown moves and a lapsed window closes. */
+  const [clock, setClock] = useState(() => Date.now())
 
   useEffect(() => {
     alive.current = true
@@ -358,7 +362,7 @@ export function ChatPane({
    * refuses anything else. With no inbound message yet: email when the thread
    * has an address, otherwise Haraj.
    */
-  const replyChannel = useMemo<'EMAIL' | 'HARAJ' | 'WHATSAPP' | 'PORTAL'>(() => {
+  const defaultChannel = useMemo<'EMAIL' | 'HARAJ' | 'WHATSAPP' | 'PORTAL'>(() => {
     // The server names the channel it will accept (PORTAL for a supplier with
     // a live account): follow it, so a portal message is never answered «by email».
     const serverChannel = String((thread as { reply_channel?: string } | null)?.reply_channel || '').toUpperCase()
@@ -370,6 +374,22 @@ export function ChatPane({
     if (available.includes('PORTAL')) return 'PORTAL'
     return available.includes('EMAIL') || !available.includes('HARAJ') ? 'EMAIL' : 'HARAJ'
   }, [thread])
+  const waWindow = whatsappReplyWindow(thread, clock)
+  useEffect(() => {
+    if (!thread?.whatsapp_window_open) return
+    const timer = window.setInterval(() => setClock(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [thread?.whatsapp_window_open])
+  /**
+   * While WhatsApp's 24-hour window is open the reply can go there as plain
+   * text, free. The portal stays a choice when the supplier has an account.
+   */
+  const replyOptions: Array<'WHATSAPP' | 'PORTAL'> = waWindow.open
+    ? ['WHATSAPP', ...((thread?.send_channels || []).some((c) => c.channel === 'PORTAL') ? (['PORTAL'] as const) : [])]
+    : []
+  const replyChannel: 'EMAIL' | 'HARAJ' | 'WHATSAPP' | 'PORTAL' =
+    channelChoice && replyOptions.includes(channelChoice) ? channelChoice : defaultChannel
+  const whatsappClosed = replyChannel === 'WHATSAPP' && !waWindow.open
   const unreadNow = (thread?.messages || []).filter((m) => m.direction === 'INBOUND' && m.unread).length
   const supplierContext = useSupplierContext(inviteId, rfqId ? String(rfqId) : null, thread ? Boolean(thread.locked) : null, Boolean(thread))
   const quoteEvents: QuoteEvent[] = supplierContext.model?.quoteEvents || []
@@ -426,8 +446,12 @@ export function ChatPane({
     setError(null)
     setNotice(null)
     try {
-      if (replyChannel === 'WHATSAPP') {
-        setError('آخر رسالة من المورد وصلت على واتساب — الرد عليه يكون من تطبيق واتساب نفسه.')
+      if (replyChannel === 'WHATSAPP' && !waWindow.open) {
+        setError(`${WHATSAPP_WINDOW_CLOSED_AR}.`)
+        return
+      }
+      if (replyChannel === 'WHATSAPP' && files.length) {
+        setError('الرد على واتساب نصي فقط — أزل المرفقات أو أرسلها بالبريد.')
         return
       }
       if (replyChannel === 'PORTAL' && files.length) {
@@ -440,7 +464,7 @@ export function ChatPane({
       }
       const attachments = files.length ? await readConstructionInboxAttachments(files) : []
       const result = await replyToConstructionInboxThread(String(thread.invite_id), {
-        channel: replyChannel === 'HARAJ' ? 'HARAJ' : replyChannel === 'PORTAL' ? 'PORTAL' : 'EMAIL',
+        channel: replyChannel === 'EMAIL' ? 'EMAIL' : replyChannel,
         idempotency_key: crypto.randomUUID(),
         text: text.trim(),
         parent_message_id: thread.last_message_id ?? null,
@@ -830,7 +854,13 @@ export function ChatPane({
             </div>
           )}
 
-          {replyChannel === 'WHATSAPP' && !linkHintHidden && (
+          {whatsappClosed && (
+            <div className="rounded-xl bg-amber-50 text-amber-900 text-[11px] px-3 py-2 mb-2">
+              {WHATSAPP_WINDOW_CLOSED_AR}.
+            </div>
+          )}
+
+          {whatsappClosed && !linkHintHidden && (
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-mint bg-[#F1FBF5] px-4 py-3 mb-2">
               <span className="flex-shrink-0 w-8 h-8 rounded-full bg-white text-mint-700 flex items-center justify-center" aria-hidden="true">
                 <LinkIcon className="w-4 h-4" />
@@ -910,9 +940,9 @@ export function ChatPane({
           <div className="flex items-end gap-2">
             <label
               className={`flex-shrink-0 w-10 h-10 rounded-full border border-neutral-200 bg-white flex items-center justify-center text-sm cursor-pointer hover:border-[#123F3A]/40 ${
-                !canCompose || sending ? 'opacity-50 pointer-events-none' : ''
+                !canCompose || sending || replyChannel === 'WHATSAPP' ? 'opacity-50 pointer-events-none' : ''
               }`}
-              title={`إرفاق ملفات (حتى ${INBOX_ATTACHMENT_MAX_FILES})`}
+              title={replyChannel === 'WHATSAPP' ? 'الرد على واتساب نصي فقط' : `إرفاق ملفات (حتى ${INBOX_ATTACHMENT_MAX_FILES})`}
             >
               📎
               <input
@@ -920,7 +950,7 @@ export function ChatPane({
                 type="file"
                 multiple
                 className="hidden"
-                disabled={!canCompose || sending}
+                disabled={!canCompose || sending || replyChannel === 'WHATSAPP'}
                 onChange={(event) =>
                   setFiles(Array.from(event.target.files || []).slice(0, INBOX_ATTACHMENT_MAX_FILES))
                 }
@@ -941,7 +971,7 @@ export function ChatPane({
             />
             <button
               type="button"
-              disabled={!canCompose || sending || !text.trim()}
+              disabled={!canCompose || sending || !text.trim() || whatsappClosed}
               onClick={handleSend}
               className="flex-shrink-0 h-10 rounded-full bg-[#123F3A] text-white text-xs font-bold px-5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -950,11 +980,32 @@ export function ChatPane({
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+            {replyOptions.length > 1 && canCompose && (
+              <span role="radiogroup" aria-label="قناة الرد" className="inline-flex items-center rounded-full border border-neutral-200 bg-white p-0.5">
+                {replyOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={replyChannel === option}
+                    disabled={sending}
+                    onClick={() => setChannelChoice(option)}
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      replyChannel === option ? 'bg-[#123F3A] text-white' : 'text-[#0D1F1D]'
+                    }`}
+                  >
+                    {option === 'WHATSAPP' ? 'واتساب (مجاني خلال 24 ساعة)' : 'محادثة المنصة'}
+                  </button>
+                ))}
+              </span>
+            )}
             {replyChannelKey && (
               <span className="inline-flex items-center gap-1.5 text-[10px] text-neutral-500">
                 <ChannelBadge channel={replyChannelKey} />
                 {replyChannel === 'WHATSAPP'
-                  ? 'الرد من هنا لا يُرسل على واتساب'
+                  ? waWindow.open
+                    ? `واتساب (مجاني خلال 24 ساعة)${waWindow.remainingAr ? ` — ${waWindow.remainingAr}` : ''} · نص فقط`
+                    : 'نافذة الرد المجاني على واتساب مغلقة'
                   : replyChannel === 'HARAJ'
                     ? 'يصله ردك في نفس المحادثة'
                     : replyChannel === 'PORTAL'

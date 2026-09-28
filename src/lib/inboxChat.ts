@@ -215,3 +215,43 @@ export function attachmentKind(file: { filename?: string; content_type?: string 
   if (type.startsWith('text/')) return 'TXT'
   return ''
 }
+
+/** What the composer says when WhatsApp's free reply window has closed. */
+export const WHATSAPP_WINDOW_CLOSED_AR =
+  'مرّت 24 ساعة على آخر رسالة من المورد — الرد المجاني غير متاح؛ استخدم رابط المحادثة أو انتظر رده'
+
+export type WhatsAppReplyWindow = {
+  /** The server says a free-form WhatsApp reply would be accepted now. */
+  open: boolean
+  /** When it closes (ms), or null when unknown. */
+  until: number | null
+  /** «يتبقى 5 س 12 د» while open; '' otherwise. */
+  remainingAr: string
+}
+
+/** «5 س 12 د» / «40 د» / «أقل من دقيقة» — the time left, rounded down. */
+export function windowRemainingAr(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return ''
+  const minutes = Math.floor(ms / 60000)
+  if (minutes < 1) return 'أقل من دقيقة'
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (!hours) return `${rest} د`
+  return rest ? `${hours} س ${rest} د` : `${hours} س`
+}
+
+/**
+ * WhatsApp's 24-hour window for this thread, from the fields the server
+ * computes (whatsapp_window_open / whatsapp_window_until). The server's flag
+ * decides; the clock only closes it early once the deadline has passed while
+ * the pane stayed open, so the composer never offers a send the API refuses.
+ */
+export function whatsappReplyWindow(
+  thread: { whatsapp_window_open?: boolean; whatsapp_window_until?: string | null } | null | undefined,
+  now: number = Date.now(),
+): WhatsAppReplyWindow {
+  const until = parseTime(thread?.whatsapp_window_until)
+  const open = Boolean(thread?.whatsapp_window_open) && (until === null || until > now)
+  const left = open && until !== null ? windowRemainingAr(until - now) : ''
+  return { open, until, remainingAr: left ? `يتبقى ${left}` : '' }
+}

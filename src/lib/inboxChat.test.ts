@@ -11,6 +11,8 @@ import {
   sortThreadsNewestFirst,
   supplierInitials,
   threadSnippet,
+  whatsappReplyWindow,
+  windowRemainingAr,
 } from './inboxChat'
 import { sortThreadsNewestFirst as newestFirst } from './inboxChat'
 
@@ -221,5 +223,35 @@ describe('sortThreadsNewestFirst', () => {
   it('lists the newest activity first; undated rows go last', () => {
     const rows = [{ id: 'b', last_received_at: '2026-09-28T09:00:00Z' }, { id: 'x', last_received_at: null }, { id: 'a', last_received_at: '2026-09-27T09:00:00Z' }, { id: 'c', last_received_at: '2026-09-28T10:00:00Z' }]
     expect(newestFirst(rows).map((r) => r.id)).toEqual(['c', 'b', 'a', 'x'])
+  })
+})
+
+describe('whatsappReplyWindow', () => {
+  const now = Date.parse('2026-09-28T10:00:00Z')
+  it('is open with the time left when the server says so', () => {
+    const w = whatsappReplyWindow({ whatsapp_window_open: true, whatsapp_window_until: '2026-09-28T15:12:30Z' }, now)
+    expect(w.open).toBe(true)
+    expect(w.until).toBe(Date.parse('2026-09-28T15:12:30Z'))
+    expect(w.remainingAr).toBe('يتبقى 5 س 12 د')
+  })
+  it('closes once the deadline passes while the pane stays open', () => {
+    const w = whatsappReplyWindow({ whatsapp_window_open: true, whatsapp_window_until: '2026-09-28T09:59:00Z' }, now)
+    expect(w).toEqual({ open: false, until: Date.parse('2026-09-28T09:59:00Z'), remainingAr: '' })
+  })
+  it('follows the server flag: closed, missing or absent thread is closed', () => {
+    expect(whatsappReplyWindow({ whatsapp_window_open: false, whatsapp_window_until: '2026-09-28T20:00:00Z' }, now).open).toBe(false)
+    expect(whatsappReplyWindow({}, now).open).toBe(false)
+    expect(whatsappReplyWindow(null, now).open).toBe(false)
+  })
+})
+
+describe('windowRemainingAr', () => {
+  it('rounds down to minutes and hours', () => {
+    expect(windowRemainingAr(0)).toBe('')
+    expect(windowRemainingAr(-5)).toBe('')
+    expect(windowRemainingAr(30000)).toBe('أقل من دقيقة')
+    expect(windowRemainingAr(40 * 60000 + 59000)).toBe('40 د')
+    expect(windowRemainingAr(3 * 3600000)).toBe('3 س')
+    expect(windowRemainingAr(23 * 3600000 + 59 * 60000)).toBe('23 س 59 د')
   })
 })
