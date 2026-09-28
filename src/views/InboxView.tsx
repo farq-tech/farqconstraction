@@ -8,14 +8,11 @@ import {
   getConstructionInboxStatus,
   getConstructionMe,
   getConstructionRfqBooklet,
-  isOutboundInviteSnapshot,
-  listConstructionInboxThreads,
   startConstructionGmailConnect,
   type ConstructionGmailStatus,
   type ConstructionInboxStatus,
   type ConstructionInboxThread,
   type ConstructionInboxThreadDetail,
-  type ConstructionInboxThreadsResult,
   markConstructionInboxThreads,
   setConstructionInboxThreadsVisibility,
 } from '../api/constructionClient'
@@ -24,6 +21,7 @@ import { ChatPane } from '../components/inbox/ChatPane'
 import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
 import { useFillViewport } from '../components/inbox/useFillViewport'
 import { applyThreadReadState } from '../lib/inboxChat'
+import { appendThreads, loadInboxTab, type InboxTabCounts } from '../lib/inboxTabs'
 import { ChannelBadge, ReplyMeaningChip } from '../components/inbox/Badges'
 import {
   FilterPanel,
@@ -133,38 +131,6 @@ function gmailFlagAr(value: boolean | undefined): string {
   return 'غير معروف'
 }
 
-function applyInboxTab(
-  tab: InboxTab,
-  rows: ConstructionInboxThread[],
-): ConstructionInboxThread[] {
-  // مخفية: the server already returned only hidden conversations.
-  if (tab === 'hidden') return rows
-  if (tab === 'needs_reply') return rows.filter((t) => Boolean(t.needs_reply))
-  if (tab === 'sent') return rows.filter((t) => isOutboundInviteSnapshot(t))
-  // وارد: supplier replies / conversations — never outbound invite snapshots
-  return rows.filter((t) => !isOutboundInviteSnapshot(t))
-}
-
-function displayTotal(
-  tab: InboxTab,
-  visible: ConstructionInboxThread[],
-  result: ConstructionInboxThreadsResult | null,
-): number {
-  const counts = result?.follow_up_counts
-  if (tab === 'hidden') return result?.total_count ?? visible.length
-  if (tab === 'needs_reply') {
-    return counts?.action ?? result?.total_count ?? visible.length
-  }
-  if (tab === 'sent') {
-    return counts?.unanswered ?? visible.length
-  }
-  // وارد ≈ الكل − دعوات مرسلة بلا وارد
-  if (counts?.all != null && counts?.unanswered != null) {
-    return Math.max(0, counts.all - counts.unanswered)
-  }
-  return visible.length
-}
-
 export type InboxViewProps = NavProps & {
   /**
    * Conversation to open on arrival. The `'inbox-thread'` route passes the
@@ -218,14 +184,22 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     detail?: string
   } | null>(null)
   const [threads, setThreads] = useState<ConstructionInboxThread[]>([])
-  const [threadMeta, setThreadMeta] = useState<ConstructionInboxThreadsResult | null>(null)
+  /** Where «تحميل المزيد» continues; null = the tab is fully loaded. */
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  /** Bumped on every fresh list read, so a late «تحميل المزيد» for an old tab is dropped. */
+  const listGeneration = useRef(0)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   /** Default وارد — not «الكل» which mixes DISPATCH invite spam from the API. */
   const [tab, setTab] = useState<InboxTab>('inbound')
-  /** «مخفية» count from the last list the server returned; null = server does not report it. */
-  const [hiddenCount, setHiddenCount] = useState<number | null>(null)
+  /**
+   * Chip per tab from the last list the server returned (`tab_counts`, the
+   * same for every tab). Kept across tab changes; a tab the server does not
+   * report has no chip.
+   */
+  const [counts, setCounts] = useState<InboxTabCounts>({})
   /** Applied filters. Only `rfqId` reaches the server; the rest filter the loaded rows. */
   const [filters, setFilters] = useState<InboxFilters>(() => emptyFilters())
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
@@ -313,37 +287,24 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
 
   useEffect(() => {
     let cancelled = false
+    listGeneration.current += 1
     setLoading(true)
     setError(null)
-    // API accepts only needs_reply | all. «all» unions dispatch_attempts as threads
-    // (preview «دعوة طلب عرض مرسلة», kind_hint=DISPATCH). We always fetch `all`
-    // (except needs_reply tab uses server filter) then separate وارد / مرسل client-side.
-    const apiFilter = tab === 'needs_reply' ? 'needs_reply' : 'all'
-    // Deliberately not part of the Promise.all below: the Gmail panel must keep
-    // its own result even when the thread list fails, otherwise one unrelated
-    // error blanks the connection state and the panel starts guessing.
-    getConstructionGmailStatus()
-      .then((g) => {
-        if (!cancelled) applyGmailStatus(g)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) applyGmailFailure(err)
-      })
-
+    // Each tab is filtered by the server (lib/inboxTabs.ts), which also falls
+    // back to the old «all + split here» read against an older API.
     const rfqFilter = filters.rfqId
     Promise.all([
       getConstructionInboxStatus(),
-      listConstructionInboxThreads({ filter: apiFilter, rfq_id: rfqFilter, ...(tab === 'hidden' ? { visibility: 'hidden' as const } : {}) }),
+      loadInboxTab(tab, { rfqId: rfqFilter }),
     ])
-      .then(([inboxStatus, threadResult]) => {
+      .then(([inboxStatus, page]) => {
         if (cancelled) return
         setStatus(inboxStatus)
-        setThreadMeta(threadResult)
-        if (typeof threadResult.hidden_count === 'number') setHiddenCount(threadResult.hidden_count)
-        const raw = threadResult.threads || []
-        const visible = applyInboxTab(tab, raw)
+        setCounts((prev) => (page.server ? page.counts : { ...prev, ...page.counts }))
+        const visible = page.threads
         setThreads(visible)
-        setTotal(displayTotal(tab, visible, threadResult))
+        setNextCursor(page.nextCursor)
+        setTotal(page.total)
         setKnownRequests((prev) => {
           const next = rfqFilter ? { ...prev } : {}
           const counts: Record<string, { reference: string; count: number }> = {}
@@ -376,7 +337,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         setRateLimitSec(null)
         setStatus(null)
         setThreads([])
-        setThreadMeta(null)
+        setNextCursor(null)
         setTotal(0)
       })
       .finally(() => {
@@ -553,8 +514,26 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     }
   })()
 
-  const needsReplyCount = threadMeta?.follow_up_counts?.action
-  const sentCount = threadMeta?.follow_up_counts?.unanswered
+  /** «تحميل المزيد»: the next page of the same tab, after the loaded rows. */
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return
+    const generation = listGeneration.current
+    setLoadingMore(true)
+    try {
+      const page = await loadInboxTab(tab, { rfqId: filters.rfqId, cursor: nextCursor })
+      if (generation !== listGeneration.current) return
+      setThreads((rows) => appendThreads(rows, page.threads))
+      setNextCursor(page.nextCursor)
+      setTotal(page.total)
+      if (page.server) setCounts(page.counts)
+    } catch (err) {
+      const wait = constructionRateLimitSec(err)
+      if (wait != null) setRateLimitSec(wait)
+      setError(err instanceof Error ? err.message : 'تعذّر تحميل المزيد')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   // A deep link / notification can change the requested thread while mounted.
   useEffect(() => {
@@ -878,7 +857,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
       </>
     ) : tab === 'sent' ? (
       <>
-        <p className="text-sm text-neutral-500 mb-1">لا دعوات مرسلة ظاهرة في هذه الصفحة.</p>
+        <p className="text-sm text-neutral-500 mb-1">لا دعوات مرسلة تنتظر ردًا أول.</p>
         <p className="text-xs text-neutral-400 leading-relaxed">
           سجلات الإرسال تظهر أيضًا داخل تفاصيل كل RFQ وقائمة العروض والمراسلات.
         </p>
@@ -954,9 +933,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           onRetry={() => setReloadKey((n) => n + 1)}
           tab={tab}
           onTabChange={setTab}
-          needsReplyCount={needsReplyCount ?? null}
-          sentCount={sentCount ?? null}
-          hiddenCount={hiddenCount}
+          counts={counts}
           onVisibility={async (inviteIds, hidden) => {
             const result = await setConstructionInboxThreadsVisibility(inviteIds, hidden)
             const picked = new Set(inviteIds)
@@ -967,7 +944,9 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
             return result
           }}
           total={error ? null : total}
-          hasMore={Boolean(threadMeta?.next_cursor)}
+          hasMore={Boolean(nextCursor)}
+          loadingMore={loadingMore}
+          onLoadMore={() => void loadMore()}
           activeKey={activeId}
           onSelect={handleSelect}
           onMarkThreads={async (target, read) => {

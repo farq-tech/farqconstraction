@@ -39,17 +39,21 @@ export type ConversationListProps = {
   onRetry: () => void
   tab: InboxTab
   onTabChange: (tab: InboxTab) => void
-  /** Server counters (`follow_up_counts`), shown only when the server sent them. */
-  needsReplyCount: number | null
-  sentCount: number | null
-  /** Conversations under «مخفية»; the tab shows only when the server reports it. */
-  hiddenCount?: number | null
+  /**
+   * Conversations per tab from the server (`tab_counts`), shown on every chip
+   * whichever tab is open. A tab without a number has no chip; «مخفية» shows
+   * only when the server reports it.
+   */
+  counts: Partial<Record<InboxTab, number>>
   /** «إخفاء» / «إظهار» the picked conversations. */
   onVisibility?: (inviteIds: string[], hidden: boolean) => Promise<{ threads?: number } | void>
   /** Server-derived total for the tab; null while unknown. */
   total: number | null
-  /** The server has another page this screen does not load. */
+  /** The server has another page of this tab (`next_cursor`). */
   hasMore: boolean
+  loadingMore?: boolean
+  /** «تحميل المزيد»: the next page of this tab. */
+  onLoadMore?: () => void
   activeKey: string | null
   onSelect: (thread: ConstructionInboxThread) => void
   /** Header actions (mailbox status, offers link). */
@@ -76,12 +80,12 @@ export function ConversationList({
   onRetry,
   tab,
   onTabChange,
-  needsReplyCount,
-  sentCount,
-  hiddenCount = null,
+  counts,
   onVisibility,
   total,
   hasMore,
+  loadingMore = false,
+  onLoadMore,
   activeKey,
   onSelect,
   actions,
@@ -161,10 +165,10 @@ export function ConversationList({
         <div className="flex items-center gap-1.5 mt-3 overflow-x-auto">
           {(
             [
-              ['inbound', 'وارد', null],
-              ['needs_reply', 'تحتاج ردًا', needsReplyCount],
-              ['sent', 'مرسَل', sentCount],
-              ...(hiddenCount != null || tab === 'hidden' ? [['hidden', 'مخفية', hiddenCount] as [InboxTab, string, number | null]] : []),
+              ['inbound', 'وارد', counts.inbound ?? null],
+              ['needs_reply', 'تحتاج ردًا', counts.needs_reply ?? null],
+              ['sent', 'مرسَل', counts.sent ?? null],
+              ...(counts.hidden != null || tab === 'hidden' ? [['hidden', 'مخفية', counts.hidden ?? null] as [InboxTab, string, number | null]] : []),
             ] as [InboxTab, string, number | null][]
           ).map(([id, label, badge]) => (
             <button
@@ -193,11 +197,7 @@ export function ConversationList({
               {searching
                 ? `${visible.length} نتيجة من ${threads.length} معروضة`
                 : total != null
-                  ? tab === 'sent'
-                    ? `${total} دعوة مرسلة`
-                    : tab === 'hidden'
-                      ? `${total} مخفية`
-                      : `${total} محادثة`
+                  ? `${total} محادثة`
                   : ''}
             </span>
           )}
@@ -368,9 +368,21 @@ export function ConversationList({
         )}
 
         {!loading && hasMore && threads.length > 0 && (
-          <p className="px-5 py-4 text-[11px] text-neutral-400 leading-relaxed text-center">
-            هذه أول صفحة يعيدها الخادم — توجد محادثات أقدم غير محمّلة هنا.
-          </p>
+          <div className="px-5 py-4 text-center">
+            {onLoadMore ? (
+              <button
+                type="button"
+                disabled={loadingMore}
+                onClick={onLoadMore}
+                className="rounded-full border border-neutral-200 px-4 py-2 text-xs font-bold text-[#123F3A] hover:border-[#123F3A]/40 disabled:opacity-50"
+              >
+                {loadingMore ? 'جارٍ التحميل…' : 'تحميل المزيد'}
+              </button>
+            ) : null}
+            <p className="mt-2 text-[11px] text-neutral-400 leading-relaxed">
+              {total != null ? `معروضة ${threads.length} من ${total} محادثة.` : 'توجد محادثات أقدم غير محمّلة بعد.'}
+            </p>
+          </div>
         )}
       </div>
     </div>

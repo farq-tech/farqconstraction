@@ -4,7 +4,7 @@ import type { AppView } from '../types'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon, PriceIcon } from '../icons'
 import { MaterialPriceTicker } from './MaterialPriceTicker'
 import { NotificationsDrawer } from './NotificationsDrawer'
-import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
+import { getConstructionMe, inboxUnreadConversations, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
 
@@ -165,7 +165,8 @@ export function Shell({ view, navigate, children }: ShellProps) {
       })
     listConstructionInboxMessages()
       .then((page) => {
-        if (!cancelled) setInboxUnread(page.unread_count ?? 0)
+        // Unread conversations (not hidden, not closed); messages from an older API.
+        if (!cancelled) setInboxUnread(inboxUnreadConversations(page).count)
       })
       .catch(() => {
         if (!cancelled) setInboxUnread(null)

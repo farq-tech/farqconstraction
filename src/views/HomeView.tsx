@@ -3,7 +3,7 @@ import { setPendingUpload } from '../lib/pendingUpload'
 import type { NavProps, RFQSummary } from '../types'
 import { UploadIcon, ArrowRightIcon, InboxIcon, FileIcon } from '../icons'
 import { getSession, subscribeSession } from '../store/session'
-import { listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
+import { inboxUnreadConversations, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
 import { toRfqSummary } from '../lib/rfqIdentity'
@@ -83,7 +83,7 @@ export function HomeView({ navigate }: NavProps) {
       })
     listConstructionInboxMessages()
       .then((page) => {
-        if (!cancelled) setUnread(page.unread_count ?? 0)
+        if (!cancelled) setUnread(inboxUnreadConversations(page).count)
       })
       .catch(() => {
         if (!cancelled) setUnread(null)

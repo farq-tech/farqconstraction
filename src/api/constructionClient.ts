@@ -1189,6 +1189,21 @@ export type ConstructionInboxThreadsResult = {
   hidden_count?: number
   next_cursor?: string | null
   haraj_sync?: { state?: string }
+  /** The tab this list is (servers that filter tabs themselves). */
+  filter?: 'inbound' | 'sent' | 'needs_reply' | 'hidden' | 'all'
+  /**
+   * Conversations per tab, from the same grouped rows and rules as the lists:
+   * each equals `total_count` of that tab, whichever tab is open. Absent from
+   * older APIs. `unread_threads`: unread conversations, not hidden, not closed.
+   */
+  tab_counts?: {
+    all?: number
+    inbound?: number
+    sent?: number
+    needs_reply?: number
+    hidden?: number
+    unread_threads?: number
+  }
   follow_up_counts?: {
     all?: number
     action?: number
@@ -1243,8 +1258,23 @@ export type ConstructionInboxMessage = {
 
 export type ConstructionInboxMessagesPage = {
   messages: ConstructionInboxMessage[]
+  /** Unread supplier messages (every one of them, hidden and closed included). */
   unread_count: number
+  /** Unread conversations, not hidden and not closed/declined. Absent from older APIs. */
+  unread_threads?: number
   next_cursor?: string | null
+}
+
+/**
+ * The sidebar / bell / home number: unread conversations when the API says so,
+ * otherwise (older API) unread messages as before.
+ */
+export function inboxUnreadConversations(page: ConstructionInboxMessagesPage): {
+  count: number
+  conversations: boolean
+} {
+  if (typeof page.unread_threads === 'number') return { count: page.unread_threads, conversations: true }
+  return { count: page.unread_count ?? 0, conversations: false }
 }
 
 /** Buyer-visible inbound supplier emails (Resend alias + Gmail-linked captures). */
@@ -1343,8 +1373,11 @@ export async function markConstructionInboxMessageUnread(messageId: string) {
 }
 
 export async function listConstructionInboxThreads(query: {
-  /** API only accepts needs_reply | all. Use client helpers for inbound vs مرسل. */
-  filter?: 'needs_reply' | 'all'
+  /**
+   * The tab, filtered by the server. Older APIs accept only needs_reply | all
+   * (and 400 the rest); `lib/inboxTabs.ts` falls back for them.
+   */
+  filter?: 'inbound' | 'sent' | 'needs_reply' | 'hidden' | 'all'
   cursor?: string
   /** One request only — applied by the server before it groups rows per supplier. */
   rfq_id?: string | null
