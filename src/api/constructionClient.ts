@@ -1488,7 +1488,7 @@ export async function replyToConstructionInboxThread(
     parent_message_id?: string | null
     attachments?: ConstructionInboxOutboundAttachment[]
     include_items?: boolean
-    channel?: 'EMAIL' | 'HARAJ'
+    channel?: 'EMAIL' | 'HARAJ' | 'PORTAL'
   },
 ) {
   return request<ConstructionInboxReplyResult>(

@@ -342,10 +342,16 @@ export function ChatPane({
    * refuses anything else. With no inbound message yet: email when the thread
    * has an address, otherwise Haraj.
    */
-  const replyChannel = useMemo<'EMAIL' | 'HARAJ' | 'WHATSAPP'>(() => {
-    const lastIn = [...(thread?.messages || [])].reverse().find((m) => m.direction === 'INBOUND' && ['EMAIL', 'HARAJ', 'WHATSAPP'].includes(String(m.channel)))
-    if (lastIn) return String(lastIn.channel) as 'EMAIL' | 'HARAJ' | 'WHATSAPP'
+  const replyChannel = useMemo<'EMAIL' | 'HARAJ' | 'WHATSAPP' | 'PORTAL'>(() => {
+    // The server names the channel it will accept (PORTAL for a supplier with
+    // a live account): follow it, so a portal message is never answered «by email».
+    const serverChannel = String((thread as { reply_channel?: string } | null)?.reply_channel || '').toUpperCase()
     const available = (thread?.send_channels || []).map((c) => String(c.channel))
+    const lastIn = [...(thread?.messages || [])].reverse().find((m) => m.direction === 'INBOUND' && ['EMAIL', 'HARAJ', 'WHATSAPP', 'PORTAL'].includes(String(m.channel)))
+    if (lastIn && String(lastIn.channel) === 'PORTAL') return 'PORTAL'
+    if (serverChannel === 'PORTAL' && (!lastIn || available.includes('PORTAL'))) return 'PORTAL'
+    if (lastIn) return String(lastIn.channel) as 'EMAIL' | 'HARAJ' | 'WHATSAPP'
+    if (available.includes('PORTAL')) return 'PORTAL'
     return available.includes('EMAIL') || !available.includes('HARAJ') ? 'EMAIL' : 'HARAJ'
   }, [thread])
   const unreadNow = (thread?.messages || []).filter((m) => m.direction === 'INBOUND' && m.unread).length
@@ -408,13 +414,17 @@ export function ChatPane({
         setError('آخر رسالة من المورد وصلت على واتساب — الرد عليه يكون من تطبيق واتساب نفسه.')
         return
       }
+      if (replyChannel === 'PORTAL' && files.length) {
+        setError('رد المنصة نصي حالياً — أزل المرفقات.')
+        return
+      }
       if (replyChannel === 'HARAJ' && files.length) {
         setError('هذه المحادثة تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.')
         return
       }
       const attachments = files.length ? await readConstructionInboxAttachments(files) : []
       const result = await replyToConstructionInboxThread(String(thread.invite_id), {
-        channel: replyChannel === 'HARAJ' ? 'HARAJ' : 'EMAIL',
+        channel: replyChannel === 'HARAJ' ? 'HARAJ' : replyChannel === 'PORTAL' ? 'PORTAL' : 'EMAIL',
         idempotency_key: crypto.randomUUID(),
         text: text.trim(),
         parent_message_id: thread.last_message_id ?? null,
@@ -931,7 +941,9 @@ export function ChatPane({
                   ? 'الرد من هنا لا يُرسل على واتساب'
                   : replyChannel === 'HARAJ'
                     ? 'يصله ردك في نفس المحادثة'
-                    : 'يصله ردك على إيميله'}
+                    : replyChannel === 'PORTAL'
+                      ? 'يصله ردك في محادثة المنصة — بدون تكلفة'
+                      : 'يصله ردك على إيميله'}
               </span>
             )}
             <label className="inline-flex items-center gap-1.5 text-[11px] text-neutral-700">

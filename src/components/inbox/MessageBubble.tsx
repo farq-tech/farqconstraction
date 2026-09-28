@@ -136,6 +136,16 @@ export function ChannelTag({ channel }: { channel?: string | null }) {
       </span>
     )
   }
+  if (key === 'PORTAL') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#CFF5DC] text-[#123F3A] px-1.5 py-0.5 text-[9px] font-bold" title="عبر منصة فرق — مجاناً">
+        <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4">
+          <path d="M4 5h16v11H8l-4 4V5Z" />
+        </svg>
+        عبر المنصة
+      </span>
+    )
+  }
   if (key === 'FORM') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-600 px-1.5 py-0.5 text-[9px] font-bold" title="نموذج العرض">
