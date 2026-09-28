@@ -18,6 +18,8 @@ type Quote = {
   enteredBy?: string
   validUntil?: string
   wave?: number
+  /** Unit prices of the previous version, where this one lowered them (same VAT basis). */
+  previous?: Record<string, { price: number; at: string }>
 }
 
 function booklet(opts: {
@@ -48,6 +50,16 @@ function booklet(opts: {
         submitted_at: q.at,
         entered_by: q.enteredBy ?? null,
         valid_until: q.validUntil ?? null,
+        ...(q.previous?.[key]
+          ? {
+              previous_unit_price: q.previous[key]!.price,
+              previous_prices_include_tax: q.includesTax === undefined ? false : q.includesTax,
+              previous_submitted_at: q.previous[key]!.at,
+              previous_quote_version_id: `${q.supplier}-v0`,
+              price_cut_per_unit: Math.round((q.previous[key]!.price - q.prices[key]!) * 10000) / 10000,
+              price_cut_percent: Math.round(((q.previous[key]!.price - q.prices[key]!) / q.previous[key]!.price) * 1000) / 10,
+            }
+          : {}),
       }))
       .sort((a, b) => a.unit_price! - b.unit_price!)
   const matrix = opts.lines.map((l) => {
@@ -106,7 +118,8 @@ export const PR580: ConstructionBookletDetail = booklet({
     { key: 'pr580-6', name: 'لاصق بلوك جاهز', market: 'غراء أبو جمل', qty: 100, uom: 'كيس' },
   ],
   quotes: [
-    { supplier: 's1', name: 'مؤسسة الركن المتين', prices: { 'pr580-1': 1.7, 'pr580-2': 38, 'pr580-6': 24 }, at: hoursAgo(5), validUntil: '2026-09-30T20:59:00Z' },
+    { supplier: 's1', name: 'مؤسسة الركن المتين', prices: { 'pr580-1': 1.7, 'pr580-2': 38, 'pr580-6': 24 }, at: hoursAgo(5), validUntil: '2026-09-30T20:59:00Z',
+      previous: { 'pr580-1': { price: 1.85, at: hoursAgo(48) } } },
     { supplier: 's2', name: 'مصنع بلوك الوادي', prices: { 'pr580-1': 1.75 }, at: hoursAgo(9), includesTax: true },
     { supplier: 's3', name: 'شركة أساس للمواد', prices: { 'pr580-1': 1.8, 'pr580-2': 41.5 }, at: hoursAgo(30) },
     { supplier: 's4', name: 'مؤسسة البنيان', prices: { 'pr580-1': 1.85 }, at: hoursAgo(40), enteredBy: 'FARQ_FROM_CHAT', includesTax: null, wave: 2 },
@@ -139,8 +152,10 @@ export const PRH288: ConstructionBookletDetail = booklet({
   ],
   quotes: [
     { supplier: 'e1', name: 'مؤسسة التيار للكهرباء', prices: { 'pr288-1': 18, 'pr288-2': 23.1, 'pr288-4': 0.85, 'pr288-6': 0.9, 'pr288-7': 0.35 }, at: hoursAgo(3) },
-    { supplier: 'e2', name: 'شركة النور الكهربائية', prices: { 'pr288-1': 19.5, 'pr288-3': 31, 'pr288-4': 0.95, 'pr288-5': 1.2, 'pr288-7': 0.4, 'pr288-8': 1 }, at: hoursAgo(20), enteredBy: 'FARQ_FROM_CHAT', wave: 2 },
-    { supplier: 'e3', name: 'مؤسسة الوصل', prices: { 'pr288-1': 21, 'pr288-2': 24.5, 'pr288-3': 33.4, 'pr288-4': 1.1, 'pr288-5': 1.35, 'pr288-6': 1.05, 'pr288-7': 0.42 }, at: hoursAgo(45), includesTax: true },
+    { supplier: 'e2', name: 'شركة النور الكهربائية', prices: { 'pr288-1': 19.5, 'pr288-3': 31, 'pr288-4': 0.95, 'pr288-5': 1.2, 'pr288-7': 0.4, 'pr288-8': 1 }, at: hoursAgo(20), enteredBy: 'FARQ_FROM_CHAT', wave: 2,
+      previous: { 'pr288-8': { price: 1.2, at: hoursAgo(70) } } },
+    { supplier: 'e3', name: 'مؤسسة الوصل', prices: { 'pr288-1': 21, 'pr288-2': 24.5, 'pr288-3': 33.4, 'pr288-4': 1.1, 'pr288-5': 1.35, 'pr288-6': 1.05, 'pr288-7': 0.42 }, at: hoursAgo(45), includesTax: true,
+      previous: { 'pr288-2': { price: 26, at: hoursAgo(90) } } },
   ],
 })
 

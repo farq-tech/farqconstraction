@@ -818,6 +818,18 @@ export type ConstructionBookletOffer = {
   entered_by?: string | null
   /** The quote's stated validity; absent when the quote states none. */
   valid_until?: string | null
+  /**
+   * When a newer version of this supplier's quote lowered this line: the
+   * previous priced version's unit price (as it stated it), its VAT basis and
+   * time, and the cut — per unit in this offer's basis, and in percent net of
+   * VAT. All null / absent otherwise.
+   */
+  previous_unit_price?: number | null
+  previous_prices_include_tax?: boolean | null
+  previous_submitted_at?: string | null
+  previous_quote_version_id?: string | null
+  price_cut_per_unit?: number | null
+  price_cut_percent?: number | null
 }
 
 export type ConstructionBookletDetail = {

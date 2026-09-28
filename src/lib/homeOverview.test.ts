@@ -7,6 +7,8 @@ import {
   coverageBuckets,
   isActiveBooklet,
   loadBookletDetails,
+  offerCut,
+  priceCutsFor,
   offersWord,
   quotesSince,
   summarizeBooklet,
@@ -34,7 +36,8 @@ describe('summarizeBooklet', () => {
       ['غراء أبو جمل', 1],
     ])
     expect(card.lines[0]!.bookletName).toBe('بلوك خرساني مصمت مقاس 15 سم')
-    expect(card.lines[0]!.best).toEqual({ unitPrice: 1.7, currency: 'SAR', supplierName: 'مؤسسة الركن المتين', vat: 'excl', fromChat: false })
+    expect(card.lines[0]!.best).toEqual({ unitPrice: 1.7, currency: 'SAR', supplierName: 'مؤسسة الركن المتين', vat: 'excl', fromChat: false, cutPercent: 8.1 })
+    expect(card.lines[1]!.best!.cutPercent).toBeNull()
     expect(card.lines[3]!.best).toBeNull()
     expect(card.buckets).toEqual({ none: 2, few: 3, many: 1 })
     expect([card.linesTotal, card.linesWithQuotes]).toEqual([6, 4])
@@ -227,5 +230,42 @@ describe('loadBookletDetails', () => {
         },
       }),
     ).rejects.toThrow('down')
+  })
+})
+
+describe('price cuts («موردون خفّضوا أسعارهم»)', () => {
+  const o = buildHomeOverview(FIXTURE_BOOKLETS, FIXTURE_NOW)
+
+  it('every lowered line across booklets, newest first, with the cut for the line quantity', () => {
+    expect(o.priceCuts.map((c) => [c.reference, c.supplierName, c.lineName, c.oldPrice, c.newPrice, c.percent])).toEqual([
+      ['PR-580', 'مؤسسة الركن المتين', 'بلوك 15 سم', 1.85, 1.7, 8.1],
+      ['PR-H288', 'شركة النور الكهربائية', 'فيشر بلاستيك 8 مم', 1.2, 1, 16.7],
+      ['PR-H288', 'مؤسسة الوصل', 'ماسورة EMT 1', 26, 24.5, 5.8],
+    ])
+    expect(o.priceCuts[0]).toMatchObject({ perUnit: 0.15, lineAmount: 450, quantity: 3000, cheapestNow: true, fromChat: false, oldVat: 'excl' })
+    expect(o.priceCuts[1]).toMatchObject({ lineAmount: 400, cheapestNow: true, fromChat: true })
+    expect(o.priceCuts[2]).toMatchObject({ lineAmount: 300, cheapestNow: false, newVat: 'incl' })
+  })
+
+  it('no cuts: an empty list (the section hides)', () => {
+    const d = clone(PR580)
+    d.matrix.forEach((m) => m.offers.forEach((x) => (x.previous_unit_price = null)))
+    expect(priceCutsFor(d, summarizeBooklet(d, FIXTURE_NOW))).toEqual([])
+  })
+
+  it('a cancelled wave\'s cut is not shown', () => {
+    const d = clone(PRH288)
+    d.waves[1]!.status = 'CANCELLED'
+    expect(buildHomeOverview([d], FIXTURE_NOW).priceCuts.map((c) => c.supplierName)).toEqual(['مؤسسة الوصل'])
+  })
+
+  it('offerCut trusts the server; an older payload is compared only on the same basis', () => {
+    const base = PR580.matrix[0]!.offers[0]!
+    expect(offerCut(base)).toEqual({ percent: 8.1, perUnit: 0.15, previous: 1.85 })
+    expect(offerCut({ ...base, price_cut_percent: null, price_cut_per_unit: null })).toEqual({ percent: 8.1, perUnit: 0.15000000000000013, previous: 1.85 })
+    expect(offerCut({ ...base, price_cut_percent: null, price_cut_per_unit: null, previous_prices_include_tax: true })).toBeNull()
+    expect(offerCut({ ...base, previous_unit_price: 1.6, price_cut_percent: null, price_cut_per_unit: null })).toBeNull()
+    expect(offerCut({ ...base, previous_unit_price: null })).toBeNull()
+    expect(offerCut(null)).toBeNull()
   })
 })

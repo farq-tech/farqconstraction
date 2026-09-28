@@ -38,6 +38,8 @@ export type HomeLine = {
     supplierName: string
     vat: VatBasis
     fromChat: boolean
+    /** «خفّض X%»: this offer's newer version lowered the price. */
+    cutPercent: number | null
   } | null
 }
 
@@ -74,7 +76,39 @@ export type HomeTotals = {
   nearestDeadline: { bookletId: string; reference: string; at: number; label: string } | null
 }
 
-export type HomeOverview = { booklets: HomeBooklet[]; totals: HomeTotals; attention: AttentionItem[] }
+/** «موردون خفّضوا أسعارهم»: one line whose supplier sent a lower price. */
+export type PriceCut = {
+  bookletId: string
+  reference: string
+  supplierId: string
+  supplierName: string
+  lineKey: string
+  lineName: string
+  quantity: number | null
+  uom: string | null
+  oldPrice: number
+  oldVat: VatBasis
+  newPrice: number
+  newVat: VatBasis
+  currency: string
+  /** Percent, net of VAT. */
+  percent: number
+  /** Per unit, in the new price's basis. */
+  perUnit: number
+  /** perUnit × the line's quantity; null without a quantity. */
+  lineAmount: number | null
+  /** The supplier is the line's best offer now. */
+  cheapestNow: boolean
+  fromChat: boolean
+  at: number | null
+}
+
+export type HomeOverview = {
+  booklets: HomeBooklet[]
+  totals: HomeTotals
+  attention: AttentionItem[]
+  priceCuts: PriceCut[]
+}
 
 const num = (v: unknown): number | null => {
   if (v == null || v === '') return null
@@ -167,6 +201,30 @@ function supplierNames(detail: ConstructionBookletDetail): Map<string, string> {
   return names
 }
 
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+
+/**
+ * The cut an offer carries, or null. The server compares like-for-like (net
+ * of VAT) and sends `price_cut_percent` / `price_cut_per_unit`; an older
+ * payload with only `previous_unit_price` is compared here, and only on the
+ * same stated basis.
+ */
+export function offerCut(o: ConstructionBookletOffer | null | undefined): { percent: number; perUnit: number; previous: number } | null {
+  const previous = num(o?.previous_unit_price)
+  const now = num(o?.unit_price)
+  if (!o || previous == null || now == null) return null
+  let percent = num(o.price_cut_percent)
+  let perUnit = num(o.price_cut_per_unit)
+  if (percent == null || perUnit == null) {
+    const sameBasis = (o.previous_prices_include_tax ?? null) === (o.prices_include_tax ?? null)
+    if (!sameBasis || !(previous > now)) return null
+    perUnit = previous - now
+    percent = Math.round(((previous - now) / previous) * 1000) / 10
+  }
+  if (!(percent > 0) || !(perUnit > 0)) return null
+  return { percent, perUnit, previous }
+}
+
 /** One booklet card. Cancelled waves are dropped first. */
 export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now()): HomeBooklet {
   const detail = withoutCancelledWaves(raw)
@@ -191,6 +249,7 @@ export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now(
               supplierName: names.get(String(best.supplier_id)) || 'مورد',
               vat: vatBasis(best.prices_include_tax),
               fromChat: upper(best.entered_by) === FARQ_FROM_CHAT,
+              cutPercent: offerCut(best)?.percent ?? null,
             }
           : null,
     }
@@ -249,6 +308,46 @@ export function attentionFor(raw: ConstructionBookletDetail, card: HomeBooklet, 
   return items
 }
 
+/** Every lowered price across the booklets, newest first. */
+export function priceCutsFor(raw: ConstructionBookletDetail, card: HomeBooklet): PriceCut[] {
+  const detail = withoutCancelledWaves(raw)
+  const names = supplierNames(detail)
+  const lines = new Map(card.lines.map((l) => [l.key, l]))
+  const best = new Map(buildBookletMatrix(detail).rows.map((r) => [r.line_key, r.best_supplier_id]))
+  const out: PriceCut[] = []
+  for (const m of detail.matrix || []) {
+    const line = lines.get(String(m.line_key))
+    for (const o of m.offers || []) {
+      const cut = offerCut(o)
+      if (!cut) continue
+      const id = String(o.supplier_id)
+      const quantity = line?.quantity ?? null
+      out.push({
+        bookletId: card.id,
+        reference: card.reference,
+        supplierId: id,
+        supplierName: names.get(id) || 'مورد',
+        lineKey: String(m.line_key),
+        lineName: line?.name || '—',
+        quantity,
+        uom: line?.uom ?? null,
+        oldPrice: cut.previous,
+        oldVat: vatBasis(o.previous_prices_include_tax),
+        newPrice: num(o.unit_price)!,
+        newVat: vatBasis(o.prices_include_tax),
+        currency: o.currency || 'SAR',
+        percent: cut.percent,
+        perUnit: cut.perUnit,
+        lineAmount: quantity != null ? round2(cut.perUnit * quantity) : null,
+        cheapestNow: best.get(String(m.line_key)) === id,
+        fromChat: upper(o.entered_by) === FARQ_FROM_CHAT,
+        at: time(o.submitted_at),
+      })
+    }
+  }
+  return out
+}
+
 const ATTENTION_ORDER: Record<AttentionItem['kind'], number> = { deadline: 0, no_quotes: 1, expiring: 2, from_chat: 3 }
 
 /**
@@ -273,9 +372,13 @@ export function buildHomeOverview(details: ConstructionBookletDetail[], now = Da
   const attention = pairs
     .flatMap((p) => attentionFor(p.d, p.card, now))
     .sort((a, b) => ATTENTION_ORDER[a.kind] - ATTENTION_ORDER[b.kind])
+  const priceCuts = pairs
+    .flatMap((p) => priceCutsFor(p.d, p.card))
+    .sort((a, b) => (b.at ?? -Infinity) - (a.at ?? -Infinity) || b.percent - a.percent)
   return {
     booklets,
     attention,
+    priceCuts,
     totals: {
       activeBooklets: booklets.length,
       linesTotal,

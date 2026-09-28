@@ -25,6 +25,7 @@ import {
   vatLabel,
   visibleLines,
   type AttentionItem,
+  type PriceCut,
   type CoverageBuckets,
   type HomeBooklet,
   type HomeLine,
@@ -101,7 +102,7 @@ export function HomeView({ navigate }: NavProps) {
   }, [])
 
   const overview = useMemo(() => buildHomeOverview(details, now), [details, now])
-  const { totals, booklets, attention } = overview
+  const { totals, booklets, attention, priceCuts } = overview
   const pickFile = () => inputRef.current?.click()
   const open = useCallback((id: string) => (id ? openBooklet(id) : navigate('booklets')), [openBooklet, navigate])
   const hasBooklets = state === 'ok' && details.length > 0
@@ -224,8 +225,9 @@ export function HomeView({ navigate }: NavProps) {
                   <BookletCard key={b.id || b.reference} card={b} now={now} onOpen={() => open(b.id)} />
                 ))}
               </div>
-              <aside className="order-1 lg:order-2 lg:sticky lg:top-4">
+              <aside className="order-1 lg:order-2 space-y-4">
                 <AttentionPanel items={attention} now={now} onOpen={open} />
+                {priceCuts.length > 0 && <PriceCutsPanel cuts={priceCuts} now={now} onOpen={open} />}
               </aside>
             </div>
           )}
@@ -487,10 +489,11 @@ function LineRow({ line }: { line: HomeLine }) {
       <div className="min-w-0 text-left sm:text-right">
         {line.best ? (
           <>
-            <div className="flex items-center gap-1.5 sm:justify-start justify-end">
-              <span className="font-bold text-[#1a7a45] tabular-nums">{unitPriceLabel(line.best.unitPrice, line.best.currency)}</span>
+            <div className="flex flex-wrap items-center gap-1 sm:justify-start justify-end">
+              <span className="font-bold text-[#1a7a45] tabular-nums whitespace-nowrap">{unitPriceLabel(line.best.unitPrice, line.best.currency)}</span>
+              {line.best.cutPercent != null && <CutChip percent={line.best.cutPercent} />}
               <span
-                className={`text-[10px] font-semibold px-1.5 py-px rounded ${
+                className={`text-[10px] font-semibold px-1.5 py-px rounded whitespace-nowrap ${
                   line.best.vat === 'unknown' ? 'bg-amber-50 text-amber-700' : 'bg-neutral-100 text-neutral-500'
                 }`}
               >
@@ -513,6 +516,84 @@ function LineRow({ line }: { line: HomeLine }) {
 }
 
 // ── Needs attention ──────────────────────────────────────────────────────
+
+function CutChip({ percent }: { percent: number }) {
+  return (
+    <span className="shrink-0 whitespace-nowrap text-[10px] font-bold px-1.5 py-px rounded bg-[#e3f4ea] text-[#1a7a45] tabular-nums" title="خفّض المورد سعره في نسخة أحدث من عرضه">
+      خفّض <bdi dir="ltr">{formatPercent(percent)}</bdi>
+    </span>
+  )
+}
+
+function formatPercent(p: number): string {
+  return `${p.toLocaleString('en-US', { maximumFractionDigits: 1 })}%`
+}
+
+function agoLabel(at: number | null, now: number): string | null {
+  if (at == null) return null
+  const h = Math.floor((now - at) / 3_600_000)
+  if (h < 1) return 'قبل أقل من ساعة'
+  if (h < 24) return `قبل ${h === 1 ? 'ساعة' : h === 2 ? 'ساعتين' : `${h} ${h <= 10 ? 'ساعات' : 'ساعة'}`}`
+  const d = Math.floor(h / 24)
+  return `قبل ${d === 1 ? 'يوم' : d === 2 ? 'يومين' : `${d} ${d <= 10 ? 'أيام' : 'يومًا'}`}`
+}
+
+const MONEY = (n: number, currency: string) =>
+  `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${currency.toUpperCase() === 'SAR' ? 'ريال' : currency}`
+
+/** «موردون خفّضوا أسعارهم»: newest first. Rendered only when there is one. */
+function PriceCutsPanel({ cuts, now, onOpen }: { cuts: PriceCut[]; now: number; onOpen: (id: string) => void }) {
+  return (
+    <section className="bg-white border border-neutral-100 rounded-2xl overflow-hidden">
+      <h2 className="px-4 pt-4 pb-2 text-base font-bold text-[#0D1F1D]">
+        موردون خفّضوا أسعارهم
+        <span className="text-xs font-semibold text-neutral-400 ms-1">({cuts.length})</span>
+      </h2>
+      <ul className="divide-y divide-neutral-50">
+        {cuts.map((c) => {
+          const sameVat = c.oldVat === c.newVat
+          return (
+            <li key={`${c.bookletId}-${c.lineKey}-${c.supplierId}`}>
+              <button onClick={() => onOpen(c.bookletId)} className="w-full text-right px-4 py-3 hover:bg-neutral-50">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-[#0D1F1D] truncate">{c.supplierName}</div>
+                    <div className="text-xs text-neutral-500 truncate">
+                      {c.lineName} · <Ref value={c.reference} />
+                    </div>
+                  </div>
+                  <CutChip percent={c.percent} />
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-sm tabular-nums">
+                  <span className="text-neutral-400 line-through">{unitPriceLabel(c.oldPrice, c.currency)}</span>
+                  {!sameVat && <span className="text-[10px] text-neutral-400">{vatLabel(c.oldVat)}</span>}
+                  <span className="text-neutral-400">←</span>
+                  <span className="font-bold text-[#1a7a45]">{unitPriceLabel(c.newPrice, c.currency)}</span>
+                  <span className="text-[10px] text-neutral-400">{vatLabel(c.newVat)}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-500">
+                  {c.lineAmount != null && (
+                    <span>
+                      وفر <span className="font-bold text-[#0D1F1D] tabular-nums">{MONEY(c.lineAmount, c.currency)}</span> على{' '}
+                      {formatQuantity(c.quantity, c.uom)}
+                    </span>
+                  )}
+                  {c.cheapestNow ? (
+                    <span className="px-1.5 py-px rounded bg-[#1a7a45] text-white font-bold">صار الأرخص</span>
+                  ) : (
+                    <span className="px-1.5 py-px rounded bg-neutral-100 text-neutral-600 font-semibold">ليس الأرخص بعد</span>
+                  )}
+                  {c.fromChat && <span className="text-[#2F6CB5] font-semibold">من المحادثة</span>}
+                  {agoLabel(c.at, now) && <span className="text-neutral-400">{agoLabel(c.at, now)}</span>}
+                </div>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
 
 function AttentionPanel({ items, now, onOpen }: { items: AttentionItem[]; now: number; onOpen: (id: string) => void }) {
   return (
