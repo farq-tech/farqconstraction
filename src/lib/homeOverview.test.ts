@@ -1,0 +1,231 @@
+import { describe, expect, it, vi } from 'vitest'
+import type { ConstructionBookletDetail } from '../api/constructionClient'
+import {
+  FALLBACK_LIMIT,
+  buildHomeOverview,
+  countdownLabel,
+  coverageBuckets,
+  isActiveBooklet,
+  loadBookletDetails,
+  offersWord,
+  quotesSince,
+  summarizeBooklet,
+  unitPriceLabel,
+  visibleLines,
+  vatLabel,
+  withoutCancelledWaves,
+} from './homeOverview'
+import { FIXTURE_BOOKLETS, FIXTURE_NOW, PR580, PRH288 } from './homeOverview.fixture'
+
+const HOUR = 3_600_000
+const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
+
+describe('summarizeBooklet', () => {
+  it('PR-580: six lines, block quoted by seven, both channels unquoted', () => {
+    const card = summarizeBooklet(PR580, FIXTURE_NOW)
+    expect(card.reference).toBe('PR-580')
+    expect(card.waves).toBe(2)
+    expect(card.lines.map((l) => [l.name, l.offers])).toEqual([
+      ['بلوك 15 سم', 7],
+      ['فوم مقاوم للحريق', 2],
+      ['فوم بخاخ', 1],
+      ['جسر أوميجا', 0],
+      ['جسر رئيسي C', 0],
+      ['غراء أبو جمل', 1],
+    ])
+    expect(card.lines[0]!.bookletName).toBe('بلوك خرساني مصمت مقاس 15 سم')
+    expect(card.lines[0]!.best).toEqual({ unitPrice: 1.7, currency: 'SAR', supplierName: 'مؤسسة الركن المتين', vat: 'excl', fromChat: false })
+    expect(card.lines[3]!.best).toBeNull()
+    expect(card.buckets).toEqual({ none: 2, few: 3, many: 1 })
+    expect([card.linesTotal, card.linesWithQuotes]).toEqual([6, 4])
+    // s1 (5h) and s2 (9h) and s? within 24h: only s1, s2.
+    expect(card.quotesLast24h).toBe(2)
+  })
+
+  it('uses the booklet text when there is no market name', () => {
+    const card = summarizeBooklet(PRH288, FIXTURE_NOW)
+    const line = card.lines.find((l) => l.key === 'pr288-3')!
+    expect(line.name).toBe('أنبوب معدني EMT قطر 32 مم طول 3 م')
+    expect(line.bookletName).toBeUndefined()
+    expect(card.lines.find((l) => l.key === 'pr288-8')!.best).toMatchObject({ unitPrice: 1, fromChat: true })
+    expect(card.lines.find((l) => l.key === 'pr288-9')!.offers).toBe(0)
+    expect(card.waves).toBe(2) // the cancelled wave is not counted
+  })
+
+  it('reads VAT basis per best offer', () => {
+    const d = clone(PR580)
+    d.matrix[0]!.offers.find((o) => o.supplier_id === 's1')!.prices_include_tax = true
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best!.vat).toBe('incl')
+    d.matrix[0]!.offers.find((o) => o.supplier_id === 's1')!.prices_include_tax = null
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best!.vat).toBe('unknown')
+    expect(vatLabel('incl')).toBe('شامل الضريبة')
+    expect(vatLabel('excl')).toBe('غير شامل الضريبة')
+  })
+
+  it('tolerates a detail with no lines, matrix or suppliers', () => {
+    const card = summarizeBooklet({ booklet: { id: 'x', reference: null, title: null, quote_deadline: null, created_at: null } } as unknown as ConstructionBookletDetail)
+    expect(card).toMatchObject({ reference: 'كراسة', linesTotal: 0, deadlineAt: null, buckets: { none: 0, few: 0, many: 0 } })
+  })
+})
+
+describe('cancelled waves and booklets', () => {
+  it('drops offers and suppliers of a cancelled wave', () => {
+    const d = clone(PR580)
+    d.waves[1]!.status = 'CANCELLED'
+    const live = withoutCancelledWaves(d)
+    expect(live.waves).toHaveLength(1)
+    expect(live.suppliers.map((s) => s.supplier_id)).not.toContain('s4')
+    expect(live.matrix[0]!.offers.map((o) => o.supplier_id)).not.toContain('s6')
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.offers).toBe(5)
+  })
+
+  it('a booklet whose every wave is cancelled, closed or awarded is not active; one with no waves is', () => {
+    expect(isActiveBooklet({ waves: [] })).toBe(true)
+    expect(isActiveBooklet({ waves: [{ wave_number: 1, rfq_id: 'r', status: 'CANCELLED', invites: 1, created_at: null }] })).toBe(false)
+    expect(isActiveBooklet({ waves: [{ wave_number: 1, rfq_id: 'r', status: 'AWARDED', invites: 1, created_at: null }, { wave_number: 2, rfq_id: 'q', status: 'CLOSED', invites: 1, created_at: null }] })).toBe(false)
+    expect(isActiveBooklet(PRH288)).toBe(true)
+    const dead = clone(PR580)
+    dead.waves.forEach((w) => (w.status = 'CANCELLED'))
+    expect(buildHomeOverview([dead, PRH288], FIXTURE_NOW).booklets.map((b) => b.reference)).toEqual(['PR-H288'])
+  })
+})
+
+describe('buildHomeOverview', () => {
+  const o = buildHomeOverview(FIXTURE_BOOKLETS, FIXTURE_NOW)
+
+  it('totals across active booklets', () => {
+    expect(o.totals).toMatchObject({
+      activeBooklets: 2,
+      linesTotal: 15,
+      linesWithQuotes: 12,
+      linesWithoutQuotes: 3,
+      coveragePercent: 80,
+      quotesLast24h: 4,
+    })
+    expect(o.totals.nearestDeadline).toMatchObject({ reference: 'PR-580', at: Date.parse('2026-09-29T20:59:00Z') })
+  })
+
+  it('nearest deadline first', () => {
+    expect(o.booklets.map((b) => b.reference)).toEqual(['PR-580', 'PR-H288'])
+  })
+
+  it('attention: deadline within 48h, unquoted lines per booklet, expiring and chat-entered quotes', () => {
+    expect(o.attention.map((a) => [a.kind, a.reference])).toEqual([
+      ['deadline', 'PR-580'],
+      ['no_quotes', 'PR-580'],
+      ['no_quotes', 'PR-H288'],
+      ['expiring', 'PR-580'],
+      ['from_chat', 'PR-580'],
+      ['from_chat', 'PR-H288'],
+    ])
+    expect(o.attention[1]).toMatchObject({ lines: ['جسر أوميجا', 'جسر رئيسي C'], count: 2 })
+    expect(o.attention[3]).toMatchObject({ supplierName: 'مؤسسة الركن المتين', lines: 3, expired: false })
+    expect(o.attention[5]).toMatchObject({ supplierName: 'شركة النور الكهربائية', lines: 6 })
+  })
+
+  it('no deadline item once the deadline passed, or when it is days away', () => {
+    const later = buildHomeOverview([PRH288], FIXTURE_NOW)
+    expect(later.attention.some((a) => a.kind === 'deadline')).toBe(false)
+    const passed = buildHomeOverview([PR580], FIXTURE_NOW + 72 * HOUR)
+    expect(passed.attention.some((a) => a.kind === 'deadline')).toBe(false)
+    expect(passed.totals.nearestDeadline).toBeNull()
+  })
+
+  it('an expired quote is marked expired', () => {
+    const later = buildHomeOverview([PR580], Date.parse('2026-10-01T00:00:00Z'))
+    expect(later.attention.find((a) => a.kind === 'expiring')).toMatchObject({ expired: true })
+  })
+
+  it('empty input is an empty page, not NaN', () => {
+    expect(buildHomeOverview([], FIXTURE_NOW).totals).toEqual({
+      activeBooklets: 0,
+      linesTotal: 0,
+      linesWithQuotes: 0,
+      linesWithoutQuotes: 0,
+      coveragePercent: 0,
+      quotesLast24h: 0,
+      nearestDeadline: null,
+    })
+  })
+})
+
+describe('helpers', () => {
+  it('coverage buckets 0 / 1–2 / 3+', () => {
+    expect(coverageBuckets([0, 1, 2, 3, 7, 0])).toEqual({ none: 2, few: 2, many: 2 })
+  })
+
+  it('quotes in the last 24h count each supplier once, from either stamp', () => {
+    const d = clone(PR580)
+    d.suppliers = []
+    expect(quotesSince(d, FIXTURE_NOW)).toBe(2)
+    expect(quotesSince(d, FIXTURE_NOW, 100 * HOUR)).toBe(7)
+  })
+
+  it('a collapsed card never hides an unquoted line', () => {
+    const lines = summarizeBooklet(PRH288, FIXTURE_NOW).lines
+    expect(visibleLines(lines, false, 3).map((l) => l.key)).toEqual(['pr288-1', 'pr288-2', 'pr288-3', 'pr288-9'])
+    expect(visibleLines(lines, true, 3)).toHaveLength(9)
+  })
+
+  it('unit prices keep two decimals', () => {
+    expect(unitPriceLabel(1.7)).toBe('1.70 ريال')
+    expect(unitPriceLabel(23.1)).toBe('23.10 ريال')
+    expect(unitPriceLabel(1250, 'USD')).toBe('1,250.00 USD')
+  })
+
+  it('countdown words', () => {
+    const now = FIXTURE_NOW
+    expect(countdownLabel(null, now)).toBe('بلا موعد')
+    expect(countdownLabel(now - 1, now)).toBe('انتهى الموعد')
+    expect(countdownLabel(now + 30 * 60_000, now)).toBe('أقل من ساعة')
+    expect(countdownLabel(now + 2 * HOUR, now)).toBe('متبقٍ ساعتان')
+    expect(countdownLabel(now + 39 * HOUR, now)).toBe('متبقٍ 39 ساعة')
+    expect(countdownLabel(now + 5 * HOUR, now)).toBe('متبقٍ 5 ساعات')
+    expect(countdownLabel(now + 4 * 24 * HOUR, now)).toBe('متبقٍ 4 أيام')
+    expect(countdownLabel(now + 2 * 24 * HOUR + HOUR, now)).toBe('متبقٍ يومان')
+    expect(offersWord(0)).toBe('بدون عروض')
+    expect(offersWord(7)).toBe('7 عروض')
+  })
+})
+
+describe('loadBookletDetails', () => {
+  it('one call when the overview route exists', async () => {
+    const list = vi.fn()
+    const detail = vi.fn()
+    const got = await loadBookletDetails({ overview: async () => ({ booklets: FIXTURE_BOOKLETS }), list, detail })
+    expect(got).toHaveLength(2)
+    expect(list).not.toHaveBeenCalled()
+    expect(detail).not.toHaveBeenCalled()
+  })
+
+  it('older API: the list, then each booklet (bounded); one failure is skipped', async () => {
+    const ids = Array.from({ length: FALLBACK_LIMIT + 3 }, (_, i) => `b${i}`)
+    const detail = vi.fn(async (id: string) => {
+      if (id === 'b1') throw new Error('boom')
+      return { ...clone(PR580), booklet: { ...PR580.booklet, id } }
+    })
+    const got = await loadBookletDetails({
+      overview: async () => null,
+      list: async () => ({ booklets: ids.map((id) => ({ id }) as never) }),
+      detail,
+    })
+    expect(detail).toHaveBeenCalledTimes(FALLBACK_LIMIT)
+    expect(got).toHaveLength(FALLBACK_LIMIT - 1)
+  })
+
+  it('no booklets surface (list 404 → empty) reads as none', async () => {
+    await expect(loadBookletDetails({ overview: async () => null, list: async () => ({ booklets: [] }), detail: vi.fn() })).resolves.toEqual([])
+  })
+
+  it('every booklet failing is an error, not an empty page', async () => {
+    await expect(
+      loadBookletDetails({
+        overview: async () => null,
+        list: async () => ({ booklets: [{ id: 'a' } as never] }),
+        detail: async () => {
+          throw new Error('down')
+        },
+      }),
+    ).rejects.toThrow('down')
+  })
+})

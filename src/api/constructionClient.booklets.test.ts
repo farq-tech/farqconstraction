@@ -8,6 +8,7 @@ import {
   ConstructionApiError,
   __resetConstructionRateLimitGate,
   getConstructionBooklet,
+  getConstructionBookletsOverview,
   getConstructionRfqBooklet,
   listConstructionBooklets,
 } from './constructionClient'
@@ -80,5 +81,17 @@ describe('booklet client', () => {
     const err = await getConstructionBooklet('b-missing').catch((e) => e)
     expect(err).toBeInstanceOf(ConstructionApiError)
     expect(err.status).toBe(404)
+  })
+
+  it('overview: the comparisons in one call; an API without the route (404 / 501) is null', async () => {
+    installFetch({ status: 200, body: { ok: true, data: { booklets: [{ booklet: { id: 'b1' } }] } } })
+    await expect(getConstructionBookletsOverview()).resolves.toEqual({ booklets: [{ booklet: { id: 'b1' } }] })
+    expect(String(fetchMock.mock.calls[0]![0])).toContain('/api/construction/booklets/overview')
+    installFetch(notFound('BOOKLET_NOT_FOUND'))
+    await expect(getConstructionBookletsOverview()).resolves.toBeNull()
+    installFetch({ status: 501, body: { ok: false, error: 'CONSTRUCTION_BOOKLETS_UNAVAILABLE' } })
+    await expect(getConstructionBookletsOverview()).resolves.toBeNull()
+    installFetch({ status: 500, body: { ok: false, error: 'BOOM' } })
+    await expect(getConstructionBookletsOverview()).rejects.toBeInstanceOf(ConstructionApiError)
   })
 })

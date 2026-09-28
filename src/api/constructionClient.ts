@@ -807,6 +807,17 @@ export type ConstructionBookletOffer = {
   rfq_id: string | null
   quote_version_id: string | null
   notes: string | null
+  /** PRICED when the cell carries a comparable price. */
+  status?: string | null
+  /** true = the price includes VAT, false = excludes it, null/absent = not stated. */
+  prices_include_tax?: boolean | null
+  wave_number?: number | null
+  /** When this quote version was recorded (newer APIs). */
+  submitted_at?: string | null
+  /** `FARQ_FROM_CHAT` when Farq recorded the price from the supplier's chat. */
+  entered_by?: string | null
+  /** The quote's stated validity; absent when the quote states none. */
+  valid_until?: string | null
 }
 
 export type ConstructionBookletDetail = {
@@ -863,6 +874,21 @@ export async function listConstructionBooklets(): Promise<{ booklets: Constructi
 
 export async function getConstructionBooklet(id: string): Promise<ConstructionBookletDetail> {
   return request<ConstructionBookletDetail>(`/api/construction/booklets/${encodeURIComponent(id)}`)
+}
+
+/**
+ * The home page's overview: every booklet's comparison in one call. `null`
+ * when this API has no such route yet (404 / 501) — the caller then reads the
+ * list and each booklet instead.
+ */
+export async function getConstructionBookletsOverview(): Promise<{ booklets: ConstructionBookletDetail[] } | null> {
+  try {
+    const result = await request<{ booklets?: ConstructionBookletDetail[] } | null>('/api/construction/booklets/overview')
+    return { booklets: Array.isArray(result?.booklets) ? result!.booklets : [] }
+  } catch (err) {
+    if (err instanceof ConstructionApiError && (err.status === 404 || err.status === 501)) return null
+    throw err
+  }
 }
 
 /**

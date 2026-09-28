@@ -1,120 +1,114 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setPendingUpload } from '../lib/pendingUpload'
-import type { NavProps, RFQSummary } from '../types'
-import { UploadIcon, ArrowRightIcon, InboxIcon, FileIcon } from '../icons'
-import { getSession, subscribeSession } from '../store/session'
-import { inboxUnreadConversations, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
+import type { NavProps } from '../types'
+import { UploadIcon, ArrowRightIcon, ClockIcon, FileIcon, ChatIcon } from '../icons'
+import {
+  getConstructionBooklet,
+  getConstructionBookletsOverview,
+  inboxUnreadConversations,
+  listConstructionBooklets,
+  listConstructionInboxMessages,
+  type ConstructionBookletDetail,
+} from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
-import { toRfqSummary } from '../lib/rfqIdentity'
-import { RfqCard } from '../components/RfqCard'
-
-function useLocalRfqs() {
-  return useSyncExternalStore(
-    subscribeSession,
-    () => getSession().rfqs,
-    () => getSession().rfqs,
-  )
-}
+import { loadInboxTab } from '../lib/inboxTabs'
+import { formatQuantity } from '../lib/booklet'
+import {
+  DEADLINE_SOON_MS,
+  buildHomeOverview,
+  countdownLabel,
+  linesWord,
+  loadBookletDetails,
+  offersWord,
+  unitPriceLabel,
+  vatLabel,
+  visibleLines,
+  type AttentionItem,
+  type CoverageBuckets,
+  type HomeBooklet,
+  type HomeLine,
+} from '../lib/homeOverview'
 
 function greeting(): string {
   const hour = new Date().getHours()
   return hour < 12 ? 'صباح الخير' : 'مساء الخير'
 }
 
-/** One thing waiting for the buyer, with the action that deals with it. */
-function AttentionCard({
-  count,
-  title,
-  hint,
-  tone,
-  onClick,
-}: {
-  count: number | null
-  title: string
-  hint: string
-  tone: 'green' | 'blue' | 'red'
-  onClick: () => void
-}) {
-  const active = (count ?? 0) > 0
-  const colours = {
-    green: active ? 'bg-[#f0faf7] border-[#123F3A]/20' : 'bg-white border-neutral-100',
-    blue: active ? 'bg-[#eef4fb] border-[#2F6CB5]/20' : 'bg-white border-neutral-100',
-    red: active ? 'bg-red-50 border-red-200' : 'bg-white border-neutral-100',
-  }[tone]
-  const number = { green: 'text-[#123F3A]', blue: 'text-[#2F6CB5]', red: 'text-red-600' }[tone]
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex-1 min-w-[150px] rounded-2xl border px-4 py-4 text-right transition-all hover:shadow-sm ${colours}`}
-    >
-      <div className={`text-3xl font-black tabular-nums ${active ? number : 'text-neutral-300'}`}>{count ?? '—'}</div>
-      <div className="mt-1 text-sm font-bold text-[#0D1F1D]">{title}</div>
-      <div className="text-xs text-neutral-500 mt-0.5">{active ? hint : 'لا جديد'}</div>
-    </button>
-  )
+type Inbox = { needsReply: number | null; unread: number | null }
+
+async function loadInbox(): Promise<Inbox> {
+  const page = await loadInboxTab('needs_reply')
+  let unread = page.unreadThreads
+  if (unread == null) {
+    unread = await listConstructionInboxMessages()
+      .then((p) => inboxUnreadConversations(p).count)
+      .catch(() => null)
+  }
+  return { needsReply: page.counts.needs_reply ?? page.total, unread }
 }
 
+/**
+ * «الرئيسية»: the booklets (الكراسات) and their lines in one picture — what is
+ * covered, what has no quote yet, what is closing. Requests stay under
+ * «الطلبات»; nothing here lists them one by one.
+ */
 export function HomeView({ navigate }: NavProps) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const localRfqs = useLocalRfqs()
-  const [apiRfqs, setApiRfqs] = useState<RFQSummary[]>([])
-  const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
-  const [unread, setUnread] = useState<number | null>(null)
-  const { openRfq } = useProcurement()
+  const [details, setDetails] = useState<ConstructionBookletDetail[]>([])
+  const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
+  const [attempt, setAttempt] = useState(0)
+  const [inbox, setInbox] = useState<Inbox>({ needsReply: null, unread: null })
+  const [now, setNow] = useState(() => Date.now())
+  const { openBooklet } = useProcurement()
   const session = useFarqSession()
   const name = session.user?.displayName?.trim() || ''
 
   useEffect(() => {
     let cancelled = false
-    listBuyerRfqs()
-      .then((overview) => {
+    setState('loading')
+    loadBookletDetails({
+      overview: getConstructionBookletsOverview,
+      list: listConstructionBooklets,
+      detail: getConstructionBooklet,
+    })
+      .then((result) => {
         if (cancelled) return
-        setLoadState('ok')
-        setApiRfqs((overview.rfqs || []).map(toRfqSummary))
+        setDetails(result)
+        setNow(Date.now())
+        setState('ok')
       })
       .catch(() => {
-        if (!cancelled) {
-          setApiRfqs([])
-          setLoadState('error')
-        }
+        if (!cancelled) setState('error')
       })
-    listConstructionInboxMessages()
-      .then((page) => {
-        if (!cancelled) setUnread(inboxUnreadConversations(page).count)
+    loadInbox()
+      .then((result) => {
+        if (!cancelled) setInbox(result)
       })
       .catch(() => {
-        if (!cancelled) setUnread(null)
+        if (!cancelled) setInbox({ needsReply: null, unread: null })
       })
     return () => {
       cancelled = true
     }
+  }, [attempt])
+
+  // Countdowns move on their own.
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(t)
   }, [])
 
-  const seen = new Set<string>()
-  const rfqs: RFQSummary[] = []
-  for (const r of [...localRfqs, ...apiRfqs]) {
-    if (seen.has(r.id)) continue
-    seen.add(r.id)
-    rfqs.push(r)
-  }
-  const active = rfqs.filter((r) => r.status === 'active' || r.status === 'draft')
-  const offersTotal = rfqs.filter((r) => r.status === 'active').reduce((sum, r) => sum + (r.offers || 0), 0)
-  const withOffers = rfqs.find((r) => r.status === 'active' && r.offers > 0)
-  const closingSoon = rfqs.filter((r) => r.status === 'active' && r.closesUrgent)
-
-  const openCard = (rfq: RFQSummary) =>
-    rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
-      ? navigate('create-proposals')
-      : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
-
+  const overview = useMemo(() => buildHomeOverview(details, now), [details, now])
+  const { totals, booklets, attention } = overview
   const pickFile = () => inputRef.current?.click()
+  const open = useCallback((id: string) => (id ? openBooklet(id) : navigate('booklets')), [openBooklet, navigate])
+  const hasBooklets = state === 'ok' && details.length > 0
 
   return (
     <div
-      className="max-w-4xl mx-auto px-4 lg:px-8 py-8"
+      className="max-w-6xl mx-auto px-4 lg:px-8 py-6 lg:py-8"
       onDragOver={(e) => {
         e.preventDefault()
         setDragging(true)
@@ -138,14 +132,16 @@ export function HomeView({ navigate }: NavProps) {
         }}
       />
 
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
           <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D]">
             {greeting()}
             {name ? `، ${name}` : ''}
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
-            {rfqs.length ? 'هذا ما يحتاج انتباهك اليوم.' : 'ارفع كراسة وسنقرأ البنود ونقترح لكل بند موردين مناسبين.'}
+            {hasBooklets
+              ? 'صورة كراساتك الجارية: ما تغطّى بعروض، وما ينتظر، وما يقترب موعده.'
+              : 'ارفع كراسة وسنقرأ البنود ونقترح لكل بند موردين مناسبين.'}
           </p>
         </div>
         <button
@@ -164,81 +160,465 @@ export function HomeView({ navigate }: NavProps) {
         </div>
       )}
 
-      {rfqs.length > 0 && (
-        <div className="flex flex-wrap gap-3 mb-8">
-          <AttentionCard
-            count={unread}
-            title="ردود جديدة من الموردين"
-            hint="افتح المراسلات للرد"
-            tone="blue"
-            onClick={() => navigate('inbox')}
-          />
-          <AttentionCard
-            count={offersTotal}
-            title="عروض أسعار مستلمة"
-            hint="راجعها وقارن بينها"
-            tone="green"
-            onClick={() => (withOffers ? openRfq(withOffers.id, 'offers') : navigate('rfq-list'))}
-          />
-          <AttentionCard
-            count={closingSoon.length}
-            title="طلبات تغلق قريبًا"
-            hint="خلال يومين — تابع الموردين"
-            tone="red"
-            onClick={() => (closingSoon[0] ? openRfq(closingSoon[0].id, 'rfq-detail') : navigate('rfq-list'))}
-          />
+      {state === 'loading' ? (
+        <div className="text-center py-20 text-sm text-neutral-500">جارٍ تحميل الكراسات…</div>
+      ) : state === 'error' ? (
+        <div className="text-center py-16 bg-white border border-neutral-100 rounded-2xl">
+          <div className="font-semibold text-[#0D1F1D] mb-1">تعذّر تحميل الكراسات</div>
+          <p className="text-sm text-neutral-500 mb-4">هذا فشل في القراءة، وليس دليلًا على عدم وجود عروض.</p>
+          <button onClick={() => setAttempt((n) => n + 1)} className="px-4 py-2 bg-[#123F3A] text-white font-bold rounded-xl text-sm">
+            أعد المحاولة
+          </button>
         </div>
-      )}
-
-      {loadState !== 'ok' && !rfqs.length ? (
-        <div className="text-center py-16 text-sm text-neutral-500">
-          {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : 'تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد تحميل الصفحة.'}
-        </div>
-      ) : rfqs.length === 0 ? (
-        <button
-          type="button"
-          onClick={pickFile}
-          className="w-full rounded-2xl border-2 border-dashed border-neutral-200 bg-white hover:border-[#123F3A]/40 hover:bg-[#f0faf7]/50 transition-all py-16 px-8 flex flex-col items-center"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-[#CFF5DC] flex items-center justify-center mb-5">
-            <UploadIcon className="w-8 h-8 text-[#123F3A]" />
-          </div>
-          <div className="text-xl font-bold text-[#0D1F1D] mb-2">ارفع أول كراسة</div>
-          <p className="text-neutral-500 text-sm text-center max-w-sm">
-            ملف PDF لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند عشرة موردين، وترسل لهم بضغطة.
-          </p>
-        </button>
+      ) : details.length === 0 ? (
+        <>
+          <button
+            type="button"
+            onClick={pickFile}
+            className="w-full rounded-2xl border-2 border-dashed border-neutral-200 bg-white hover:border-[#123F3A]/40 hover:bg-[#f0faf7]/50 transition-all py-16 px-8 flex flex-col items-center"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-[#CFF5DC] flex items-center justify-center mb-5">
+              <UploadIcon className="w-8 h-8 text-[#123F3A]" />
+            </div>
+            <div className="text-xl font-bold text-[#0D1F1D] mb-2">ارفع أول كراسة</div>
+            <p className="text-neutral-500 text-sm text-center max-w-sm">
+              ملف PDF لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند عشرة موردين، وترسل لهم بضغطة.
+            </p>
+          </button>
+          <InboxHint inbox={inbox} onOpen={() => navigate('inbox')} onRequests={() => navigate('rfq-list')} />
+        </>
       ) : (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-[#0D1F1D] flex items-center gap-2">
-              <FileIcon className="w-4 h-4 text-[#123F3A]" />
-              الطلبات الجارية
-              <span className="text-xs font-semibold text-neutral-400">({active.length})</span>
-            </h2>
-            <button
-              onClick={() => navigate('rfq-list')}
-              className="text-sm text-[#123F3A] font-semibold hover:underline flex items-center gap-1"
-            >
-              كل الطلبات <ArrowRightIcon className="w-3.5 h-3.5 rotate-180" />
-            </button>
-          </div>
-          {active.length === 0 ? (
+        <>
+          <StatStrip
+            totals={totals}
+            inbox={inbox}
+            now={now}
+            onInbox={() => navigate('inbox')}
+            onBooklet={open}
+          />
+
+          {booklets.length === 0 ? (
             <div className="rounded-2xl border border-neutral-100 bg-white py-10 text-center text-sm text-neutral-500">
-              لا طلبات جارية. كل طلباتك مغلقة أو تمت ترسيتها.
-              <button onClick={() => navigate('inbox')} className="mt-3 flex items-center gap-1 mx-auto text-[#123F3A] font-semibold">
-                <InboxIcon className="w-4 h-4" /> المراسلات
+              لا كراسات جارية — كل الكراسات أُغلقت أو تمت ترسيتها.
+              <button onClick={() => navigate('booklets')} className="mt-3 flex items-center gap-1 mx-auto text-[#123F3A] font-semibold">
+                <FileIcon className="w-4 h-4" /> كل الكراسات
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {active.slice(0, 8).map((rfq) => (
-                <RfqCard key={rfq.id} rfq={rfq} onOpen={() => openCard(rfq)} />
-              ))}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+              <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-[#0D1F1D] flex items-center gap-2">
+                    <FileIcon className="w-4 h-4 text-[#123F3A]" />
+                    الكراسات الجارية
+                    <span className="text-xs font-semibold text-neutral-400">({booklets.length})</span>
+                  </h2>
+                  <button
+                    onClick={() => navigate('booklets')}
+                    className="text-sm text-[#123F3A] font-semibold hover:underline flex items-center gap-1"
+                  >
+                    كل الكراسات <ArrowRightIcon className="w-3.5 h-3.5 rotate-180" />
+                  </button>
+                </div>
+                {booklets.map((b) => (
+                  <BookletCard key={b.id || b.reference} card={b} now={now} onOpen={() => open(b.id)} />
+                ))}
+              </div>
+              <aside className="order-1 lg:order-2 lg:sticky lg:top-4">
+                <AttentionPanel items={attention} now={now} onOpen={open} />
+              </aside>
             </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Top strip ────────────────────────────────────────────────────────────
+
+function StatStrip({
+  totals,
+  inbox,
+  now,
+  onInbox,
+  onBooklet,
+}: {
+  totals: ReturnType<typeof buildHomeOverview>['totals']
+  inbox: Inbox
+  now: number
+  onInbox: () => void
+  onBooklet: (id: string) => void
+}) {
+  const nearest = totals.nearestDeadline
+  const nearSoon = nearest != null && nearest.at - now <= DEADLINE_SOON_MS
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-6">
+      <Stat value={totals.activeBooklets} label="كراسات جارية" />
+      <Stat value={totals.linesTotal} label="بنود" />
+      <Stat
+        value={`${totals.coveragePercent}%`}
+        label="بنود لها عرض"
+        sub={`${totals.linesWithQuotes} من ${totals.linesTotal}`}
+        tone={totals.linesWithQuotes ? 'green' : undefined}
+      />
+      <Stat
+        value={totals.linesWithoutQuotes}
+        label="بنود بدون عروض"
+        sub={totals.linesWithoutQuotes ? 'تحتاج متابعة' : 'كل البنود مغطاة'}
+        tone={totals.linesWithoutQuotes ? 'amber' : undefined}
+      />
+      <Stat value={totals.quotesLast24h} label="عروض آخر 24 ساعة" tone={totals.quotesLast24h ? 'green' : undefined} />
+      <Stat
+        value={inbox.needsReply ?? '—'}
+        label="محادثات تنتظر ردك"
+        sub={inbox.unread ? `${inbox.unread} غير مقروءة` : undefined}
+        tone={inbox.needsReply ? 'blue' : undefined}
+        onClick={onInbox}
+      />
+      <Stat
+        value={nearest ? countdownLabel(nearest.at, now).replace('متبقٍ ', '') : '—'}
+        label="أقرب إغلاق للعروض"
+        sub={nearest ? nearest.reference : 'لا موعد محدد'}
+        tone={nearSoon ? 'red' : undefined}
+        small
+        onClick={nearest ? () => onBooklet(nearest.bookletId) : undefined}
+        className="col-span-2 sm:col-span-1"
+      />
+    </div>
+  )
+}
+
+function Stat({
+  value,
+  label,
+  sub,
+  tone,
+  small,
+  onClick,
+  className = '',
+}: {
+  value: number | string
+  label: string
+  sub?: string
+  tone?: 'green' | 'amber' | 'blue' | 'red'
+  small?: boolean
+  onClick?: () => void
+  className?: string
+}) {
+  const box = {
+    green: 'bg-[#f0faf7] border-[#123F3A]/15',
+    amber: 'bg-amber-50 border-amber-200',
+    blue: 'bg-[#eef4fb] border-[#2F6CB5]/20',
+    red: 'bg-red-50 border-red-200',
+  }
+  const text = { green: 'text-[#1a7a45]', amber: 'text-amber-700', blue: 'text-[#2F6CB5]', red: 'text-red-600' }
+  const Tag = onClick ? 'button' : 'div'
+  return (
+    <Tag
+      {...(onClick ? { type: 'button' as const, onClick } : {})}
+      className={`rounded-2xl border px-3 py-3 text-right ${tone ? box[tone] : 'bg-white border-neutral-100'} ${
+        onClick ? 'hover:shadow-sm transition-shadow' : ''
+      } ${className}`}
+    >
+      <div
+        className={`${small ? 'text-lg' : 'text-2xl'} font-black tabular-nums leading-tight ${tone ? text[tone] : 'text-[#0D1F1D]'}`}
+      >
+        {value}
+      </div>
+      <div className="text-xs font-bold text-[#0D1F1D] mt-1">{label}</div>
+      {sub && (
+        <div className="text-[11px] text-neutral-500 mt-0.5 truncate" dir="auto">
+          {sub}
+        </div>
+      )}
+    </Tag>
+  )
+}
+
+// ── Booklet card ─────────────────────────────────────────────────────────
+
+function CoverageBar({ buckets, total }: { buckets: CoverageBuckets; total: number }) {
+  const pct = (n: number) => (total ? (n / total) * 100 : 0)
+  return (
+    <div>
+      <div className="flex h-2.5 rounded-full overflow-hidden bg-neutral-100" role="img" aria-label="تغطية البنود بالعروض">
+        {buckets.many > 0 && <div className="bg-[#1a7a45]" style={{ width: `${pct(buckets.many)}%` }} />}
+        {buckets.few > 0 && <div className="bg-[#7cc79a]" style={{ width: `${pct(buckets.few)}%` }} />}
+        {buckets.none > 0 && <div className="bg-amber-400" style={{ width: `${pct(buckets.none)}%` }} />}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-[11px] text-neutral-600">
+        <Legend color="bg-[#1a7a45]" label={`3 عروض فأكثر: ${buckets.many}`} />
+        <Legend color="bg-[#7cc79a]" label={`عرض أو عرضان: ${buckets.few}`} />
+        <Legend color="bg-amber-400" label={`بدون عروض: ${buckets.none}`} strong={buckets.none > 0} />
+      </div>
+    </div>
+  )
+}
+
+function Legend({ color, label, strong }: { color: string; label: string; strong?: boolean }) {
+  return (
+    <span className={`flex items-center gap-1.5 ${strong ? 'font-bold text-amber-800' : ''}`}>
+      <span className={`w-2 h-2 rounded-full ${color}`} />
+      {label}
+    </span>
+  )
+}
+
+function BookletCard({ card, now, onOpen }: { card: HomeBooklet; now: number; onOpen: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const soon = card.deadlineAt != null && !card.deadlinePassed && card.deadlineAt - now <= DEADLINE_SOON_MS
+  const lines = visibleLines(card.lines, expanded)
+  const hidden = card.lines.length - lines.length
+  return (
+    <section className="bg-white border border-neutral-100 rounded-2xl overflow-hidden">
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap text-xs mb-1">
+              <span dir="ltr" className="font-mono font-bold text-[#123F3A] bg-[#f0faf7] px-2 py-0.5 rounded-md">
+                {card.reference}
+              </span>
+              <span className="px-2 py-0.5 rounded-full font-semibold bg-neutral-100 text-neutral-600">
+                {card.waves} {card.waves === 1 ? 'دفعة' : card.waves === 2 ? 'دفعتان' : 'دفعات'}
+              </span>
+              <span
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-full font-bold ${
+                  card.deadlinePassed
+                    ? 'bg-neutral-100 text-neutral-500'
+                    : soon
+                      ? 'bg-red-50 text-red-700'
+                      : card.deadlineAt != null
+                        ? 'bg-[#eef4fb] text-[#2F6CB5]'
+                        : 'bg-neutral-50 text-neutral-400'
+                }`}
+                title={card.deadlineLabel || undefined}
+              >
+                <ClockIcon className="w-3 h-3" />
+                {card.deadlineAt != null ? countdownLabel(card.deadlineAt, now) : 'لم يُحدَّد موعد الإغلاق'}
+              </span>
+            </div>
+            <h3 className="font-black text-[#0D1F1D] leading-snug">{card.title || card.reference}</h3>
+          </div>
+          <button
+            onClick={onOpen}
+            className="shrink-0 hidden sm:flex items-center gap-1 px-3 py-1.5 border border-neutral-200 text-[#123F3A] font-bold rounded-lg text-xs hover:bg-neutral-50"
+          >
+            المقارنة الكاملة <ArrowRightIcon className="w-3.5 h-3.5 rotate-180" />
+          </button>
+        </div>
+        <div className="mt-3">
+          <div className="flex items-baseline justify-between text-xs mb-1.5">
+            <span className="font-semibold text-[#0D1F1D]">
+              {card.linesWithQuotes} من {card.linesTotal} بنود لها عرض
+            </span>
+            {card.quotesLast24h > 0 && (
+              <span className="text-[#1a7a45] font-semibold">+{card.quotesLast24h} عروض خلال 24 ساعة</span>
+            )}
+          </div>
+          <CoverageBar buckets={card.buckets} total={card.linesTotal} />
+        </div>
+      </div>
+
+      {card.lines.length === 0 ? (
+        <div className="px-4 py-4 text-xs text-neutral-500 border-t border-neutral-50">لم تصل بنود هذه الكراسة من الخادم.</div>
+      ) : (
+        <div className="border-t border-neutral-100">
+          <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_110px_90px_minmax(0,210px)] gap-3 px-4 py-2 text-[11px] font-bold text-neutral-400 bg-neutral-50/60">
+            <span>البند</span>
+            <span>الكمية</span>
+            <span>العروض</span>
+            <span>أفضل سعر وحدة</span>
+          </div>
+          <ul className="divide-y divide-neutral-50">
+            {lines.map((line) => (
+              <LineRow key={line.key} line={line} />
+            ))}
+          </ul>
+          {hidden > 0 && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="w-full py-2.5 text-xs font-bold text-[#123F3A] hover:bg-neutral-50 border-t border-neutral-50"
+            >
+              عرض كل البنود ({card.lines.length})
+            </button>
           )}
         </div>
       )}
+      <button
+        onClick={onOpen}
+        className="sm:hidden w-full py-3 text-sm font-bold text-[#123F3A] border-t border-neutral-100 flex items-center justify-center gap-1"
+      >
+        المقارنة الكاملة <ArrowRightIcon className="w-3.5 h-3.5 rotate-180" />
+      </button>
+    </section>
+  )
+}
+
+function LineRow({ line }: { line: HomeLine }) {
+  const none = line.offers === 0
+  return (
+    <li
+      className={`px-4 py-2.5 grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_110px_90px_minmax(0,210px)] gap-x-3 gap-y-1 items-center text-sm ${
+        none ? 'bg-amber-50/50' : ''
+      }`}
+    >
+      <div className="min-w-0">
+        <div className="font-semibold text-[#0D1F1D] sm:truncate" title={line.bookletName || line.name}>
+          {line.position != null && <span className="text-neutral-400 tabular-nums me-1">{line.position}.</span>}
+          {line.name}
+        </div>
+        {line.bookletName && <div className="text-[11px] text-neutral-400 truncate">{line.bookletName}</div>}
+      </div>
+      <div className="text-xs text-neutral-500 tabular-nums text-left sm:text-right">{formatQuantity(line.quantity, line.uom)}</div>
+      <div>
+        {none ? (
+          <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">بدون عروض</span>
+        ) : (
+          <span
+            className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
+              line.offers >= 3 ? 'bg-[#e3f4ea] text-[#1a7a45]' : 'bg-neutral-100 text-neutral-700'
+            }`}
+          >
+            {offersWord(line.offers)}
+          </span>
+        )}
+      </div>
+      <div className="min-w-0 text-left sm:text-right">
+        {line.best ? (
+          <>
+            <div className="flex items-center gap-1.5 sm:justify-start justify-end">
+              <span className="font-bold text-[#1a7a45] tabular-nums">{unitPriceLabel(line.best.unitPrice, line.best.currency)}</span>
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-px rounded ${
+                  line.best.vat === 'unknown' ? 'bg-amber-50 text-amber-700' : 'bg-neutral-100 text-neutral-500'
+                }`}
+              >
+                {vatLabel(line.best.vat)}
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-500 truncate">
+              {line.best.supplierName}
+              {line.best.fromChat && <span className="text-[#2F6CB5] font-semibold" title="سعر سجّلته فرق من رسالة المورد"> · من المحادثة</span>}
+            </div>
+          </>
+        ) : none ? (
+          <span className="text-xs text-neutral-400">—</span>
+        ) : (
+          <span className="text-xs text-neutral-400">لا أفضل واضح</span>
+        )}
+      </div>
+    </li>
+  )
+}
+
+// ── Needs attention ──────────────────────────────────────────────────────
+
+function AttentionPanel({ items, now, onOpen }: { items: AttentionItem[]; now: number; onOpen: (id: string) => void }) {
+  return (
+    <section className="bg-white border border-neutral-100 rounded-2xl overflow-hidden">
+      <h2 className="px-4 pt-4 pb-2 text-base font-bold text-[#0D1F1D]">
+        يحتاج انتباهك
+        {items.length > 0 && <span className="text-xs font-semibold text-neutral-400 ms-1">({items.length})</span>}
+      </h2>
+      {items.length === 0 ? (
+        <p className="px-4 pb-4 text-sm text-neutral-500">لا شيء عاجل: كل البنود لها عروض ولا موعد إغلاق قريب.</p>
+      ) : (
+        <ul className="divide-y divide-neutral-50">
+          {items.map((item, i) => (
+            <li key={`${item.kind}-${item.bookletId}-${i}`}>
+              <button onClick={() => onOpen(item.bookletId)} className="w-full text-right px-4 py-3 hover:bg-neutral-50 flex gap-3">
+                <AttentionDot kind={item.kind} />
+                <div className="min-w-0 text-sm">
+                  <AttentionText item={item} now={now} />
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function AttentionDot({ kind }: { kind: AttentionItem['kind'] }) {
+  const cls = {
+    deadline: 'bg-red-50 text-red-600',
+    no_quotes: 'bg-amber-50 text-amber-700',
+    expiring: 'bg-orange-50 text-orange-600',
+    from_chat: 'bg-[#eef4fb] text-[#2F6CB5]',
+  }[kind]
+  const Icon = kind === 'from_chat' ? ChatIcon : kind === 'no_quotes' ? FileIcon : ClockIcon
+  return (
+    <span className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${cls}`}>
+      <Icon className="w-4 h-4" />
+    </span>
+  )
+}
+
+function Ref({ value }: { value: string }) {
+  return (
+    <span dir="ltr" className="font-mono text-[11px] font-bold text-[#123F3A]">
+      {value}
+    </span>
+  )
+}
+
+function AttentionText({ item, now }: { item: AttentionItem; now: number }) {
+  switch (item.kind) {
+    case 'deadline':
+      return (
+        <>
+          <div className="font-bold text-red-700">يغلق استقبال العروض: {countdownLabel(item.at, now)}</div>
+          <div className="text-xs text-neutral-500 mt-0.5">
+            <Ref value={item.reference} /> · <span dir="auto">{item.label}</span>
+          </div>
+        </>
+      )
+    case 'no_quotes':
+      return (
+        <>
+          <div className="font-bold text-[#0D1F1D]">
+            {linesWord(item.count)} بدون عروض <span className="font-normal text-neutral-400">في</span> <Ref value={item.reference} />
+          </div>
+          <div className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{item.lines.join('، ')}</div>
+        </>
+      )
+    case 'expiring':
+      return (
+        <>
+          <div className="font-bold text-orange-700">
+            {item.expired ? 'انتهت صلاحية عرض' : 'عرض تنتهي صلاحيته قريبًا'}
+          </div>
+          <div className="text-xs text-neutral-500 mt-0.5">
+            {item.supplierName} · {linesWord(item.lines)} · <Ref value={item.reference} />
+            {!item.expired && <> · {countdownLabel(item.at, now)}</>}
+          </div>
+        </>
+      )
+    case 'from_chat':
+      return (
+        <>
+          <div className="font-bold text-[#0D1F1D]">سعر سجّلته فرق من المحادثة</div>
+          <div className="text-xs text-neutral-500 mt-0.5">
+            {item.supplierName} · {linesWord(item.lines)} · <Ref value={item.reference} /> — راجعه قبل الاعتماد
+          </div>
+        </>
+      )
+  }
+}
+
+function InboxHint({ inbox, onOpen, onRequests }: { inbox: Inbox; onOpen: () => void; onRequests: () => void }) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm">
+      {inbox.needsReply ? (
+        <button onClick={onOpen} className="flex items-center gap-1 text-[#2F6CB5] font-semibold">
+          <ChatIcon className="w-4 h-4" /> {inbox.needsReply} محادثات تنتظر ردك
+        </button>
+      ) : null}
+      <button onClick={onRequests} className="flex items-center gap-1 text-[#123F3A] font-semibold">
+        <FileIcon className="w-4 h-4" /> الطلبات
+      </button>
     </div>
   )
 }
