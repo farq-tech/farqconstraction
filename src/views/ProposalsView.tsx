@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTO_PICK, autoPickFor, buildPickContext } from '../lib/autoPick'
+import { AUTO_PICK, autoPickFor, buildPickContext, isPriorQuoter } from '../lib/autoPick'
+import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
   getBoqItems,
@@ -135,6 +136,14 @@ function SuggestionBox({
                     <span className="block text-xs text-neutral-400">
                       {s.city}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
+                      {isPriorQuoter(s) && (
+                        <span
+                          className="text-[#1a7a45] font-semibold"
+                          title={`سعّر لشركتك ${s.priorQuotes} ${s.priorQuotes === 1 ? 'طلبًا' : 'طلبات'} من قبل — يُقدَّم في القائمة ويُختار تلقائيًا`}
+                        >
+                          {' '}· {PRIOR_QUOTER_TAG}
+                        </span>
+                      )}
                       {s.evidence === 'على مستوى النشاط' && (
                         <span className="text-neutral-500 font-semibold" title="نشاطه المسجّل أوسع من هذه المادة: يُعرض كاحتمال، لا كترشيح">
                           {' '}· مورد محتمل

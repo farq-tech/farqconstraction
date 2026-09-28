@@ -293,6 +293,8 @@ export type BoqCatalogMatchRow = {
     evidence?: string
     channel?: string
     rfq_eligible?: boolean
+    /** Requests he priced for this company before (supplier-quote-history.js). */
+    prior_quotes?: number
   }>
   /** Ontology-named material whose suppliers were read from Farq's intent map (review required, never a match). */
   map_suggestion?: {
@@ -309,16 +311,18 @@ export type BoqCatalogMatchRow = {
       evidence?: string
       channel?: string
       rfq_eligible?: boolean
+      /** Requests he priced for this company before (supplier-quote-history.js). */
+      prior_quotes?: number
     }>
   }
   /** Trade known, material not in the list: that family's suppliers, at family grade. */
   family_suggestion?: {
     family: string
-    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
   }
   /** Suppliers the buyer chose for this same line before and that no list above contains. */
   learned_suggestion?: {
-    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
   }
   /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
   ai_suggestion?: {
@@ -334,6 +338,8 @@ export type BoqCatalogMatchRow = {
       evidence?: string
       channel?: string
       rfq_eligible?: boolean
+      /** Requests he priced for this company before (supplier-quote-history.js). */
+      prior_quotes?: number
     }>
   }
 }
@@ -1967,6 +1973,114 @@ export async function listSupplierImportBatches() {
   return request<{ batches: SupplierImportBatch[] }>('/api/construction/suppliers/import-batches')
 }
 
+/** One line a supplier priced for this company (GET /suppliers/:id/quote-history). */
+export type SupplierQuoteHistoryRow = {
+  quote_id: string
+  quote_version_id: string
+  quote_version: number
+  versions_count: number
+  quoted_at: string | null
+  first_quoted_at: string | null
+  line: {
+    line_id: string
+    line_key: string | null
+    line_number: number | null
+    booklet_text: string | null
+    market_name: string | null
+    item_name: string | null
+    quantity: number | null
+    uom: string | null
+  }
+  available: boolean
+  declined: boolean
+  unit_price: number | null
+  unit_price_ex_vat: number | null
+  prices_include_tax: boolean | null
+  tax_rate: number | null
+  vat_basis: 'INCLUDES_VAT' | 'EXCLUDES_VAT' | 'UNKNOWN'
+  currency: string
+  line_total_ex_vat: number | null
+  source: 'SUPPLIER' | 'CHAT'
+  chat_sourced: boolean
+  lead_time_days: number | null
+  price_trail: Array<{
+    quote_version: number
+    at: string | null
+    available: boolean
+    unit_price: number | null
+    unit_price_ex_vat: number | null
+    prices_include_tax: boolean | null
+    source: 'SUPPLIER' | 'CHAT'
+    change_percent: number | null
+  }>
+  price_changes: number
+  price_cuts: number
+  total_change_percent: number | null
+  cheapest_now: boolean | null
+  rank_now: number | null
+  offers_now: number | null
+  pct_above_cheapest_now: number | null
+  cheapest_at_time: boolean | null
+  rank_at_time: number | null
+  offers_at_time: number | null
+  awarded: boolean
+  request: {
+    rfq_id: string | null
+    department: { code?: string; key?: string; label_ar?: string } | string | null
+    project: string | null
+    city: string | null
+    created_at: string | null
+    booklet: { id: string; reference: string; wave_number: number } | null
+  }
+  invited_at: string | null
+  response_hours: number | null
+}
+
+export type SupplierQuoteHistorySummary = {
+  invites_received: number
+  replies: number
+  reply_rate: number | null
+  quotes: number
+  lines_quoted: number
+  lines_declined: number
+  wins: number
+  lines_won: number
+  cheapest_lines_now: number
+  compared_lines: number
+  avg_pct_above_cheapest: number | null
+  avg_rank: number | null
+  price_cuts: number
+  chat_sourced_lines: number
+  median_response_hours: number | null
+  last_quote_at: string | null
+}
+
+export type SupplierQuoteHistory = {
+  supplier: { id: string; name_ar?: string | null; name_en?: string | null }
+  summary: SupplierQuoteHistorySummary
+  quotes: SupplierQuoteHistoryRow[]
+}
+
+/** «سجل العروض»: every price this supplier gave the signed-in company. */
+export async function getSupplierQuoteHistory(supplierId: string) {
+  return request<SupplierQuoteHistory>(
+    `/api/construction/suppliers/${encodeURIComponent(supplierId)}/quote-history`,
+  )
+}
+
+export type QuotedSupplierCount = {
+  supplier_id: string
+  quotes: number
+  lines_quoted: number
+  last_quote_at: string | null
+  has_chat_prices?: boolean
+}
+
+/** Suppliers who priced at least one line for this company — the list badge. */
+export async function listQuotedSuppliers() {
+  return request<{ suppliers: QuotedSupplierCount[] }>('/api/construction/suppliers/quote-summary')
+}
+
 export async function revertSupplierImportBatch(batchId: string) {
   return request<{ batch: SupplierImportBatch; deactivated_count: number }>(
     `/api/construction/suppliers/import-batches/${encodeURIComponent(batchId)}/revert`,
@@ -2016,6 +2130,16 @@ export async function matchConstructionSuppliers(payload: {
 }
 
 /**
+ * «مقدّم عروض سابقاً»: how many of this company's requests the supplier priced,
+ * when the API ranked him first for having quoted this material before.
+ */
+function priorQuotesOf(s: Record<string, unknown>): number | undefined {
+  const prior = s.prior_quoter as { quotes?: unknown } | undefined
+  const n = Number(prior?.quotes)
+  return prior && Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+/**
  * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
  * product match, so `rfq_eligible` is false and the badge names the source.
  */
@@ -2050,6 +2174,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         city: (s.city as string | undefined) || undefined,
         evidence,
         learned: s.learned_choice === true,
+        prior_quotes: priorQuotesOf(s),
         channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
         rfq_eligible: false,
       }
@@ -2352,6 +2477,7 @@ export async function matchConstructionBoqCatalog(payload: {
               ? 'دليل منتج'
               : 'من الكتالوج',
           learned: s.learned_choice === true,
+          prior_quotes: priorQuotesOf(s),
           channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }

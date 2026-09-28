@@ -540,6 +540,7 @@ function mapApiSuppliers(
     evidence?: string
     channel?: string
     learned?: boolean
+    prior_quotes?: number
   }>,
 ): Supplier[] {
   return rows
@@ -565,6 +566,7 @@ function mapApiSuppliers(
         city: cityLabel(s.city),
         evidence,
         learned: s.learned === true ? true : undefined,
+        priorQuotes: Number(s.prior_quotes) > 0 ? Number(s.prior_quotes) : undefined,
         channel,
       }
     })

@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { NavProps, SupplierEntry } from '../types'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
+import { listQuotedSuppliers } from '../api/constructionClient'
+import { quotedBadgeLabel } from '../lib/supplierQuoteHistory'
 import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
 import {
   commitSupplierImport,
@@ -105,6 +107,21 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
   useEffect(() => {
     void loadPage(0, false)
   }, [loadPage])
+
+  // «قدّم عروضاً سابقاً»: requests each supplier priced for this company.
+  // One read for the whole list; a failure only leaves the badge off.
+  const [quotedCounts, setQuotedCounts] = useState<Map<string, number>>(new Map())
+  useEffect(() => {
+    let cancelled = false
+    listQuotedSuppliers()
+      .then(({ suppliers: rows }) => {
+        if (!cancelled) setQuotedCounts(new Map(rows.map((row) => [row.supplier_id, row.quotes])))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const loadBatches = useCallback(async () => {
     try {
@@ -380,6 +397,14 @@ export function SupplierManagementView({ navigate, setSelectedSupplierId }: NavP
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <span className="font-black text-[#0D1F1D] text-sm">{s.name}</span>
+                    {quotedBadgeLabel(quotedCounts.get(s.id)) && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FFF4D6] text-[#8a5a00] font-bold"
+                        title="عدد الطلبات التي سعّرها لشركتك — يُقدَّم في ترشيحات البنود المماثلة"
+                      >
+                        {quotedBadgeLabel(quotedCounts.get(s.id))}
+                      </span>
+                    )}
                     {s.qualificationStatus === 'VERIFIED_DIRECTORY' && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#CFF5DC] text-[#1a7a45] font-bold">
                         موثّق

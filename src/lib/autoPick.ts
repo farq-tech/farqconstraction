@@ -40,6 +40,11 @@ function lanesOf(item: BOQItem): Supplier[][] {
   ]
 }
 
+/** «مقدّم عروض سابقاً»: he priced this material for the company before. */
+export function isPriorQuoter(s: Supplier | null | undefined): boolean {
+  return Boolean(s && (s.priorQuotes ?? 0) > 0)
+}
+
 /** Read once per booklet, then handed to every `autoPickFor` call. */
 export function buildPickContext(items: BOQItem[]): PickContext {
   const families = new Map<string, Set<string>>()
@@ -78,9 +83,13 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
  * proposals page chose five for every line from every source, so the owner
  * saw two answers to one question.
  *
- * Order: what he chose before, suppliers named for the material, catalogue
- * matches, the named-suggestion lane, suppliers of the activity («مورد
- * محتمل»), then the family and sector. Never one he rejected.
+ * Order: what he chose before, then suppliers who already priced this
+ * material for the company («مقدّم عروض سابقاً», from any lane of this line —
+ * the API put them first inside each lane), then suppliers named for the
+ * material, catalogue matches, the named-suggestion lane, suppliers of the
+ * activity («مورد محتمل»), then the family and sector. Never one he rejected.
+ * A prior quoter is only ever taken from this line's own lanes: having quoted
+ * before never brings a supplier into a line whose lists do not hold him.
  *
  * Inside every lane except his own choices, the specialist comes before the
  * generalist (see `PickContext`). Without that, a thin confirmed map let the
@@ -90,8 +99,16 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
   const rejected = new Set(item.rejectedSupplierIds || [])
   const map = item.mapSuggestion?.suppliers || []
+  const lanes = [
+    map.filter((s) => s.evidence !== ACTIVITY_GRADE),
+    item.suppliers,
+    item.aiSuggestion?.suppliers || [],
+    map.filter((s) => s.evidence === ACTIVITY_GRADE),
+    item.familySuggestion?.suppliers || [],
+  ]
   const ordered = [
     ...(item.learnedSuggestion?.suppliers || []),
+    ...lanes.flat().filter(isPriorQuoter),
     ...specialistsFirst(map.filter((s) => s.evidence !== ACTIVITY_GRADE), context),
     ...specialistsFirst(item.suppliers, context),
     ...specialistsFirst(item.aiSuggestion?.suppliers || [], context),

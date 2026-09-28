@@ -42,6 +42,12 @@ export interface Supplier {
   channel: ChannelType
   /** The buyer chose this supplier for this material before. */
   learned?: boolean
+  /**
+   * «مقدّم عروض سابقاً»: he priced this material (or its line, or its trade)
+   * for this company before — the number of requests he priced. The API ranks
+   * him first inside the line's own list; the auto-pick takes him by default.
+   */
+  priorQuotes?: number
 }
 
 export interface BOQItem {

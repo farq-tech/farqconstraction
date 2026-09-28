@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { autoPickFor, buildPickContext } from './autoPick'
+import { autoPickFor, buildPickContext, isPriorQuoter } from './autoPick'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -90,5 +90,31 @@ describe('autoPickFor with a context', () => {
 
   it('behaves exactly as before without a context', () => {
     expect(autoPickFor(booklet[0]).map((s) => s.id)).toEqual(['عام', 'حديد-أ', 'حديد-ب'])
+  })
+})
+
+describe('autoPickFor — «مقدّم عروض سابقاً»', () => {
+  const quoted = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({ ...sup(id, evidence), priorQuotes: 3 })
+
+  it('takes a supplier who priced this material before, from any lane of the line, right after his own choices', () => {
+    const familyQuoter = quoted('دهانات-قديم', 'على مستوى النشاط')
+    const item = line(9, 'paints', [general, paint], {
+      familySuggestion: { family: 'paints', suppliers: [familyQuoter] },
+      learnedSuggestion: { suppliers: [steelA] },
+    })
+    const context = buildPickContext([...booklet, item])
+    expect(autoPickFor(item, 3, context).map((s) => s.id)).toEqual(['حديد-أ', 'دهانات-قديم', 'دهانات'])
+    expect(isPriorQuoter(familyQuoter)).toBe(true)
+    expect(isPriorQuoter(paint)).toBe(false)
+  })
+
+  it('never brings in a prior quoter the line does not list', () => {
+    const item = line(9, 'paints', [paint])
+    expect(autoPickFor(item, 5).map((s) => s.id)).toEqual(['دهانات'])
+  })
+
+  it('a rejected prior quoter stays out', () => {
+    const item = line(9, 'paints', [paint, quoted('قديم')], { rejectedSupplierIds: ['قديم'] })
+    expect(autoPickFor(item, 5).map((s) => s.id)).toEqual(['دهانات'])
   })
 })

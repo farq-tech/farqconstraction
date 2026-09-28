@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { NavProps, SupplierEntry } from '../types'
 import { getConstructionSupplier } from '../api/constructionSuppliers'
+import SupplierQuoteHistory from '../components/SupplierQuoteHistory'
 
 export function SupplierDetailView({ navigate, selectedSupplierId }: NavProps) {
   const [supplier, setSupplier] = useState<SupplierEntry | null>(null)
@@ -126,6 +127,8 @@ export function SupplierDetailView({ navigate, selectedSupplierId }: NavProps) {
               ))}
             </div>
           </div>
+
+          <SupplierQuoteHistory supplierId={supplier.id} />
 
           <div className="grid grid-cols-2 gap-3 mb-3">
             <button
