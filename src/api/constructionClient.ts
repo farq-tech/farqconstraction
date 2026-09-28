@@ -1216,6 +1216,18 @@ export type ConstructionInboxThread = {
    * not a supplier reply — must not flood the default inbox.
    */
   kind_hint?: string | null
+  /**
+   * What the server filtered on (servers with facets, asked with facets=1 or
+   * any filter): channel of the supplier's latest message (else ours),
+   * stored meaning of that message, any supplier file, quote state, portal
+   * account. Absent from older APIs.
+   */
+  channel?: string | null
+  reply_kind?: string | null
+  has_files?: boolean | null
+  quote_submitted?: boolean
+  quote_new_version?: boolean
+  supplier_account_status?: string | null
 }
 
 export type ConstructionInboxThreadsResult = {
@@ -1252,6 +1264,31 @@ export type ConstructionInboxThreadsResult = {
     unanswered?: number
     [key: string]: number | undefined
   }
+  /**
+   * Real totals for «فلترة المحادثات» (asked with facets=1). Each facet's
+   * counts apply the tab and every OTHER facet, not its own selection. Absent
+   * from older APIs; `meaning` / `account` null when the server cannot tell.
+   */
+  facets?: ConstructionInboxFacets
+}
+
+export type ConstructionInboxFacets = {
+  version?: number
+  /** Conversations matching every applied facet (= total_count). */
+  total?: number
+  channel?: Partial<Record<'platform' | 'whatsapp' | 'email' | 'chat', number>>
+  meaning?: Partial<Record<string, number>> | null
+  state?: Partial<Record<'needs_reply' | 'waiting_supplier' | 'unread' | 'read', number>>
+  quote?: Partial<Record<'submitted' | 'not_submitted' | 'new_version', number>>
+  attachment?: { yes?: number }
+  owner?: Partial<Record<'mine' | 'unassigned' | 'colleague', number>>
+  account?: Partial<Record<'active' | 'not_opened' | 'declined', number>> | null
+  date?: { today?: number; '7d'?: number; custom?: number }
+  item?: number | null
+  unknown?: { channel?: number; meaning?: number }
+  requests?: Array<{ rfq_id: string; reference?: string | null; count: number }>
+  booklets?: Array<{ booklet_id: string; reference?: string | null; count: number; requests?: number }>
+  tz?: string
 }
 
 /** Outbound invite dispatch row — not an inbound supplier conversation. */
@@ -1421,12 +1458,20 @@ export async function listConstructionInboxThreads(query: {
   rfq_id?: string | null
   /** «مخفية»: only conversations hidden after a supplier's «ما عندنا» or by hand. */
   visibility?: 'hidden'
+  /**
+   * «فلترة المحادثات» sent to the server (channel, meaning, state, quote,
+   * attachment, owner, account, date, date_from, date_to, tz, item,
+   * booklet_id, facets=1) — built by `serverFilterQuery` in lib/inboxFilters.
+   * An older API ignores them and sends no `facets`.
+   */
+  extra?: Record<string, string>
 } = {}) {
   const params = new URLSearchParams()
   if (query.filter) params.set('filter', query.filter)
   if (query.visibility) params.set('visibility', query.visibility)
   if (query.cursor) params.set('cursor', query.cursor)
   if (query.rfq_id) params.set('rfq_id', query.rfq_id)
+  for (const [key, value] of Object.entries(query.extra || {})) if (value) params.set(key, value)
   const qs = params.toString()
   return request<ConstructionInboxThreadsResult>(
     `/api/construction/inbox/threads${qs ? `?${qs}` : ''}`,

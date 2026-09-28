@@ -13,6 +13,7 @@ import {
   applyFilters,
   emptyFilters,
   countCriterion,
+  facetCount,
   hasCriterion,
   suggestViewName,
   toggleCriterion,
@@ -27,6 +28,7 @@ import {
   type OwnerKey,
   type QuoteKey,
   type SavedView,
+  type ServerFacets,
   type StateKey,
 } from '../../lib/inboxFilters'
 import { meaningChipClass } from './Badges'
@@ -91,7 +93,15 @@ export type FilterPanelProps = {
   requests: RequestOption[]
   booklets: BookletOption[]
   showAccount: boolean
-  unknown: { channel: number; meaning: number; attachment: number; quote: number; owner: number; total: number }
+  /** Fallback only (API without facets): rows whose fact is unknown per group. */
+  unknown: { channel: number; meaning: number; attachment: number; quote: number; owner: number; total: number } | null
+  /**
+   * The server's counts for the applied filters; null = an API without
+   * facets, and the sheet counts the loaded rows as before.
+   */
+  facets?: ServerFacets | null
+  /** The server's counts for a draft (same tab); called as the draft changes. */
+  fetchFacets?: (draft: InboxFilters) => Promise<ServerFacets | null>
   onApply: (filters: InboxFilters) => void
   onSave: (name: string, filters: InboxFilters) => void
   onClose: () => void
@@ -113,6 +123,8 @@ export function FilterPanel({
   booklets,
   showAccount,
   unknown,
+  facets = null,
+  fetchFacets,
   onApply,
   onSave,
   onClose,
@@ -120,6 +132,38 @@ export function FilterPanel({
   const [draft, setDraft] = useState<InboxFilters>(initial)
   const [naming, setNaming] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDivElement | null>(null)
+  const server = facets != null
+  /** Server counts for the draft; the applied filters' counts until it changes. */
+  const [draftFacets, setDraftFacets] = useState<ServerFacets | null>(facets)
+  const [counting, setCounting] = useState(false)
+  const draftKey = JSON.stringify(draft)
+  const initialKey = JSON.stringify(initial)
+
+  useEffect(() => {
+    if (!server) return
+    if (draftKey === initialKey || !fetchFacets) {
+      setDraftFacets(facets)
+      setCounting(false)
+      return
+    }
+    let cancelled = false
+    setCounting(true)
+    const timer = window.setTimeout(() => {
+      fetchFacets(draft)
+        .then((next) => {
+          if (!cancelled && next) setDraftFacets(next)
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setCounting(false)
+        })
+    }, 300)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server, draftKey, initialKey, facets])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -133,13 +177,34 @@ export function FilterPanel({
   // The request filter is applied by the server: the rows loaded now may
   // belong to another request, so its count here is only a preview.
   const clientDraft = useMemo(() => ({ ...draft, rfqId: draft.rfqId === initial.rfqId ? draft.rfqId : null }), [draft, initial.rfqId])
-  const results = useMemo(() => applyFilters(threads, clientDraft, ctx).length, [threads, clientDraft, ctx])
-  const count = (c: FilterCriterion) => countCriterion(threads, c, draft, ctx)
+  const clientResults = useMemo(() => (server ? 0 : applyFilters(threads, clientDraft, ctx).length), [server, threads, clientDraft, ctx])
+  const results: number | null = server ? (typeof draftFacets?.total === 'number' ? draftFacets.total : null) : clientResults
+  const count = (c: FilterCriterion): number | null => (server ? facetCount(draftFacets, c) : countCriterion(threads, c, draft, ctx))
   const toggle = (c: FilterCriterion) => setDraft((d) => toggleCriterion(d, c))
   const on = (c: FilterCriterion) => hasCriterion(draft, c)
+  // Only the fallback can have rows whose fact is unknown; the server knows every conversation.
   const unknownNote = (n: number) =>
-    n > 0 ? `${n} من ${unknown.total} لم تُفتح بعد — قيمتها غير معروفة فلا تظهر تحت هذا الفلتر.` : undefined
-  const rfqChanged = draft.rfqId !== initial.rfqId
+    !server && unknown && n > 0 ? `${n} من ${unknown.total} لم تُفتح بعد — قيمتها غير معروفة فلا تظهر تحت هذا الفلتر.` : undefined
+  const rfqChanged = !server && draft.rfqId !== initial.rfqId
+  const meaningUnavailable = server && draftFacets != null && draftFacets.meaning === null
+  const accountShown = server ? draftFacets?.account != null : showAccount
+  // Requests / booklets the server counted that the loaded rows never showed.
+  const requestPills = useMemo<RequestOption[]>(() => {
+    if (!server) return requests
+    const known = new Set(requests.map((r) => r.rfqId))
+    const extra = (draftFacets?.requests || [])
+      .filter((r) => r.rfq_id && !known.has(r.rfq_id))
+      .map((r) => ({ rfqId: r.rfq_id, label: r.reference || r.rfq_id.slice(0, 8), count: r.count }))
+    return [...requests, ...extra]
+  }, [server, requests, draftFacets])
+  const bookletPills = useMemo<BookletOption[]>(() => {
+    if (!server) return booklets
+    const known = new Set(booklets.map((b) => b.bookletId))
+    const extra = (draftFacets?.booklets || [])
+      .filter((b) => b.booklet_id && !known.has(b.booklet_id) && ((b.requests ?? 0) > 1 || draft.bookletId === b.booklet_id))
+      .map((b) => ({ bookletId: b.booklet_id, label: `كراسة ${b.reference || b.booklet_id.slice(0, 8)}`, count: b.count }))
+    return [...booklets, ...extra]
+  }, [server, booklets, draftFacets, draft.bookletId])
 
   return (
     <div
@@ -167,28 +232,30 @@ export function FilterPanel({
               : undefined
           }
         >
-          {requests.length === 0 && booklets.length === 0 && <span className="text-xs text-neutral-400">لا طلبات في المحادثات المحمّلة.</span>}
-          {requests.map((r) => (
+          {requestPills.length === 0 && bookletPills.length === 0 && (
+            <span className="text-xs text-neutral-400">{server ? 'لا طلبات في هذا التبويب.' : 'لا طلبات في المحادثات المحمّلة.'}</span>
+          )}
+          {requestPills.map((r) => (
             <Pill
               key={r.rfqId}
               label={r.label}
-              count={r.count}
+              count={server ? count({ group: 'rfq', value: r.rfqId }) : r.count}
               selected={draft.rfqId === r.rfqId}
               onClick={() => setDraft((d) => ({ ...d, rfqId: d.rfqId === r.rfqId ? null : r.rfqId }))}
             />
           ))}
-          {booklets.map((b) => (
+          {bookletPills.map((b) => (
             <Pill
               key={b.bookletId}
               label={b.label}
-              count={b.count}
+              count={server ? count({ group: 'booklet', value: b.bookletId }) : b.count}
               selected={on({ group: 'booklet', value: b.bookletId })}
               onClick={() => toggle({ group: 'booklet', value: b.bookletId })}
             />
           ))}
         </Group>
 
-        <Group title="القناة" note={unknownNote(unknown.channel)}>
+        <Group title="القناة" note={unknownNote(unknown?.channel ?? 0)}>
           {CHANNELS.map((key) => {
             const c: FilterCriterion = { group: 'channel', value: key }
             return <Pill key={key} label={CHANNEL_LABEL[key]} count={count(c)} selected={on(c)} onClick={() => toggle(c)} />
@@ -202,35 +269,41 @@ export function FilterPanel({
           })}
         </Group>
 
-        <Group title="معنى الرد" wide note={unknownNote(unknown.meaning)}>
+        <Group
+          title="معنى الرد"
+          wide
+          note={meaningUnavailable ? 'معنى الرد لم يُحسب على الخادم بعد — يظهر بعد تحديثه.' : unknownNote(unknown?.meaning ?? 0)}
+        >
           {MEANINGS.map((key) => {
             const c: FilterCriterion = { group: 'meaning', value: key }
             const selected = on(c)
+            const n = count(c)
             return (
               <button
                 key={key}
                 type="button"
                 aria-pressed={selected}
+                disabled={meaningUnavailable && !selected}
                 onClick={() => toggle(c)}
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${meaningChipClass(key)} ${
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold disabled:opacity-40 ${meaningChipClass(key)} ${
                   selected ? 'ring-2 ring-farq ring-offset-1' : 'opacity-90 hover:opacity-100'
                 }`}
               >
                 {MEANING_LABEL[key]}
-                <span className="opacity-70 font-semibold">{count(c)}</span>
+                {n != null && <span className="opacity-70 font-semibold">{n}</span>}
               </button>
             )
           })}
         </Group>
 
-        <Group title="حالة العرض" note={unknownNote(unknown.quote)}>
+        <Group title="حالة العرض" note={unknownNote(unknown?.quote ?? 0)}>
           {QUOTES.map((key) => {
             const c: FilterCriterion = { group: 'quote', value: key }
             return <Pill key={key} label={QUOTE_LABEL[key]} count={count(c)} selected={on(c)} onClick={() => toggle(c)} />
           })}
         </Group>
 
-        <Group title="المرفقات" note={unknownNote(unknown.attachment)}>
+        <Group title="المرفقات" note={unknownNote(unknown?.attachment ?? 0)}>
           <label className="inline-flex items-center gap-2 text-xs font-bold text-[#0D1F1D] cursor-pointer select-none">
             <span
               role="switch"
@@ -250,11 +323,11 @@ export function FilterPanel({
               />
             </span>
             فيها مرفق
-            <span className="text-[11px] text-neutral-400 font-semibold">{count({ group: 'attachment', value: 'yes' })}</span>
+            <span className="text-[11px] text-neutral-400 font-semibold">{count({ group: 'attachment', value: 'yes' }) ?? ''}</span>
           </label>
         </Group>
 
-        {showAccount && (
+        {accountShown && (
           <Group title="حساب المورد">
             {ACCOUNTS.map((key) => {
               const c: FilterCriterion = { group: 'account', value: key }
@@ -263,7 +336,7 @@ export function FilterPanel({
           </Group>
         )}
 
-        <Group title="المسؤول" note={unknownNote(unknown.owner)}>
+        <Group title="المسؤول" note={unknownNote(unknown?.owner ?? 0)}>
           {OWNERS.map((key) => {
             const c: FilterCriterion = { group: 'owner', value: key }
             return <Pill key={key} label={OWNER_LABEL[key]} count={count(c)} selected={on(c)} onClick={() => toggle(c)} />
@@ -323,9 +396,13 @@ export function FilterPanel({
             />
           </label>
           <p className="text-[10px] text-neutral-400 leading-relaxed mt-1.5">
-            {draft.item.trim()
-              ? `${count({ group: 'item', value: draft.item.trim() })} محادثة — البحث في أول 3 بنود من كل طلب ونص آخر رسالة.`
-              : 'يبحث في أول 3 بنود من كل طلب ونص آخر رسالة.'}
+            {server
+              ? draft.item.trim()
+                ? `${count({ group: 'item', value: draft.item.trim() }) ?? '…'} محادثة — البحث في بنود كل طلب المرسلة للمورد ونص آخر رسالة.`
+                : 'يبحث في بنود كل طلب المرسلة للمورد ونص آخر رسالة.'
+              : draft.item.trim()
+                ? `${count({ group: 'item', value: draft.item.trim() })} محادثة — البحث في أول 3 بنود من كل طلب ونص آخر رسالة.`
+                : 'يبحث في أول 3 بنود من كل طلب ونص آخر رسالة.'}
           </p>
         </section>
       </div>
@@ -338,7 +415,8 @@ export function FilterPanel({
               onClick={() => onApply(draft)}
               className="rounded-xl bg-farq text-white text-sm font-bold px-4 py-2.5 hover:bg-farq-500"
             >
-              {rfqChanged ? 'طبّق الفلاتر' : `اعرض ${results} محادثة`}
+              {rfqChanged || results == null ? 'طبّق الفلاتر' : `اعرض ${results} محادثة`}
+              {counting && <span className="sr-only"> (يُحدَّث العدد)</span>}
             </button>
             <button
               type="button"
@@ -398,8 +476,8 @@ export type FilterToolbarProps = {
   onRemoveChip: (chip: ActiveChip) => void
   onClearAll: () => void
   savedViews: SavedView[]
-  /** Result count of a saved view over the loaded rows. */
-  viewCount: (view: SavedView) => number
+  /** Result count of a saved view over the loaded rows; null = not counted (server filters). */
+  viewCount: (view: SavedView) => number | null
   onApplyView: (view: SavedView) => void
   onDeleteView: (view: SavedView) => void
   onSaveCurrent: (name: string) => void
@@ -496,7 +574,7 @@ export function FilterToolbar({
                     className="flex-1 min-w-0 flex items-center justify-between gap-2 px-4 py-2.5 text-start"
                   >
                     <span className="truncate text-[13px] font-bold text-[#0D1F1D]">{view.name}</span>
-                    <span className="flex-shrink-0 text-[11px] text-neutral-400">{viewCount(view)}</span>
+                    {viewCount(view) != null && <span className="flex-shrink-0 text-[11px] text-neutral-400">{viewCount(view)}</span>}
                   </button>
                   <button
                     type="button"
@@ -555,7 +633,7 @@ export function FilterToolbar({
           {chips.map((chip) => (
             <span key={chip.key} className="inline-flex items-center gap-1.5 rounded-full bg-farq-100 text-farq ps-2.5 pe-1.5 py-1">
               <bdi className="text-xs font-bold">{chip.label}</bdi>
-              <span className="text-[11px] font-semibold opacity-60">{chip.count}</span>
+              {chip.count != null && <span className="text-[11px] font-semibold opacity-60">{chip.count}</span>}
               <button
                 type="button"
                 onClick={() => onRemoveChip(chip)}
@@ -581,10 +659,13 @@ export function NoFilterResults({
   suggestion,
   onClearAll,
   onRemove,
+  serverSide = false,
 }: {
   suggestion: { chip: ActiveChip; results: number } | null
   onClearAll: () => void
   onRemove: (chip: ActiveChip) => void
+  /** The server filtered the whole tab (not only the loaded rows). */
+  serverSide?: boolean
 }) {
   return (
     <div className="flex flex-col items-center">
@@ -597,7 +678,9 @@ export function NoFilterResults({
           جرّب تشيل «{suggestion.chip.label}» — فيه {suggestion.results} محادثة بدونه.
         </p>
       ) : (
-        <p className="text-xs text-neutral-500 leading-relaxed mb-3">الفلاتر تعمل على المحادثات المحمّلة في هذا التبويب.</p>
+        <p className="text-xs text-neutral-500 leading-relaxed mb-3">
+          {serverSide ? 'لا توجد في هذا التبويب محادثة تطابق كل الفلاتر معاً.' : 'الفلاتر تعمل على المحادثات المحمّلة في هذا التبويب.'}
+        </p>
       )}
       <div className="flex items-center gap-2">
         {suggestion && (

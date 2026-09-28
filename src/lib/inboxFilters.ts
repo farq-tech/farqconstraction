@@ -1,10 +1,15 @@
 /**
  * Filters for the conversation list («فلترة المحادثات»), pure and testable.
  *
- * Only the request filter goes to the server (`rfq_id`, which the inbox API
- * already accepts). Everything else runs here, over the rows this screen has
- * loaded — the API has no parameter for it. Each rule reads a field only when
- * the data really carries it:
+ * A server with facets (API answers `facets` when asked with facets=1) gets
+ * every filter as a query parameter (`serverFilterQuery`), filters the whole
+ * tab in SQL and counts each value (`facetCount`); the screen then shows the
+ * server's rows and numbers as they are.
+ *
+ * Fallback, for an older API that sends no `facets`: only the request filter
+ * goes to the server (`rfq_id`). Everything else runs here, over the rows this
+ * screen has loaded. Each rule reads a field only when the data really
+ * carries it:
  *
  * - A thread row carries unread_count, needs_reply, kind_hint, response_status,
  *   owner_user_id / can_reply and request_context (reference, first 3 items).
@@ -16,7 +21,7 @@
  * A thread whose fact is unknown never matches a filter on that fact: the
  * screen says how many rows it could not judge instead of guessing.
  */
-import type { ConstructionInboxThread } from '../api/constructionClient'
+import type { ConstructionInboxFacets, ConstructionInboxThread } from '../api/constructionClient'
 import { normalizeForSearch } from './inboxChat'
 
 export type ChannelKey = 'platform' | 'whatsapp' | 'email' | 'chat'
@@ -191,9 +196,16 @@ export function threadFacts(thread: ConstructionInboxThread, ctx: FilterContext)
           : null
 
   const status = String(row.response_status || row.request_context?.response_status || '').toUpperCase()
-  const quoteSubmitted = status ? status === 'QUOTED' : null
+  const quoteSubmitted = typeof row.quote_submitted === 'boolean' ? row.quote_submitted : status ? status === 'QUOTED' : null
   const version = numberOrNull(row.quote_version) ?? numberOrNull(insight?.quoteVersion)
-  const newVersion = version != null ? version > 1 : quoteSubmitted === false ? false : null
+  const newVersion =
+    typeof row.quote_new_version === 'boolean'
+      ? row.quote_new_version
+      : version != null
+        ? version > 1
+        : quoteSubmitted === false
+          ? false
+          : null
 
   let owner: OwnerKey | null = null
   if (row.owner_user_id === null) owner = 'unassigned'
@@ -497,7 +509,8 @@ export function criterionLabel(c: FilterCriterion, filters: InboxFilters, labels
   }
 }
 
-export type ActiveChip = { key: string; criterion: FilterCriterion; label: string; count: number }
+/** `count` null: the server could not say (the chip shows no number). */
+export type ActiveChip = { key: string; criterion: FilterCriterion; label: string; count: number | null }
 
 export function activeChips(
   threads: readonly ConstructionInboxThread[],
@@ -551,6 +564,96 @@ export function unknownFacts(threads: readonly ConstructionInboxThread[], ctx: F
 /** Supplier account status is shown only when at least one row carries it. */
 export function hasAccountData(threads: readonly ConstructionInboxThread[]): boolean {
   return threads.some((t) => accountKey((t as LooseThread).supplier_account_status ?? (t as LooseThread).account_status ?? null) != null)
+}
+
+/* ------------------------------------------------------ server-side filters */
+
+export type ServerFacets = ConstructionInboxFacets
+
+/** The browser's time zone, for «اليوم» / «آخر 7 أيام» on the server; null when unusable. */
+export function browserTimeZone(): string | null {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return typeof tz === 'string' && /^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+){0,2}$|^UTC$/.test(tz) ? tz : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The query parameters of the threads endpoint for these filters (without
+ * `rfq_id`, which the list call already sends). Empty values are left out, so
+ * no filter = no parameter = the request as before. `counts` asks for facets.
+ */
+export function serverFilterQuery(
+  filters: InboxFilters,
+  opts: { counts?: boolean; tz?: string | null } = {},
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  const put = (key: string, values: readonly string[]) => {
+    if (values.length) out[key] = values.join(',')
+  }
+  put('channel', filters.channels)
+  put('meaning', filters.meanings.filter((m) => m !== 'VOICE'))
+  put('state', filters.states)
+  put('quote', filters.quote)
+  put('owner', filters.owner)
+  put('account', filters.account)
+  if (filters.hasAttachment) out.attachment = '1'
+  if (filters.date.preset) {
+    out.date = filters.date.preset
+    if (filters.date.preset === 'custom') {
+      if (filters.date.from) out.date_from = filters.date.from
+      if (filters.date.to) out.date_to = filters.date.to
+    }
+  }
+  const item = filters.item.trim().slice(0, 120)
+  if (item) out.item = item
+  if (filters.bookletId) out.booklet_id = filters.bookletId
+  const tz = opts.tz === undefined ? browserTimeZone() : opts.tz
+  if (tz && (filters.date.preset || opts.counts)) out.tz = tz
+  if (opts.counts) out.facets = '1'
+  return out
+}
+
+/** The server's count for one pill; null when the server cannot say. */
+export function facetCount(facets: ServerFacets | null | undefined, c: FilterCriterion): number | null {
+  if (!facets) return null
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  switch (c.group) {
+    case 'rfq':
+      return n(facets.requests?.find((r) => r.rfq_id === c.value)?.count) ?? (facets.requests ? 0 : null)
+    case 'booklet':
+      return n(facets.booklets?.find((b) => b.booklet_id === c.value)?.count) ?? (facets.booklets ? 0 : null)
+    case 'channel':
+      return n(facets.channel?.[c.value])
+    case 'state':
+      return n(facets.state?.[c.value])
+    case 'meaning':
+      return facets.meaning ? n(facets.meaning[c.value]) : null
+    case 'attachment':
+      return n(facets.attachment?.yes)
+    case 'quote':
+      return n(facets.quote?.[c.value])
+    case 'account':
+      return facets.account ? n(facets.account[c.value]) : null
+    case 'owner':
+      return n(facets.owner?.[c.value])
+    case 'date':
+      return n(facets.date?.[c.value])
+    case 'item':
+      return n(facets.item)
+  }
+}
+
+/** Active chips with the server's counts (null where it cannot say). */
+export function serverChips(filters: InboxFilters, facets: ServerFacets | null, labels: Labels = {}): ActiveChip[] {
+  return criteriaOf(filters).map((criterion) => ({
+    key: `${criterion.group}:${criterion.value}`,
+    criterion,
+    label: criterionLabel(criterion, filters, labels),
+    count: facetCount(facets, criterion),
+  }))
 }
 
 /* ------------------------------------------------------------ saved views */

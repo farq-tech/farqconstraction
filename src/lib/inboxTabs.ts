@@ -18,6 +18,7 @@ import {
   type ConstructionInboxThreadsResult,
 } from '../api/constructionClient'
 import type { InboxTab } from '../components/inbox/ConversationList'
+import { serverFilterQuery, type InboxFilters, type ServerFacets } from './inboxFilters'
 
 export type InboxTabCounts = Partial<Record<InboxTab, number>>
 
@@ -32,6 +33,11 @@ export type InboxTabPage = {
   unreadThreads: number | null
   /** true = the server split the tabs; false = older API, split on this page. */
   server: boolean
+  /**
+   * Counts for «فلترة المحادثات» when the server filters them itself; null =
+   * an API without facets, whose rows the screen filters as before.
+   */
+  facets: ServerFacets | null
 }
 
 type ListFn = typeof listConstructionInboxThreads
@@ -67,6 +73,7 @@ export function serverTabPage(result: ConstructionInboxThreadsResult): InboxTabP
     }),
     unreadThreads: num(tc.unread_threads) ?? null,
     server: true,
+    facets: result.facets && typeof result.facets === 'object' ? result.facets : null,
   }
 }
 
@@ -98,6 +105,7 @@ export function legacyTabPage(tab: InboxTab, result: ConstructionInboxThreadsRes
     }),
     unreadThreads: null,
     server: false,
+    facets: null,
   }
 }
 
@@ -108,16 +116,24 @@ function legacyQuery(tab: InboxTab) {
   }
 }
 
+/**
+ * One page of a tab. `filters` (everything but the request, which goes as
+ * `rfq_id`) are sent to servers that filter tabs; `counts` asks for facets.
+ * An API without facets ignores them — the page then has `facets: null` and
+ * the screen filters its rows itself.
+ */
 export async function loadInboxTab(
   tab: InboxTab,
-  opts: { rfqId?: string | null; cursor?: string | null } = {},
+  opts: { rfqId?: string | null; cursor?: string | null; filters?: InboxFilters | null; counts?: boolean } = {},
   list: ListFn = listConstructionInboxThreads,
 ): Promise<InboxTabPage> {
   const base = { rfq_id: opts.rfqId || undefined, cursor: opts.cursor || undefined }
+  const extra = opts.filters ? serverFilterQuery(opts.filters, { counts: opts.counts }) : opts.counts ? { facets: '1' } : {}
   if (!legacyApi) {
     try {
       const result = await list({
         ...base,
+        ...(Object.keys(extra).length ? { extra } : {}),
         filter: tab,
         // An older API ignores `filter=hidden` only by refusing it; it knows this.
         ...(tab === 'hidden' ? { visibility: 'hidden' as const } : {}),
@@ -129,6 +145,25 @@ export async function loadInboxTab(
     }
   }
   return legacyTabPage(tab, await list({ ...base, ...legacyQuery(tab) }))
+}
+
+/**
+ * The server's counts for a draft of the filter sheet (same tab, same
+ * request), or null when the API has no facets. One list read of 25 rows.
+ */
+export async function loadTabFacets(
+  tab: InboxTab,
+  filters: InboxFilters,
+  list: ListFn = listConstructionInboxThreads,
+): Promise<ServerFacets | null> {
+  if (legacyApi) return null
+  const result = await list({
+    rfq_id: filters.rfqId || undefined,
+    extra: serverFilterQuery(filters, { counts: true }),
+    filter: tab,
+    ...(tab === 'hidden' ? { visibility: 'hidden' as const } : {}),
+  })
+  return result.tab_counts && result.facets && typeof result.facets === 'object' ? result.facets : null
 }
 
 /** Rows of a next page after the loaded ones, never the same conversation twice. */

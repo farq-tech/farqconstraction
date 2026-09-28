@@ -21,7 +21,7 @@ import { ChatPane } from '../components/inbox/ChatPane'
 import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
 import { useFillViewport } from '../components/inbox/useFillViewport'
 import { applyThreadReadState } from '../lib/inboxChat'
-import { appendThreads, loadInboxTab, type InboxTabCounts } from '../lib/inboxTabs'
+import { appendThreads, loadInboxTab, loadTabFacets, type InboxTabCounts } from '../lib/inboxTabs'
 import { ChannelBadge, ReplyMeaningChip } from '../components/inbox/Badges'
 import {
   FilterPanel,
@@ -41,10 +41,13 @@ import {
   noResultSuggestion,
   removeCriterion,
   saveView,
+  serverChips,
+  serverFilterQuery,
   suggestViewName,
   threadFacts,
   unknownFacts,
   type BookletLink,
+  type ServerFacets,
   type FilterContext,
   type InboxFilters,
   type Labels,
@@ -200,8 +203,14 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
    * report has no chip.
    */
   const [counts, setCounts] = useState<InboxTabCounts>({})
-  /** Applied filters. Only `rfqId` reaches the server; the rest filter the loaded rows. */
+  /**
+   * Applied filters. A server with facets filters and counts all of them
+   * (`facets` below); against an older API only `rfqId` reaches the server
+   * and the rest filter the loaded rows, as before.
+   */
   const [filters, setFilters] = useState<InboxFilters>(() => emptyFilters())
+  /** The server's counts for the applied filters; null = older API (client-side filters). */
+  const [facets, setFacets] = useState<ServerFacets | null>(null)
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
   const [savedViews, setSavedViews] = useState<SavedView[]>(() => loadSavedViews())
   /** Facts learnt from conversations opened in this session, keyed by invite. */
@@ -210,6 +219,8 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const [bookletByRfq, setBookletByRfq] = useState<Record<string, BookletLink | null>>({})
   /** Every request seen in this session's lists, so its pill survives a server-side filter. */
   const [knownRequests, setKnownRequests] = useState<Record<string, { reference: string; count: number }>>({})
+  /** A fresh server read whenever what the server filters on changes. */
+  const serverFiltersKey = JSON.stringify([filters.rfqId, serverFilterQuery(filters, { tz: null })])
 
   const applyGmailStatus = (g: ConstructionGmailStatus) => {
     setGmail(g)
@@ -291,22 +302,26 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     setLoading(true)
     setError(null)
     // Each tab is filtered by the server (lib/inboxTabs.ts), which also falls
-    // back to the old «all + split here» read against an older API.
+    // back to the old «all + split here» read against an older API. Every
+    // filter goes along; a server with facets applies them and counts them.
     const rfqFilter = filters.rfqId
     Promise.all([
       getConstructionInboxStatus(),
-      loadInboxTab(tab, { rfqId: rfqFilter }),
+      loadInboxTab(tab, { rfqId: rfqFilter, filters, counts: true }),
     ])
       .then(([inboxStatus, page]) => {
         if (cancelled) return
         setStatus(inboxStatus)
+        setFacets(page.facets)
         setCounts((prev) => (page.server ? page.counts : { ...prev, ...page.counts }))
         const visible = page.threads
         setThreads(visible)
         setNextCursor(page.nextCursor)
         setTotal(page.total)
         setKnownRequests((prev) => {
-          const next = rfqFilter ? { ...prev } : {}
+          // A filtered page is not the reference for every request: keep what we knew.
+          const partial = Boolean(rfqFilter) || activeFilterCount(filters) > 0
+          const next = partial ? { ...prev } : {}
           const counts: Record<string, { reference: string; count: number }> = {}
           for (const row of visible) {
             const id = row.request_context?.rfq_id
@@ -317,7 +332,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           }
           // Without a request filter the loaded page is the reference; with one,
           // only that request's count is refreshed and the others are kept.
-          if (!rfqFilter) {
+          if (!partial) {
             for (const [id, known] of Object.entries(prev)) next[id] = { ...known, count: 0 }
           }
           for (const [id, entry] of Object.entries(counts)) next[id] = entry
@@ -336,6 +351,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         }
         setRateLimitSec(null)
         setStatus(null)
+        setFacets(null)
         setThreads([])
         setNextCursor(null)
         setTotal(0)
@@ -346,7 +362,8 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     return () => {
       cancelled = true
     }
-  }, [tab, reloadKey, filters.rfqId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, reloadKey, serverFiltersKey])
 
   const handleGmailConnect = async () => {
     if (connectInFlight.current) return
@@ -520,7 +537,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     const generation = listGeneration.current
     setLoadingMore(true)
     try {
-      const page = await loadInboxTab(tab, { rfqId: filters.rfqId, cursor: nextCursor })
+      const page = await loadInboxTab(tab, { rfqId: filters.rfqId, cursor: nextCursor, filters: facets ? filters : null })
       if (generation !== listGeneration.current) return
       setThreads((rows) => appendThreads(rows, page.threads))
       setNextCursor(page.nextCursor)
@@ -623,8 +640,16 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     }),
     [knownRequests, bookletByRfq],
   )
-  const filteredThreads = useMemo(() => applyFilters(threads, filters, filterCtx), [threads, filters, filterCtx])
-  const chips = useMemo(() => activeChips(threads, filters, filterCtx, labels), [threads, filters, filterCtx, labels])
+  // With server facets the rows are already the filtered tab; otherwise filter the loaded rows here.
+  const filteredThreads = useMemo(
+    () => (facets ? threads : applyFilters(threads, filters, filterCtx)),
+    [facets, threads, filters, filterCtx],
+  )
+  const chips = useMemo(
+    () => (facets ? serverChips(filters, facets, labels) : activeChips(threads, filters, filterCtx, labels)),
+    [facets, threads, filters, filterCtx, labels],
+  )
+  const fetchDraftFacets = useCallback((draft: InboxFilters) => loadTabFacets(tab, draft), [tab])
   const filtersActive = activeFilterCount(filters) > 0
   const requestOptions = useMemo<RequestOption[]>(
     () =>
@@ -909,7 +934,9 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               requests={requestOptions}
               booklets={bookletOptions}
               showAccount={hasAccountData(threads)}
-              unknown={unknownFacts(threads, filterCtx)}
+              unknown={facets ? null : unknownFacts(threads, filterCtx)}
+              facets={facets}
+              fetchFacets={fetchDraftFacets}
               onApply={applyFilterSet}
               onSave={(name, next) => {
                 setSavedViews(saveView(name, next))
@@ -1019,9 +1046,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
             ) : null
           }
           emptyState={
-            filtersActive && threads.length > 0 ? (
+            filtersActive && (facets != null || threads.length > 0) ? (
               <NoFilterResults
-                suggestion={noResultSuggestion(threads, filters, filterCtx, labels)}
+                serverSide={facets != null}
+                suggestion={facets ? null : noResultSuggestion(threads, filters, filterCtx, labels)}
                 onClearAll={() => setFilters(emptyFilters())}
                 onRemove={(chip) => setFilters((f) => removeCriterion(f, chip.criterion))}
               />
@@ -1038,12 +1066,18 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               onRemoveChip={(chip) => setFilters((f) => removeCriterion(f, chip.criterion))}
               onClearAll={() => setFilters(emptyFilters())}
               savedViews={savedViews}
-              viewCount={(view) => applyFilters(threads, view.filters, filterCtx).length}
+              viewCount={(view) => (facets ? null : applyFilters(threads, view.filters, filterCtx).length)}
               onApplyView={(view) => applyFilterSet(view.filters)}
               onDeleteView={(view) => setSavedViews(deleteSavedView(view.id))}
               onSaveCurrent={(name) => setSavedViews(saveView(name, filters))}
               suggestedName={suggestViewName(filters, labels)}
-              summary={filtersActive && !loading && !error ? `${filteredThreads.length} من ${threads.length}` : null}
+              summary={
+                filtersActive && !loading && !error
+                  ? facets
+                    ? `${total} محادثة`
+                    : `${filteredThreads.length} من ${threads.length}`
+                  : null
+              }
             />
           }
           rowBadges={(thread) => {
