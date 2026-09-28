@@ -3,7 +3,7 @@ import {
   inboxThreadSupplierLabel,
   type ConstructionInboxThread,
 } from '../../api/constructionClient'
-import { filterThreads, listTimeLabel, sortThreadsNewestFirst, threadSnippet } from '../../lib/inboxChat'
+import { filterThreads, listTimeLabel, sortThreadsOldestFirst, threadSnippet } from '../../lib/inboxChat'
 import { SupplierAvatar } from './SupplierAvatar'
 
 export type InboxTab = 'inbound' | 'needs_reply' | 'sent' | 'hidden'
@@ -131,7 +131,7 @@ export function ConversationList({
   }
   const now = Date.now()
 
-  const sorted = useMemo(() => sortThreadsNewestFirst(threads), [threads])
+  const sorted = useMemo(() => sortThreadsOldestFirst(threads), [threads])
   const visible = useMemo(() => filterThreads(sorted, query), [sorted, query])
   const searching = query.trim().length > 0
 

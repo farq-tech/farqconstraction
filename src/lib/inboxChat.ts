@@ -50,6 +50,26 @@ export function sortThreadsNewestFirst<T extends { last_received_at?: string | n
 }
 
 /**
+ * The owner's rule for the conversation list: oldest activity first, newest
+ * last, so conversations are handled in the order they came. Undated rows go
+ * last; ties keep the server's order (stable), so a refresh never shuffles.
+ */
+export function sortThreadsOldestFirst<T extends { last_received_at?: string | null }>(
+  threads: readonly T[],
+): T[] {
+  return threads
+    .map((thread, index) => ({ thread, index, ts: parseTime(thread.last_received_at) }))
+    .sort((a, b) => {
+      if (a.ts == null && b.ts == null) return a.index - b.index
+      if (a.ts == null) return 1
+      if (b.ts == null) return -1
+      if (a.ts !== b.ts) return a.ts - b.ts
+      return a.index - b.index
+    })
+    .map((entry) => entry.thread)
+}
+
+/**
  * What «مقروءة» / «غير مقروءة» on selected conversations means for the list
  * right away, before the refetch confirms it: read clears the badge, unread
  * shows at least one (a known larger count stays). Rows outside the target are

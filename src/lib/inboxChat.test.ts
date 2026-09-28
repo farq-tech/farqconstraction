@@ -12,6 +12,7 @@ import {
   supplierInitials,
   threadSnippet,
 } from './inboxChat'
+import { sortThreadsOldestFirst as oldestFirst } from './inboxChat'
 
 const thread = (over: Partial<ConstructionInboxThread>): ConstructionInboxThread => ({ ...over })
 
@@ -212,5 +213,13 @@ describe('applyThreadReadState', () => {
 
   it('returns the same array when nothing changes, so React skips the render', () => {
     expect(applyThreadReadState(rows, ['zzz'], false)).toBe(rows)
+  })
+})
+
+
+describe('sortThreadsOldestFirst', () => {
+  it('lists the oldest activity first and the newest last; undated rows go last', () => {
+    const rows = [{ id: 'b', last_received_at: '2026-09-28T09:00:00Z' }, { id: 'x', last_received_at: null }, { id: 'a', last_received_at: '2026-09-27T09:00:00Z' }, { id: 'c', last_received_at: '2026-09-28T10:00:00Z' }]
+    expect(oldestFirst(rows).map((r) => r.id)).toEqual(['a', 'b', 'c', 'x'])
   })
 })
