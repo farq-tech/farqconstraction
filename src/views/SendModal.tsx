@@ -12,6 +12,7 @@ import {
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
   fetchConstructionWhatsAppPricing,
+  inboxReplyErrorMessageAr,
   formatArDate,
   startConstructionDispatch,
   getConstructionDispatch,
@@ -455,6 +456,11 @@ export function SendModal({
       if (code === 'CONSTRUCTION_EMAIL_PREFERRED') {
         const emailResult = await sendOneEmail(createdId, invite, index, total)
         return emailResult === 'sent' ? 'sent' : emailResult
+      }
+      // Held back by the per-phone rules: a skip with its reason, not a failure.
+      if (code && code.startsWith('SKIPPED_')) {
+        updateRow(invite.id, { status: 'skipped', detail: inboxReplyErrorMessageAr(code), code, finishedAt: Date.now() })
+        return 'failed'
       }
       updateRow(invite.id, {
         status: 'failed',

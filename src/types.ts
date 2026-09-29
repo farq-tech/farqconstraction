@@ -152,6 +152,14 @@ export interface SupplierEntry {
   sourceSystem?: string
   /** The upload that created this row — null for everything the sweeps found. */
   importBatchId?: string | null
+  /** Other directory rows on the same WhatsApp number (a link, never a merge). */
+  phoneDuplicates?: SupplierPhoneDuplicates | null
+}
+
+export interface SupplierPhoneDuplicates {
+  /** This row stands for the number; the others are linked to it. */
+  isCanonical: boolean
+  others: Array<{ id: string; name: string; city: string | null; canonical: boolean }>
 }
 
 export interface NavProps {

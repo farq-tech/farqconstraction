@@ -1666,6 +1666,10 @@ export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
   hidden_reason?: 'SUPPLIER_DECLINED' | 'MANUAL' | string | null
   /** What the supplier said it sells, newest first («ما عندنا X، عندنا Y»). */
   supplier_activity_updates?: Array<{ activity: string; at?: string | null; channel?: string | null }>
+  /** Sends the per-phone rules held back, newest first («لم يُرسل: …»). */
+  send_skips?: Array<{ id: string; kind: string; reason: string; at: string; label_ar: string }>
+  /** The supplier's number is do-not-contact («رقم خاطئ — لا نراسله»). */
+  phone_do_not_contact?: { reason: string; label_ar: string } | null
   rfq_id?: string
   version_number?: string | number | null
   owner_user_id?: string | null
@@ -1880,6 +1884,14 @@ export function inboxReplyErrorMessageAr(code: string): string {
       return 'الطلب بظرف مختوم — لا مراسلات قبل فتح المظاريف.'
     case 'INBOX_REPLY_CHANNEL_MISMATCH':
       return 'آخر رسالة وصلت على قناة أخرى — الرد يجب أن يكون على نفس القناة.'
+    case 'SKIPPED_DO_NOT_CONTACT':
+      return 'رقم خاطئ — لا نراسله. صاحب الرقم قال إنه ليس المورد.'
+    case 'SKIPPED_PHONE_CAP':
+      return 'لم يُرسل: وصلت هذا الرقم رسائل كافية على هذا الطلب.'
+    case 'SKIPPED_DUPLICATE_PHONE':
+      return 'لم يُرسل: الرقم نفسه وصله الطلب من مورد آخر.'
+    case 'SKIPPED_DECLINED':
+      return 'لم يُرسل: اعتذر صاحب الرقم عن هذا الطلب.'
     case 'WHATSAPP_WINDOW_CLOSED':
       return 'مرّت 24 ساعة على آخر رسالة من المورد — الرد المجاني غير متاح؛ استخدم رابط المحادثة أو انتظر رده.'
     case 'INBOX_ATTACHMENTS_EMAIL_ONLY':

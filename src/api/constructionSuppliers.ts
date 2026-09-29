@@ -43,6 +43,11 @@ export type FarqApiSupplier = {
   source?: string | null
   import_batch_id?: string | null
   updated_at?: string | null
+  /** «سجلات أخرى بنفس الرقم»: rows linked to the same WhatsApp number. */
+  phone_duplicates?: {
+    is_canonical?: boolean
+    others?: Array<{ id: string; name_ar?: string | null; name_en?: string | null; city?: string | null; canonical?: boolean }>
+  } | null
 }
 
 export type SupplierListResult = {
@@ -136,6 +141,17 @@ export function mapFarqSupplier(row: FarqApiSupplier): SupplierEntry {
     hasHaraj: Boolean(row.contact_channels?.haraj || isHaraj),
     sourceSystem: source || (isHaraj ? 'HARAJ' : undefined),
     importBatchId: row.import_batch_id || null,
+    phoneDuplicates: row.phone_duplicates?.others?.length
+      ? {
+          isCanonical: row.phone_duplicates.is_canonical === true,
+          others: row.phone_duplicates.others.map((other) => ({
+            id: String(other.id),
+            name: String(other.name_ar || other.name_en || other.id).trim(),
+            city: other.city || null,
+            canonical: other.canonical === true,
+          })),
+        }
+      : null,
   }
 }
 
