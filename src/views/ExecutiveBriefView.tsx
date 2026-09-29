@@ -463,7 +463,7 @@ function BriefPage({ brief, brand, takenAt, start, end, note, banner }: {
             <FarqWordmark className="h-4 bg-[#123F3A]/60" />
             أسعار الوحدة كما قدّمها الموردون، قبل التوصيل · {today}
           </span>
-          {setAside.length > 0 && <span>استُبعد من المقارنة {setAside.join(' و')} بفرق غير منطقي (أكثر من 3 أضعاف).</span>}
+          {setAside.length > 0 && <span>استُبعد من المقارنة {setAside.join(' و')} لبعده غير المنطقي عن باقي الأسعار (أكثر من ضعفين ونصف).</span>}
           {note && <span className="text-amber-700">{note}</span>}
         </footer>
       </main>

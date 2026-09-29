@@ -47,10 +47,10 @@ export type BriefLine = {
 
 /**
  * How far from its peers a price may sit before it is not a price but a typo, a
- * wrong unit or a pack price. 3× the line's median either way. Deliberately
- * wide: a real market gap of 50–100% stays in the comparison.
+ * wrong unit or a pack price. 2.5× the line's median either way. Wide enough
+ * that a real market gap of 50–150% stays in the comparison.
  */
-export const IMPLAUSIBLE_FACTOR = 3
+export const IMPLAUSIBLE_FACTOR = 2.5
 
 function median(values: number[]): number {
   const v = [...values].sort((a, b) => a - b)
@@ -68,9 +68,15 @@ export function screenOffers(offers: BriefOffer[], factor = IMPLAUSIBLE_FACTOR):
   const m = median(offers.map((o) => o.unitPrice))
   const kept = offers.filter((o) => o.unitPrice <= m * factor && o.unitPrice >= m / factor)
   const excluded = offers.filter((o) => !kept.includes(o))
-  const prices = kept.map((o) => o.unitPrice)
-  const unreliable = kept.length < 1 || (kept.length > 1 && Math.max(...prices) / Math.min(...prices) > factor)
-  return { kept, excluded, unreliable }
+  // Two or more prices off on the same side are a second price level, not a
+  // typo (a per-piece vs per-pack split): no way to tell which side is right.
+  // The spread of what is left is the market's own and stays, however wide.
+  // A handful of stray prices among many is still just strays: a level needs a
+  // quarter of the offers behind it.
+  const low = excluded.filter((o) => o.unitPrice < m).length
+  const level = (n: number) => n > 1 && n >= offers.length / 4
+  const cluster = level(low) || level(excluded.length - low)
+  return { kept, excluded, unreliable: cluster || kept.length < 1 }
 }
 
 export type BriefSupplier = {

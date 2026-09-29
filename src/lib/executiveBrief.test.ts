@@ -71,6 +71,23 @@ describe('executive brief', () => {
     expect(brief.spreadTotal).toBe(10)
   })
 
+  it('leaves out a line whose prices split into two levels', () => {
+    const lines = briefLinesFromComparison(comparison([
+      { id: '1', qty: 1, offers: [cell('a', 0.03), cell('b', 0.04), cell('c', 0.75), cell('d', 0.9), cell('e', 1), cell('f', 2)] },
+    ]), 'مشروع')
+    expect(lines[0].unreliable).toBe(true)
+    expect(buildExecutiveBrief([{ rfqId: 'rfq-1', title: 'مشروع', lines }]).excludedLines).toBe(1)
+  })
+
+  it('drops two stray prices among many without dropping the line', () => {
+    const prices = [0.23, 0.25, 0.28, 0.3, 0.3, 0.3, 0.31, 0.4, 0.45, 0.5, 0.6, 1, 1.5]
+    const lines = briefLinesFromComparison(comparison([
+      { id: '1', qty: 1, offers: prices.map((p, i) => cell(`s${i}`, p)) },
+    ]), 'مشروع')
+    expect(lines[0].unreliable).toBe(false)
+    expect(lines[0].excluded.map((o) => o.unitPrice)).toEqual([1, 1.5])
+  })
+
   it('leaves out a two-offer line whose prices are worlds apart', () => {
     const lines = briefLinesFromComparison(comparison([
       { id: '1', qty: 1, offers: [cell('a', 10), cell('b', 50)] },
