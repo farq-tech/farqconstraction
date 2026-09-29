@@ -128,6 +128,26 @@ export function SupplierDetailView({ navigate, selectedSupplierId }: NavProps) {
             </div>
           </div>
 
+          {supplier.phoneDuplicates && (
+            <div className="bg-white border border-neutral-100 rounded-2xl p-5 mb-4">
+              <h2 className="text-sm font-bold text-[#0D1F1D] mb-1">سجلات أخرى بنفس الرقم</h2>
+              <p className="text-xs text-neutral-500 mb-3 leading-relaxed">
+                نفس رقم الواتساب مسجّل على أكثر من مورد — نرسل للرقم رسالة وحدة لكل طلب.
+                {supplier.phoneDuplicates.isCanonical ? ' هذا السجل هو الأساسي.' : ''}
+              </p>
+              <ul className="space-y-2">
+                {supplier.phoneDuplicates.others.map((other) => (
+                  <li key={other.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-semibold text-[#0D1F1D] truncate">{other.name}</span>
+                    <span className="text-xs text-neutral-500 flex-shrink-0">
+                      {[other.city, other.canonical ? 'الأساسي' : null].filter(Boolean).join(' · ') || '—'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <SupplierQuoteHistory supplierId={supplier.id} />
 
           <div className="grid grid-cols-2 gap-3 mb-3">
