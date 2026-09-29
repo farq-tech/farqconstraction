@@ -18,6 +18,8 @@ import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '.
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
 import MarketNameField from '../components/MarketNameField'
+import SpecCardEditor from '../components/SpecCardEditor'
+import type { SpecCard } from '../lib/specCard'
 import { useProcurement } from '../procurementContext'
 
 type Filter = 'all' | 'ready' | 'needs'
@@ -62,6 +64,7 @@ interface BOQCardProps {
   openAll: { open: boolean; at: number }
   /** The buyer edited or cleared «الاسم الدارج بالسوق». */
   onMarketName: (next: string) => void
+  onSpecCard: (next: SpecCard | undefined) => void
 }
 
 const SUGGESTION_TONE = {
@@ -183,6 +186,7 @@ function BOQCard({
   onDelete,
   openAll,
   onMarketName,
+  onSpecCard,
 }: BOQCardProps) {
   const [expanded, setExpanded] = useState(openAll.open)
   useEffect(() => {
@@ -371,6 +375,9 @@ function BOQCard({
           fromMemory={item.marketNameSource === 'memory'}
         />
       )}
+
+      {/* «بطاقة المواصفة»: optional, collapsed; answers what suppliers asked back. */}
+      {!item.workOnly && <SpecCardEditor value={item.specCard} onCommit={onSpecCard} />}
 
       {expanded && (
         <div className="px-5 pb-5 border-t border-neutral-50 pt-4">
@@ -763,6 +770,16 @@ export function ProposalsView({ navigate }: NavProps) {
     )
   }
 
+  const setSpecCard = (itemId: number, next: SpecCard | undefined) => {
+    persistItems(
+      items.map((item) => {
+        if (item.id !== itemId) return item
+        const { specCard: _old, ...rest } = item
+        return next ? { ...rest, specCard: next } : rest
+      }),
+    )
+  }
+
   const deleteItem = (itemId: number) => {
     const index = items.findIndex((i) => i.id === itemId)
     if (index < 0) return
@@ -1087,6 +1104,7 @@ export function ProposalsView({ navigate }: NavProps) {
                     onDelete={() => deleteItem(item.id)}
                     openAll={openAll}
                     onMarketName={(next) => setMarketName(item.id, next)}
+                    onSpecCard={(next) => setSpecCard(item.id, next)}
                   />
                 ))}
               </div>
