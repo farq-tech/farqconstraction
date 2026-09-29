@@ -81,6 +81,8 @@ function initialViewFromUrl(): AppView {
     if (view === 'inbox') return 'inbox'
     if (view === 'booklet' && BOOKLET_PARAM.test(params.get('booklet') || '')) return 'booklet-detail'
     if (view === 'booklets') return 'booklets'
+    // The management presentation, shareable as a link (it still needs a session).
+    if (view === 'brief') return 'executive-brief'
     // An invitation link from the team screen: no session yet, by design.
     if (view === 'invite') return 'invite'
     // Deployed builds have no demo mode (the API refuses

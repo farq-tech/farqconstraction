@@ -19,6 +19,7 @@ import { AwardView } from './views/AwardView'
 import { AwardSuccessView } from './views/AwardSuccessView'
 import { SupplierManagementView } from './views/SupplierManagementView'
 import { ReportsView } from './views/ReportsView'
+import { ExecutiveBriefView } from './views/ExecutiveBriefView'
 import { SupplierDetailView } from './views/SupplierDetailView'
 import { SettingsView } from './views/SettingsView'
 import { AccessDeniedView } from './views/AccessDeniedView'
@@ -78,6 +79,15 @@ function AppRoutes() {
   }
   if ((view === 'login' && !session.isAuthenticated) || (import.meta.env.PROD && !session.isAuthenticated)) {
     return <LoginView navigate={navigate} />
+  }
+
+  // A presentation owns the whole screen: no sidebar, no header.
+  if (view === 'executive-brief') {
+    return (
+      <ErrorBoundary resetKey={view}>
+        <ExecutiveBriefView navigate={navigate} />
+      </ErrorBoundary>
+    )
   }
 
   return (

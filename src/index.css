@@ -80,3 +80,66 @@ html, body {
   animation: price-ticker 150s linear infinite;
   width: max-content;
 }
+
+/* ── «العرض التنفيذي» — the management presentation ─────────────────────────
+   Motion is a reveal, never decoration: each element arrives once, when its
+   slide comes into view (`data-in` is set by an IntersectionObserver), in the
+   order the eye should read it (`--d` is the stagger delay). */
+.brief-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  filter: blur(4px);
+  transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), filter 0.9s ease;
+  transition-delay: var(--d, 0ms);
+}
+[data-in='true'] .brief-reveal {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+.brief-grow {
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--d, 0ms);
+}
+[data-in='true'] .brief-grow {
+  transform: scaleX(1);
+}
+.brief-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 2.4s cubic-bezier(0.65, 0, 0.35, 1);
+  transition-delay: var(--d, 0ms);
+}
+[data-in='true'] .brief-draw {
+  stroke-dashoffset: 0;
+}
+@keyframes brief-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-80px, 0, 0); }
+}
+.brief-drift {
+  animation: brief-drift 24s linear infinite alternate;
+}
+@keyframes brief-glow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}
+.brief-glow {
+  animation: brief-glow 6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brief-reveal, .brief-grow, .brief-draw {
+    transition: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+    stroke-dashoffset: 0;
+  }
+  .brief-drift, .brief-glow { animation: none; }
+}
+@media print {
+  .brief-reveal, .brief-grow { opacity: 1 !important; transform: none !important; filter: none !important; }
+  .brief-draw { stroke-dashoffset: 0 !important; }
+}

@@ -231,7 +231,10 @@ export function ReportsView({ navigate }: NavProps) {
             <p className="text-sm text-neutral-500 mt-1">كل رقم هنا مأخوذ من سجل النظام وقت حدوثه، وكل رقم مهم تقدر تضغطه وتشوف مصدره.</p>
           </div>
         </div>
-        <button onClick={() => window.print()} className="px-4 py-2 rounded-xl bg-olive-600 hover:bg-olive-700 text-white text-sm font-bold print:hidden">تقرير للإدارة (طباعة / PDF)</button>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <button onClick={() => navigate('executive-brief')} className="px-4 py-2 rounded-xl bg-[#0B2A26] hover:bg-[#123F3A] text-[#CFF5DC] text-sm font-bold">العرض التنفيذي ▶</button>
+          <button onClick={() => window.print()} className="px-4 py-2 rounded-xl bg-olive-600 hover:bg-olive-700 text-white text-sm font-bold">تقرير للإدارة (طباعة / PDF)</button>
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-2 mb-5 print:hidden">

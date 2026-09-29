@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest'
+import type { ConstructionComparison } from '../api/constructionClient'
+import { briefLinesFromComparison, buildExecutiveBrief, topSpreadLines } from './executiveBrief'
+
+type Cell = NonNullable<ConstructionComparison['quote_matrix']>['lines'][number]['offers'][number]
+
+function cell(supplier_id: string, unit_price: number | null, extra: Partial<Cell> = {}): Cell {
+  return { supplier_id, status: 'PRICED', unit_price, line_total: null, quantity: null, currency: 'SAR', prices_include_tax: false, ...extra }
+}
+
+function comparison(lines: Array<{ id: string; qty: number; offers: Cell[] }>): ConstructionComparison {
+  return {
+    rfq: { id: 'rfq-1' } as ConstructionComparison['rfq'],
+    supplier_responses: [
+      { supplier: { id: 'a', name_ar: 'مورد أ' }, offer: {} },
+      { supplier: { id: 'b', name_ar: 'مورد ب' }, offer: {} },
+    ],
+    awaiting_supplier_ids: [],
+    quote_matrix: {
+      basis: 'x', requested_line_count: lines.length, supplier_count: 3, complete_quote_count: 0,
+      lines: lines.map((l) => ({ id: l.id, name_ar: `بند ${l.id}`, quantity: l.qty, uom: 'م', offers: l.offers })),
+    },
+  }
+}
+
+describe('executive brief', () => {
+  it('counts only clean priced cells and sorts cheapest first', () => {
+    const lines = briefLinesFromComparison(comparison([
+      { id: '1', qty: 10, offers: [cell('a', 12), cell('b', 10), cell('c', 1, { status: 'PRICE_REVIEW', price_review: {} as never }), cell('d', null, { status: 'UNAVAILABLE' })] },
+      { id: '2', qty: 5, offers: [cell('a', null, { status: 'NOT_QUOTED' })] },
+    ]), 'مشروع', new Map([['c', 'مورد ج']]))
+    expect(lines).toHaveLength(1)
+    expect(lines[0].offers.map((o) => o.supplierId)).toEqual(['b', 'a'])
+    expect(lines[0].spreadValue).toBe(20)
+    expect(lines[0].spreadPercent).toBe(20)
+    expect(lines[0].mixedTaxBasis).toBe(false)
+  })
+
+  it('flags a line whose offers do not share a VAT basis', () => {
+    const [line] = briefLinesFromComparison(comparison([
+      { id: '1', qty: 1, offers: [cell('a', 100, { prices_include_tax: true }), cell('b', 90, { prices_include_tax: null })] },
+    ]), 'مشروع')
+    expect(line.mixedTaxBasis).toBe(true)
+  })
+
+  it('gives a win only to a sole cheapest of two or more offers', () => {
+    const lines = briefLinesFromComparison(comparison([
+      { id: '1', qty: 2, offers: [cell('a', 5), cell('b', 7)] },
+      { id: '2', qty: 1, offers: [cell('a', 5), cell('b', 5)] },
+      { id: '3', qty: 1, offers: [cell('b', 9)] },
+    ]), 'مشروع')
+    const brief = buildExecutiveBrief([{ rfqId: 'rfq-1', title: 'مشروع', lines }])
+    expect(brief.pricedLines).toBe(3)
+    expect(brief.comparedLines).toBe(2)
+    expect(brief.pricesReceived).toBe(5)
+    expect(brief.lowestBasket).toBe(10 + 5 + 9)
+    expect(brief.spreadTotal).toBe(4)
+    expect(brief.suppliers.find((s) => s.id === 'a')?.wins).toBe(1)
+    expect(brief.suppliers.find((s) => s.id === 'b')?.wins).toBe(0)
+    expect(topSpreadLines(brief).map((l) => l.lineId)).toEqual(['1'])
+  })
+})
