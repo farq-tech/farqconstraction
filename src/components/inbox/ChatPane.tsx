@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   ConstructionApiError,
   claimConstructionInboxRequest,
+  dismissConstructionInboxDraft,
   downloadConstructionInboxFile,
   getConstructionInboxThread,
   inboxThreadSupplierLabel,
@@ -28,6 +29,8 @@ import {
   type QuickReply,
 } from '../../lib/quickReplies'
 import type { QuoteEvent } from '../../lib/supplierPanel'
+import { visibleReplyDraft } from '../../lib/supplierReply'
+import ReplyDraftCard from './ReplyDraftCard'
 import { LinkIcon, XIcon } from '../../icons'
 import { ChannelBadge } from './Badges'
 import { MessageBubble } from './MessageBubble'
@@ -176,6 +179,17 @@ export function ChatPane({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [text, setText] = useState('')
+  /** Suggestions closed here («تجاهل» / sent), so they do not flash back before the refetch. */
+  const [closedDrafts, setClosedDrafts] = useState<Set<string>>(() => new Set())
+  /** «عدّل» put this suggestion in the box: sending it marks the suggestion used (edited or not). */
+  const draftInBox = useRef<{ id: string; original: string } | null>(null)
+  useEffect(() => {
+    draftInBox.current = null
+  }, [inviteId])
+  // An emptied box is no longer the suggestion.
+  useEffect(() => {
+    if (!text.trim()) draftInBox.current = null
+  }, [text])
   const [files, setFiles] = useState<File[]>([])
   const [includeItems, setIncludeItems] = useState(false)
   const [sending, setSending] = useState(false)
@@ -440,8 +454,15 @@ export function ChatPane({
     }
   }
 
-  async function handleSend() {
-    if (!canCompose || !thread?.invite_id || !text.trim() || sending) return
+  async function handleSend(fromDraft?: { id: string; text: string }) {
+    const outgoing = fromDraft ? fromDraft.text : text
+    if (!canCompose || !thread?.invite_id || !outgoing.trim() || sending) return
+    // Sent from a suggestion: straight («أرسل») or after «عدّل».
+    const used = fromDraft
+      ? { draft_id: fromDraft.id, draft_edited: false }
+      : draftInBox.current
+        ? { draft_id: draftInBox.current.id, draft_edited: draftInBox.current.original.trim() !== text.trim() }
+        : null
     setSending(true)
     setError(null)
     setNotice(null)
@@ -450,26 +471,27 @@ export function ChatPane({
         setError(`${WHATSAPP_WINDOW_CLOSED_AR}.`)
         return
       }
-      if (replyChannel === 'WHATSAPP' && files.length) {
+      if (replyChannel === 'WHATSAPP' && files.length && !fromDraft) {
         setError('الرد على واتساب نصي فقط — أزل المرفقات أو أرسلها بالبريد.')
         return
       }
-      if (replyChannel === 'PORTAL' && files.length) {
+      if (replyChannel === 'PORTAL' && files.length && !fromDraft) {
         setError('رد المنصة نصي حالياً — أزل المرفقات.')
         return
       }
-      if (replyChannel === 'HARAJ' && files.length) {
+      if (replyChannel === 'HARAJ' && files.length && !fromDraft) {
         setError('هذه المحادثة تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.')
         return
       }
-      const attachments = files.length ? await readConstructionInboxAttachments(files) : []
+      const attachments = files.length && !fromDraft ? await readConstructionInboxAttachments(files) : []
       const result = await replyToConstructionInboxThread(String(thread.invite_id), {
         channel: replyChannel === 'EMAIL' ? 'EMAIL' : replyChannel,
         idempotency_key: crypto.randomUUID(),
-        text: text.trim(),
+        text: outgoing.trim(),
         parent_message_id: thread.last_message_id ?? null,
         attachments,
-        include_items: includeItems,
+        include_items: fromDraft ? false : includeItems,
+        ...(used ? used : {}),
       })
       const state = String(result.state || '').toUpperCase()
       setNotice(
@@ -480,10 +502,14 @@ export function ChatPane({
             : `نتيجة الإرسال غير مؤكدة (${result.failure_code || state}) — راجع بريد info@ قبل إعادة الإرسال.`,
       )
       if (state === 'SENT') {
-        setText('')
-        setFiles([])
-        setIncludeItems(false)
-        if (fileInput.current) fileInput.current.value = ''
+        if (used) setClosedDrafts((prev) => new Set(prev).add(used.draft_id))
+        draftInBox.current = null
+        if (!fromDraft) {
+          setText('')
+          setFiles([])
+          setIncludeItems(false)
+          if (fileInput.current) fileInput.current.value = ''
+        }
       }
       await load(false)
     } catch (err) {
@@ -492,6 +518,23 @@ export function ChatPane({
       )
     } finally {
       if (alive.current) setSending(false)
+    }
+  }
+
+  function handleEditDraft(id: string, suggestion: string) {
+    draftInBox.current = { id, original: suggestion }
+    setText(suggestion)
+    requestAnimationFrame(() => textArea.current?.focus())
+  }
+
+  async function handleDismissDraft(id: string) {
+    if (!thread?.invite_id) return
+    setClosedDrafts((prev) => new Set(prev).add(id))
+    if (draftInBox.current?.id === id) draftInBox.current = null
+    try {
+      await dismissConstructionInboxDraft(String(thread.invite_id), id)
+    } catch {
+      // Closed here either way; the server keeps it open and shows it on the next read.
     }
   }
 
@@ -899,6 +942,21 @@ export function ChatPane({
             </div>
           )}
 
+          {(() => {
+            const draft = visibleReplyDraft(thread, closedDrafts)
+            if (!draft || !thread.can_reply) return null
+            return (
+              <ReplyDraftCard
+                draft={draft}
+                disabled={!canCompose || whatsappClosed}
+                busy={sending}
+                onSend={(suggestion) => void handleSend({ id: draft.id, text: suggestion })}
+                onEdit={(suggestion) => handleEditDraft(draft.id, suggestion)}
+                onDismiss={() => void handleDismissDraft(draft.id)}
+              />
+            )
+          })()}
+
           {canCompose && (
             <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-0.5">
               <span className="flex-shrink-0 text-[11px] text-neutral-500">ردود جاهزة:</span>
@@ -972,7 +1030,7 @@ export function ChatPane({
             <button
               type="button"
               disabled={!canCompose || sending || !text.trim() || whatsappClosed}
-              onClick={handleSend}
+              onClick={() => void handleSend()}
               className="flex-shrink-0 h-10 rounded-full bg-[#123F3A] text-white text-xs font-bold px-5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {sending ? '…' : 'إرسال'}

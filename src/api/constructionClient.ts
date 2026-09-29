@@ -1644,6 +1644,27 @@ export type ConstructionInboxThreadMessage = {
   reply_contacts?: ConstructionReplyContact[] | null
   /** INBOUND only: one short Arabic line summarising the reply. */
   reply_summary_ar?: string | null
+  /** INBOUND only: the playbook intent (GREETING, BOT, BUTTON, NEGOTIATION …). */
+  reply_intent?: string | null
+  /** INBOUND only: the supplier's own automatic reply — «رد آلي من المورد». */
+  reply_bot?: boolean
+  /** INBOUND only: only a person should answer — «يحتاج رد منك». */
+  reply_needs_human?: boolean
+}
+
+/**
+ * A suggested answer to the supplier's latest message. Never sent by the
+ * server: «أرسل» goes through the normal reply with `draft_id`; «تجاهل»
+ * closes it. `text` is null when only a person should answer (needs_human).
+ */
+export type ConstructionReplyDraft = {
+  id: string
+  message_id: string
+  intent: string
+  text: string | null
+  needs_human: boolean
+  bot: boolean
+  state: 'SUGGESTED' | 'SENT' | 'EDITED_SENT' | 'DISMISSED' | string
 }
 
 export type ConstructionReplyKind =
@@ -1656,6 +1677,8 @@ export type ConstructionReplyKind =
   | 'CLARIFICATION_NEEDED'
   | 'QUESTION'
   | 'OTHER'
+  | 'BUTTON'
+  | 'NON_TEXT_ACK'
 
 export type ConstructionReplyContact = { type: 'phone' | 'email'; value: string }
 
@@ -1674,6 +1697,8 @@ export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
   can_claim?: boolean
   can_take_over?: boolean
   messages: ConstructionInboxThreadMessage[]
+  /** Suggested answer to the supplier's latest message (never sent automatically). */
+  reply_draft?: ConstructionReplyDraft | null
   older_than?: string | null
   /** Parent id the server requires on a reply; stale value = INBOX_NEW_MESSAGE. */
   last_message_id?: string | null
@@ -1747,6 +1772,9 @@ export async function replyToConstructionInboxThread(
     attachments?: ConstructionInboxOutboundAttachment[]
     include_items?: boolean
     channel?: 'EMAIL' | 'HARAJ' | 'PORTAL' | 'WHATSAPP'
+    /** Sent from a suggested reply: the click is the approval; the server closes the suggestion. */
+    draft_id?: string | null
+    draft_edited?: boolean
   },
 ) {
   return request<ConstructionInboxReplyResult>(
@@ -1761,7 +1789,20 @@ export async function replyToConstructionInboxThread(
         ...(body.attachments?.length ? { attachments: body.attachments } : {}),
         ...(body.include_items ? { include_items: true } : {}),
         ...(body.channel && body.channel !== 'EMAIL' ? { channel: body.channel } : {}),
+        ...(body.draft_id ? { draft_id: body.draft_id, draft_edited: Boolean(body.draft_edited) } : {}),
       }),
+    },
+  )
+}
+
+/** «تجاهل» on a suggested reply. Nothing is sent. */
+export async function dismissConstructionInboxDraft(inviteId: string, draftId: string) {
+  return request<{ id: string; state: string }>(
+    `/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/draft/dismiss`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ draft_id: draftId }),
     },
   )
 }
