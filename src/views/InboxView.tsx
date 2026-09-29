@@ -1105,6 +1105,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
             inviteId={activeId}
             onBack={closeDetail}
             onOpenRfq={(rfqId) => openRfq(rfqId, 'rfq-detail')}
+            onOpenQuote={(rfqId, inviteId) => {
+              setSelectedOfferId(inviteId)
+              openRfq(rfqId, 'offer-detail')
+            }}
             onUnreadKnown={handleUnreadKnown}
             onDetail={handleDetail}
             onVisibilityChange={() => setReloadKey((n) => n + 1)}

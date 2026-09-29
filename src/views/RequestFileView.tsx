@@ -106,7 +106,7 @@ function lineText(line: Record<string, unknown>): { name: string; spec: string; 
 }
 
 export function RequestFileView({ navigate, initialTab }: NavProps & { initialTab?: Tab }) {
-  const { selectedRfqId } = useProcurement()
+  const { selectedRfqId, openRfq, setSelectedOfferId } = useProcurement()
   const initial = useRef(readUrl())
   const [tab, setTab] = useState<Tab>(initial.current.tab || initialTab || 'overview')
   const [chatSupplier, setChatSupplier] = useState<string | null>(initial.current.supplier)
@@ -691,7 +691,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
           </div>
           <div className={`flex-1 min-w-0 ${chatSupplier ? '' : 'hidden lg:flex lg:items-center lg:justify-center'}`}>
             {chatSupplier ? (
-              <ChatPane key={chatSupplier} inviteId={chatSupplier} requestScoped onBack={() => setChatSupplier(null)} onOpenRfq={() => setTab('overview')} />
+              <ChatPane key={chatSupplier} inviteId={chatSupplier} requestScoped onBack={() => setChatSupplier(null)} onOpenRfq={() => setTab('overview')} onOpenQuote={(rfqId, inviteId) => { setSelectedOfferId(inviteId); openRfq(rfqId, 'offer-detail') }} />
             ) : (
               <p className="text-sm text-neutral-500">اختر موردًا لعرض محادثته في هذا الطلب.</p>
             )}

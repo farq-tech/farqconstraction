@@ -142,6 +142,8 @@ export type ChatPaneProps = {
   /** Narrow screens show one pane at a time; this returns to the list. */
   onBack: () => void
   onOpenRfq: (rfqId: string) => void
+  /** Opens this supplier's own quote (the quote card's «عرض التفاصيل»); falls back to onOpenRfq. */
+  onOpenQuote?: (rfqId: string, inviteId: string) => void
   /**
    * Tells the list how many unread inbound messages this thread still has,
    * counted from the thread the server just returned. Only called when the
@@ -166,6 +168,7 @@ export function ChatPane({
   inviteId,
   onBack,
   onOpenRfq,
+  onOpenQuote,
   onUnreadKnown,
   requestScoped = false,
   onDetail,
@@ -783,7 +786,7 @@ export function ChatPane({
                 event={event}
                 sealed
                 lineCount={requestedLines}
-                onOpen={rfqId ? () => onOpenRfq(String(rfqId)) : undefined}
+                onOpen={rfqId ? () => (onOpenQuote ? onOpenQuote(String(rfqId), inviteId) : onOpenRfq(String(rfqId))) : undefined}
               />
             ))}
           </div>
@@ -812,7 +815,7 @@ export function ChatPane({
                 <div key={key} className="flex flex-col">
                   {cardsBefore.map(({ event }) => (
                     <div key={`quote-${event.id}`} className="self-start my-2 w-full flex justify-start">
-                      <QuoteCard event={event} sealed={false} lineCount={requestedLines} onOpen={rfqId ? () => onOpenRfq(String(rfqId)) : undefined} />
+                      <QuoteCard event={event} sealed={false} lineCount={requestedLines} onOpen={rfqId ? () => (onOpenQuote ? onOpenQuote(String(rfqId), inviteId) : onOpenRfq(String(rfqId))) : undefined} />
                     </div>
                   ))}
                   {showDay && (
@@ -846,7 +849,7 @@ export function ChatPane({
             })}
             {pendingQuotes.map(({ event }) => (
               <div key={`quote-${event.id}`} className="self-start my-2 w-full flex justify-start">
-                <QuoteCard event={event} sealed={false} lineCount={requestedLines} onOpen={rfqId ? () => onOpenRfq(String(rfqId)) : undefined} />
+                <QuoteCard event={event} sealed={false} lineCount={requestedLines} onOpen={rfqId ? () => (onOpenQuote ? onOpenQuote(String(rfqId), inviteId) : onOpenRfq(String(rfqId))) : undefined} />
               </div>
             ))}
             {thread.messages.length === 0 && quoteEvents.length === 0 && (
