@@ -231,3 +231,13 @@ describe('saved views', () => {
     expect(sanitizeFilters({ date: { preset: 'custom', from: '2026-09-20', to: 'tomorrow' } }).date).toEqual({ preset: 'custom', from: '2026-09-20', to: null })
   })
 })
+
+describe('reply meanings from the 245-thread playbook', () => {
+  it('knows BUTTON and NON_TEXT_ACK, with Arabic labels', async () => {
+    const { meaningKey, MEANING_LABEL } = await import('./inboxFilters')
+    expect(meaningKey('BUTTON')).toBe('BUTTON')
+    expect(meaningKey('non_text_ack')).toBe('NON_TEXT_ACK')
+    expect(MEANING_LABEL.BUTTON).toBe('ضغط «متوفر وبسعّره»')
+    expect(MEANING_LABEL.NON_TEXT_ACK).toBe('ملصق أو تفاعل')
+  })
+})

@@ -1,4 +1,9 @@
-import type { ConstructionReplyContact } from '../api/constructionClient'
+import type {
+  ConstructionInboxThreadDetail,
+  ConstructionInboxThreadMessage,
+  ConstructionReplyContact,
+  ConstructionReplyDraft,
+} from '../api/constructionClient'
 
 /**
  * What a supplier's reply means, at a glance. The server classifies; the
@@ -11,7 +16,9 @@ export type ReplyKindBadge = {
 }
 
 const BADGES: Record<string, ReplyKindBadge> = {
-  AUTO_REPLY: { label: 'رد آلي', className: 'bg-neutral-100 text-neutral-600' },
+  AUTO_REPLY: { label: 'رد آلي من المورد', className: 'bg-neutral-100 text-neutral-600' },
+  BUTTON: { label: 'ضغط «متوفر وبسعّره»', className: 'bg-green-50 text-green-800' },
+  NON_TEXT_ACK: { label: 'ملصق أو تفاعل', className: 'bg-neutral-100 text-neutral-500' },
   ALT_CONTACT: { label: 'يطلب التواصل على رقم آخر', className: 'bg-amber-100 text-amber-800' },
   DECLINED: { label: 'اعتذر', className: 'bg-red-100 text-red-700' },
   INTERESTED: { label: 'مهتم / متوفر', className: 'bg-green-100 text-green-800' },
@@ -28,6 +35,37 @@ export function replyKindBadge(kind?: string | null): ReplyKindBadge | null {
 
 export function isAutoReply(kind?: string | null): boolean {
   return String(kind || '').toUpperCase() === 'AUTO_REPLY'
+}
+
+/** The two flags a supplier message can carry beside its kind chip. */
+export function replyFlags(message: Pick<ConstructionInboxThreadMessage, 'direction' | 'reply_kind' | 'reply_bot' | 'reply_needs_human'>): {
+  bot: boolean
+  needsHuman: boolean
+} {
+  if (message.direction !== 'INBOUND') return { bot: false, needsHuman: false }
+  const bot = Boolean(message.reply_bot) || isAutoReply(message.reply_kind)
+  return { bot, needsHuman: !bot && Boolean(message.reply_needs_human) }
+}
+
+export const BOT_CHIP_LABEL = 'رد آلي من المورد'
+export const NEEDS_HUMAN_LABEL = 'يحتاج رد منك'
+
+/**
+ * The suggestion to show above the composer, or null: only an open one, only
+ * for the conversation's latest message, and only when it says something
+ * (a text to send, or «يحتاج رد منك»). The server never sends it.
+ */
+export function visibleReplyDraft(
+  thread: Pick<ConstructionInboxThreadDetail, 'reply_draft' | 'last_message_id'> | null | undefined,
+  dismissed: ReadonlySet<string> = new Set(),
+): ConstructionReplyDraft | null {
+  const draft = thread?.reply_draft
+  if (!draft || !draft.id || dismissed.has(draft.id)) return null
+  if (draft.state && draft.state !== 'SUGGESTED') return null
+  if (thread?.last_message_id && draft.message_id && draft.message_id !== thread.last_message_id) return null
+  const text = String(draft.text || '').trim()
+  if (!text && !draft.needs_human) return null
+  return { ...draft, text: text || null }
 }
 
 const ARABIC_DIGITS: Record<string, string> = {

@@ -109,7 +109,7 @@ export type FilterPanelProps = {
 
 const CHANNELS: ChannelKey[] = ['platform', 'whatsapp', 'email', 'chat']
 const STATES: StateKey[] = ['needs_reply', 'waiting_supplier', 'unread', 'read']
-const MEANINGS: MeaningKey[] = ['QUOTE_FILE', 'PRICE_IN_TEXT', 'QUESTION', 'CLARIFICATION_NEEDED', 'DECLINED', 'ALT_CONTACT', 'INTERESTED', 'AUTO_REPLY']
+const MEANINGS: MeaningKey[] = ['QUOTE_FILE', 'PRICE_IN_TEXT', 'QUESTION', 'CLARIFICATION_NEEDED', 'DECLINED', 'ALT_CONTACT', 'INTERESTED', 'BUTTON', 'AUTO_REPLY', 'NON_TEXT_ACK']
 const QUOTES: QuoteKey[] = ['submitted', 'not_submitted', 'new_version']
 const ACCOUNTS: AccountKey[] = ['active', 'not_opened', 'declined']
 const OWNERS: OwnerKey[] = ['mine', 'unassigned', 'colleague']

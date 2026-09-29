@@ -48,7 +48,9 @@ const MEANING_CLASS: Record<MeaningKey, string> = {
   DECLINED: 'bg-red-100 text-red-700',
   ALT_CONTACT: 'bg-amber-100 text-amber-800',
   INTERESTED: 'bg-green-100 text-green-800',
+  BUTTON: 'bg-green-50 text-green-800',
   AUTO_REPLY: 'bg-neutral-100 text-neutral-600',
+  NON_TEXT_ACK: 'bg-neutral-100 text-neutral-500',
   VOICE: 'bg-neutral-100 text-neutral-600',
 }
 

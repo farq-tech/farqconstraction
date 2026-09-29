@@ -5,8 +5,11 @@ import {
 import { attachmentKind, chatTimeLabel } from '../../lib/inboxChat'
 import { splitQuotedReply } from '../../lib/quotedEmail'
 import {
+  BOT_CHIP_LABEL,
+  NEEDS_HUMAN_LABEL,
   isAutoReply,
   mailtoHref,
+  replyFlags,
   replyKindBadge,
   telHref,
   usableReplyContacts,
@@ -176,14 +179,29 @@ export function ReplyInsight({ message }: { message: ConstructionInboxThreadMess
   const badge = replyKindBadge(message.reply_kind)
   const summary = badge ? String(message.reply_summary_ar || '').trim() : ''
   const contacts = usableReplyContacts(message.reply_contacts)
-  if (!badge && contacts.length === 0) return null
+  const flags = replyFlags(message)
+  // The bot chip stands in for the kind chip; «يحتاج رد منك» rides beside it.
+  const botChip = flags.bot && !isAutoReply(message.reply_kind)
+  if (!badge && contacts.length === 0 && !flags.bot && !flags.needsHuman) return null
   return (
     <div className="mt-2 pt-2 border-t border-black/5 flex flex-col gap-1">
-      {badge && (
+      {(badge || botChip || flags.needsHuman) && (
         <div className="flex items-start gap-1.5 flex-wrap">
-          <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${badge.className}`}>
-            {badge.label}
-          </span>
+          {botChip && (
+            <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold bg-neutral-100 text-neutral-600">
+              {BOT_CHIP_LABEL}
+            </span>
+          )}
+          {badge && !botChip && (
+            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${badge.className}`}>
+              {badge.label}
+            </span>
+          )}
+          {flags.needsHuman && (
+            <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-900">
+              {NEEDS_HUMAN_LABEL}
+            </span>
+          )}
           {summary && (
             <span dir="auto" className="text-[11px] text-neutral-600 leading-relaxed text-start">
               {summary}
@@ -255,7 +273,7 @@ export function MessageBubble({
     : split.visible
   const time = chatTimeLabel(message.created_at)
   // An out-of-office note is not an answer; let the real replies stand out.
-  const muted = inbound && isAutoReply(message.reply_kind)
+  const muted = inbound && replyFlags(message).bot
 
   return (
     // RTL-aware sides: `self-start` follows the app direction, so theirs lands
