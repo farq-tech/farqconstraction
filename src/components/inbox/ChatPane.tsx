@@ -31,6 +31,7 @@ import {
 import type { QuoteEvent } from '../../lib/supplierPanel'
 import { visibleReplyDraft } from '../../lib/supplierReply'
 import ReplyDraftCard from './ReplyDraftCard'
+import InboxAiPanel from './InboxAiPanel'
 import { LinkIcon, XIcon } from '../../icons'
 import { ChannelBadge } from './Badges'
 import { MessageBubble } from './MessageBubble'
@@ -950,6 +951,9 @@ export function ChatPane({
               </button>
             </div>
           )}
+
+          {/* «فهم الرسالة»: the pipeline's reading and its drafts (server flag; nothing without it). */}
+          <InboxAiPanel inviteId={String(thread.invite_id)} refreshKey={thread.last_message_id} readOnly={!thread.can_reply} />
 
           {(() => {
             const draft = visibleReplyDraft(thread, closedDrafts)

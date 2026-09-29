@@ -1918,6 +1918,90 @@ export async function replyToConstructionInboxThread(
   )
 }
 
+// ── «فهم الرسالة»: the inbox pipeline's reading and its drafts (API inbox-ai-pipeline.js) ──
+
+export type ConstructionAiQuoteLine = {
+  line_key: string
+  name?: string | null
+  unit_price: number
+  raw_price?: number | null
+  unit?: string | null
+  includes_vat: boolean | null
+  vat_inferred?: boolean
+  sale_unit?: string | null
+  pack_size?: number | null
+  sale_unit_price?: number | null
+  confidence?: number | null
+}
+
+export type ConstructionAiProfileUpdate = {
+  type: string
+  normalized_value: string
+  raw_evidence?: string | null
+  confidence?: number | null
+  persistence?: 'PERMANENT' | 'TEMPORARY'
+  relationship?: string | null
+  merge?: 'ADD' | 'ADD_SPECIFIC' | 'KEEP_BOTH' | 'DUPLICATE' | 'CONFLICT'
+}
+
+export type ConstructionAiDraft = {
+  id: string
+  message_id: string
+  type: 'REPLY_DRAFT' | 'QUOTE_DRAFT' | 'DECLINE_DRAFT' | 'SUPPLIER_PROFILE_DRAFT'
+  state: 'PENDING' | 'APPROVED' | 'EDITED' | 'REJECTED' | 'FAILED'
+  origin?: string
+  confidence: number | null
+  payload: {
+    lines?: ConstructionAiQuoteLine[]
+    prices_include_tax?: boolean | null
+    delivery_included?: boolean | null
+    lead_time_days?: number | null
+    sanity?: Array<{ line_key: string; code: string; reason_ar: string; suggestion_ar?: string | null }>
+    scope?: 'request' | 'trade' | 'temporary' | 'lines'
+    actions?: { status: boolean; hide: boolean; suppress: boolean; activity: boolean }
+    summary_ar?: string | null
+    updates?: ConstructionAiProfileUpdate[]
+    conflict?: boolean
+    text?: string | null
+  }
+}
+
+export type ConstructionAiAnalysis = {
+  mode: 'OFF' | 'SHADOW' | 'DRAFTS' | 'ACTIONS'
+  drafts_enabled: boolean
+  actions_enabled: boolean
+  analysis: null | {
+    message_id: string
+    reply_kind: string
+    final_intent: string
+    confidence: number
+    source: 'RULES' | 'LLM' | 'RULES+LLM'
+    human_required: boolean
+    human_reasons: string[]
+    quote: { items: ConstructionAiQuoteLine[]; method?: string } | null
+    terms: { delivery_included: boolean | null; lead_time_days: number | null } | null
+    decline: { decline: boolean; scope: string } | null
+  }
+  drafts: ConstructionAiDraft[]
+}
+
+/** The latest reading of this conversation and its pending drafts (nothing when drafts are off). */
+export async function fetchConstructionInboxAi(inviteId: string) {
+  return request<ConstructionAiAnalysis>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/ai`)
+}
+
+/** اعتماد / تعديل / رفض. Approval runs the existing action on the server; nothing is sent to the supplier. */
+export async function decideConstructionInboxAiDraft(
+  inviteId: string,
+  draftId: string,
+  body: { action: 'APPROVE' | 'EDIT' | 'REJECT'; edit?: Record<string, unknown>; choices?: string[] },
+) {
+  return request<ConstructionAiDraft & { execution?: Record<string, unknown> }>(
+    `/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/ai/drafts/${encodeURIComponent(draftId)}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+}
+
 /** «تجاهل» on a suggested reply. Nothing is sent. */
 export async function dismissConstructionInboxDraft(inviteId: string, draftId: string) {
   return request<{ id: string; state: string }>(
