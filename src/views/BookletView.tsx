@@ -11,6 +11,11 @@ import {
 import { useProcurement } from '../procurementContext'
 import MarketNameNote from '../components/MarketNameNote'
 import OwnerControl from '../components/OwnerControl'
+import PriceReviewNote from '../components/priceReview/PriceReviewNote'
+import SupplierScoreBadge from '../components/priceReview/SupplierScoreBadge'
+import VatUnknownChip from '../components/priceReview/VatUnknownChip'
+import { useConstructionAdmin } from '../components/priceReview/useConstructionAdmin'
+import { heldSummaryLabel } from '../lib/priceReview'
 import {
   bookletClosed,
   bookletDeadline,
@@ -48,6 +53,7 @@ export function BookletView({ navigate }: NavProps) {
   const [closeNote, setCloseNote] = useState('')
   const [closing, setClosing] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
+  const isAdmin = useConstructionAdmin()
 
   async function closeBooklet() {
     if (!selectedBookletId || closing) return
@@ -342,6 +348,13 @@ export function BookletView({ navigate }: NavProps) {
                   {matrix.columns.map((c) => (
                     <th key={c.supplier_id} className="px-4 py-3 font-bold text-[#0D1F1D] min-w-[150px] align-top">
                       {c.name}
+                      <SupplierScoreBadge score={c.score} className="ms-1.5" />
+                      {c.price_review_held && (
+                        <div className="text-[10px] font-semibold text-amber-800 mt-0.5">
+                          {heldSummaryLabel({ held: true, lines: c.held_lines })}
+                        </div>
+                      )}
+                      {c.tax_unknown && <VatUnknownChip value={null} className="mt-0.5" />}
                       <div className="text-[10px] font-semibold text-neutral-400 mt-0.5">
                         {c.waves.length ? `دفعة ${c.waves.join('، ')}` : ''}
                         {c.waves.length ? ' · ' : ''}
@@ -370,15 +383,38 @@ export function BookletView({ navigate }: NavProps) {
                       return (
                         <td
                           key={c.supplier_id}
-                          className={`px-4 py-3 ${cell?.best ? 'bg-[#f0faf7] ring-1 ring-inset ring-[#1a7a45]/30' : ''}`}
+                          className={`px-4 py-3 ${cell?.best ? 'bg-[#f0faf7] ring-1 ring-inset ring-[#1a7a45]/30' : cell?.held ? 'bg-amber-50/50' : ''}`}
                         >
-                          {cell ? (
+                          {cell?.held ? (
+                            <>
+                              {cell.unit_price != null && (
+                                <div className="text-xs text-neutral-400 line-through decoration-amber-400/70">
+                                  {bookletMoney(cell.unit_price, cell.currency)}
+                                </div>
+                              )}
+                              {cell.price_review ? (
+                                <PriceReviewNote
+                                  review={cell.price_review}
+                                  currency={cell.currency}
+                                  rfqId={cell.rfq_id}
+                                  quoteVersionId={cell.quote_version_id}
+                                  isAdmin={isAdmin}
+                                  onResolved={() => refresh().catch(() => {})}
+                                />
+                              ) : (
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                  يحتاج مراجعة
+                                </span>
+                              )}
+                            </>
+                          ) : cell ? (
                             <>
                               <div className={`font-semibold ${cell.best ? 'text-[#1a7a45]' : 'text-[#0D1F1D]'}`}>
                                 {bookletMoney(cell.unit_price, cell.currency)}
                               </div>
                               <div className="text-xs text-neutral-400">الإجمالي {bookletMoney(cell.total, cell.currency)}</div>
                               {cell.best && <div className="text-[10px] font-bold text-[#1a7a45] mt-0.5">الأفضل لهذا البند</div>}
+                              <VatUnknownChip value={cell.prices_include_tax} className="mt-0.5" />
                               {cell.notes && <div className="text-[10px] text-neutral-500 mt-0.5 line-clamp-2">{cell.notes}</div>}
                               {statedValidityLabel(cell.valid_until) && (
                                 <div className="text-[10px] text-neutral-400 mt-0.5">{statedValidityLabel(cell.valid_until)}</div>
@@ -423,7 +459,7 @@ export function BookletView({ navigate }: NavProps) {
             )}
             <div className="px-4 py-3 text-[11px] text-neutral-400 border-t border-neutral-50">
               كل مورد يظهر مرة واحدة مهما تعددت الدفعات التي دُعي فيها. «الأفضل لهذا البند» أقل سعر وحدة بين العروض المستلمة،
-              وليس ترسية؛ الترسية تتم من داخل كل طلب.
+              وليس ترسية؛ الترسية تتم من داخل كل طلب. السعر «يحتاج مراجعة» لا يدخل المقارنة ولا الإجمالي حتى يُعتمد.
             </div>
           </div>
         )}

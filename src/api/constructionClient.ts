@@ -162,6 +162,46 @@ export type ConstructionRfq = {
   }
 }
 
+/**
+ * A unit price the server held back as suspicious (a line total typed as the
+ * unit price, a per-thousand or per-pack price, or far off its peers). A held
+ * price is never PRICED: it is not compared, not the lowest, not in a total
+ * until an admin confirms it or applies the suggestion. Absent on older APIs.
+ */
+export type PriceReviewCode = 'TOTAL_AS_UNIT' | 'PER_THOUSAND' | 'PER_PACK' | 'OUTLIER_HIGH' | 'OUTLIER_LOW'
+
+export type PriceReview = {
+  code: PriceReviewCode | string
+  reason_ar: string
+  reference_unit_price: number | null
+  reference_basis: 'PEERS' | 'CATEGORY' | 'OTHER_TOTAL' | null
+  ratio: number | null
+  suggested_unit_price: number | null
+  suggestion_ar: string | null
+  quote_version_id: string
+  line_id: string
+}
+
+/** How a supplier's offer scores out of 100 (newer APIs; absent otherwise). */
+export type SupplierScore = {
+  total: number
+  responsiveness: { points: number; max: number; followups: number | null }
+  completeness: { points: number; max: number; priced: number; requested: number }
+  competitiveness: { points: number; max: number; lines_compared: number; all_flagged: boolean }
+  clarity: {
+    points: number
+    max: number
+    vat_stated: boolean
+    delivery_or_lead_time_stated: boolean
+    document: 'FILE' | 'LINK' | 'CHAT' | string
+    document_points: number
+    unit_clean: boolean
+  }
+}
+
+/** A total under both VAT readings, when the supplier did not state which. */
+export type TaxAssumptionTotals = { subtotal: number; tax: number; total: number }
+
 export type ConstructionComparison = {
   rfq: ConstructionRfq
   supplier_responses: Array<{
@@ -205,11 +245,20 @@ export type ConstructionComparison = {
         line_total: number | null
         quantity: number | null
         currency: string
+        /** true = includes VAT, false = excludes it, null = the supplier did not say. */
         prices_include_tax: boolean | null
+        quote_version_id?: string
+        /** Non-null when this price is held for review (status PRICE_REVIEW). */
+        price_review?: PriceReview | null
       }>
     }>
+    /** Quotes with at least one price held for review. */
+    held_quote_count?: number
     supplier_summaries?: Array<{
       supplier_id: string
+      quote_version_id?: string
+      price_review?: { held: boolean; lines: number }
+      score?: SupplierScore | null
       coverage: {
         requested: number
         priced: number
@@ -218,7 +267,16 @@ export type ConstructionComparison = {
         needs_review: number
         complete: boolean
       }
-      totals?: { total?: number | null; goods_total?: number; tax?: number; complete?: boolean } | null
+      totals?: {
+        total?: number | null
+        goods_total?: number
+        tax?: number
+        complete?: boolean
+        /** VAT basis not stated: `total` is null and both readings are given. */
+        tax_unknown?: boolean
+        if_tax_excluded?: TaxAssumptionTotals | null
+        if_tax_included?: TaxAssumptionTotals | null
+      } | null
     }>
   }
   serving_decision?: {
@@ -709,6 +767,9 @@ function unwrap<T>(
     if (code === 'CONSTRUCTION_ADMIN_REQUIRED') {
       throw new ConstructionApiError('نقل الملكية متاح للمدير (ADMIN) فقط.', response.status, String(code))
     }
+    if (code === 'CONSTRUCTION_PRICE_REVIEW_FORBIDDEN') {
+      throw new ConstructionApiError('مراجعة الأسعار المعلّقة متاحة للمدير (ADMIN) فقط.', response.status, String(code))
+    }
     if (code === 'CONSTRUCTION_TRANSFER_TARGET_INVALID') {
       throw new ConstructionApiError('لا يمكن النقل إلى هذا الزميل: ليس عضوًا نشطًا في الشركة.', response.status, String(code))
     }
@@ -851,6 +912,30 @@ export async function getConstructionComparison(id: string): Promise<Constructio
   )
 }
 
+export type PriceReviewAction = 'CONFIRM' | 'APPLY_SUGGESTION'
+
+export type PriceReviewResult = {
+  status: 'CONFIRMED' | 'CORRECTED'
+  quote_version_id: string
+  line_id: string
+  unit_price: number
+}
+
+/**
+ * An admin releases a held price: «اعتمد كما هو» (CONFIRM) or «طبّق التصحيح
+ * المقترح» (APPLY_SUGGESTION). ADMIN only (403 CONSTRUCTION_PRICE_REVIEW_FORBIDDEN).
+ */
+export async function resolvePriceReview(
+  rfqId: string,
+  quoteVersionId: string,
+  body: { line_id: string; action: PriceReviewAction; unit_price?: number },
+): Promise<PriceReviewResult> {
+  return request<PriceReviewResult>(
+    `/api/construction/rfqs/${encodeURIComponent(rfqId)}/quote-versions/${encodeURIComponent(quoteVersionId)}/price-review`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+}
+
 /*
  * BOOKLETS (الكراسات).
  *
@@ -912,6 +997,11 @@ export type ConstructionBookletSupplier = {
   quote_total: number | null
   currency: string | null
   rfq_id: string | null
+  /** At least one of this supplier's prices is held for review. */
+  price_review_held?: boolean
+  score?: SupplierScore | null
+  /** The supplier did not state whether his prices include VAT. */
+  tax_unknown?: boolean
 }
 
 export type ConstructionBookletOffer = {
@@ -923,8 +1013,10 @@ export type ConstructionBookletOffer = {
   rfq_id: string | null
   quote_version_id: string | null
   notes: string | null
-  /** PRICED when the cell carries a comparable price. */
+  /** PRICED when the cell carries a comparable price; PRICE_REVIEW when it is held. */
   status?: string | null
+  /** Non-null when this price is held for review. */
+  price_review?: PriceReview | null
   /** true = the price includes VAT, false = excludes it, null/absent = not stated. */
   prices_include_tax?: boolean | null
   wave_number?: number | null

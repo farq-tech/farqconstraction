@@ -73,7 +73,8 @@ describe('quotes', () => {
   it('states tax and lead time without assuming either', () => {
     expect(taxLabel(true)).toBe('شامل الضريبة')
     expect(taxLabel(false)).toBe('غير شامل الضريبة')
-    expect(taxLabel(null)).toBe('الضريبة غير محددة')
+    expect(taxLabel(null)).toBe('الضريبة غير مذكورة')
+    expect(taxLabel(undefined)).not.toContain('غير شامل')
     expect(leadTimeLabel({})).toBe('لم يحدد مدة التوريد')
     expect(leadTimeLabel({ lead_time_days: 0 })).toBe('لم يحدد مدة التوريد')
     expect(leadTimeLabel({ lead_time_days: 7 })).toBe('7 أيام')

@@ -4,6 +4,7 @@ import type {
   ConstructionBookletSummary,
 } from '../api/constructionClient'
 import { bookletClosed, bookletDeadline, buildBookletMatrix, type BookletCell } from './booklet'
+import { isHeldOffer, vatStatusLabel } from './priceReview'
 
 /**
  * The home page («الرئيسية»): the booklets and their lines in one picture,
@@ -130,7 +131,7 @@ export function vatBasis(includesTax: boolean | null | undefined): VatBasis {
 }
 
 export function vatLabel(basis: VatBasis): string {
-  return basis === 'incl' ? 'شامل الضريبة' : basis === 'excl' ? 'غير شامل الضريبة' : 'الضريبة غير محددة'
+  return vatStatusLabel(basis === 'incl' ? true : basis === 'excl' ? false : null)
 }
 
 /**
@@ -312,6 +313,8 @@ export function priceCutsFor(raw: ConstructionBookletDetail, card: HomeBooklet):
   for (const m of detail.matrix || []) {
     const line = lines.get(String(m.line_key))
     for (const o of m.offers || []) {
+      // A held price is not a price yet: no «خفّض» from it.
+      if (isHeldOffer(o)) continue
       const cut = offerCut(o)
       if (!cut) continue
       const id = String(o.supplier_id)

@@ -7,6 +7,11 @@ import {
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import MarketNameNote from '../components/MarketNameNote'
+import PriceReviewNote from '../components/priceReview/PriceReviewNote'
+import SupplierScoreBadge from '../components/priceReview/SupplierScoreBadge'
+import VatUnknownChip from '../components/priceReview/VatUnknownChip'
+import { useConstructionAdmin } from '../components/priceReview/useConstructionAdmin'
+import { heldSummaryLabel, isHeldOffer, taxAssumptionsText } from '../lib/priceReview'
 
 /**
  * Side-by-side prices for one request.
@@ -26,6 +31,17 @@ export function ComparisonView({ navigate }: NavProps) {
   const [data, setData] = useState<ConstructionComparison | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isAdmin = useConstructionAdmin()
+
+  // After an admin confirms or corrects a held price: re-read in place.
+  const reload = async () => {
+    if (!selectedRfqId) return
+    try {
+      setData(await getConstructionComparison(selectedRfqId))
+    } catch {
+      /* the next visit re-reads; the admin's decision is already saved */
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -61,10 +77,23 @@ export function ComparisonView({ navigate }: NavProps) {
     [data],
   )
   const lines = data?.quote_matrix?.lines || []
+  const summaries = useMemo(
+    () => new Map((data?.quote_matrix?.supplier_summaries || []).map((s) => [String(s.supplier_id), s])),
+    [data],
+  )
+  // A quote with a price held for review, or with VAT unstated, is not «الأقل».
+  const comparable = (r: (typeof responses)[number]) => {
+    const s = summaries.get(String(r.supplier.id))
+    return !s?.price_review?.held && !s?.totals?.tax_unknown
+  }
   const cheapestTotal = useMemo(() => {
-    const totals = responses.map((r) => Number(r.offer.totals?.total)).filter((n) => Number.isFinite(n) && n > 0)
+    const totals = responses
+      .filter(comparable)
+      .map((r) => Number(r.offer.totals?.total))
+      .filter((n) => Number.isFinite(n) && n > 0)
     return totals.length > 1 ? Math.min(...totals) : null
-  }, [responses])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [responses, summaries])
 
   const award = (quoteVersionId: string) => {
     setSelectedQuoteVersionId(quoteVersionId)
@@ -114,8 +143,14 @@ export function ComparisonView({ navigate }: NavProps) {
                 {responses.map((r) => (
                   <th key={String(r.supplier.id)} className="px-4 py-3 font-bold text-[#0D1F1D] min-w-[160px] align-top">
                     {r.supplier.name_ar || r.supplier.name_en || 'مورد'}
+                    <SupplierScoreBadge score={summaries.get(String(r.supplier.id))?.score} className="ms-1.5" />
                     {r.eligibility?.eligible === false && (
                       <div className="text-[10px] font-semibold text-amber-700 mt-0.5">عرض غير مكتمل</div>
+                    )}
+                    {heldSummaryLabel(summaries.get(String(r.supplier.id))?.price_review) && (
+                      <div className="text-[10px] font-semibold text-amber-800 mt-0.5">
+                        {heldSummaryLabel(summaries.get(String(r.supplier.id))?.price_review)}
+                      </div>
                     )}
                   </th>
                 ))}
@@ -131,13 +166,34 @@ export function ComparisonView({ navigate }: NavProps) {
                   </td>
                   {responses.map((r) => {
                     const cell = line.offers.find((o) => String(o.supplier_id) === String(r.supplier.id))
+                    const held = isHeldOffer(cell)
                     const priced = cell && cell.unit_price != null
                     return (
-                      <td key={String(r.supplier.id)} className="px-4 py-3">
-                        {priced ? (
+                      <td key={String(r.supplier.id)} className={`px-4 py-3 ${held ? 'bg-amber-50/50' : ''}`}>
+                        {held ? (
+                          <>
+                            {cell!.unit_price != null && (
+                              <div className="text-xs text-neutral-400 line-through decoration-amber-400/70">{money(cell!.unit_price, cell!.currency)}</div>
+                            )}
+                            {cell!.price_review ? (
+                              <PriceReviewNote
+                                review={cell!.price_review}
+                                currency={cell!.currency}
+                                rfqId={selectedRfqId}
+                                quoteVersionId={cell!.quote_version_id}
+                                lineId={line.id}
+                                isAdmin={isAdmin}
+                                onResolved={reload}
+                              />
+                            ) : (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">يحتاج مراجعة</span>
+                            )}
+                          </>
+                        ) : priced ? (
                           <>
                             <div className="font-semibold text-[#0D1F1D]">{money(cell!.unit_price, cell!.currency)}</div>
                             <div className="text-xs text-neutral-400">الإجمالي {money(cell!.line_total, cell!.currency)}</div>
+                            <VatUnknownChip value={cell!.prices_include_tax} className="mt-0.5" />
                           </>
                         ) : (
                           <span className="text-xs text-neutral-400">لم يسعّره</span>
@@ -152,15 +208,23 @@ export function ComparisonView({ navigate }: NavProps) {
                 {responses.map((r) => {
                   const total = Number(r.offer.totals?.total)
                   const id = String(r.offer.quoteVersionId || r.offer.offerId || '')
+                  const assumptions = taxAssumptionsText(summaries.get(String(r.supplier.id))?.totals, r.offer.currency)
                   return (
                     <td key={String(r.supplier.id)} className="px-4 py-3">
-                      <div className="font-black text-[#123F3A]">
-                        {money(r.offer.totals?.total ?? (r.offer.totals as { minimum_total?: number } | undefined)?.minimum_total ?? r.offer.totals?.goods_total, r.offer.currency)}
-                      </div>
-                      {r.offer.totals?.total == null && r.offer.totals?.goods_total != null && (
+                      {assumptions ? (
+                        <>
+                          <div className="text-xs font-bold text-[#123F3A]">{assumptions}</div>
+                          <VatUnknownChip value={null} className="mt-0.5" />
+                        </>
+                      ) : (
+                        <div className="font-black text-[#123F3A]">
+                          {money(r.offer.totals?.total ?? (r.offer.totals as { minimum_total?: number } | undefined)?.minimum_total ?? r.offer.totals?.goods_total, r.offer.currency)}
+                        </div>
+                      )}
+                      {!assumptions && r.offer.totals?.total == null && r.offer.totals?.goods_total != null && (
                         <div className="text-[10px] text-neutral-500">بدون التوصيل — لم يذكره المورد</div>
                       )}
-                      {cheapestTotal != null && total === cheapestTotal && (
+                      {cheapestTotal != null && comparable(r) && total === cheapestTotal && (
                         <div className="text-[10px] font-semibold text-[#1a7a45]">الأقل إجمالًا بين المستلَم</div>
                       )}
                       <button
@@ -182,7 +246,8 @@ export function ComparisonView({ navigate }: NavProps) {
             </div>
           )}
           <div className="px-4 py-3 text-[11px] text-neutral-400 border-t border-neutral-50">
-            «الأقل إجمالًا» مقارنة حسابية فقط بين العروض المستلمة، ولا تعني أن العروض تغطي البنود نفسها.
+            «الأقل إجمالًا» مقارنة حسابية فقط بين العروض المستلمة، ولا تعني أن العروض تغطي البنود نفسها. السعر «يحتاج مراجعة» لا يدخل
+            المقارنة حتى يُعتمد.
           </div>
         </div>
       )}
