@@ -59,4 +59,25 @@ describe('executive brief', () => {
     expect(brief.suppliers.find((s) => s.id === 'b')?.wins).toBe(0)
     expect(topSpreadLines(brief).map((l) => l.lineId)).toEqual(['1'])
   })
+
+  it('drops a price far from its peers and keeps the rest', () => {
+    const lines = briefLinesFromComparison(comparison([
+      { id: '1', qty: 1, offers: [cell('a', 100), cell('b', 110), cell('c', 1200)] },
+    ]), 'مشروع')
+    expect(lines[0].offers.map((o) => o.supplierId)).toEqual(['a', 'b'])
+    expect(lines[0].excluded.map((o) => o.supplierId)).toEqual(['c'])
+    const brief = buildExecutiveBrief([{ rfqId: 'rfq-1', title: 'مشروع', lines }])
+    expect(brief.excludedPrices).toBe(1)
+    expect(brief.spreadTotal).toBe(10)
+  })
+
+  it('leaves out a two-offer line whose prices are worlds apart', () => {
+    const lines = briefLinesFromComparison(comparison([
+      { id: '1', qty: 1, offers: [cell('a', 10), cell('b', 50)] },
+      { id: '2', qty: 1, offers: [cell('a', 10), cell('b', 15)] },
+    ]), 'مشروع')
+    const brief = buildExecutiveBrief([{ rfqId: 'rfq-1', title: 'مشروع', lines }])
+    expect(brief.excludedLines).toBe(1)
+    expect(brief.lines.map((l) => l.lineId)).toEqual(['2'])
+  })
 })

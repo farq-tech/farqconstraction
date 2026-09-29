@@ -1,6 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
 @import 'tailwindcss';
 
+/* ITF Huwiya Arabic — Farq's typeface, used by the executive brief. */
+@font-face { font-family: 'ITF Huwiya Arabic'; src: url('/fonts/huwiya/itfHuwiyaArabic-Regular.otf') format('opentype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'ITF Huwiya Arabic'; src: url('/fonts/huwiya/itfHuwiyaArabic-Medium.otf') format('opentype'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'ITF Huwiya Arabic'; src: url('/fonts/huwiya/itfHuwiyaArabic-Bold.otf') format('opentype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'ITF Huwiya Arabic'; src: url('/fonts/huwiya/itfHuwiyaArabic-Black.otf') format('opentype'); font-weight: 900; font-display: swap; }
+
 @theme {
   --font-sans: 'Cairo', system-ui, sans-serif;
   --color-farq: #123F3A;

@@ -36,6 +36,41 @@ export type BriefLine = {
   spreadPercent: number | null
   /** Offers on this line do not share one VAT basis, so the gap may be partly tax. */
   mixedTaxBasis: boolean
+  /** Prices set aside as implausible next to the others on this line. */
+  excluded: BriefOffer[]
+  /**
+   * The offers left disagree so much that no side can be trusted (e.g. two
+   * offers, one 5× the other: which one is the typo?). Kept out of the brief.
+   */
+  unreliable: boolean
+}
+
+/**
+ * How far from its peers a price may sit before it is not a price but a typo, a
+ * wrong unit or a pack price. 3× the line's median either way. Deliberately
+ * wide: a real market gap of 50–100% stays in the comparison.
+ */
+export const IMPLAUSIBLE_FACTOR = 3
+
+function median(values: number[]): number {
+  const v = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(v.length / 2)
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2
+}
+
+/** Split a line's offers into the ones to compare and the implausible ones. */
+export function screenOffers(offers: BriefOffer[], factor = IMPLAUSIBLE_FACTOR): { kept: BriefOffer[]; excluded: BriefOffer[]; unreliable: boolean } {
+  if (offers.length < 3) {
+    const prices = offers.map((o) => o.unitPrice)
+    const unreliable = offers.length === 2 && Math.max(...prices) / Math.min(...prices) > factor
+    return { kept: offers, excluded: [], unreliable }
+  }
+  const m = median(offers.map((o) => o.unitPrice))
+  const kept = offers.filter((o) => o.unitPrice <= m * factor && o.unitPrice >= m / factor)
+  const excluded = offers.filter((o) => !kept.includes(o))
+  const prices = kept.map((o) => o.unitPrice)
+  const unreliable = kept.length < 1 || (kept.length > 1 && Math.max(...prices) / Math.min(...prices) > factor)
+  return { kept, excluded, unreliable }
 }
 
 export type BriefSupplier = {
@@ -63,6 +98,10 @@ export type ExecutiveBrief = {
   /** Σ highest unit × quantity over the lines with two or more offers. */
   spreadTotal: number
   currency: string
+  /** Implausible single prices dropped from lines that stayed in. */
+  excludedPrices: number
+  /** Whole lines left out because their offers disagree beyond belief. */
+  excludedLines: number
 }
 
 function finite(value: unknown): number | null {
@@ -111,10 +150,12 @@ export function briefLinesFromComparison(
       })
     }
     if (!offers.length) continue
-    offers.sort((a, b) => a.unitPrice - b.unitPrice)
-    const lowest = offers[0]
-    const highest = offers[offers.length - 1]
-    const bases = new Set(offers.map((o) => String(o.includesTax)))
+    const screened = screenOffers(offers)
+    const kept = [...screened.kept].sort((a, b) => a.unitPrice - b.unitPrice)
+    if (!kept.length) continue
+    const lowest = kept[0]
+    const highest = kept[kept.length - 1]
+    const bases = new Set(kept.map((o) => String(o.includesTax)))
     out.push({
       rfqId,
       projectTitle,
@@ -123,18 +164,24 @@ export function briefLinesFromComparison(
       quantity,
       uom: String(line.uom || ''),
       currency,
-      offers,
+      offers: kept,
       lowest,
       highest,
-      spreadValue: offers.length > 1 ? (highest.unitPrice - lowest.unitPrice) * quantity : 0,
-      spreadPercent: offers.length > 1 ? Math.round((highest.unitPrice / lowest.unitPrice - 1) * 1000) / 10 : null,
+      spreadValue: kept.length > 1 ? (highest.unitPrice - lowest.unitPrice) * quantity : 0,
+      spreadPercent: kept.length > 1 ? Math.round((highest.unitPrice / lowest.unitPrice - 1) * 1000) / 10 : null,
       mixedTaxBasis: bases.size > 1,
+      excluded: screened.excluded,
+      unreliable: screened.unreliable,
     })
   }
   return out
 }
 
-export function buildExecutiveBrief(projects: BriefProject[]): ExecutiveBrief {
+export function buildExecutiveBrief(input: BriefProject[]): ExecutiveBrief {
+  const all = input.flatMap((p) => p.lines)
+  const excludedLines = all.filter((l) => l.unreliable).length
+  const excludedPrices = all.filter((l) => !l.unreliable).reduce((n, l) => n + l.excluded.length, 0)
+  const projects = input.map((p) => ({ ...p, lines: p.lines.filter((l) => !l.unreliable) }))
   const lines = projects.flatMap((p) => p.lines)
   const suppliers = new Map<string, BriefSupplier>()
   let lowestBasket = 0
@@ -170,6 +217,8 @@ export function buildExecutiveBrief(projects: BriefProject[]): ExecutiveBrief {
     lowestBasket,
     spreadTotal,
     currency: lines[0]?.currency || 'SAR',
+    excludedPrices,
+    excludedLines,
   }
 }
 
