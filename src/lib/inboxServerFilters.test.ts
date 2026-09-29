@@ -161,3 +161,12 @@ describe('loadInboxTab with filters', () => {
     expect(query.extra).toMatchObject({ owner: 'mine', facets: '1' })
   })
 })
+
+describe('button taps and stickers as «معنى الرد» filters', () => {
+  it('sends BUTTON and NON_TEXT_ACK to the server like any other meaning', () => {
+    let filters: InboxFilters = emptyFilters()
+    filters = toggleCriterion(filters, { group: 'meaning', value: 'BUTTON' })
+    filters = toggleCriterion(filters, { group: 'meaning', value: 'NON_TEXT_ACK' })
+    expect(serverFilterQuery(filters).meaning).toBe('BUTTON,NON_TEXT_ACK')
+  })
+})

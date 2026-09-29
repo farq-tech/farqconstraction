@@ -34,7 +34,9 @@ export type MeaningKey =
   | 'DECLINED'
   | 'ALT_CONTACT'
   | 'INTERESTED'
+  | 'BUTTON'
   | 'AUTO_REPLY'
+  | 'NON_TEXT_ACK'
   | 'VOICE'
 export type QuoteKey = 'submitted' | 'not_submitted' | 'new_version'
 export type AccountKey = 'active' | 'not_opened' | 'declined'
@@ -131,7 +133,7 @@ export function channelKey(value: string | null | undefined): ChannelKey | null 
   return null
 }
 
-const MEANINGS: MeaningKey[] = ['QUOTE_FILE', 'PRICE_IN_TEXT', 'QUESTION', 'CLARIFICATION_NEEDED', 'DECLINED', 'ALT_CONTACT', 'INTERESTED', 'AUTO_REPLY', 'VOICE']
+const MEANINGS: MeaningKey[] = ['QUOTE_FILE', 'PRICE_IN_TEXT', 'QUESTION', 'CLARIFICATION_NEEDED', 'DECLINED', 'ALT_CONTACT', 'INTERESTED', 'BUTTON', 'AUTO_REPLY', 'NON_TEXT_ACK', 'VOICE']
 
 export function meaningKey(value: string | null | undefined): MeaningKey | null {
   const key = String(value || '').toUpperCase()
@@ -452,7 +454,9 @@ export const MEANING_LABEL: Record<MeaningKey, string> = {
   DECLINED: 'اعتذار',
   ALT_CONTACT: 'رقم بديل',
   INTERESTED: 'مهتم',
+  BUTTON: 'ضغط «متوفر وبسعّره»',
   AUTO_REPLY: 'رد آلي',
+  NON_TEXT_ACK: 'ملصق أو تفاعل',
   VOICE: 'صوتية',
 }
 export const QUOTE_LABEL: Record<QuoteKey, string> = {
