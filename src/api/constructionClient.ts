@@ -311,7 +311,16 @@ export type PublicSupplierInvite = {
     currency: string | null
     prices_include_tax: boolean | null
     valid_until?: string | null
-    lines: Array<{ line_id: string | null; unit_price: number | string | null; available: boolean | null; notes: string | null }>
+    lines: Array<{
+      line_id: string | null
+      unit_price: number | string | null
+      available: boolean | null
+      notes: string | null
+      /** Priced per the unit the shop sells in (newer APIs). */
+      sale_unit?: string | null
+      pack_size?: number | null
+      sale_unit_price?: number | null
+    }>
   } | null
   supplier: {
     name_ar?: string
@@ -323,8 +332,26 @@ export type PublicSupplierInvite = {
   buyer?: Record<string, unknown>
   delivery?: Record<string, unknown>
   commercial_terms?: Record<string, unknown>
+  request_type?: string
+  /** «الموقع والتوريد», resolved to Arabic by the API (newer APIs; nulls when not filled). */
+  site_supply?: {
+    city?: string | null
+    district?: string | null
+    map_url?: string | null
+    delivery_mode_ar?: string | null
+    shipping_ar?: string | null
+    payment_ar?: string | null
+    request_type_ar?: string | null
+  }
+  /** «نقبل السعر بالوحدة اللي تبيع فيها…» */
+  sale_unit_note?: string
   lines: Array<{
     id: string
+    /** The line's name without internal codes: market name, else the booklet text. */
+    supplier_name_ar?: string | null
+    /** «بطاقة المواصفة» as the buyer filled it, and its one-line Arabic text. */
+    spec_card?: import('../lib/specCard').SpecCard
+    spec_text_ar?: string | null
     line_number?: number
     line_key?: string
     quantity: number

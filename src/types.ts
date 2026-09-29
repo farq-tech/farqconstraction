@@ -97,6 +97,11 @@ export interface BOQItem {
    */
   marketNameSource?: 'memory'
   /**
+   * «بطاقة المواصفة»: brand, size, sale unit, photo link… filled by the buyer
+   * before sending. Sent as the line's `spec_card`; undefined sends nothing.
+   */
+  specCard?: import('./lib/specCard').SpecCard
+  /**
    * The ontology NAMED this material and Farq's intent→supplier map was read
    * for that name. Not a catalogue match: `farqSpecId` stays unset and nothing
    * is preselected. `supplierCount: 0` means «معروف بلا مورد» — a fact about

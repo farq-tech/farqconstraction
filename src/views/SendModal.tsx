@@ -31,6 +31,8 @@ import { farqSession } from '../api/farqSession'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
 import { cleanLineName, parseQty, readQty } from '../lib/sendGuards'
+import SiteSupplySection from '../components/SiteSupplySection'
+import { EMPTY_SITE_SUPPLY, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
 
 interface SendModalProps {
   items: BOQItem[]
@@ -176,6 +178,9 @@ export function SendModal({
   })
   const [quoteDeadlineTime, setQuoteDeadlineTime] = useState('17:00')
   const [requestType, setRequestType] = useState<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>('SUPPLY_ONLY')
+  // «الموقع والتوريد»: district, map pin, delivery vs pickup, payment — what
+  // suppliers asked back before they would price.
+  const [siteSupply, setSiteSupply] = useState<SiteSupply>(EMPTY_SITE_SUPPLY)
   /** Fast path: EMAIL+WA first; defer Haraj (20s pacing) unless user opts in. */
   // Haraj goes out in the same batch by default (owner, 2026-09-18).
   const [fastEmailFirst, setFastEmailFirst] = useState(false)
@@ -243,6 +248,7 @@ export function SendModal({
   if (!quoteDeadline) sendBlockers.push('حدّد آخر موعد لاستلام العروض.')
   else if (deadline && quoteDeadline >= deadline) sendBlockers.push('آخر موعد لاستلام العروض يجب أن يسبق موعد التوريد.')
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
+  sendBlockers.push(...siteSupplyProblems(siteSupply))
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
 
   useEffect(() => {
@@ -993,6 +999,7 @@ export function SendModal({
 
       const company = loadCompanyProfile()
       const buyerUser = farqSession.getUser()
+      const siteExtras = siteSupplyPayload(siteSupply)
       const createBody: Record<string, unknown> = {
         // Which booklet this request came from, so the reports can measure the
         // time from upload to the first quote. Older requests never recorded it.
@@ -1007,8 +1014,9 @@ export function SendModal({
           required_date: deadline,
           unloading_requirement: 'SUPPLIER_UNLOAD',
           delivery_required: true,
+          ...siteExtras.delivery,
         },
-        commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER' },
+        commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER', ...siteExtras.commercial_terms },
         quote_deadline: quoteDeadline,
         quote_deadline_time: quoteDeadlineTime,
         request_type: requestType,
@@ -1206,6 +1214,14 @@ export function SendModal({
                   {showDetails ? 'إخفاء التفاصيل' : 'تعديل التفاصيل'}
                 </button>
               </div>
+
+              <SiteSupplySection
+                city={site}
+                value={siteSupply}
+                onChange={setSiteSupply}
+                requestType={requestType}
+                onRequestType={setRequestType}
+              />
 
               {(showDetails || !department || !quoteDeadline) && (
                 <div className="mb-4 rounded-2xl border border-neutral-100 bg-white px-4 pt-4">

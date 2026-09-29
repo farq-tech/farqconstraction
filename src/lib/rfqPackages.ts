@@ -4,6 +4,7 @@
  * supplierPayload scopes each invite to only that supplier's lines.
  */
 import type { BOQItem } from '../types'
+import { cleanSpecCard, type SpecCard } from './specCard'
 
 export type RfqPackageDraft = {
   id: string
@@ -30,6 +31,8 @@ export type RfqLineDraft = {
    * it for this wording. Absent otherwise; never stored on the request line.
    */
   market_name_cleared?: true
+  /** «بطاقة المواصفة», when the buyer filled one. Absent otherwise. */
+  spec_card?: SpecCard
 }
 
 /**
@@ -52,6 +55,7 @@ export function buildRfqLinesFromItems(
   return items.map((item) => {
     const lineKey = String(item.lineKey || `line-${item.id}`)
     const market = marketNameToSend(item)
+    const card = cleanSpecCard(item.specCard)
     return {
       line_key: lineKey,
       farq_spec_id: item.farqSpecId || input.specIdForLine?.(lineKey) || null,
@@ -68,6 +72,7 @@ export function buildRfqLinesFromItems(
       // sent exactly as before.
       ...(market ? { market_name_ar: market } : {}),
       ...(!market && marketNameCleared(item) ? { market_name_cleared: true as const } : {}),
+      ...(card ? { spec_card: card } : {}),
     }
   })
 }

@@ -55,6 +55,7 @@ import SupplierScoreBadge from '../components/priceReview/SupplierScoreBadge'
 import VatUnknownChip from '../components/priceReview/VatUnknownChip'
 import { useConstructionAdmin } from '../components/priceReview/useConstructionAdmin'
 import { heldSummaryLabel, isHeldOffer, taxAssumptionsText } from '../lib/priceReview'
+import { specCardSummary, storedSiteSupplyFacts, validLink, type SpecCard } from '../lib/specCard'
 
 type Tab = 'overview' | 'items' | 'quotes' | 'suppliers' | 'messages' | 'history'
 const TABS: [Tab, string][] = [
@@ -249,7 +250,8 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   }
 
   const payload = (rfq.current_version?.payload || {}) as Record<string, unknown> & {
-    delivery?: { city?: string; site_address?: string; required_date?: string }
+    delivery?: { city?: string; site_address?: string; required_date?: string; district?: string; map_url?: string; mode?: string; shipping?: string }
+    commercial_terms?: Record<string, unknown>
     quote_deadline?: string
     quote_deadline_time?: string
     lines?: Array<Record<string, unknown>>
@@ -323,6 +325,15 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D] leading-tight">{title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-neutral-600">
           {payload.delivery?.city && <span>{payload.delivery.city}</span>}
+          {/* «الموقع والتوريد» as the suppliers read it; nothing for an older request. */}
+          {storedSiteSupplyFacts(payload).map((fact) => (
+            <span key={fact}>{fact}</span>
+          ))}
+          {validLink(payload.delivery?.map_url) && (
+            <a href={validLink(payload.delivery?.map_url) || undefined} target="_blank" rel="noopener noreferrer" className="text-[#123F3A] underline">
+              الموقع على الخريطة
+            </a>
+          )}
           {deadline && (
             <span className={`flex items-center gap-1 ${deadline.passed ? 'text-red-600 font-semibold' : ''}`}>
               <ClockIcon className="w-4 h-4" /> إغلاق العروض: {deadline.label}
@@ -445,6 +456,9 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-[#0D1F1D] text-sm">{name}</div>
                       <MarketNameNote name={market} className="mt-0.5" />
+                      {specCardSummary(line.spec_card as SpecCard | undefined) && (
+                        <div className="text-[11px] text-[#123F3A] mt-1">بطاقة المواصفة: {specCardSummary(line.spec_card as SpecCard | undefined)}</div>
+                      )}
                       {spec && (
                         <div className={`text-xs text-neutral-600 mt-1 leading-relaxed whitespace-pre-line ${long && !open ? 'line-clamp-2' : ''}`}>{spec}</div>
                       )}
