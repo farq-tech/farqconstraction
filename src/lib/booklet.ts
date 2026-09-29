@@ -7,6 +7,7 @@ import type {
   ConstructionRfqBookletLink,
 } from '../api/constructionClient'
 import { formatMoney, quoteDeadline, type Deadline } from './requestFile'
+import { isHeldOffer } from './priceReview'
 
 /**
  * Pure logic behind the booklet screens (الكراسة): one comparison across every
@@ -21,11 +22,17 @@ export type BookletColumn = {
   quote_total: number | null
   currency: string | null
   rfq_id: string | null
-  /** Lines this supplier priced, across all waves. */
+  /** Lines this supplier priced, across all waves (held prices not counted). */
   priced_lines: number
+  /** Lines whose price is held for review. */
+  held_lines?: number
+  price_review_held?: boolean
+  score?: ConstructionBookletSupplier['score'] | null
+  tax_unknown?: boolean
 }
 
-export type BookletCell = ConstructionBookletOffer & { best: boolean }
+/** `held`: the price is held for review — shown, never best, never summed. */
+export type BookletCell = ConstructionBookletOffer & { best: boolean; held: boolean }
 
 export type BookletRow = {
   line_key: string
@@ -58,9 +65,12 @@ const num = (v: unknown): number | null => {
 const priced = (o: ConstructionBookletOffer | undefined | null): boolean =>
   Boolean(o) && (num(o!.unit_price) != null || num(o!.total) != null)
 
-/** Cheapest by unit price; only when every priced offer shares one currency. */
-function cheapestSupplier(offers: ConstructionBookletOffer[]): string | null {
-  const candidates = offers.filter((o) => num(o.unit_price) != null)
+/**
+ * Cheapest by unit price; only when every priced offer shares one currency.
+ * A price held for review never competes.
+ */
+export function cheapestSupplier(offers: ConstructionBookletOffer[]): string | null {
+  const candidates = offers.filter((o) => num(o.unit_price) != null && !isHeldOffer(o))
   if (!candidates.length) return null
   const currencies = new Set(candidates.map((o) => (o.currency || 'SAR').toUpperCase()))
   if (currencies.size > 1) return null
@@ -89,6 +99,7 @@ export function buildBookletMatrix(detail: Partial<ConstructionBookletDetail> | 
   for (const s of suppliers) if (s && s.supplier_id != null) supplierById.set(String(s.supplier_id), s)
 
   const pricedCount = new Map<string, number>()
+  const heldCount = new Map<string, number>()
   const rows: BookletRow[] = [...lines]
     .filter((l) => l && l.line_key != null)
     .sort((a, b) => (num(a.position) ?? Infinity) - (num(b.position) ?? Infinity))
@@ -100,12 +111,14 @@ export function buildBookletMatrix(detail: Partial<ConstructionBookletDetail> | 
         const id = String(offer.supplier_id)
         // One supplier per line: a repeat (a later wave) keeps the first seen.
         if (cells.has(id)) continue
-        cells.set(id, { ...offer, supplier_id: id, best: false })
-        pricedCount.set(id, (pricedCount.get(id) || 0) + 1)
+        const held = isHeldOffer(offer)
+        cells.set(id, { ...offer, supplier_id: id, best: false, held })
+        if (held) heldCount.set(id, (heldCount.get(id) || 0) + 1)
+        else pricedCount.set(id, (pricedCount.get(id) || 0) + 1)
       }
       const offered = [...cells.values()]
       const serverBest = entry?.best_supplier_id != null ? String(entry.best_supplier_id) : null
-      const best = serverBest && cells.has(serverBest) ? serverBest : cheapestSupplier(offered)
+      const best = serverBest && cells.has(serverBest) && !cells.get(serverBest)!.held ? serverBest : cheapestSupplier(offered)
       if (best) cells.get(best)!.best = true
       const name = String(line.name_ar || '').trim() || '—'
       const market = String(line.market_name_ar || '').trim()
@@ -127,6 +140,7 @@ export function buildBookletMatrix(detail: Partial<ConstructionBookletDetail> | 
   const ids = new Set<string>()
   for (const s of suppliers) if (s?.quoted) ids.add(String(s.supplier_id))
   for (const id of pricedCount.keys()) ids.add(id)
+  for (const id of heldCount.keys()) ids.add(id)
 
   const columns: BookletColumn[] = [...ids].map((id) => {
     const s = supplierById.get(id)
@@ -138,6 +152,10 @@ export function buildBookletMatrix(detail: Partial<ConstructionBookletDetail> | 
       currency: s?.currency || null,
       rfq_id: s?.rfq_id || null,
       priced_lines: pricedCount.get(id) || 0,
+      held_lines: heldCount.get(id) || 0,
+      price_review_held: Boolean(s?.price_review_held) || (heldCount.get(id) || 0) > 0,
+      score: s?.score ?? null,
+      tax_unknown: s?.tax_unknown === true,
     }
   })
   columns.sort((a, b) => {
@@ -219,7 +237,9 @@ export function columnTotal(matrix: BookletMatrix, column: BookletColumn): { val
   let sum = 0
   let priced = 0
   for (const row of matrix.rows) {
-    const t = num(row.cells.get(column.supplier_id)?.total)
+    const cell = row.cells.get(column.supplier_id)
+    if (!cell || cell.held) continue
+    const t = num(cell.total)
     if (t == null) continue
     sum += t
     priced += 1

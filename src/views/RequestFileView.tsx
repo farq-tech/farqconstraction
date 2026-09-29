@@ -50,6 +50,11 @@ import {
 import type { CheapestBasket, LineSort, MatrixTotal } from '../lib/requestFile'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ChannelTag } from '../components/inbox/MessageBubble'
+import PriceReviewNote from '../components/priceReview/PriceReviewNote'
+import SupplierScoreBadge from '../components/priceReview/SupplierScoreBadge'
+import VatUnknownChip from '../components/priceReview/VatUnknownChip'
+import { useConstructionAdmin } from '../components/priceReview/useConstructionAdmin'
+import { heldSummaryLabel, isHeldOffer, taxAssumptionsText } from '../lib/priceReview'
 
 type Tab = 'overview' | 'items' | 'quotes' | 'suppliers' | 'messages' | 'history'
 const TABS: [Tab, string][] = [
@@ -65,6 +70,7 @@ const REASONS = ['أفضل سعر', 'أسرع توريد', 'أفضل مطابق�
 const POLL_MS = 30_000
 
 type Offer = ConstructionComparison['supplier_responses'][number]
+type Summary = NonNullable<NonNullable<ConstructionComparison['quote_matrix']>['supplier_summaries']>[number]
 
 function readUrl(): { tab: Tab | null; supplier: string | null } {
   try {
@@ -115,6 +121,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const [stepping, setStepping] = useState<'close' | 'open' | null>(null)
   const [broadcasting, setBroadcasting] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const isAdmin = useConstructionAdmin()
 
   const load = useCallback(
     async (id: string, what: { comparison?: boolean; outcomes?: boolean } = {}) => {
@@ -267,6 +274,10 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
     return Number(a.offer.totals?.total ?? Infinity) - Number(b.offer.totals?.total ?? Infinity)
   })
 
+  // After an admin confirms or corrects a held price: re-read the comparison.
+  const reloadComparison = () => load(rfq.id, { comparison: true, outcomes: outcomes !== null }).catch(() => {})
+  const cellProps = (lineId: string) => ({ rfqId: rfq.id, lineId, isAdmin, onResolved: reloadComparison })
+
   const resend = async (invite: ConstructionInvitation) => {
     setResending(invite.id)
     setNotice(null)
@@ -403,6 +414,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                   row={row}
                   name={String(row.supplier.name_ar || row.supplier.name_en || 'مورد')}
                   coverage={quoteCoverage(summaryBySupplier.get(String(row.supplier.id)))}
+                  summary={summaryBySupplier.get(String(row.supplier.id))}
                   winner={String(row.offer.inviteId || '') === awardedInviteId}
                 />
               ))}
@@ -471,6 +483,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                       row={row}
                       name={String(row.supplier.name_ar || row.supplier.name_en || 'مورد')}
                       coverage={cov}
+                      summary={summaryBySupplier.get(String(row.supplier.id))}
                       winner={String(row.offer.inviteId || '') === awardedInviteId}
                       action={
                         !rfq.award && state.key !== 'CANCELLED' ? (
@@ -518,6 +531,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                                     {active ? (lineSort!.dir === 'asc' ? '▲' : '▼') : '⇅'}
                                   </span>
                                 </button>
+                                <SupplierScoreBadge score={summaryBySupplier.get(id)?.score} className="mt-1" />
                               </th>
                             )
                           })}
@@ -533,7 +547,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                             </td>
                             {offers.map((row) => {
                               const cell = line.offers.find((c) => c && c.supplier_id === String(row.supplier.id))
-                              return <td key={String(row.offer.quoteVersionId)} className="px-3 py-2.5 align-top"><CellView cell={cell} lowest={best.get(line.id) === String(row.supplier.id)} /></td>
+                              return <td key={String(row.offer.quoteVersionId)} className="px-3 py-2.5 align-top"><CellView cell={cell} lowest={best.get(line.id) === String(row.supplier.id)} {...cellProps(line.id)} /></td>
                             })}
                           </tr>
                         ))}
@@ -569,8 +583,11 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                             const cell = line.offers.find((c) => c && c.supplier_id === String(row.supplier.id))
                             return (
                               <div key={String(row.offer.quoteVersionId)} className="flex items-center justify-between gap-3 py-2">
-                                <span className="text-xs text-[#0D1F1D] truncate">{row.supplier.name_ar || row.supplier.name_en}</span>
-                                <CellView cell={cell} lowest={best.get(line.id) === String(row.supplier.id)} />
+                                <span className="text-xs text-[#0D1F1D] truncate">
+                                  {row.supplier.name_ar || row.supplier.name_en}
+                                  <SupplierScoreBadge score={summaryBySupplier.get(String(row.supplier.id))?.score} className="ms-1" />
+                                </span>
+                                <CellView cell={cell} lowest={best.get(line.id) === String(row.supplier.id)} {...cellProps(line.id)} />
                               </div>
                             )
                           })}
@@ -747,33 +764,48 @@ function Empty({ text }: { text: string }) {
   return <div className="text-center py-12 bg-white border border-neutral-100 rounded-2xl text-sm text-neutral-500">{text}</div>
 }
 
-function QuoteCard({ row, name, coverage, winner, action }: {
+function QuoteCard({ row, name, coverage, summary, winner, action }: {
   row: Offer
   name: string
   coverage: ReturnType<typeof quoteCoverage>
+  summary?: Summary
   winner?: boolean
   action?: React.ReactNode
 }) {
   const offer = row.offer
   const total = offer.totals?.total
   const complete = (offer.totals as { complete?: boolean } | undefined)?.complete
-  const money = complete !== false ? formatMoney(total ?? null, String(offer.currency || 'SAR')) : null
+  // VAT not stated: never present one reading as the total — show both.
+  const assumptions = taxAssumptionsText(summary?.totals, String(offer.currency || 'SAR'))
+  const money = !assumptions && complete !== false ? formatMoney(total ?? null, String(offer.currency || 'SAR')) : null
+  const held = heldSummaryLabel(summary?.price_review)
   const submitted = formatEventTime(offer.submittedAt || null)
   return (
     <div className={`bg-white rounded-2xl border p-4 ${winner ? 'border-[#1a7a45] ring-1 ring-[#1a7a45]/30' : 'border-neutral-100'}`}>
       <div className="flex items-start justify-between gap-2">
-        <div className="font-bold text-[#0D1F1D] text-sm">{name}</div>
+        <div className="font-bold text-[#0D1F1D] text-sm">
+          {name}
+          <SupplierScoreBadge score={summary?.score} className="ms-1.5" />
+        </div>
         {winner && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#CFF5DC] text-[#1a7a45]">الفائز</span>}
       </div>
       <div className="mt-2 text-xl font-black text-[#0D1F1D] tabular-nums">
-        {money || <span className="text-sm font-semibold text-amber-700">إجمالي غير مكتمل — بعض الرسوم غير محددة</span>}
+        {money ||
+          (assumptions ? (
+            <span className="block text-sm font-semibold text-[#0D1F1D]">{assumptions}</span>
+          ) : (
+            <span className="text-sm font-semibold text-amber-700">إجمالي غير مكتمل — بعض الرسوم غير محددة</span>
+          ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
         {coverage && (
           <span className={`px-2 py-0.5 rounded-full font-semibold ${coverage.complete ? 'bg-[#e0efec] text-[#123F3A]' : 'bg-amber-50 text-amber-700'}`}>{coverage.label}</span>
         )}
-        <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{taxLabel(offer.prices_include_tax)}</span>
+        <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
+          {taxLabel(offer.prices_include_tax)}
+        </span>
         <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{leadTimeLabel(offer)}</span>
+        {held && <span className="px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">{held}</span>}
       </div>
       {submitted && <div className="mt-2 text-[11px] text-neutral-400">وصل: {submitted}</div>}
       {typeof offer.notes === 'string' && offer.notes.trim() && <div className="mt-2 text-xs text-neutral-600 line-clamp-2">ملاحظات: {offer.notes}</div>}
@@ -784,7 +816,39 @@ function QuoteCard({ row, name, coverage, winner, action }: {
 
 type Cell = NonNullable<ConstructionComparison['quote_matrix']>['lines'][number]['offers'][number] | undefined
 
-function CellView({ cell, lowest }: { cell: Cell; lowest: boolean }) {
+function CellView({ cell, lowest, rfqId, lineId, isAdmin, onResolved }: {
+  cell: Cell
+  lowest: boolean
+  rfqId: string
+  lineId: string
+  isAdmin: boolean
+  onResolved: () => void | Promise<void>
+}) {
+  if (cell && isHeldOffer(cell)) {
+    // Held for review: shown, de-emphasised, never the lowest.
+    return (
+      <div className="inline-block rounded-lg px-2 py-1 bg-amber-50/60">
+        {cell.unit_price != null && (
+          <div className="text-[11px] text-neutral-400 tabular-nums line-through decoration-amber-400/70">
+            {formatMoney(cell.unit_price, cell.currency)} للوحدة
+          </div>
+        )}
+        {cell.price_review ? (
+          <PriceReviewNote
+            review={cell.price_review}
+            currency={cell.currency}
+            rfqId={rfqId}
+            quoteVersionId={cell.quote_version_id}
+            lineId={lineId}
+            isAdmin={isAdmin}
+            onResolved={onResolved}
+          />
+        ) : (
+          <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">يحتاج مراجعة</span>
+        )}
+      </div>
+    )
+  }
   if (!cell || cell.status !== 'PRICED') {
     return <span className="text-xs text-neutral-400">{CELL_LABEL[String(cell?.status || 'NOT_QUOTED')] || 'لم يسعّر'}</span>
   }
@@ -794,6 +858,7 @@ function CellView({ cell, lowest }: { cell: Cell; lowest: boolean }) {
       <div className="text-[10px] text-neutral-500 tabular-nums">
         {formatMoney(cell.unit_price, cell.currency)} للوحدة{lowest ? ' · الأقل' : ''}
       </div>
+      <VatUnknownChip value={cell.prices_include_tax} className="mt-0.5" />
     </div>
   )
 }

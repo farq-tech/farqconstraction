@@ -4,6 +4,7 @@ import type {
   ConstructionRfq,
   ConstructionSupplierOutcomeEvent,
 } from '../api/constructionClient'
+import { isHeldOffer, vatStatusLabel } from './priceReview'
 
 /**
  * The request as one deal file: every figure here is read from what the server
@@ -90,10 +91,9 @@ export function quoteCoverage(summary?: { coverage?: { requested: number; priced
   return { ...c, label: `عرض جزئي — ${c.priced} من ${c.requested} ${c.requested === 1 ? 'بند' : 'بنود'}` }
 }
 
+/** null / absent is «not stated» — never read as «غير شامل». */
 export function taxLabel(pricesIncludeTax?: boolean | null): string {
-  if (pricesIncludeTax === true) return 'شامل الضريبة'
-  if (pricesIncludeTax === false) return 'غير شامل الضريبة'
-  return 'الضريبة غير محددة'
+  return vatStatusLabel(pricesIncludeTax)
 }
 
 /**
@@ -110,15 +110,21 @@ export function leadTimeLabel(offer: Record<string, unknown>): string {
 type Matrix = NonNullable<ConstructionComparison['quote_matrix']>
 type Cell = Matrix['lines'][number]['offers'][number]
 
+/** A cell whose price may be compared: PRICED and not held for review. */
+export function comparableCell(c: Cell | null | undefined): c is Cell {
+  return Boolean(c) && c!.status === 'PRICED' && !isHeldOffer(c)
+}
+
 /**
- * The lowest comparable price on each line. Only PRICED cells compete, and only
+ * The lowest comparable price on each line. Only PRICED cells compete (never a
+ * price held for review), and only
  * when every priced cell on the line states tax the same way and in one
  * currency; otherwise no cell is marked, because «cheapest» would be false.
  */
 export function lowestPerLine(matrix?: Matrix | null): Map<string, string | null> {
   const out = new Map<string, string | null>()
   for (const line of matrix?.lines || []) {
-    const priced = (line.offers || []).filter((c): c is Cell => Boolean(c) && c.status === 'PRICED' && c.unit_price != null)
+    const priced = (line.offers || []).filter((c): c is Cell => comparableCell(c) && c.unit_price != null)
     const taxBases = new Set(priced.map((c) => c.prices_include_tax))
     const currencies = new Set(priced.map((c) => c.currency))
     if (priced.length < 2 || taxBases.size > 1 || taxBases.has(null) || currencies.size > 1) {
@@ -150,7 +156,7 @@ export function sortLinesBySupplier<T extends { id: string; offers?: readonly (C
   if (!sort) return out
   const valueOf = (line: T): number | null => {
     const cell = (line.offers || []).find((c) => c && c.supplier_id === sort.supplierId)
-    if (!cell || cell.status !== 'PRICED' || cell.line_total == null) return null
+    if (!comparableCell(cell) || cell.line_total == null) return null
     return Number(cell.line_total)
   }
   return out
@@ -199,7 +205,7 @@ export function matrixTotals(matrix?: Matrix | null): { totals: MatrixTotal[]; l
       if (!cell) continue
       const entry = bySupplier.get(cell.supplier_id)
         || { total: 0, priced: 0, currencies: new Set<string>(), taxBases: new Set<boolean | null>() }
-      if (cell.status === 'PRICED' && cell.line_total != null) {
+      if (comparableCell(cell) && cell.line_total != null) {
         entry.total += Number(cell.line_total)
         entry.priced += 1
         entry.currencies.add(String(cell.currency || 'SAR'))
@@ -275,7 +281,7 @@ export function cheapestPerLineTotal(
     const winner = best.get(line.id)
     if (!winner) continue
     const cell = (line.offers || []).find((c) => c && c.supplier_id === winner)
-    if (!cell || cell.line_total == null) continue
+    if (!comparableCell(cell) || cell.line_total == null) continue
     total += Number(cell.line_total)
     covered += 1
     suppliers.add(winner)
@@ -306,6 +312,7 @@ export const CELL_LABEL: Record<string, string> = {
   QUANTITY_MISMATCH: 'كمية أو وحدة مختلفة',
   AMBIGUOUS: 'سعر مكرر',
   NOT_REQUESTED: 'لم يُطلب منه',
+  PRICE_REVIEW: 'سعر قيد المراجعة',
 }
 
 export type TimelineEvent = { key: string; at: string | null; title: string; detail?: string }
