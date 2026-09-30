@@ -64,7 +64,7 @@ export function BookletView({ navigate }: NavProps) {
       setConfirmingClose(false)
     } catch (err) {
       const status = err instanceof ConstructionApiError ? err.status : undefined
-      setCloseError(status === 403 ? 'إغلاق الكراسة يحتاج صلاحية مدير الحساب.' : err instanceof Error ? err.message : 'تعذّر إغلاق الكراسة')
+      setCloseError(status === 403 ? 'تقدر تغلق الكراسات المسندة لك فقط.' : err instanceof Error ? err.message : 'تعذّر إغلاق الكراسة')
     } finally {
       setClosing(false)
     }
