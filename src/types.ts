@@ -102,6 +102,28 @@ export interface BOQItem {
    */
   specCard?: import('./lib/specCard').SpecCard
   /**
+   * How the line entered the request: read from a booklet (absent means the
+   * same), found with «ابحث عن منتج», pasted as a product link, or typed.
+   * All of them sit in one cart and go through one send.
+   */
+  origin?: 'booklet' | 'search' | 'url' | 'manual'
+  /** Added or edited since the last supplier match; matched on «متابعة لاختيار الموردين». */
+  needsMatch?: boolean
+  /**
+   * What the internet said the product IS — for the buyer's cart only, never
+   * sent and never a price. The line's name, spec and spec card carry what
+   * the supplier reads.
+   */
+  productRef?: {
+    brand?: string
+    model?: string
+    imageUrl?: string
+    sourceName?: string
+    sourceUrl?: string
+    /** «استخدم مواصفاته فقط»: the brand is not required. */
+    genericOnly?: boolean
+  }
+  /**
    * The ontology NAMED this material and Farq's intent→supplier map was read
    * for that name. Not a catalogue match: `farqSpecId` stays unset and nothing
    * is preselected. `supplierCount: 0` means «معروف بلا مورد» — a fact about

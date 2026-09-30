@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { autoPickFor, buildPickContext } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
-import { parseBoqFile, resolveBoqCardFields } from '../lib/parseBoq'
+import { matchSuppliersForItems, parseBoqFile } from '../lib/parseBoq'
 import type { BoqActivity, BoqParseStage } from '../lib/parseBoq'
 import {
   BoqEtaTracker,
@@ -17,8 +17,10 @@ import {
 import {
   beginBoqUpload,
   clearParsedBoq,
+  getBoqItems,
   getSession,
   resetWorkingSession,
+  setCartItems,
   setParsedBoq,
   subscribeSession,
   upsertDraftRfq,
@@ -28,6 +30,18 @@ import { clearInflightUpload, loadInflightUpload, saveInflightUpload } from '../
 import { farqSession } from '../api/farqSession'
 import { useProcurement } from '../procurementContext'
 import { currentAuthMode } from '../api/constructionAuth'
+import {
+  appendToCart,
+  editCartLine,
+  linesToMatch,
+  mergeMatched,
+  newCartDocumentId,
+  removeCartLine,
+} from '../lib/rfqCart'
+import StartChooser, { type StartPath } from '../components/rfqCart/StartChooser'
+import ProductSearchPanel from '../components/rfqCart/ProductSearchPanel'
+import ManualLinesPanel from '../components/rfqCart/ManualLinesPanel'
+import CartPanel from '../components/rfqCart/CartPanel'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -339,6 +353,83 @@ export function UploadView({ navigate }: NavProps) {
   const lastFileRef = useRef<File | null>(null)
   /** Ignores a superseded run so a slow first attempt cannot overwrite a retry. */
   const runIdRef = useRef(0)
+  /** «كيف تبي تبدأ طلب التسعير؟» — which way in is open. All three fill one cart. */
+  const [startPath, setStartPath] = useState<StartPath | null>(null)
+  /** «طلبك»: every line of the request, whatever it came from (the session's lines). */
+  const [cart, setCart] = useState<BOQItem[]>(() => getBoqItems())
+  const [continuing, setContinuing] = useState(false)
+  const [cartError, setCartError] = useState('')
+  /** Once the buyer works on the cart here, «طلبك» itself is the way back; the restore note steps aside. */
+  const [cartTouched, setCartTouched] = useState(false)
+  useEffect(() => subscribeSession(() => setCart(getBoqItems())), [])
+
+  const addToCart = (lines: Array<Omit<BOQItem, 'id'>>) => {
+    if (!lines.length) return
+    setCartError('')
+    setCartTouched(true)
+    setCartItems(appendToCart(getBoqItems(), lines), newCartDocumentId)
+  }
+  const editLine = (id: number, patch: Partial<Pick<BOQItem, 'name' | 'qty' | 'unit' | 'spec'>>) => {
+    setCartTouched(true)
+    setCartItems(editCartLine(getBoqItems(), id, patch), newCartDocumentId)
+  }
+  const removeLine = (id: number) => {
+    setCartTouched(true)
+    setCartItems(removeCartLine(getBoqItems(), id), newCartDocumentId)
+  }
+
+  /**
+   * «متابعة لاختيار الموردين»: lines added or changed since the last match are
+   * matched the way a booklet's lines are, then the request goes on to the
+   * SAME supplier selection and send. No second request path.
+   */
+  const continueToSuppliers = async () => {
+    if (continuing) return
+    const current = getBoqItems()
+    if (!current.length) return
+    setContinuing(true)
+    setCartError('')
+    try {
+      let next = current
+      const pending = linesToMatch(current)
+      if (pending.length) {
+        const matched = await matchSuppliersForItems(pending)
+        if (matched.matchApiError) {
+          setCartError(
+            `تعذّرت مطابقة الموردين للبنود الجديدة: ${matched.matchApiError} — بنودك محفوظة، أعد المحاولة.`,
+          )
+          return
+        }
+        next = mergeMatched(getBoqItems(), matched.items)
+      }
+      setCartItems(next, newCartDocumentId)
+      const session = getSession()
+      const documentId = session.documentId || newCartDocumentId()
+      setDraftBoq({
+        documentId,
+        fileName: session.fileName,
+        items: next,
+        selectedSupplierIds: Object.fromEntries(next.map((item) => [String(item.id), [] as string[]])),
+      })
+      if (!session.activeRfqId) {
+        const today = new Date()
+        upsertDraftRfq({
+          id: `RFQ-${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${String(today.getHours()).padStart(2, '0')}${String(today.getMinutes()).padStart(2, '0')}-${documentId.replace(/^cart-/, '').slice(0, 8)}`,
+          name: session.projectName || 'طلب تسعير',
+          items: next.length,
+          offers: 0,
+          suppliers: new Set(next.flatMap((i) => i.suppliers.map((s) => s.id))).size,
+          status: 'draft',
+          date: today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        })
+      }
+      navigate('create-proposals')
+    } catch (err) {
+      setCartError(err instanceof Error ? err.message : 'تعذّرت المتابعة. بنودك محفوظة، أعد المحاولة.')
+    } finally {
+      setContinuing(false)
+    }
+  }
 
   useEffect(() => {
     if (phase !== 'processing') return
@@ -364,6 +455,14 @@ export function UploadView({ navigate }: NavProps) {
     }
     void saveInflightUpload(file, farqSession.getUser()?.id ?? null)
     setNeedsSignIn(false)
+    // Lines already found by search or typed stay in the request: a booklet
+    // read replaces the previous BOOKLET, never the rest of the cart.
+    const extras = getBoqItems()
+      .filter((item) => item.origin && item.origin !== 'booklet')
+      .map(({ id: _id, lineKey: _key, ...rest }) => rest)
+    const keepExtras = () => {
+      if (extras.length) setCartItems(appendToCart([], extras), newCartDocumentId)
+    }
     // Isolate this upload immediately — never keep previous booklet lines around.
     beginBoqUpload({ fileName: file.name })
     setDraftBoq(null)
@@ -447,6 +546,7 @@ export function UploadView({ navigate }: NavProps) {
 
       if (result.items.length === 0) {
         clearParsedBoq()
+        keepExtras()
         setDraftBoq(null)
         setItems([])
         setProgress(35)
@@ -496,10 +596,11 @@ export function UploadView({ navigate }: NavProps) {
         setErrorMsg(result.matchWarning)
       }
       const unreadLines = result.unreadableLineCount ?? 0
+      const cartItems = extras.length ? appendToCart(result.items, extras) : result.items
       setParsedBoq({
         fileName: file.name,
         projectName: result.projectName,
-        items: result.items,
+        items: cartItems,
         documentId: result.documentId,
         // The verdict travels with the lines, so the send step can enforce it.
         readIssue: result.codedItemsSuspect
@@ -513,12 +614,12 @@ export function UploadView({ navigate }: NavProps) {
       setDraftBoq({
         documentId: result.documentId,
         fileName: file.name,
-        items: result.items,
+        items: cartItems,
         // Persisted as empty for the same reason the proposals screen no longer
         // pre-ticks: being returned by ranking is a suggestion, not the buyer's
         // decision, and a stored selection would put the decision back.
         selectedSupplierIds: Object.fromEntries(
-          result.items.map((item) => [String(item.id), [] as string[]]),
+          cartItems.map((item) => [String(item.id), [] as string[]]),
         ),
       })
 
@@ -534,7 +635,7 @@ export function UploadView({ navigate }: NavProps) {
       upsertDraftRfq({
         id: rfqId,
         name: result.projectName,
-        items: result.items.length,
+        items: cartItems.length,
         offers: 0,
         suppliers: supplierSet.size,
         status: 'draft',
@@ -547,6 +648,7 @@ export function UploadView({ navigate }: NavProps) {
       if (!current()) return
       // Document isolation: a failed run shows an error, never the last booklet.
       clearParsedBoq()
+      keepExtras()
       setDraftBoq(null)
       setItems([])
       setActiveStage(null)
@@ -598,7 +700,12 @@ export function UploadView({ navigate }: NavProps) {
 
   const reset = () => {
     void clearInflightUpload()
+    // «رفع ملف آخر» replaces the booklet; searched and typed lines stay.
+    const extras = getBoqItems()
+      .filter((item) => item.origin && item.origin !== 'booklet')
+      .map(({ id: _id, lineKey: _key, ...rest }) => rest)
     clearParsedBoq()
+    if (extras.length) setCartItems(appendToCart([], extras), newCartDocumentId)
     setDraftBoq(null)
     runIdRef.current += 1
     lastFileRef.current = null
@@ -642,18 +749,30 @@ export function UploadView({ navigate }: NavProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-[#0D1F1D] mb-2">ارفع الكراسة</h1>
-        <p className="text-neutral-500">ارفع ملف الكراسة وسيقرأ فرق البنود تلقائيًا</p>
-      </div>
+      {phase === 'idle' ? (
+        <StartChooser
+          active={startPath}
+          onChoose={(path) => {
+            setStartPath(path)
+            if (path === 'upload') inputRef.current?.click()
+          }}
+        />
+      ) : (
+        <div className="mb-8">
+          <h1 className="text-3xl font-black text-[#0D1F1D] mb-2">ارفع الكراسة</h1>
+          <p className="text-neutral-500">ارفع ملف الكراسة وسيقرأ فرق البنود تلقائيًا</p>
+        </div>
+      )}
 
       {/*
         A booklet already read is not lost by leaving the screen, so say so and
         offer the way back. Only «ابدأ من جديد» throws it away.
       */}
-      {phase === 'idle' && restoredItems > 0 && (
+      {phase === 'idle' && restoredItems > 0 && !cartTouched && (
         <div className="mb-6 rounded-2xl border border-[#CFF5DC] bg-[#F3FBF6] px-5 py-4">
-          <div className="text-sm font-bold text-[#123F3A] mb-1">كراستك السابقة ما زالت محفوظة</div>
+          <div className="text-sm font-bold text-[#123F3A] mb-1">
+            {restoredName ? 'كراستك السابقة ما زالت محفوظة' : 'طلبك السابق ما زال محفوظًا'}
+          </div>
           <div className="text-xs text-neutral-600 mb-3">
             {restoredName ? `${restoredName} · ` : ''}
             {restoredItems} بندًا واختياراتك للموردين. لن تُحذف إلا إذا بدأت من جديد.
@@ -661,8 +780,9 @@ export function UploadView({ navigate }: NavProps) {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => navigate('create-proposals')}
-              className="text-xs font-bold bg-[#123F3A] text-white rounded-lg px-3 py-2"
+              onClick={() => void continueToSuppliers()}
+              disabled={continuing}
+              className="text-xs font-bold bg-[#123F3A] text-white rounded-lg px-3 py-2 disabled:opacity-50"
             >
               تابع من حيث توقفت
             </button>
@@ -681,9 +801,26 @@ export function UploadView({ navigate }: NavProps) {
         </div>
       )}
 
-      {phase === 'idle' && (
+      {/* Always mounted, so «ارفع كراسة» opens the picker in one tap. */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        data-testid="booklet-file"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          if (f) void runProcessing(f)
+        }}
+      />
+
+      {phase === 'idle' && startPath === 'search' && <ProductSearchPanel onAdd={(line) => addToCart([line])} />}
+      {phase === 'idle' && startPath === 'manual' && <ManualLinesPanel onAdd={addToCart} />}
+
+      {phase === 'idle' && (startPath === 'upload' || needsSignIn) && (
         <div
-          className={`rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
+          className={`mb-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
             dragging ? 'border-[#123F3A] bg-[#f0faf7]' : 'border-neutral-200 bg-white hover:border-[#123F3A]/40'
           }`}
           onDragOver={(e) => {
@@ -718,17 +855,7 @@ export function UploadView({ navigate }: NavProps) {
               </button>
             </div>
           )}
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".pdf,application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) void runProcessing(f)
-            }}
-          />
-          <div className="flex flex-col items-center py-20 px-8">
+          <div className="flex flex-col items-center py-14 px-8">
             <div className="w-16 h-16 rounded-2xl bg-[#CFF5DC] flex items-center justify-center mb-5">
               <UploadIcon className="w-8 h-8 text-[#123F3A]" />
             </div>
@@ -740,6 +867,17 @@ export function UploadView({ navigate }: NavProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {phase === 'idle' && (cart.length > 0 || startPath === 'search' || startPath === 'manual') && (
+        <CartPanel
+          items={cart}
+          busy={continuing}
+          error={cartError}
+          onEdit={editLine}
+          onRemove={removeLine}
+          onContinue={() => void continueToSuppliers()}
+        />
       )}
 
       {(phase === 'processing' || phase === 'done') && (
@@ -909,50 +1047,39 @@ export function UploadView({ navigate }: NavProps) {
                 </div>
               )}
 
-              {/* البنود appear immediately */}
-              <div className="mb-5 max-h-72 overflow-y-auto rounded-xl border border-neutral-100 divide-y divide-neutral-50">
-                {items.slice(0, 60).map((item) => {
-                  const { name, qty, unit, spec } = resolveBoqCardFields(item)
-                  return (
-                  <div key={item.id} className="px-4 py-3 flex items-start gap-3 text-right">
-                    <span className="text-xs font-bold text-neutral-400 w-6 pt-0.5">{item.id}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-[#0D1F1D]">{name}</div>
-                      <div className="text-xs text-neutral-500 mt-0.5 line-clamp-2" title={spec || undefined}>
-                        <span className="font-semibold text-[#0D1F1D]">{qty} {unit}</span>
-                        {spec ? ` · ${spec}` : ''}
-                      </div>
-                    </div>
-                    {(() => {
-                      const n = (picksById.get(item.id) || []).length
-                      return (
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${
-                            n ? 'bg-[#CFF5DC] text-[#1a7a45]' : 'bg-amber-50 text-amber-700'
-                          }`}
-                        >
-                          {n === 0 ? 'بلا مورد' : n === 1 ? 'مورد واحد' : n === 2 ? 'موردان' : `${n} موردين`}
-                        </span>
-                      )
-                    })()}
-                  </div>
-                  )
-                })}
-                {items.length > 60 && (
-                  <div className="px-4 py-3 text-xs text-neutral-500 text-center">
-                    و{(items.length - 60).toLocaleString('en-US')} بندًا آخر تجدها كلها في الخطوة التالية
-                  </div>
-                )}
+              {/* The booklet's lines are in «طلبك» with anything found or typed:
+                  add more, edit or remove any of them, then carry on. */}
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setStartPath('search')}
+                  className={`flex-1 text-xs font-bold rounded-lg px-3 py-2 border ${startPath === 'search' ? 'border-[#123F3A] bg-[#f0faf7] text-[#123F3A]' : 'border-neutral-200 text-neutral-600'}`}
+                >
+                  + ابحث عن منتج وأضفه
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStartPath('manual')}
+                  className={`flex-1 text-xs font-bold rounded-lg px-3 py-2 border ${startPath === 'manual' ? 'border-[#123F3A] bg-[#f0faf7] text-[#123F3A]' : 'border-neutral-200 text-neutral-600'}`}
+                >
+                  + اكتب بندًا يدويًا
+                </button>
               </div>
-
-              <button
-                onClick={() => navigate('create-proposals')}
-                className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
-              >
-                {partialRead
-                  ? `عرض الموردين للبنود المقروءة فقط (${coveredCount} من ${readReport?.expected ?? items.length})`
-                  : `عرض الموردين المقترحين (${coveredCount} بندًا لها موردون)`}
-              </button>
+              {startPath === 'search' && <ProductSearchPanel onAdd={(line) => addToCart([line])} />}
+              {startPath === 'manual' && <ManualLinesPanel onAdd={addToCart} />}
+              <CartPanel
+                items={cart}
+                busy={continuing}
+                error={cartError}
+                onEdit={editLine}
+                onRemove={removeLine}
+                onContinue={() => void continueToSuppliers()}
+                continueLabel={
+                  partialRead
+                    ? `متابعة لاختيار الموردين — البنود المقروءة فقط (${coveredCount} من ${readReport?.expected ?? items.length} لها موردون)`
+                    : `متابعة لاختيار الموردين (${coveredCount} بندًا من الكراسة لها موردون)`
+                }
+              />
               <button
                 onClick={reset}
                 className="w-full mt-2 py-3 border border-neutral-200 text-neutral-600 font-semibold rounded-xl hover:bg-neutral-50 transition-colors text-sm"

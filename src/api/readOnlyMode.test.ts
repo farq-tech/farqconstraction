@@ -60,6 +60,7 @@ describe('read-only mode', () => {
   it('keeps the search POSTs open, because the journey needs them', () => {
     withReadOnly('1', () => {
       expect(isBlockedWrite('/api/construction/boq/match', 'POST')).toBe(false)
+      expect(isBlockedWrite('/api/construction/product-search', 'POST')).toBe(false)
       expect(isBlockedWrite('/api/construction/suppliers/match', 'POST')).toBe(false)
       expect(isBlockedWrite('/api/construction/boq/parse-pdf', 'POST')).toBe(false)
     })

@@ -2687,6 +2687,32 @@ export async function getConstructionReportLines(filter: 'no_offer' | 'single_of
   return request<{ filter: string; rfq_id: string | null; lines: ConstructionReportLine[] }>(`/api/construction/reports/lines?${qs}`)
 }
 
+/**
+ * «ابحث عن منتج»: product cards (name, brand, model, image, specs, source) for
+ * a name, model, SKU or product link. Never a price. A limit or a slow search
+ * comes back as a status with an Arabic message, not as an error.
+ */
+export async function searchConstructionProducts(
+  q: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<import('../lib/rfqCart').ProductSearchResult> {
+  const result = await request<import('../lib/rfqCart').ProductSearchResult | null>('/api/construction/product-search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q: String(q || '').slice(0, 1000) }),
+    signal: options.signal,
+    timeoutMs: 60_000,
+  })
+  return {
+    status: result?.status || 'UNAVAILABLE',
+    query: result?.query || q,
+    mode: result?.mode,
+    cards: Array.isArray(result?.cards) ? result!.cards : [],
+    cached: result?.cached,
+    message_ar: result?.message_ar,
+  }
+}
+
 export async function matchConstructionBoqCatalog(payload: {
   lines?: Array<{
     line_key: string
