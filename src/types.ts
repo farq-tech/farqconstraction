@@ -20,6 +20,8 @@ export type AppView =
   | 'supplier-detail'
   | 'settings'
   | 'reports'
+  | 'executive-brief'
+  | 'brief-share'
   | 'learning-review'
   | 'access-denied'
   | 'supplier'

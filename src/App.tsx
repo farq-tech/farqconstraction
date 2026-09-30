@@ -19,6 +19,7 @@ import { AwardView } from './views/AwardView'
 import { AwardSuccessView } from './views/AwardSuccessView'
 import { SupplierManagementView } from './views/SupplierManagementView'
 import { ReportsView } from './views/ReportsView'
+import { ExecutiveBriefView, SharedBriefView } from './views/ExecutiveBriefView'
 import { SupplierDetailView } from './views/SupplierDetailView'
 import { SettingsView } from './views/SettingsView'
 import { AccessDeniedView } from './views/AccessDeniedView'
@@ -58,6 +59,14 @@ function AppRoutes() {
   }, [session.isAuthenticated])
 
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
+  // A public brief link carries its own data and needs no session.
+  if (view === 'brief-share') {
+    return (
+      <ErrorBoundary resetKey={view}>
+        <SharedBriefView />
+      </ErrorBoundary>
+    )
+  }
   // An invited colleague arrives signed out; the page creates the session.
   if (view === 'invite') return <InviteView navigate={navigate} />
   // A production build has no demo identity, so without a session every screen
@@ -78,6 +87,15 @@ function AppRoutes() {
   }
   if ((view === 'login' && !session.isAuthenticated) || (import.meta.env.PROD && !session.isAuthenticated)) {
     return <LoginView navigate={navigate} />
+  }
+
+  // A presentation owns the whole screen: no sidebar, no header.
+  if (view === 'executive-brief') {
+    return (
+      <ErrorBoundary resetKey={view}>
+        <ExecutiveBriefView navigate={navigate} />
+      </ErrorBoundary>
+    )
   }
 
   return (
