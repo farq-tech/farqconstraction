@@ -2710,6 +2710,16 @@ export async function searchConstructionProducts(
     cards: Array.isArray(result?.cards) ? result!.cards : [],
     cached: result?.cached,
     message_ar: result?.message_ar,
+    quota: result?.quota,
+  }
+}
+
+/** «عمليات البحث اليوم»: the company-wide daily allowance (1,500). Null when the server has no counter yet. */
+export async function getConstructionProductSearchQuota(): Promise<import('../lib/rfqCart').ProductSearchQuota | null> {
+  try {
+    return await request<import('../lib/rfqCart').ProductSearchQuota | null>('/api/construction/product-search/quota', { timeoutMs: 10_000 })
+  } catch {
+    return null
   }
 }
 

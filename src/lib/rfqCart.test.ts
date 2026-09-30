@@ -11,6 +11,7 @@ import {
   mergeMatched,
   parseManualLine,
   quickSheetFor,
+  quotaLabel,
   removeCartLine,
   safeImageUrl,
   type ProductCard,
@@ -148,5 +149,13 @@ describe('one cart, mixed sources', () => {
     expect(cartCountLabel(1)).toBe('بند واحد')
     expect(cartCountLabel(2)).toBe('بندان')
     expect(cartCountLabel(3)).toBe('3 بنود')
+  })
+})
+
+describe('quotaLabel — «عمليات البحث اليوم»', () => {
+  it('shows what is left of the 1,500 a day', () => {
+    expect(quotaLabel({ used: 68, limit: 1500, remaining: 1432 })).toBe('عمليات البحث اليوم: 1,432 متبقية من 1,500')
+    expect(quotaLabel({ used: 1500, limit: 1500, remaining: 0 })).toBe('عمليات البحث اليوم: 0 متبقية من 1,500')
+    expect(quotaLabel(null)).toBe('')
   })
 })

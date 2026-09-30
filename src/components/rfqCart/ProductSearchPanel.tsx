@@ -6,15 +6,17 @@
  * where that came from. It never shows a store price: a price on a website is
  * not a supplier's quote, and this screen only builds the request.
  */
-import { useRef, useState } from 'react'
-import { searchConstructionProducts } from '../../api/constructionClient'
+import { useEffect, useRef, useState } from 'react'
+import { getConstructionProductSearchQuota, searchConstructionProducts } from '../../api/constructionClient'
 import {
   lineFromProduct,
   quickSheetFor,
   safeImageUrl,
   type AddMode,
   type ProductCard,
+  type ProductSearchQuota,
   type ProductSearchResult,
+  quotaLabel,
 } from '../../lib/rfqCart'
 import type { BOQItem } from '../../types'
 import QuickAddSheet from './QuickAddSheet'
@@ -98,7 +100,14 @@ export default function ProductSearchPanel({ onAdd }: { onAdd: (line: Omit<BOQIt
   const [error, setError] = useState('')
   const [choice, setChoice] = useState<{ card: ProductCard; mode: AddMode } | null>(null)
   const [added, setAdded] = useState('')
+  const [quota, setQuota] = useState<ProductSearchQuota | null>(null)
   const ctrl = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    let live = true
+    void getConstructionProductSearchQuota().then((q) => { if (live && q) setQuota(q) })
+    return () => { live = false }
+  }, [])
 
   const run = async (text: string) => {
     const query = text.trim()
@@ -116,6 +125,7 @@ export default function ProductSearchPanel({ onAdd }: { onAdd: (line: Omit<BOQIt
       const res = await searchConstructionProducts(query, { signal: controller.signal })
       if (ctrl.current !== controller) return
       setResult(res)
+      if (res.quota) setQuota(res.quota)
     } catch (err) {
       if (ctrl.current !== controller) return
       setResult(null)
@@ -150,6 +160,15 @@ export default function ProductSearchPanel({ onAdd }: { onAdd: (line: Omit<BOQIt
           {busy ? 'نبحث…' : 'ابحث'}
         </button>
       </form>
+      {quota && quota.limit > 0 && (
+        <div
+          className={`mt-2 text-[11px] font-semibold ${quota.remaining === 0 ? 'text-amber-700' : quota.remaining < quota.limit * 0.1 ? 'text-amber-600' : 'text-neutral-500'}`}
+          data-testid="product-search-quota"
+        >
+          {quotaLabel(quota)}
+          {quota.remaining === 0 && ' — الصق رابط المنتج أو اكتب البند يدويًا'}
+        </div>
+      )}
       {!result && !busy && !error && (
         <div className="flex flex-wrap gap-1.5 mt-2 items-center">
           <span className="text-[11px] text-neutral-400">مثال:</span>

@@ -40,6 +40,10 @@ export type ProductSearchStatus =
   | 'TIMEOUT'
   | 'UNAVAILABLE'
   | 'INVALID_QUERY'
+  | 'GLOBAL_DAILY_LIMIT'
+
+/** The company-wide daily search allowance (1,500 a day), shown as «عمليات البحث اليوم». */
+export type ProductSearchQuota = { used: number; limit: number; remaining: number; enabled?: boolean }
 
 export type ProductSearchResult = {
   status: ProductSearchStatus
@@ -48,6 +52,14 @@ export type ProductSearchResult = {
   cards: ProductCard[]
   cached?: boolean
   message_ar?: string
+  quota?: ProductSearchQuota
+}
+
+/** «عمليات البحث اليوم: 1,432 متبقية من 1,500». */
+export function quotaLabel(q: ProductSearchQuota | null | undefined): string {
+  if (!q || !(q.limit > 0)) return ''
+  const n = (v: number) => Math.max(0, Math.round(v)).toLocaleString('en-US')
+  return `عمليات البحث اليوم: ${n(q.remaining)} متبقية من ${n(q.limit)}`
 }
 
 /** «أضف هذا المنتج» keeps the brand and model; «استخدم مواصفاته فقط» asks for any matching brand. */
