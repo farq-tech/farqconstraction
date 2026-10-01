@@ -7,6 +7,8 @@ import { NotificationsDrawer } from './NotificationsDrawer'
 import { getConstructionMe, inboxUnreadConversations, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
+import { useServices } from '../api/useServices'
+import { serviceForView } from '../lib/services'
 
 interface ShellProps {
   view: AppView
@@ -14,8 +16,14 @@ interface ShellProps {
   children: React.ReactNode
 }
 
-function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: string | null = null) {
-  return [
+function buildNav(
+  offerBadge: string | null,
+  isScopeOwner = false,
+  inboxBadge: string | null = null,
+  canManageServices = false,
+  hasService: (key: string) => boolean = () => true,
+) {
+  const items = [
     {
       id: 'home' as AppView,
       label: 'الرئيسية',
@@ -79,6 +87,17 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
       Icon: FileIcon,
       active: (v: AppView) => v === 'reports',
     },
+    // «الخدمات»: Farq staff turn add-on services on or off per account.
+    ...(canManageServices
+      ? [
+          {
+            id: 'services' as AppView,
+            label: 'الخدمات',
+            Icon: SettingsIcon,
+            active: (v: AppView) => v === 'services',
+          },
+        ]
+      : []),
     {
       id: 'settings' as AppView,
       label: 'الإعدادات',
@@ -86,6 +105,11 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
       active: (v: AppView) => v === 'settings' || v === 'access-denied',
     },
   ]
+  // A section whose add-on service is off for this account is not offered.
+  return items.filter((item) => {
+    const key = serviceForView(item.id)
+    return key == null || hasService(key)
+  })
 }
 
 const CREATE_STEPS = [
@@ -129,10 +153,13 @@ export function Shell({ view, navigate, children }: ShellProps) {
       cancelled = true
     }
   }, [session.isAuthenticated, session.user?.id])
+  const services = useServices()
   const NAV = buildNav(
     offerCount != null && offerCount > 0 ? String(offerCount) : null,
     isScopeOwner,
     inboxUnread != null && inboxUnread > 0 ? String(inboxUnread) : null,
+    services.canManage,
+    services.has,
   )
   const onInboxUnreadChange = useCallback((count: number) => {
     setInboxUnread(count)
@@ -299,7 +326,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
+          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button

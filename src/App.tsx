@@ -29,6 +29,9 @@ import { useEffect, useRef } from 'react'
 import { useFarqSession } from './api/useFarqSession'
 import { restoreSession } from './store/session'
 import { LearningReviewView } from './views/LearningReviewView'
+import { ServicesAdminView, ServiceOffView } from './views/ServicesAdminView'
+import { useServices } from './api/useServices'
+import { serviceForView, viewAllowed } from './lib/services'
 
 function AppRoutes() {
   const {
@@ -38,6 +41,7 @@ function AppRoutes() {
     setSelectedSupplierId,
   } = useProcurement()
   const session = useFarqSession()
+  const services = useServices()
   const restored = useRef(false)
 
   /*
@@ -80,6 +84,16 @@ function AppRoutes() {
     return <LoginView navigate={navigate} />
   }
 
+  // A screen whose add-on service is off for this account («الخدمات»). With
+  // gating off or no answer from the server, nothing is ever hidden here.
+  if (!viewAllowed(view, services)) {
+    return (
+      <Shell view={view} navigate={navigate}>
+        <ServiceOffView navigate={navigate} serviceName={serviceForView(view) === 'rfq' ? 'طلبات عروض الأسعار' : String(serviceForView(view))} />
+      </Shell>
+    )
+  }
+
   return (
     <Shell view={view} navigate={navigate}>
       <ErrorBoundary resetKey={view}>
@@ -117,6 +131,7 @@ function AppRoutes() {
       {view === 'inbox' && <InboxView navigate={navigate} />}
       {view === 'inbox-thread' && <InboxThreadView navigate={navigate} />}
       {view === 'access-denied' && <AccessDeniedView navigate={navigate} />}
+      {view === 'services' && <ServicesAdminView navigate={navigate} />}
       </ErrorBoundary>
     </Shell>
   )

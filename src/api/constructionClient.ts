@@ -845,6 +845,63 @@ export async function getConstructionMe() {
 }
 
 /*
+ * ADD-ON SERVICES («الخدمات»).
+ *
+ * Each account enables the services it wants: `rfq` (طلبات عروض الأسعار) and
+ * `etimad` (منافسات اعتماد). The server's gates are what refuse; the app only
+ * hides what the account does not have (see src/lib/services.ts).
+ */
+export type ConstructionServiceKey = 'rfq' | 'etimad' | (string & {})
+
+export type ConstructionService = {
+  key: ConstructionServiceKey
+  name_ar: string
+  description_ar?: string
+  active?: boolean
+  enabled: boolean
+}
+
+export type ConstructionMyServices = {
+  account_id?: string
+  gating: 'off' | 'log' | 'enforce'
+  can_manage: boolean
+  default_enabled?: string[]
+  services: ConstructionService[]
+}
+
+export type ConstructionServiceAccount = {
+  owner_user_id: string
+  email: string | null
+  members: number
+  services: Record<string, boolean>
+}
+
+export async function getMyServices(): Promise<ConstructionMyServices> {
+  return request<ConstructionMyServices>('/api/construction/me/services')
+}
+
+export async function listServiceAccounts(): Promise<{ services: ConstructionService[]; accounts: ConstructionServiceAccount[] }> {
+  const result = await request<{ services?: ConstructionService[]; accounts?: ConstructionServiceAccount[] } | null>(
+    '/api/construction/admin/services/accounts',
+  )
+  return {
+    services: Array.isArray(result?.services) ? result!.services : [],
+    accounts: Array.isArray(result?.accounts) ? result!.accounts : [],
+  }
+}
+
+export async function setAccountService(ownerUserId: string, key: string, enabled: boolean, reason?: string) {
+  return request<{ service: { owner_user_id: string; service_key: string; enabled: boolean } }>(
+    `/api/construction/admin/services/accounts/${encodeURIComponent(ownerUserId)}/${encodeURIComponent(key)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reason && reason.trim() ? { enabled, reason: reason.trim() } : { enabled }),
+    },
+  )
+}
+
+/*
  * REQUEST OWNERSHIP.
  *
  * Every request and booklet has a responsible colleague. Only an ADMIN can move
