@@ -1,5 +1,17 @@
 import { useState } from 'react'
-import { getRfqEquivalents } from '../../api/constructionClient'
+import { discoverRfqWebAlternatives, getRfqEquivalents, getRfqWebAlternatives } from '../../api/constructionClient'
+import {
+  canSearch,
+  hiddenCount,
+  matchStateClass,
+  matchStateLabel,
+  priceText,
+  safeLink,
+  verifiedDateText,
+  visibleAlternatives,
+  webStatusNote,
+  type WebLine,
+} from '../../lib/webAlternatives'
 import {
   MAX_CANDIDATES,
   attrText,
@@ -18,8 +30,14 @@ import {
  * `equivalents` service. Nothing is fetched until the reader opens the
  * section, and a «service off» answer hides it silently.
  */
-export default function EquivalentsPanel({ rfqId }: { rfqId: string }) {
+export default function EquivalentsPanel({ rfqId, webEnabled = false }: { rfqId: string; webEnabled?: boolean }) {
   const [open, setOpen] = useState(false)
+  // «بدائل من الإنترنت»: a second add-on; its failure never touches the internal list.
+  const [webLines, setWebLines] = useState<Record<string, WebLine>>({})
+  const [webAllowed, setWebOn] = useState(true)
+  const webOn = webEnabled && webAllowed
+  const [searching, setSearching] = useState<string | null>(null)
+  const [webError, setWebError] = useState<string | null>(null)
   const [lines, setLines] = useState<EquivalenceLine[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,11 +51,44 @@ export default function EquivalentsPanel({ rfqId }: { rfqId: string }) {
       const data = await getRfqEquivalents(rfqId)
       setLines(Array.isArray(data?.lines) ? data.lines : [])
       setLoadedFor(rfqId)
+      if (webOn) void loadWeb()
     } catch (err) {
       if (isServiceDisabledError(err)) setHidden(true)
       else setError(err instanceof Error ? err.message : 'تعذّر تحميل البدائل')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const mergeWeb = (incoming: WebLine[] | undefined) => {
+    if (!Array.isArray(incoming)) return
+    setWebLines((prev) => {
+      const next = { ...prev }
+      for (const line of incoming) if (line?.line_id) next[line.line_id] = line
+      return next
+    })
+  }
+
+  const loadWeb = async () => {
+    try {
+      const data = await getRfqWebAlternatives(rfqId)
+      mergeWeb(data?.lines)
+    } catch (err) {
+      if (isServiceDisabledError(err)) setWebOn(false)
+    }
+  }
+
+  const searchWeb = async (lineId: string) => {
+    setSearching(lineId)
+    setWebError(null)
+    try {
+      const data = await discoverRfqWebAlternatives(rfqId, [lineId])
+      mergeWeb(data?.lines)
+    } catch (err) {
+      if (isServiceDisabledError(err)) setWebOn(false)
+      else setWebError(err instanceof Error ? err.message : 'تعذّر البحث في الإنترنت')
+    } finally {
+      setSearching(null)
     }
   }
 
@@ -79,14 +130,22 @@ export default function EquivalentsPanel({ rfqId }: { rfqId: string }) {
           )}
           {!loading &&
             !error &&
-            (lines || []).map((line) => <LineSection key={line.line_id || line.line_key} line={line} />)}
+            (lines || []).map((line) => (
+              <LineSection
+                key={line.line_id || line.line_key}
+                line={line}
+                web={webOn ? { line: webLines[line.line_id] || null, searching: searching === line.line_id, busy: searching !== null, error: webError, onSearch: () => void searchWeb(line.line_id) } : null}
+              />
+            ))}
         </div>
       )}
     </div>
   )
 }
 
-function LineSection({ line }: { line: EquivalenceLine }) {
+type WebProps = { line: WebLine | null; searching: boolean; busy: boolean; error: string | null; onSearch: () => void }
+
+function LineSection({ line, web }: { line: EquivalenceLine; web: WebProps | null }) {
   const candidates = (line.candidates || []).slice(0, MAX_CANDIDATES)
   const hint = requestedBrandHint(line.requested_brand, line.allows_equivalent)
   return (
@@ -146,7 +205,93 @@ function LineSection({ line }: { line: EquivalenceLine }) {
             </div>
           )
         })}
+        {web && <WebSection web={web} />}
       </div>
     </details>
+  )
+}
+
+function WebSection({ web }: { web: WebProps }) {
+  const [showAll, setShowAll] = useState(false)
+  const all = web.line?.alternatives || []
+  const shown = visibleAlternatives(all, showAll)
+  const hidden = hiddenCount(all)
+  const note = webStatusNote(web.line)
+  return (
+    <div className="mt-2 rounded-lg border border-dashed border-neutral-200 px-3 py-2 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-bold text-[#0D1F1D]">بدائل من الإنترنت</span>
+        {canSearch(web.line) && (
+          <button
+            type="button"
+            onClick={web.onSearch}
+            disabled={web.busy}
+            className="text-xs font-bold text-[#123F3A] underline disabled:opacity-50"
+          >
+            {web.searching ? 'جارٍ البحث في مواقع المصنّعين…' : 'ابحث في الإنترنت'}
+          </button>
+        )}
+      </div>
+      {web.line?.classification?.is_supply_install && web.line.classification.service_component && (
+        <div className="text-[11px] text-neutral-500">بحثنا عن المادة فقط؛ جزء الخدمة ({web.line.classification.service_component}) يبقى في البند.</div>
+      )}
+      {note && <div className="text-[11px] text-neutral-500">{note}</div>}
+      {web.error && web.searching === false && <div className="text-[11px] text-red-700">{web.error}</div>}
+      {shown.map((a, i) => {
+        const source = safeLink(a.source_url)
+        const sheet = safeLink(a.datasheet_url)
+        const missing = (a.missing_attrs || []).map((m) => m.label_ar).filter(Boolean)
+        const date = verifiedDateText(a)
+        return (
+          <div key={a.product_master_id || `${a.source_url}-${i}`} className="rounded-lg bg-[#fafafa] px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm">
+                <span className="font-bold text-[#0D1F1D]">{a.brand || 'ماركة غير مذكورة'}</span>
+                {a.product_name && <span className="text-neutral-600"> — {a.product_name}</span>}
+                {(a.model || a.sku) && <span className="text-neutral-500 text-xs"> · موديل {a.model || a.sku}</span>}
+              </div>
+              <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold ${matchStateClass(a.match_state)}`}>
+                {matchStateLabel(a.match_state)}
+              </span>
+            </div>
+            {(a.matched_attrs || []).length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {a.matched_attrs.map((m) => (
+                  <span key={`m-${m.key}`} className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#e3f4ea] text-[#1a7a45]">
+                    {m.label_ar}: {String(m.value ?? '')}
+                  </span>
+                ))}
+              </div>
+            )}
+            {missing.length > 0 && (
+              <div className="mt-1 text-[10px] text-neutral-500">مواصفات لم يذكرها المصدر: {missing.join('، ')}</div>
+            )}
+            {a.match_state === 'REJECTED' && a.rejection_reasons.length > 0 && (
+              <div className="mt-1 text-[10px] text-red-700">{a.rejection_reasons.join(' · ')}</div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-neutral-600">
+              {a.source_type_ar && <span>التحقق من: {a.source_type_ar}</span>}
+              {source && (
+                <a href={source} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#123F3A] underline">
+                  المصدر ({a.source_domain})
+                </a>
+              )}
+              {sheet && sheet !== source && (
+                <a href={sheet} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#123F3A] underline">
+                  ورقة البيانات
+                </a>
+              )}
+              <span>{priceText(a)}</span>
+              {date && <span>{date}</span>}
+            </div>
+          </div>
+        )
+      })}
+      {hidden > 0 && (
+        <button type="button" onClick={() => setShowAll(!showAll)} className="text-[11px] text-neutral-500 underline">
+          {showAll ? 'إخفاء غير المطابق وغير الموثّق' : `عرض ${hidden} غير مطابق أو غير موثّق`}
+        </button>
+      )}
+    </div>
   )
 }

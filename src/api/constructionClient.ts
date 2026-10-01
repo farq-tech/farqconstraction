@@ -873,7 +873,7 @@ export async function getConstructionMe() {
  * `etimad` (منافسات اعتماد). The server's gates are what refuse; the app only
  * hides what the account does not have (see src/lib/services.ts).
  */
-export type ConstructionServiceKey = 'rfq' | 'etimad' | 'equivalents' | (string & {})
+export type ConstructionServiceKey = 'rfq' | 'etimad' | 'equivalents' | 'internet_alternative_discovery' | (string & {})
 
 export type ConstructionService = {
   key: ConstructionServiceKey
@@ -1036,6 +1036,26 @@ export async function getRfqLineEquivalents(
   return request(
     `/api/construction/rfqs/${encodeURIComponent(id)}/lines/${encodeURIComponent(lineId)}/equivalents`,
   )
+}
+
+/**
+ * «بدائل من الإنترنت» (service `internet_alternative_discovery`). GET reads
+ * what is already verified and cached; POST searches the web for the given
+ * lines (only those whose internal coverage is insufficient are searched).
+ */
+export async function getRfqWebAlternatives(id: string): Promise<import('../lib/webAlternatives').WebAlternativesResponse> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/equivalents/web`)
+}
+
+export async function discoverRfqWebAlternatives(
+  id: string,
+  lineIds: string[],
+): Promise<import('../lib/webAlternatives').WebAlternativesResponse> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/equivalents/web`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ line_ids: lineIds }),
+  })
 }
 
 export type PriceReviewAction = 'CONFIRM' | 'APPLY_SUGGESTION'

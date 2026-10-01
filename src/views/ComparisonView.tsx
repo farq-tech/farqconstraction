@@ -14,6 +14,7 @@ import { useConstructionAdmin } from '../components/priceReview/useConstructionA
 import { heldSummaryLabel, isHeldOffer, taxAssumptionsText } from '../lib/priceReview'
 import BrandChips from '../components/brand/BrandChips'
 import EquivalentsPanel from '../components/brand/EquivalentsPanel'
+import { WEB_DISCOVERY_SERVICE } from '../lib/webAlternatives'
 import { EQUIVALENTS_SERVICE, requestedBrandHint, savingNoteText } from '../lib/brandEquivalence'
 import { useServices } from '../api/useServices'
 
@@ -266,7 +267,7 @@ export function ComparisonView({ navigate }: NavProps) {
         </div>
       )}
 
-      {showEquivalents && selectedRfqId && !loading && !error && <EquivalentsPanel key={selectedRfqId} rfqId={selectedRfqId} />}
+      {showEquivalents && selectedRfqId && !loading && !error && <EquivalentsPanel key={selectedRfqId} rfqId={selectedRfqId} webEnabled={services.has(WEB_DISCOVERY_SERVICE)} />}
     </div>
   )
 }
