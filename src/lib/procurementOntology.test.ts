@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v11')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v12')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -2575,4 +2575,39 @@ describe('cpo-v11: sibling intents that share a word never share a pool', () => 
       expect(`${ra.family}/${ra.intent}`).not.toBe(`${rb.family}/${rb.intent}`)
     })
   }
+})
+
+/**
+ * cpo-v12. The owner, 1 Oct 2026, after the first two booklets' round:
+ * «الفيشر، فوم PU، غراء التلامس، وجسر C — أوافق تضيفها للتصنيف». Four of the
+ * six PR-580 / PR-H288 materials without an intent fell to the model lane or
+ * to their own words; every line below is the booklet's own text.
+ */
+describe('cpo-v12: the four materials the first booklets named and the ontology did not', () => {
+  const cases: Array<[string, string]> = [
+    ['PVC Fisher 6mm', 'wall_plug'],
+    ['فيشر بلاستيك PVC مقاس 6 مم', 'wall_plug'],
+    ['Fire-rated PU foam', 'pu_foam'],
+    ['فوم مقاوم للحريق (فاير ريتد)', 'pu_foam'],
+    ['PU spray foam, large can', 'pu_foam'],
+    ['فوم إسبراي (بخاخ) — حجم كبير', 'pu_foam'],
+    ['Abu Jamal contact adhesive', 'contact_adhesive'],
+    ['غراء أبو جمل', 'contact_adhesive'],
+    ['Galvanized steel main channel (C) for suspended ceiling', 'ceiling_suspension_channel'],
+    ['جسر تعليق رئيسي حديد مجلفن / حرف C', 'ceiling_suspension_channel'],
+    // The omega furring channel stays the drywall framing it always was.
+    ['Omega furring channel for gypsum board (W)', 'drywall_framing'],
+    ['جسر تعليق أوميجا للجبس بورد / W', 'drywall_framing'],
+  ]
+  for (const [line, intent] of cases) {
+    it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+  }
+
+  it('their neighbours keep their own intents', () => {
+    expect(resolve('غراء بلاط').intent).toBe('tile_grout_adhesive')
+    expect(resolve('سيليكون شفاف').intent).toBe('construction_sealant')
+    expect(resolve('Fire rated sealant').intent).toBe('construction_sealant')
+    expect(resolve('قطاع C حديد 100 مم').intent).toBe('cold_formed_section')
+    expect(resolve('برغي مقاس 6 مم').intent).toBe('bolt_screw')
+  })
 })
