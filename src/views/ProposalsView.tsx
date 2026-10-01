@@ -67,6 +67,22 @@ interface BOQCardProps {
   onSpecCard: (next: SpecCard | undefined) => void
 }
 
+/** What each «نتائج الجولات» grade says about the supplier, in a few words. */
+function roundOutcomeTag(o: NonNullable<Supplier['roundOutcome']>): { label: string; title: string } {
+  switch (o.grade) {
+    case 'PRICED':
+      return { label: 'سعّر هذه المادة سابقًا', title: `سعّر ${o.pricedLines ?? 1} ${(o.pricedLines ?? 1) === 1 ? 'بندًا' : 'بنود'} من هذه المادة في جولة سابقة` }
+    case 'ANSWERED':
+      return { label: 'ردّ عنها سابقًا', title: 'ردّ على طلب سابق لهذه المادة (متوفر، سؤال، أو سعر بالرسالة) دون عرض مكتمل' }
+    case 'ALSO_SELLS':
+      return { label: 'يبيعها مع مادة سعّرها', title: 'سعّر مادة يسعّرها معها عادةً موردون آخرون، ولم تُرسل له هذه المادة من قبل' }
+    case 'FAMILY_PRICED':
+      return { label: 'سعّر مادة قريبة', title: 'سعّر مادة من نفس العائلة في جولة سابقة' }
+    default:
+      return { label: 'يشبه من سعّروا', title: o.similarBy ? `نشاطه «${o.similarBy}» مثل موردين سعّروا هذه المادة` : 'يشبه موردين سعّروا هذه المادة' }
+  }
+}
+
 const SUGGESTION_TONE = {
   teal: { box: 'border-teal-100 bg-teal-50/60', title: 'text-teal-800', note: 'text-teal-700/80', row: 'border-teal-100' },
   grey: { box: 'border-neutral-200 bg-neutral-50', title: 'text-neutral-700', note: 'text-neutral-500', row: 'border-neutral-200' },
@@ -130,6 +146,8 @@ function SuggestionBox({
                         // An activity-level row keeps its own weaker grade: the box
                         // it happens to sit in must not promote it.
                         evidence: s.learned ? 'اختيارك' : s.evidence === 'على مستوى النشاط' ? s.evidence : evidence,
+                        // The grade travels with the pick, so the chip stays.
+                        roundOutcome: s.roundOutcome,
                       })
                     }
                     className="accent-[#123F3A] w-4 h-4 flex-shrink-0"
@@ -139,6 +157,11 @@ function SuggestionBox({
                     <span className="block text-xs text-neutral-400">
                       {s.city}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
+                      {s.roundOutcome && (
+                        <span className="text-[#1a7a45] font-semibold" title={roundOutcomeTag(s.roundOutcome).title}>
+                          {' '}· {roundOutcomeTag(s.roundOutcome).label}
+                        </span>
+                      )}
                       {isPriorQuoter(s) && (
                         <span
                           className="text-[#1a7a45] font-semibold"
@@ -223,12 +246,13 @@ function BOQCard({
       new Set(
         [
           ...(item.learnedSuggestion?.suppliers || []),
+          ...(item.outcomeSuggestion?.suppliers || []),
           ...(item.mapSuggestion?.suppliers || []),
           ...(!item.mapSuggestion ? item.aiSuggestion?.suppliers || [] : []),
           ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.learnedSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
+    [item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
   )
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
@@ -404,6 +428,19 @@ function BOQCard({
               emptyText=""
               suppliers={item.learnedSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
               evidence="اختيارك"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+            />
+          )}
+          {item.outcomeSuggestion && item.outcomeSuggestion.suppliers.length > 0 && (
+            <SuggestionBox
+              tone="teal"
+              title="من الجولات السابقة: موردون سعّروا هذه المادة أو ردّوا عنها"
+              note="أولًا من سعّرها فعلًا، ثم من ردّ عنها، ومن يبيعها مع مادة سعّرها، ومن يشبههم. من اعتذر عنها لا يظهر هنا ولا في القوائم تحت."
+              emptyText=""
+              suppliers={item.outcomeSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="نتائج الجولات"
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
@@ -585,7 +622,7 @@ function BOQCard({
           {/* Only where nothing at all was found. Under a card that lists map
               suppliers this note said «لم نبحث له عن موردين», and under a
               work-only card it told the buyer to go and find a supplier. */}
-          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && (
+          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.outcomeSuggestion && (
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'

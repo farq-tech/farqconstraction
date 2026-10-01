@@ -118,3 +118,15 @@ describe('autoPickFor — «مقدّم عروض سابقاً»', () => {
     expect(autoPickFor(item, 5).map((s) => s.id)).toEqual(['دهانات'])
   })
 })
+
+describe('autoPickFor — «نتائج الجولات»', () => {
+  it('takes who priced this material in an earlier round right after the buyer’s own choices, rejected ones excepted', () => {
+    const priced = (id: string): Supplier => ({ ...sup(id, 'نتائج الجولات'), roundOutcome: { grade: 'PRICED', pricedLines: 3 } })
+    const item = line(9, 'cable_accessories', [sup('مصنع'), sup('متجر')], {
+      learnedSuggestion: { suppliers: [sup('اختياره', 'اختيارك')] },
+      outcomeSuggestion: { suppliers: [priced('الرطبة'), priced('بيت الكهرباء'), priced('مرفوض')] },
+      rejectedSupplierIds: ['مرفوض'],
+    })
+    expect(autoPickFor(item, 4).map((s) => s.id)).toEqual(['اختياره', 'الرطبة', 'بيت الكهرباء', 'مصنع'])
+  })
+})

@@ -33,7 +33,18 @@ export type AppView =
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
  * catalog returned the supplier and nothing says how strong the link is.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات'
+
+/**
+ * What the supplier did with this material in earlier rounds (server:
+ * supplier-round-outcomes.js): priced it, answered about it, priced a material
+ * sold with it, priced a sibling, or resembles those who priced it.
+ */
+export type RoundOutcome = {
+  grade: 'PRICED' | 'ANSWERED' | 'ALSO_SELLS' | 'FAMILY_PRICED' | 'SIMILAR'
+  pricedLines?: number
+  similarBy?: string
+}
 export type ChannelType = 'بريد' | 'واتساب' | 'محادثة'
 
 export interface Supplier {
@@ -50,6 +61,7 @@ export interface Supplier {
    * him first inside the line's own list; the auto-pick takes him by default.
    */
   priorQuotes?: number
+  roundOutcome?: RoundOutcome
 }
 
 export interface BOQItem {
@@ -82,6 +94,8 @@ export interface BOQItem {
   familySuggestion?: { family: string; suppliers: Supplier[] }
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
   learnedSuggestion?: { suppliers: Supplier[] }
+  /** «نتائج الجولات»: who priced this material before, then who answered, sells it alongside, or resembles them. Never preselected by the server. */
+  outcomeSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */
   workOnly?: boolean
   /** The item code the booklet prints for this row. */

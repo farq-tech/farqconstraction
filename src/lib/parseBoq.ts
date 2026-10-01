@@ -546,6 +546,17 @@ function lineKeyFor(line: ParsedLine): string {
   return `line-${line.id}`
 }
 
+const ROUND_GRADES = new Set(['PRICED', 'ANSWERED', 'ALSO_SELLS', 'FAMILY_PRICED', 'SIMILAR'])
+
+function roundOutcomeOf(raw: { grade: string; priced_lines?: number; similar_by?: string } | undefined): Supplier['roundOutcome'] {
+  if (!raw || !ROUND_GRADES.has(raw.grade)) return undefined
+  return {
+    grade: raw.grade as NonNullable<Supplier['roundOutcome']>['grade'],
+    pricedLines: Number(raw.priced_lines) > 0 ? Number(raw.priced_lines) : undefined,
+    similarBy: raw.similar_by || undefined,
+  }
+}
+
 function mapApiSuppliers(
   rows: Array<{
     id: string
@@ -556,10 +567,12 @@ function mapApiSuppliers(
     channel?: string
     learned?: boolean
     prior_quotes?: number
+    round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }
   }>,
+  limit = MATCH_SUPPLIERS_PER_LINE,
 ): Supplier[] {
   return rows
-    .slice(0, MATCH_SUPPLIERS_PER_LINE)
+    .slice(0, limit)
     .map((s) => {
       const evidence: Supplier['evidence'] =
         s.evidence === 'دليل مباشر' ||
@@ -569,7 +582,8 @@ function mapApiSuppliers(
         s.evidence === 'على مستوى النشاط' ||
         s.evidence === 'اختيارك' ||
         s.evidence === 'تسمية آلية' ||
-        s.evidence === 'خريطة فرق'
+        s.evidence === 'خريطة فرق' ||
+        s.evidence === 'نتائج الجولات'
           ? s.evidence
           : // Never grade a supplier by its position in the list.
             'من الكتالوج'
@@ -582,6 +596,7 @@ function mapApiSuppliers(
         evidence,
         learned: s.learned === true ? true : undefined,
         priorQuotes: Number(s.prior_quotes) > 0 ? Number(s.prior_quotes) : undefined,
+        roundOutcome: roundOutcomeOf(s.round_outcome),
         channel,
       }
     })
@@ -589,7 +604,7 @@ function mapApiSuppliers(
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>
+  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -608,7 +623,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>()
+  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -716,6 +731,9 @@ async function matchViaFarqBoqApi(
         learnedSuggestion: row.learned_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
           : undefined,
+        outcomeSuggestion: row.outcome_suggestion?.suppliers?.length
+          ? { suppliers: mapApiSuppliers(row.outcome_suggestion.suppliers, 24) }
+          : undefined,
         // A model-named material rides alongside, never in place of, the match.
         aiSuggestion: row.ai_suggestion
           ? {
@@ -791,10 +809,11 @@ export async function matchSuppliersForItems(
       lineKey: lineKeyFor(line),
       aiSuggestion: api?.aiSuggestion,
       learnedSuggestion: api?.learnedSuggestion,
+      outcomeSuggestion: api?.outcomeSuggestion,
       familySuggestion: api?.familySuggestion,
       mapSuggestion: api?.mapSuggestion,
       workOnly:
-        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.familySuggestion
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.outcomeSuggestion && !api?.familySuggestion
           ? true
           : undefined,
       itemCode: line.itemCode,
@@ -1888,7 +1907,8 @@ async function parseBoqFileInner(
       (item.aiSuggestion?.suppliers.length ?? 0) > 0 ||
       (item.mapSuggestion?.suppliers.length ?? 0) > 0 ||
       (item.familySuggestion?.suppliers.length ?? 0) > 0 ||
-      (item.learnedSuggestion?.suppliers.length ?? 0) > 0
+      (item.learnedSuggestion?.suppliers.length ?? 0) > 0 ||
+      (item.outcomeSuggestion?.suppliers.length ?? 0) > 0
     const ready = matched.items.filter(lineHasSuppliers).length
     return {
       items: matched.items,

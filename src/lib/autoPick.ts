@@ -33,6 +33,7 @@ function materialKeyOf(item: BOQItem): string | null {
 function lanesOf(item: BOQItem): Supplier[][] {
   return [
     item.learnedSuggestion?.suppliers || [],
+    item.outcomeSuggestion?.suppliers || [],
     item.mapSuggestion?.suppliers || [],
     item.suppliers,
     item.aiSuggestion?.suppliers || [],
@@ -88,8 +89,13 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
  * the API put them first inside each lane), then suppliers named for the
  * material, catalogue matches, the named-suggestion lane, suppliers of the
  * activity («مورد محتمل»), then the family and sector. Never one he rejected.
- * A prior quoter is only ever taken from this line's own lanes: having quoted
- * before never brings a supplier into a line whose lists do not hold him.
+ * Right after his own choices comes «نتائج الجولات» (outcomeSuggestion): who
+ * priced this same material in an earlier round — even when no directory list
+ * holds him — then who answered about it, prices it alongside a material he
+ * priced, or resembles those who priced it, in the server's order. The owner,
+ * 1 Oct 2026: «اهم شي نستفيد من الي ردو ومتوفر عندهم». Replayed on the first
+ * two booklets, the lists without it held none of the 160 suppliers who had
+ * priced those lines.
  *
  * Inside every lane except his own choices, the specialist comes before the
  * generalist (see `PickContext`). Without that, a thin confirmed map let the
@@ -108,6 +114,7 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   ]
   const ordered = [
     ...(item.learnedSuggestion?.suppliers || []),
+    ...(item.outcomeSuggestion?.suppliers || []),
     ...lanes.flat().filter(isPriorQuoter),
     ...specialistsFirst(map.filter((s) => s.evidence !== ACTIVITY_GRADE), context),
     ...specialistsFirst(item.suppliers, context),

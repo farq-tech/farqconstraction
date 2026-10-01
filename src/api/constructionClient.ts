@@ -430,6 +430,10 @@ export type BoqCatalogMatchRow = {
   learned_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
   }
+  /** «نتائج الجولات»: what suppliers did with this material in earlier rounds. */
+  outcome_suggestion?: {
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; round_outcome?: { grade: string; priced_lines?: number; similar_by?: string } }>
+  }
   /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
   ai_suggestion?: {
     intent: string
@@ -2596,7 +2600,7 @@ function priorQuotesOf(s: Record<string, unknown>): number | undefined {
  * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
  * product match, so `rfq_eligible` is false and the badge names the source.
  */
-function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string) {
+function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string, limit = 12) {
   // One business listed twice (two directory rows, same name) is one choice,
   // not two. The server returns at most 12; all of them are listed so the
   // count on the card is the count the buyer can actually see.
@@ -2612,10 +2616,11 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
       if (name) seenNames.add(name)
       return true
     })
-    .slice(0, 12)
+    .slice(0, limit)
     .map((s) => {
       const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
       const id = String(s.id || '')
+      const outcome = s.round_outcome as { grade?: string; priced_lines?: number; similar_by?: string } | undefined
       const isHaraj =
         isHarajSellerExternalKey(id) ||
         String(s.source_system || s.source || '') === 'HARAJ' ||
@@ -2628,6 +2633,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         evidence,
         learned: s.learned_choice === true,
         prior_quotes: priorQuotesOf(s),
+        ...(outcome?.grade ? { round_outcome: { grade: outcome.grade, priced_lines: outcome.priced_lines, similar_by: outcome.similar_by } } : {}),
         channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
         rfq_eligible: false,
       }
@@ -2878,6 +2884,7 @@ export async function matchConstructionBoqCatalog(payload: {
         suppliers?: Array<Record<string, unknown>>
       }>
       learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      outcome_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
       ai_suggestion?: {
         intent?: string
@@ -2989,6 +2996,9 @@ export async function matchConstructionBoqCatalog(payload: {
         : {}),
       ...(row.learned_suggestion?.suppliers?.length
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }
+        : {}),
+      ...(row.outcome_suggestion?.suppliers?.length
+        ? { outcome_suggestion: { suppliers: suggestionSuppliers(row.outcome_suggestion.suppliers, 'نتائج الجولات', 24) } }
         : {}),
       ...(row.ai_suggestion && row.ai_suggestion.intent
         ? {
