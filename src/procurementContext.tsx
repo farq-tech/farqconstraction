@@ -81,6 +81,7 @@ function initialViewFromUrl(): AppView {
     if (view === 'inbox') return 'inbox'
     if (view === 'booklet' && BOOKLET_PARAM.test(params.get('booklet') || '')) return 'booklet-detail'
     if (view === 'booklets') return 'booklets'
+    if (view === 'tenders') return 'tenders'
     if (view === 'services') return 'services'
     // An invitation link from the team screen: no session yet, by design.
     if (view === 'invite') return 'invite'

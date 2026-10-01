@@ -57,6 +57,14 @@ function buildNav(
       active: (v: AppView) => v === 'booklets' || v === 'booklet-detail',
     },
     {
+      // Public Etimad tenders for contracting companies — the 'etimad' add-on
+      // (hidden by the service filter below unless the server enables it).
+      id: 'tenders' as AppView,
+      label: 'منافسات المقاولات',
+      Icon: FileIcon,
+      active: (v: AppView) => v === 'tenders',
+    },
+    {
       id: 'inbox' as AppView,
       label: 'المراسلات',
       Icon: InboxIcon,
@@ -326,7 +334,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
+          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services' && item.id !== 'tenders').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button

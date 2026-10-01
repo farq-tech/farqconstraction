@@ -52,6 +52,8 @@ const VIEW_SERVICE: Partial<Record<AppView, string>> = {
   'award-success': 'rfq',
   booklets: 'rfq',
   'booklet-detail': 'rfq',
+  // «منافسات المقاولات» (public Etimad tenders) — off unless the server enables it.
+  tenders: 'etimad',
 }
 
 export function serviceForView(view: AppView): string | null {

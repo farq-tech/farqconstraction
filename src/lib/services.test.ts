@@ -53,3 +53,13 @@ describe('views', () => {
     expect(viewAllowed('rfq-list', resolveServices(null))).toBe(true)
   })
 })
+
+describe('etimad add-on («منافسات المقاولات»)', () => {
+  it('is hidden unless the server enables it, even with gating off', () => {
+    expect(viewAllowed('tenders', resolveServices(null))).toBe(false)
+    expect(viewAllowed('tenders', resolveServices({ gating: 'off', services: [] } as never))).toBe(false)
+    expect(
+      viewAllowed('tenders', resolveServices({ gating: 'enforce', services: [{ key: 'etimad', enabled: true }] } as never)),
+    ).toBe(true)
+  })
+})

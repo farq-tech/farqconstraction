@@ -6,6 +6,7 @@ import { LoginView } from './views/LoginView'
 import { InviteView } from './views/InviteView'
 import { HomeView } from './views/HomeView'
 import { MaterialPricesView } from './views/MaterialPricesView'
+import { TendersView } from './views/TendersView'
 import { UploadView } from './views/UploadView'
 import { ProposalsView } from './views/ProposalsView'
 import { RFQListView } from './views/RFQListView'
@@ -89,7 +90,7 @@ function AppRoutes() {
   if (!viewAllowed(view, services)) {
     return (
       <Shell view={view} navigate={navigate}>
-        <ServiceOffView navigate={navigate} serviceName={serviceForView(view) === 'rfq' ? 'طلبات عروض الأسعار' : String(serviceForView(view))} />
+        <ServiceOffView navigate={navigate} serviceName={serviceForView(view) === 'rfq' ? 'طلبات عروض الأسعار' : serviceForView(view) === 'etimad' ? 'منافسات المقاولات' : String(serviceForView(view))} />
       </Shell>
     )
   }
@@ -99,6 +100,7 @@ function AppRoutes() {
       <ErrorBoundary resetKey={view}>
       {view === 'home' && <HomeView navigate={navigate} />}
       {view === 'material-prices' && <MaterialPricesView navigate={navigate} />}
+      {view === 'tenders' && <TendersView navigate={navigate} />}
       {view === 'create-upload' && <UploadView navigate={navigate} />}
       {view === 'create-proposals' && <ProposalsView navigate={navigate} />}
       {view === 'rfq-list' && <RFQListView navigate={navigate} />}

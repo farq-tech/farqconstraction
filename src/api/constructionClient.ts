@@ -3344,3 +3344,52 @@ export function formatArDate(value?: string | null): string {
     day: 'numeric',
   })}\u2069`
 }
+
+/*
+ * «منافسات المقاولات» — public Etimad tenders for contracting companies.
+ *
+ * The API proxies a separate tenders service and always asks it for the
+ * contracting vertical; the key to that service never reaches the browser.
+ */
+export type ContractingTender = {
+  id: string
+  reference_number: string | null
+  title: string | null
+  agency: string | null
+  agency_branch: string | null
+  tender_type: string | null
+  status: string | null
+  classification: string | null
+  execution_location: string | null
+  booklet_price: number | null
+  currency: string | null
+  publication_date: string | null
+  questions_deadline: string | null
+  submission_deadline: string | null
+  opening_date: string | null
+  source_url: string | null
+  description?: string | null
+}
+
+export type ContractingTenderSort = 'latest' | 'closing'
+
+export type ContractingTenderPage = {
+  total: number
+  page: number
+  page_size: number
+  sort: ContractingTenderSort
+  items: ContractingTender[]
+}
+
+export async function listContractingTenders(
+  opts: { q?: string; sort?: ContractingTenderSort; page?: number; pageSize?: number } = {},
+  signal?: AbortSignal,
+): Promise<ContractingTenderPage> {
+  const params = new URLSearchParams()
+  const q = (opts.q || '').trim()
+  if (q) params.set('q', q)
+  params.set('sort', opts.sort === 'closing' ? 'closing' : 'latest')
+  params.set('page', String(Math.max(1, opts.page || 1)))
+  params.set('page_size', String(opts.pageSize || 20))
+  return request<ContractingTenderPage>(`/api/construction/tenders?${params.toString()}`, { signal })
+}
