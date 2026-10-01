@@ -27,6 +27,10 @@ import {
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
 import { BookletChip } from '../components/BookletChip'
+import EquivalentsPanel from '../components/brand/EquivalentsPanel'
+import { WEB_DISCOVERY_SERVICE } from '../lib/webAlternatives'
+import { EQUIVALENTS_SERVICE } from '../lib/brandEquivalence'
+import { useServices } from '../api/useServices'
 import MarketNameNote from '../components/MarketNameNote'
 import { bookletText, lineMarketName } from '../lib/marketName'
 import {
@@ -109,6 +113,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const { selectedRfqId, openRfq, setSelectedOfferId } = useProcurement()
   const initial = useRef(readUrl())
   const [tab, setTab] = useState<Tab>(initial.current.tab || initialTab || 'overview')
+  const services = useServices()
   const [chatSupplier, setChatSupplier] = useState<string | null>(initial.current.supplier)
   const [rfq, setRfq] = useState<ConstructionRfq | null>(null)
   const [comparison, setComparison] = useState<ConstructionComparison | null>(null)
@@ -478,6 +483,9 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                 </div>
               )
             })
+          )}
+          {services.has(EQUIVALENTS_SERVICE) && lines.length > 0 && (
+            <EquivalentsPanel key={rfq.id} rfqId={rfq.id} webEnabled={services.has(WEB_DISCOVERY_SERVICE)} />
           )}
         </div>
       )}
