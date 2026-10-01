@@ -250,7 +250,16 @@ export type ConstructionComparison = {
         quote_version_id?: string
         /** Non-null when this price is held for review (status PRICE_REVIEW). */
         price_review?: PriceReview | null
+        /** «الماركة والمنشأ» the supplier stated for this line (newer APIs). */
+        brand?: import('../lib/brandEquivalence').QuoteLineBrand | null
+        /** True when this offer is a substitute for the requested brand. */
+        alternative?: boolean
       }>
+      /** The brand the request named for this line, and whether equivalents are accepted. */
+      requested_brand?: string | null
+      allows_equivalent?: boolean | null
+      /** The cheapest equivalent against the requested brand, when both were priced. */
+      equivalent_saving?: import('../lib/brandEquivalence').EquivalentSaving | null
     }>
     /** Quotes with at least one price held for review. */
     held_quote_count?: number
@@ -320,6 +329,12 @@ export type PublicSupplierInvite = {
       sale_unit?: string | null
       pack_size?: number | null
       sale_unit_price?: number | null
+      /** «الماركة والمنشأ» he stated (newer APIs). */
+      offered_brand?: string | null
+      origin_country?: string | null
+      is_equivalent?: boolean | null
+      certification?: string | null
+      datasheet_file?: string | null
     }>
   } | null
   supplier: {
@@ -371,6 +386,9 @@ export type PublicSupplierInvite = {
     market_name_ar?: string
     item_note?: string | null
     technical_specification?: Record<string, unknown>
+    /** The brand the buyer named, and whether an equivalent is accepted (newer APIs). */
+    requested_brand?: string | null
+    allows_equivalent?: boolean | null
   }>
 }
 
@@ -855,7 +873,7 @@ export async function getConstructionMe() {
  * `etimad` (منافسات اعتماد). The server's gates are what refuse; the app only
  * hides what the account does not have (see src/lib/services.ts).
  */
-export type ConstructionServiceKey = 'rfq' | 'etimad' | (string & {})
+export type ConstructionServiceKey = 'rfq' | 'etimad' | 'equivalents' | (string & {})
 
 export type ConstructionService = {
   key: ConstructionServiceKey
@@ -997,6 +1015,26 @@ export async function getConstructionSupplierOutcomes(id: string): Promise<{ eve
 export async function getConstructionComparison(id: string): Promise<ConstructionComparison> {
   return request<ConstructionComparison>(
     `/api/construction/rfqs/${encodeURIComponent(id)}/comparison`,
+  )
+}
+
+/**
+ * «بدائل مكافئة» — Farq's equivalence engine for each line of a request.
+ * An add-on: call only when `services.has('equivalents')`. A 403 with
+ * CONSTRUCTION_SERVICE_DISABLED means the account does not have it.
+ */
+export async function getRfqEquivalents(
+  id: string,
+): Promise<{ service: 'equivalents'; lines: import('../lib/brandEquivalence').EquivalenceLine[] }> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/equivalents`)
+}
+
+export async function getRfqLineEquivalents(
+  id: string,
+  lineId: string,
+): Promise<{ line: import('../lib/brandEquivalence').EquivalenceLine }> {
+  return request(
+    `/api/construction/rfqs/${encodeURIComponent(id)}/lines/${encodeURIComponent(lineId)}/equivalents`,
   )
 }
 

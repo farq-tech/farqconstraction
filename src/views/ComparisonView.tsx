@@ -12,6 +12,10 @@ import SupplierScoreBadge from '../components/priceReview/SupplierScoreBadge'
 import VatUnknownChip from '../components/priceReview/VatUnknownChip'
 import { useConstructionAdmin } from '../components/priceReview/useConstructionAdmin'
 import { heldSummaryLabel, isHeldOffer, taxAssumptionsText } from '../lib/priceReview'
+import BrandChips from '../components/brand/BrandChips'
+import EquivalentsPanel from '../components/brand/EquivalentsPanel'
+import { EQUIVALENTS_SERVICE, requestedBrandHint, savingNoteText } from '../lib/brandEquivalence'
+import { useServices } from '../api/useServices'
 
 /**
  * Side-by-side prices for one request.
@@ -32,6 +36,9 @@ export function ComparisonView({ navigate }: NavProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const isAdmin = useConstructionAdmin()
+  // «بدائل مكافئة» is an add-on: off unless the server says this account has it.
+  const services = useServices()
+  const showEquivalents = services.has(EQUIVALENTS_SERVICE)
 
   // After an admin confirms or corrects a held price: re-read in place.
   const reload = async () => {
@@ -163,6 +170,12 @@ export function ComparisonView({ navigate }: NavProps) {
                     <div className="font-semibold text-[#0D1F1D]">{line.name_ar || line.name_en || '—'}</div>
                     <MarketNameNote name={line.market_name_ar} />
                     <div className="text-xs text-neutral-400">{line.quantity} {line.uom}</div>
+                    {requestedBrandHint(line.requested_brand, line.allows_equivalent) && (
+                      <div className="text-[11px] text-neutral-500 mt-0.5">{requestedBrandHint(line.requested_brand, line.allows_equivalent)}</div>
+                    )}
+                    {savingNoteText(line.equivalent_saving) && (
+                      <div className="text-[11px] font-semibold text-[#1a7a45] mt-0.5">{savingNoteText(line.equivalent_saving)}</div>
+                    )}
                   </td>
                   {responses.map((r) => {
                     const cell = line.offers.find((o) => String(o.supplier_id) === String(r.supplier.id))
@@ -194,6 +207,7 @@ export function ComparisonView({ navigate }: NavProps) {
                             <div className="font-semibold text-[#0D1F1D]">{money(cell!.unit_price, cell!.currency)}</div>
                             <div className="text-xs text-neutral-400">الإجمالي {money(cell!.line_total, cell!.currency)}</div>
                             <VatUnknownChip value={cell!.prices_include_tax} className="mt-0.5" />
+                            <BrandChips brand={cell!.brand} alternative={cell!.alternative} className="mt-1" />
                           </>
                         ) : (
                           <span className="text-xs text-neutral-400">لم يسعّره</span>
@@ -251,6 +265,10 @@ export function ComparisonView({ navigate }: NavProps) {
           </div>
         </div>
       )}
+
+      {showEquivalents && selectedRfqId && !loading && !error && <EquivalentsPanel key={selectedRfqId} rfqId={selectedRfqId} />}
     </div>
   )
 }
+
+export default ComparisonView

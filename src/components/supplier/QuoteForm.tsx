@@ -14,6 +14,15 @@ import { submitPublicSupplierQuote, type PublicSupplierInvite } from '../../api/
 import { deadlineChip, formatDateTimeAr, linesAr, type LineRef } from '../../lib/supplierPortal'
 import { ChatIcon, Chip, ClockIcon, PrimaryButton } from './PortalChrome'
 import { SALE_UNITS, SALE_UNIT_NOTE, perUnitFromSaleUnit, type SaleUnit } from '../../lib/specCard'
+import {
+  EMPTY_BRAND_DRAFT,
+  brandDraftFromLine,
+  brandFieldsFromDraft,
+  datasheetHint,
+  draftHasBrand,
+  requestedBrandHint,
+  type BrandDraft,
+} from '../../lib/brandEquivalence'
 
 /**
  * `saleUnit` empty: the price is per the requested unit, as before. Set: the
@@ -77,6 +86,20 @@ export function QuoteForm({
     }
     return next
   })
+  // «الماركة والمنشأ» — optional per line, pre-filled from his current quote.
+  const [brands, setBrands] = useState<Record<string, BrandDraft>>(() => {
+    const mine = new Map((invite.my_quote?.lines || []).map((l) => [String(l.line_id), l]))
+    const next: Record<string, BrandDraft> = {}
+    for (const line of invite.lines || []) next[line.id] = brandDraftFromLine(mine.get(String(line.id)) as Record<string, unknown> | undefined)
+    return next
+  })
+  const [brandOpen, setBrandOpen] = useState<Record<string, boolean>>(() => {
+    const next: Record<string, boolean> = {}
+    for (const [id, draft] of Object.entries(brands)) if (draftHasBrand(draft)) next[id] = true
+    return next
+  })
+  const updateBrand = (id: string, patch: Partial<BrandDraft>) =>
+    setBrands((prev) => ({ ...prev, [id]: { ...(prev[id] || EMPTY_BRAND_DRAFT), ...patch } }))
   const [personName, setPersonName] = useState(invite.supplier.contact_name || '')
   const [personEmail, setPersonEmail] = useState(invite.supplier.email || '')
   // Both were once sent as `true` on the supplier's behalf with nothing on screen:
@@ -128,6 +151,8 @@ export function QuoteForm({
         lines: (invite.lines || []).map((line) => {
           const d = drafts[line.id]
           const available = d?.available === true
+          // Optional: only what he filled, and only on a line he supplies.
+          const brand = available ? brandFieldsFromDraft(brands[line.id]) : {}
           // Priced per box/carton: the server converts, and keeps what he wrote.
           if (available && d?.saleUnit) {
             return {
@@ -138,6 +163,7 @@ export function QuoteForm({
               pack_size: d.saleUnit === 'PIECE' ? 1 : Number(d.packSize),
               sale_unit_price: d.unitPrice,
               notes: d.notes || '',
+              ...brand,
             }
           }
           return {
@@ -147,6 +173,7 @@ export function QuoteForm({
             unit_price: d?.unitPrice || '',
             base_price: d?.unitPrice || null,
             notes: d?.notes || '',
+            ...brand,
           }
         }),
       })
@@ -325,6 +352,17 @@ export function QuoteForm({
               </div>
             )
           })()}
+          {requestedBrandHint(line.requested_brand, line.allows_equivalent) && (
+            <div className="text-[12px] text-neutral-600 mt-2">{requestedBrandHint(line.requested_brand, line.allows_equivalent)}</div>
+          )}
+          <BrandFields
+            id={line.id}
+            draft={brands[line.id] || EMPTY_BRAND_DRAFT}
+            open={brandOpen[line.id] === true}
+            disabled={closed || drafts[line.id]?.available !== true}
+            onToggle={() => setBrandOpen((prev) => ({ ...prev, [line.id]: !prev[line.id] }))}
+            onChange={(patch) => updateBrand(line.id, patch)}
+          />
           {onInquire && (
             <button
               type="button"
@@ -389,6 +427,119 @@ export function QuoteForm({
         >
           {submitting ? 'جارٍ الإرسال…' : 'إرسال العرض'}
         </PrimaryButton>
+      )}
+    </div>
+  )
+}
+
+/** «الماركة والمنشأ (اختياري)» — collapsed by default; nothing here is required. */
+function BrandFields({
+  id,
+  draft,
+  open,
+  disabled,
+  onToggle,
+  onChange,
+}: {
+  id: string
+  draft: BrandDraft
+  open: boolean
+  disabled: boolean
+  onToggle: () => void
+  onChange: (patch: Partial<BrandDraft>) => void
+}) {
+  const hint = datasheetHint(draft.datasheetFile)
+  const input =
+    'w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#123F3A] disabled:bg-neutral-50 disabled:text-neutral-400'
+  return (
+    <div className="mt-3">
+      <button type="button" onClick={onToggle} aria-expanded={open} className="text-[12px] font-bold text-[#123F3A]">
+        {open ? '− الماركة والمنشأ (اختياري)' : '+ الماركة والمنشأ (اختياري)'}
+      </button>
+      {open && (
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label className="text-[11px] text-neutral-500 mb-1 block" htmlFor={`brand-${id}`}>
+              الماركة
+            </label>
+            <input
+              id={`brand-${id}`}
+              maxLength={80}
+              disabled={disabled}
+              value={draft.offeredBrand}
+              onChange={(e) => onChange({ offeredBrand: e.target.value })}
+              className={input}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-neutral-500 mb-1 block" htmlFor={`origin-${id}`}>
+              بلد المنشأ
+            </label>
+            <input
+              id={`origin-${id}`}
+              maxLength={60}
+              disabled={disabled}
+              value={draft.originCountry}
+              onChange={(e) => onChange({ originCountry: e.target.value })}
+              className={input}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-neutral-500 mb-1 block" htmlFor={`cert-${id}`}>
+              الشهادة
+            </label>
+            <input
+              id={`cert-${id}`}
+              maxLength={120}
+              disabled={disabled}
+              placeholder="مثل SASO أو UL 797"
+              value={draft.certification}
+              onChange={(e) => onChange({ certification: e.target.value })}
+              className={input}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-neutral-500 mb-1 block" htmlFor={`sheet-${id}`}>
+              رابط ورقة البيانات
+            </label>
+            <input
+              id={`sheet-${id}`}
+              dir="ltr"
+              inputMode="url"
+              maxLength={300}
+              disabled={disabled}
+              placeholder="https://"
+              value={draft.datasheetFile}
+              onChange={(e) => onChange({ datasheetFile: e.target.value })}
+              className={`${input} text-right`}
+            />
+            {hint && <div className="text-[11px] text-amber-700 mt-1">{hint}</div>}
+          </div>
+          <div className="sm:col-span-2">
+            <div className="text-[11px] text-neutral-500 mb-1">بديل مكافئ؟</div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {(
+                [
+                  [null, 'لم أحدد'],
+                  [false, 'نفس الماركة المطلوبة'],
+                  [true, 'نعم، بديل مكافئ'],
+                ] as Array<[boolean | null, string]>
+              ).map(([value, label]) => (
+                <label key={String(value)} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`equivalent-${id}`}
+                    className="accent-[#123F3A]"
+                    disabled={disabled}
+                    checked={draft.isEquivalent === value}
+                    onChange={() => onChange({ isEquivalent: value })}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

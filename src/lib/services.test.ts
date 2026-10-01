@@ -63,3 +63,12 @@ describe('etimad add-on («منافسات المقاولات»)', () => {
     ).toBe(true)
   })
 })
+
+describe('equivalents add-on («بدائل مكافئة»)', () => {
+  it('is off unless the server says enabled', () => {
+    expect(resolveServices(null).has('equivalents')).toBe(false)
+    expect(resolveServices({ gating: 'off', services: [] } as never).has('equivalents')).toBe(false)
+    expect(resolveServices({ gating: 'off', services: [{ key: 'equivalents', enabled: false }] } as never).has('equivalents')).toBe(false)
+    expect(resolveServices({ gating: 'off', services: [{ key: 'equivalents', enabled: true }] } as never).has('equivalents')).toBe(true)
+  })
+})

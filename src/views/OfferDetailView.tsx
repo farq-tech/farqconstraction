@@ -21,6 +21,8 @@ import {
 } from '../api/constructionClient'
 import { buildRfqEmailPreview } from '../lib/rfqEmailPreview'
 import { RfqEmailPreviewModal } from '../components/RfqEmailPreviewModal'
+import BrandChips from '../components/brand/BrandChips'
+import { brandFromLine } from '../lib/brandEquivalence'
 
 export function OfferDetailView({ navigate }: NavProps) {
   const { selectedRfqId, selectedOfferId, openRfq } = useProcurement()
@@ -389,10 +391,17 @@ export function OfferDetailView({ navigate }: NavProps) {
                 key={String(line.line_key || line.id || index)}
                 className="flex justify-between text-sm gap-3 py-2 border-b border-neutral-50"
               >
-                <span className="text-[#0D1F1D] font-medium truncate">
-                  {String(
-                    line.original_name || line.name_ar || line.line_key || `بند ${index + 1}`,
-                  )}
+                <span className="min-w-0">
+                  <span className="block text-[#0D1F1D] font-medium truncate">
+                    {String(
+                      line.original_name || line.name_ar || line.line_key || `بند ${index + 1}`,
+                    )}
+                  </span>
+                  <BrandChips
+                    brand={brandFromLine(line)}
+                    alternative={line.alternative === true || line.is_equivalent === true}
+                    className="mt-0.5"
+                  />
                 </span>
                 <span className="text-neutral-600 font-semibold flex-shrink-0">
                   {line.unit_price != null || line.line_total != null

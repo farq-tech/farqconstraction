@@ -122,6 +122,34 @@ describe('QuoteForm (frames 1a / F2)', () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>إرسال العرض<\/button>/)
   })
 
+  it('brand fields are optional and collapsed; the requested brand shows as a hint', () => {
+    const html = renderToStaticMarkup(
+      createElement(QuoteForm, { token: 't', invite, deadline: null, now: NOW, onSubmitted: () => {}, onInquire: null }),
+    )
+    expect(html.match(/\+ الماركة والمنشأ \(اختياري\)/g)).toHaveLength(2)
+    expect(html).not.toContain('رابط ورقة البيانات')
+    expect(html).not.toContain('الماركة المطلوبة')
+
+    const branded = {
+      ...invite,
+      lines: [{ ...invite.lines[0], requested_brand: 'ABB', allows_equivalent: true }, invite.lines[1]],
+      my_quote: {
+        quote_version: 1,
+        submitted_at: null,
+        currency: 'SAR',
+        prices_include_tax: false,
+        lines: [{ line_id: 'l1', unit_price: 3, available: true, notes: null, offered_brand: 'ITCC', origin_country: 'السعودية' }],
+      },
+    } as PublicSupplierInvite
+    const filled = renderToStaticMarkup(
+      createElement(QuoteForm, { token: 't', invite: branded, deadline: null, now: NOW, onSubmitted: () => {}, onInquire: null }),
+    )
+    expect(filled).toContain('الماركة المطلوبة: ABB (أو ما يعادلها)')
+    // His stored brand opens the section, pre-filled.
+    expect(filled).toContain('value="ITCC"')
+    expect(filled).toContain('بديل مكافئ؟')
+  })
+
   it('no inquiry buttons without a chat (token-only portal)', () => {
     const html = renderToStaticMarkup(
       createElement(QuoteForm, { token: 't', invite, deadline: null, now: NOW, onSubmitted: () => {}, onInquire: null }),
