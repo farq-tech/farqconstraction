@@ -32,6 +32,9 @@ export const OUTCOME_GRADES_AUTO_PICKED: ReadonlySet<string> = new Set(['PRICED'
 
 const ACTIVITY_GRADE = 'على مستوى النشاط'
 
+/** The labels the catalogue match itself gives (constructionClient's confirmed `match`). */
+const CATALOGUE_EVIDENCE = new Set(['دليل مباشر', 'نشاط متطابق', 'دليل منتج', 'من الكتالوج'])
+
 /**
  * What the booklet itself says about each supplier's breadth.
  *
@@ -145,13 +148,14 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   const outcomes = allOutcomes.filter(
     (s) => !AUTO_PICK_EVIDENCE_ONLY || (s.roundOutcome != null && OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)),
   )
-  // `item.suppliers` also holds rows the buyer copied in from a suggestion lane;
-  // those keep their weak grade, and a weak grade is not evidence here either.
+  // `item.suppliers` also holds rows the buyer copied in from a suggestion lane.
+  // Only the catalogue's own rows, or a copy carrying a grade we auto-pick, count
+  // as evidence here; a copy keeps its lane's weakness (activity, SIMILAR, no grade).
   const matched = AUTO_PICK_EVIDENCE_ONLY
-    ? (item.suppliers || []).filter(
-        (s) =>
-          s.evidence !== ACTIVITY_GRADE &&
-          (s.roundOutcome == null || OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)),
+    ? (item.suppliers || []).filter((s) =>
+        s.roundOutcome != null
+          ? OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)
+          : CATALOGUE_EVIDENCE.has(String(s.evidence)),
       )
     : item.suppliers
   const lanes = [named, item.suppliers, allAi, activity, family, allOutcomes]

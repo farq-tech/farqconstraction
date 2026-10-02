@@ -151,7 +151,7 @@ describe('autoPickFor — precision over padding (AUTO_PICK_EVIDENCE_ONLY)', () 
 
   it('weak rows the buyer copied into the line are not re-ticked', () => {
     const item = line(9, 'paints', [], {
-      suppliers: [sup('منسوخ-نشاط', 'على مستوى النشاط'), graded('منسوخ-شبيه', 'SIMILAR'), sup('كتالوج', 'من الكتالوج')],
+      suppliers: [sup('منسوخ-نشاط', 'على مستوى النشاط'), graded('منسوخ-شبيه', 'SIMILAR'), sup('منسوخ-بلا-درجة', 'نتائج الجولات'), sup('كتالوج', 'من الكتالوج')],
     })
     expect(autoPickFor(item).map((s) => s.id)).toEqual(['كتالوج'])
   })
