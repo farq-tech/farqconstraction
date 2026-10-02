@@ -1051,13 +1051,16 @@ export function ProposalsView({ navigate }: NavProps) {
           // A line whose only suppliers are «مورد محتمل» (activity-level) is
           // not "nothing found": they are shown on its card for the buyer to
           // judge, just not ticked for him.
-          const toReview = unpicked.filter((i) =>
-            [
+          // Suppliers the buyer rejected are hidden on the card, so they leave
+          // nothing to review.
+          const toReview = unpicked.filter((i) => {
+            const rejected = new Set(i.rejectedSupplierIds || [])
+            return [
               ...(i.mapSuggestion?.suppliers || []),
               ...(i.familySuggestion?.suppliers || []),
               ...(i.outcomeSuggestion?.suppliers || []),
-            ].length > 0,
-          ).length
+            ].some((s) => s?.id && !rejected.has(s.id))
+          }).length
           const empty = unpicked.length - toReview
           return (
             <div
