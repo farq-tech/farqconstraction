@@ -2672,10 +2672,23 @@ function priorQuotesOf(s: Record<string, unknown>): number | undefined {
 }
 
 /**
+ * The one per-supplier grade the server sets inside a suggestion list
+ * (boq-match-map-suggestion-runtime.js): a supplier the map borrowed from the
+ * family top-up or the sector fallback is tagged «على مستوى النشاط», because
+ * nothing names him for this material. Every other row takes its lane's label.
+ */
+const ACTIVITY_GRADE = 'على مستوى النشاط'
+
+/**
  * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
  * product match, so `rfq_eligible` is false and the badge names the source.
+ *
+ * `evidence` is the lane's label, EXCEPT a row the server itself graded at the
+ * activity level keeps that weaker grade. Overwriting it with «خريطة فرق»
+ * made a borrowed family supplier look named for the material: the auto-pick
+ * could not tell him apart and the card never marked him «مورد محتمل».
  */
-function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string, limit = 12) {
+export function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string, limit = 12) {
   // One business listed twice (two directory rows, same name) is one choice,
   // not two. The server returns at most 12; all of them are listed so the
   // count on the card is the count the buyer can actually see.
@@ -2705,7 +2718,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         name_ar: s.name_ar as string | undefined,
         name_en: s.name_en as string | undefined,
         city: (s.city as string | undefined) || undefined,
-        evidence,
+        evidence: s.evidence === ACTIVITY_GRADE ? ACTIVITY_GRADE : evidence,
         learned: s.learned_choice === true,
         prior_quotes: priorQuotesOf(s),
         ...(outcome?.grade ? { round_outcome: { grade: outcome.grade, priced_lines: outcome.priced_lines, similar_by: outcome.similar_by } } : {}),

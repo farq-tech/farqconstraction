@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTO_PICK, autoPickFor, buildPickContext, isPriorQuoter } from '../lib/autoPick'
+import { AUTO_PICK, autoPickFor, buildPickContext, hasVisibleSuppliers, isPriorQuoter } from '../lib/autoPick'
 import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
@@ -668,13 +668,17 @@ export function ProposalsView({ navigate }: NavProps) {
    * that is an ORDER of evidence, not an empty screen:
    *
    *   1. suppliers he chose for this same line in an earlier booklet
-   *   2. suppliers named for the material itself
-   *   3. suppliers of the catalogue item it matched
-   *   4. suppliers the model named the material for
-   *   5. only then suppliers of the activity, marked «مورد محتمل»
+   *   2. who priced or answered about it in an earlier round («نتائج الجولات»)
+   *   3. who priced it for the company before («مقدّم عروض سابقاً»)
+   *   4. suppliers named for the material itself
+   *   5. suppliers of the catalogue item it matched
+   *   6. suppliers the model named the material for
    *
-   * Up to five per line, never one he rejected, and never sent without the
-   * send screen listing every recipient first. An automatic pick is NOT fed to
+   * Suppliers of the activity and the family lane («مورد محتمل») are shown
+   * but NOT ticked (`AUTO_PICK_EVIDENCE_ONLY` in lib/autoPick): precision over
+   * padding. Up to `AUTO_PICK` (ten) per line — a ceiling, not a target —
+   * never one he rejected, and never sent without the send screen listing
+   * every recipient first. An automatic pick is NOT fed to
    * learning: the system does not learn from its own guesses.
    */
   const [openAll, setOpenAll] = useState<{ open: boolean; at: number }>({ open: true, at: 0 })
@@ -1043,10 +1047,24 @@ export function ProposalsView({ navigate }: NavProps) {
           const covered = lines.filter((i) => (selected[i.id] || []).length > 0).length
           const chosen = new Set(lines.flatMap((i) => selected[i.id] || [])).size
           const picks = lines.reduce((sum, i) => sum + (selected[i.id] || []).length, 0)
-          const empty = lines.length - covered
+          const unpicked = lines.filter((i) => !(selected[i.id] || []).length)
+          // An unticked line falls in one of three buckets, judged by the
+          // suppliers still visible on its card (rejected ones are hidden):
+          //  - cleared: it still has evidence-backed suppliers (what auto-pick
+          //    would tick), so the buyer emptied it himself;
+          //  - toReview: only «مورد محتمل» (activity-level) suppliers are left,
+          //    shown for the buyer to judge but never ticked for him;
+          //  - empty: nothing at all.
+          let cleared = 0
+          let toReview = 0
+          for (const i of unpicked) {
+            if (autoPickFor(i, 1).length) { cleared += 1; continue }
+            if (hasVisibleSuppliers(i)) toReview += 1
+          }
+          const empty = unpicked.length - cleared - toReview
           return (
             <div
-              className={`mb-6 rounded-2xl border px-5 py-4 ${empty === 0 ? 'bg-[#F3FBF6] border-[#CFF5DC]' : 'bg-amber-50 border-amber-200'}`}
+              className={`mb-6 rounded-2xl border px-5 py-4 ${unpicked.length === 0 ? 'bg-[#F3FBF6] border-[#CFF5DC]' : 'bg-amber-50 border-amber-200'}`}
               dir="rtl"
             >
               <div className="text-base font-black text-[#0D1F1D]">
@@ -1056,9 +1074,16 @@ export function ProposalsView({ navigate }: NavProps) {
                 مجموع الاختيارات {picks.toLocaleString('en-US')}: المورد الواحد يُختار لكل بنود مادته، فيصله طلب عرض واحد يشملها كلها.
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
-                {empty === 0
-                  ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال: من عليه «مورد محتمل» اختير لنشاطه لا لمادته.'
-                  : `${empty} بندًا لم نجد لها موردًا في دليلنا. البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين، ومن عليه «مورد محتمل» اختير لنشاطه لا لمادته.`}
+                {unpicked.length === 0
+                  ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال، خصوصًا من عليه «مورد محتمل» فهو مختار لنشاطه لا لمادته.'
+                  : [
+                      empty > 0 ? `${empty} بندًا لم نجد لها موردًا في دليلنا.` : '',
+                      cleared > 0 ? `${cleared} بندًا ألغيت اختيار مورديه، وموردوه ما زالوا في البند.` : '',
+                      toReview > 0
+                        ? `${toReview} بندًا لها «مورد محتمل» فقط (اختير لنشاطه لا لمادته)، فلم نخترهم لك: راجعهم في البند واختر من يناسب.`
+                        : '',
+                      `البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين ممن لدينا دليل على مادتهم، ولم نكمل العدد بغيرهم.`,
+                    ].filter(Boolean).join(' ')}
                 {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
               </div>
             </div>
