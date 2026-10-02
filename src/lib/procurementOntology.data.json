@@ -1,5 +1,5 @@
 {
- "version": "cpo-v12",
+ "version": "cpo-v13",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -2698,6 +2698,26 @@
    ],
    "intents": [
     {
+     "id": "rebar",
+     "label_ar": "حديد تسليح",
+     "strong_terms": [
+      "حديد تسليح",
+      "اسياخ تسليح",
+      "سيخ تسليح",
+      "اسياخ حديد",
+      "rebar",
+      "reinforcement bar",
+      "reinforcing bar",
+      "deformed bar",
+      "حديد مشرشر",
+      "حديد سابك",
+      "حديد تسليح سابك",
+      "high tensile steel bar",
+      "rebar grade 60",
+      "حديد حديد تسليح"
+     ]
+    },
+    {
      "id": "welded_mesh",
      "label_ar": "شبك تسليح",
      "strong_terms": [
@@ -3393,6 +3413,28 @@
     }
    ],
    "intents": [
+    {
+     "id": "interior_wall_paint",
+     "label_ar": "دهان جدران داخلي",
+     "strong_terms": [
+      "دهان جدران",
+      "دهان داخلي",
+      "دهان جداري",
+      "دهان حوائط",
+      "بويه بلاستيك",
+      "دهان بلاستيك",
+      "بويه داخليه",
+      "emulsion paint",
+      "دهان ايملشن",
+      "wall paint",
+      "interior paint",
+      "دهان نص لمعه",
+      "دهان مطفي",
+      "دهان لامع",
+      "بويه جدران",
+      "دهان حايط"
+     ]
+    },
     {
      "id": "primer_coating",
      "label_ar": "برايمر ودهانات",
@@ -5140,6 +5182,23 @@
    ],
    "intents": [
     {
+     "id": "ball_valve",
+     "label_ar": "محبس كروي",
+     "strong_terms": [
+      "ball valve",
+      "محبس كره",
+      "محبس كروي",
+      "صمام كروي",
+      "محبس بولي",
+      "محبس نحاس",
+      "محبس نحاسي",
+      "brass ball valve",
+      "محبس كره نحاس",
+      "بلف كروي",
+      "محبس حنفيه"
+     ]
+    },
+    {
      "id": "backflow_preventer",
      "label_ar": "موانع الارتجاع",
      "strong_terms": [
@@ -5183,6 +5242,19 @@
       "صمام موتور",
       "صمام موازنه",
       "zone valve"
+     ]
+    },
+    {
+     "id": "gate_valve",
+     "label_ar": "محبس بوابة",
+     "strong_terms": [
+      "gate valve",
+      "محبس بوابه",
+      "صمام بوابه",
+      "محبس سكينه",
+      "محبس سكين",
+      "os&y gate valve",
+      "بلف بوابه"
      ]
     }
    ]
@@ -5423,6 +5495,36 @@
     }
    ],
    "intents": [
+    {
+     "id": "ppr_pipe",
+     "label_ar": "مواسير PPR",
+     "strong_terms": [
+      "ppr",
+      "ppr pipe",
+      "مواسير ppr",
+      "ماسوره ppr",
+      "انابيب ppr",
+      "بي بي ار",
+      "مواسير بي بي ار",
+      "ppr pn20",
+      "ppr pn16",
+      "ppr pn25",
+      "مواسير حراريه",
+      "ماسوره حراريه",
+      "polypropylene pipe",
+      "ppr fitting",
+      "وصلات ppr",
+      "كوع ppr"
+     ],
+     "context_terms": [
+      "pn20",
+      "pn16",
+      "pn25",
+      "مياه",
+      "ساخن",
+      "بارد"
+     ]
+    },
     {
      "id": "pipe_fitting",
      "label_ar": "وصلات مواسير",
@@ -6992,6 +7094,28 @@
    ],
    "intents": [
     {
+     "id": "smoke_heat_detector",
+     "label_ar": "كاشف دخان وحرارة",
+     "strong_terms": [
+      "كاشف دخان",
+      "كاشف حراره",
+      "كواشف دخان",
+      "كواشف حراره",
+      "smoke detector",
+      "heat detector",
+      "كاشف دخان معنون",
+      "addressable smoke detector",
+      "optical smoke detector",
+      "multi sensor detector",
+      "كاشف دخان بصري",
+      "beam detector",
+      "كاشف شعاعي",
+      "كاشف دخان وحراره",
+      "كاشف لهب",
+      "flame detector"
+     ]
+    },
+    {
      "id": "fire_alarm_panel",
      "label_ar": "لوحات إنذار حريق",
      "strong_terms": [
@@ -7866,7 +7990,19 @@
       "nyy",
       "n2xy",
       "0.6/1kv",
-      "600/1000v"
+      "600/1000v",
+      "كابل كهرباء",
+      "كابل كهربائي",
+      "كابل نحاس",
+      "كيبل نحاس",
+      "كابل نحاسي",
+      "copper cable",
+      "power cable",
+      "electrical cable",
+      "كابل قدره",
+      "كابل قدرة",
+      "كابل كهرباء نحاس",
+      "كابل مسلح"
      ],
      "weak_terms": [
       "lv"
@@ -7901,6 +8037,37 @@
         "fiber"
        ],
        "note": "Low voltage is the DEFAULT reading of a power cable, so it must yield whenever the line names a more specific type. Without this, «كابل Cu/PVC Control» reads as LV power cable and the RFQ reaches the wrong cable specialists."
+      },
+      {
+       "terms": [
+        "كابل كهرباء",
+        "كابل كهربائي",
+        "كابل نحاس",
+        "كيبل نحاس",
+        "كابل نحاسي",
+        "copper cable",
+        "power cable",
+        "electrical cable",
+        "كابل قدره",
+        "كابل قدرة",
+        "كابل كهرباء نحاس"
+       ],
+       "block_any": [
+        "مقاوم للحريق",
+        "مقاوم حريق",
+        "fire resistant",
+        "fire rated",
+        "تحكم",
+        "control",
+        "جهد متوسط",
+        "medium voltage",
+        "11kv",
+        "22kv",
+        "33kv",
+        "اجهزه قياس",
+        "instrumentation"
+       ],
+       "note": "A plain power-cable word must not take a fire-resistant, control, MV or instrumentation cable line away from its own intent."
       }
      ]
     },
@@ -7955,7 +8122,14 @@
       "fe180",
       "كوابل مقاومه للحريق",
       "fire resistant",
-      "مقاوم للحريق lszh"
+      "مقاوم للحريق lszh",
+      "كابل كهرباء مقاوم للحريق",
+      "كابل كهرباء مقاوم حريق",
+      "كابل كهربائي مقاوم للحريق",
+      "كيبل مقاوم للحريق",
+      "كابل نحاس مقاوم للحريق",
+      "fire resistant power cable",
+      "fire rated power cable"
      ]
     },
     {
@@ -8758,7 +8932,14 @@
       "flood light",
       "كشاف اناره",
       "كشافات",
-      "projector floodlight"
+      "projector floodlight",
+      "كشاف led",
+      "كشاف ليد",
+      "led floodlight",
+      "led flood light",
+      "كشاف خارجي",
+      "كشاف ملعب",
+      "كشاف واط"
      ]
     },
     {

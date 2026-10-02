@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v12')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v13')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -2610,4 +2610,34 @@ describe('cpo-v12: the four materials the first booklets named and the ontology 
     expect(resolve('قطاع C حديد 100 مم').intent).toBe('cold_formed_section')
     expect(resolve('برغي مقاس 6 مم').intent).toBe('bolt_screw')
   })
+})
+
+/**
+ * cpo-v13. The owner, 2 Oct 2026, on the evidence-ranking audit: seven
+ * common materials resolved to their family only (PPR, copper cable, LED
+ * floodlight, valves, wall paint, smoke detector, rebar), so their lines were
+ * matched on family terms and the line's own words. Each is now an intent.
+ */
+describe('cpo-v13: seven common materials that were family-only', () => {
+  const cases: Array<[string, string]> = [
+    ['ماسورة PPR PN20 قطر 32 مم', 'ppr_pipe'],
+    ['مواسير بي بي ار 25 مم', 'ppr_pipe'],
+    ['كابل كهرباء نحاس 4x16 مم', 'lv_power_cable'],
+    ['كابل كهرباء مقاوم للحريق 2x2.5', 'fire_resistant_cable'],
+    ['كابل تحكم 12 كور', 'control_cable'],
+    ['كشاف LED 50 واط', 'floodlight'],
+    ['محبس كرة نحاس 1 بوصة', 'ball_valve'],
+    ['محبس بوابة 2 بوصة', 'gate_valve'],
+    ['صمام تحكم كهربائي', 'control_valve'],
+    ['دهان جدران داخلي بلاستيك', 'interior_wall_paint'],
+    ['دهان ايبوكسي للارضيات', 'primer_coating'],
+    ['كاشف دخان', 'smoke_heat_detector'],
+    ['لوحة انذار حريق معنونة', 'fire_alarm_panel'],
+    ['حديد تسليح 16 مم', 'rebar'],
+    ['شبك تسليح ملحوم', 'welded_mesh'],
+    ['حديد زاوية 50', 'structural_steel_section'],
+  ]
+  for (const [line, intent] of cases) {
+    it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+  }
 })
