@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setPendingUpload } from '../lib/pendingUpload'
+import NewRequestButton from '../components/rfqCart/NewRequestButton'
 import type { NavProps } from '../types'
 import { UploadIcon, ArrowRightIcon, ClockIcon, FileIcon, ChatIcon } from '../icons'
 import {
@@ -145,14 +146,7 @@ export function HomeView({ navigate }: NavProps) {
               : 'ارفع كراسة وسنقرأ البنود ونقترح لكل بند موردين مناسبين.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={pickFile}
-          className="flex items-center gap-2 px-5 py-3 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm shadow-sm"
-        >
-          <UploadIcon className="w-4 h-4" />
-          طلب تسعير جديد
-        </button>
+        <NewRequestButton onPickFile={pickFile} onStart={() => navigate('create-upload')} />
       </div>
 
       {dragging && (

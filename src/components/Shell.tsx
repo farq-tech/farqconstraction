@@ -319,6 +319,15 @@ export function Shell({ view, navigate, children }: ShellProps) {
             <span className="text-white/90 font-bold text-base leading-none">بناء</span>
           </button>
           <div className="flex items-center gap-2">
+            {/* The sidebar's «طلب تسعير جديد» on a phone: opens «كيف تبي تبدأ طلب التسعير؟». */}
+            <button
+              onClick={() => navigate('create-upload')}
+              aria-label="طلب تسعير جديد"
+              className="flex items-center gap-1 rounded-lg bg-[#CFF5DC] text-[#123F3A] font-bold text-xs px-3 min-h-9"
+            >
+              <span className="text-base leading-none">+</span>
+              طلب جديد
+            </button>
             <button onClick={() => setShowNotifs(true)} className="text-white/60 p-1 relative">
               <BellIcon className="w-5 h-5" />
               {inboxUnread != null && inboxUnread > 0 && (

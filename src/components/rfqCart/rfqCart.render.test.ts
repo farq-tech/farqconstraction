@@ -11,6 +11,7 @@ import StartChooser from './StartChooser'
 import { ProductCardView } from './ProductSearchPanel'
 import QuickAddSheet from './QuickAddSheet'
 import CartPanel from './CartPanel'
+import NewRequestButton from './NewRequestButton'
 
 const card: ProductCard = {
   id: 'c1',
@@ -38,6 +39,26 @@ describe('StartChooser', () => {
   it('marks the open path', () => {
     const html = renderToStaticMarkup(createElement(StartChooser, { active: 'search', onChoose: noop }))
     expect(html).toMatch(/aria-pressed="true" data-path="search"|data-path="search" aria-pressed="true"/)
+  })
+})
+
+describe('NewRequestButton (home)', () => {
+  it('on a phone opens the chooser; on a wide screen still picks a booklet', () => {
+    const html = renderToStaticMarkup(createElement(NewRequestButton, { onPickFile: noop, onStart: noop }))
+    const phone = html.match(/<button[^>]*data-action="start-chooser"[^>]*>/)?.[0] ?? ''
+    const wide = html.match(/<button[^>]*data-action="pick-booklet"[^>]*>/)?.[0] ?? ''
+    expect(phone).toMatch(/class="lg:hidden /)
+    expect(wide).toMatch(/class="hidden lg:flex /)
+    expect(html.match(/طلب تسعير جديد/g)).toHaveLength(2)
+  })
+})
+
+describe('StartChooser on a phone', () => {
+  it('stacks the three cards one per row with a full-width touch target', () => {
+    const html = renderToStaticMarkup(createElement(StartChooser, { active: null, onChoose: noop }))
+    expect(html).toContain('grid-cols-1 sm:grid-cols-3')
+    expect(html.match(/w-full min-h-16/g)).toHaveLength(3)
+    expect(html).toContain('dir="rtl"')
   })
 })
 
