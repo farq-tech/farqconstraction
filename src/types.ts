@@ -62,6 +62,10 @@ export interface Supplier {
    */
   priorQuotes?: number
   roundOutcome?: RoundOutcome
+  /** Why the map lists him for this material, in the server's words («الاسم: «للبلوك»»). */
+  why?: string
+  /** His city is known and is not the request's city. */
+  outOfCity?: boolean
 }
 
 export interface BOQItem {

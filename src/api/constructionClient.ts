@@ -450,7 +450,7 @@ export type BoqCatalogMatchRow = {
   }
   /** «نتائج الجولات»: what suppliers did with this material in earlier rounds. */
   outcome_suggestion?: {
-    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; round_outcome?: { grade: string; priced_lines?: number; similar_by?: string } }>
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }; why_ar?: string; out_of_city?: boolean }>
   }
   /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
   ai_suggestion?: {
@@ -2709,6 +2709,8 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         learned: s.learned_choice === true,
         prior_quotes: priorQuotesOf(s),
         ...(outcome?.grade ? { round_outcome: { grade: outcome.grade, priced_lines: outcome.priced_lines, similar_by: outcome.similar_by } } : {}),
+        ...(typeof s.why_ar === 'string' && s.why_ar ? { why_ar: s.why_ar } : {}),
+        ...(s.out_of_city === true ? { out_of_city: true } : {}),
         channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
         rfq_eligible: false,
       }

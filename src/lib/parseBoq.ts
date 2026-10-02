@@ -568,6 +568,8 @@ function mapApiSuppliers(
     learned?: boolean
     prior_quotes?: number
     round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }
+    why_ar?: string
+    out_of_city?: boolean
   }>,
   limit = MATCH_SUPPLIERS_PER_LINE,
 ): Supplier[] {
@@ -597,6 +599,8 @@ function mapApiSuppliers(
         learned: s.learned === true ? true : undefined,
         priorQuotes: Number(s.prior_quotes) > 0 ? Number(s.prior_quotes) : undefined,
         roundOutcome: roundOutcomeOf(s.round_outcome),
+        why: typeof s.why_ar === 'string' && s.why_ar ? s.why_ar : undefined,
+        outOfCity: s.out_of_city === true ? true : undefined,
         channel,
       }
     })

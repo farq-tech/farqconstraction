@@ -157,6 +157,11 @@ function SuggestionBox({
                     <span className="block text-xs text-neutral-400">
                       {s.city}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
+                      {!s.roundOutcome && s.why && (
+                        <span className="text-neutral-500" title="لماذا يقترحه فرق لهذه المادة">
+                          {' '}· {s.why}
+                        </span>
+                      )}
                       {s.roundOutcome && (
                         <span className="text-[#1a7a45] font-semibold" title={roundOutcomeTag(s.roundOutcome).title}>
                           {' '}· {roundOutcomeTag(s.roundOutcome).label}
