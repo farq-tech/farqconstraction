@@ -21,6 +21,8 @@ import {
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
   type ConstructionRfq,
+  attemptReached,
+  attemptUndelivered,
 } from '../api/constructionClient'
 
 type Tab = 'correspondence' | 'offers' | 'items' | 'log'
@@ -41,9 +43,9 @@ function supplierStage(invite: { response_status?: string; opened_at?: string | 
   if (response === 'QUOTED') return { label: 'قدّم عرضًا', cls: 'bg-[#CFF5DC] text-[#1a7a45]' }
   if (response === 'DECLINED') return { label: 'اعتذر', cls: 'bg-neutral-100 text-neutral-500' }
   if (invite.opened_at) return { label: 'فتح الطلب', cls: 'bg-[#eef4fb] text-[#2F6CB5]' }
-  const sent = (invite.dispatch_attempts || []).find((a) => a.status === 'SENT')
+  const sent = (invite.dispatch_attempts || []).find(attemptReached)
   if (sent) return { label: `وصله عبر ${CHANNEL_LABEL[sent.channel] || sent.channel}`, cls: 'bg-neutral-100 text-neutral-600' }
-  const failed = (invite.dispatch_attempts || []).find((a) => a.status === 'DELIVERY_FAILED')
+  const failed = (invite.dispatch_attempts || []).find((a) => a.status === 'DELIVERY_FAILED' || attemptUndelivered(a))
   if (failed) return { label: 'لم يصله', cls: 'bg-red-50 text-red-700' }
   return { label: 'لم يُرسل بعد', cls: 'bg-amber-50 text-amber-700' }
 }
@@ -248,7 +250,7 @@ export function RFQDetailView({ navigate }: NavProps) {
   const deadline = payload?.delivery?.required_date
   const closing = rfqClosing(payload?.quote_deadline, payload?.quote_deadline_time)
   const quoted = invites.filter((i) => String(i.response_status || '').toUpperCase() === 'QUOTED')
-  const reached = invites.filter((i) => (i.dispatch_attempts || []).some((a) => a.status === 'SENT')).length
+  const reached = invites.filter((i) => (i.dispatch_attempts || []).some(attemptReached)).length
   const opened = invites.filter((i) => i.opened_at).length
   const total = invites.length
 

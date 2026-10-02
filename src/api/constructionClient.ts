@@ -104,7 +104,25 @@ export type ConstructionInvitation = {
     status: string
     sent_at: string | null
     failure_code: string | null
+    /** Meta's report on a WhatsApp send (whatsapp_delivery_events); absent when unknown. */
+    delivery_report?: 'sent' | 'delivered' | 'read' | 'failed' | null
+    delivery_error_code?: number | null
   }>
+}
+
+type DispatchAttempt = NonNullable<ConstructionInvitation['dispatch_attempts']>[number]
+
+/**
+ * The attempt reached the supplier: the provider accepted it, and for WhatsApp
+ * Meta did not report it failed afterwards (e.g. 131042, an unpaid balance).
+ */
+export function attemptReached(a: Pick<DispatchAttempt, 'status' | 'delivery_report'>): boolean {
+  return a.status === 'SENT' && a.delivery_report !== 'failed'
+}
+
+/** Accepted by the provider, then reported undeliverable by Meta. */
+export function attemptUndelivered(a: Pick<DispatchAttempt, 'status' | 'delivery_report'>): boolean {
+  return a.status === 'SENT' && a.delivery_report === 'failed'
 }
 
 export type ConstructionRfq = {

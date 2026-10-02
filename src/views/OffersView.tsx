@@ -13,6 +13,7 @@ import {
   type ConstructionRfq,
   type ConstructionRfqSummary,
   formatRfqReference,
+  attemptReached,
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
 
@@ -102,7 +103,7 @@ export function OffersView({ navigate }: NavProps) {
           const rank = (row: (typeof mapped)[number]) => {
             if (row.status === 'complete') return 0
             if (row.status === 'partial') return 1
-            if ((row.dispatchAttempts || []).some((a) => a.status === 'SENT')) return 2
+            if ((row.dispatchAttempts || []).some(attemptReached)) return 2
             return 3
           }
           return rank(a) - rank(b)
@@ -136,7 +137,7 @@ export function OffersView({ navigate }: NavProps) {
     if (rowFilter === 'pending') return rows.filter((o) => o.status === 'pending')
     if (rowFilter === 'sent') {
       return rows.filter((o) =>
-        (o.dispatchAttempts || []).some((a) => a.status === 'SENT' || a.status === 'DELIVERED'),
+        (o.dispatchAttempts || []).some((a) => attemptReached(a) || a.status === 'DELIVERED'),
       )
     }
     return rows
@@ -337,14 +338,14 @@ export function OffersView({ navigate }: NavProps) {
                           <span
                             key={`${a.channel}-${a.sent_at || idx}`}
                             className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                              a.status === 'SENT' || a.status === 'DELIVERED'
+                              attemptReached(a) || a.status === 'DELIVERED'
                                 ? 'bg-[#e0efec] text-[#123F3A]'
-                                : a.status === 'FAILED'
+                                : a.status === 'FAILED' || a.delivery_report === 'failed'
                                   ? 'bg-red-50 text-red-700'
                                   : 'bg-neutral-100 text-neutral-500'
                             }`}
                           >
-                            {formatAttempt(a.channel, a.status)}
+                            {formatAttempt(a.channel, a.delivery_report === 'failed' ? 'FAILED' : a.status)}
                             {a.sent_at
                               ? ` · ${new Date(a.sent_at).toLocaleString('en-GB', {
                                   dateStyle: 'short',

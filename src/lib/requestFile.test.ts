@@ -64,6 +64,29 @@ describe('supplier state and progress', () => {
   })
 })
 
+describe('WhatsApp delivery reports', () => {
+  const wa = (delivery_report: 'sent' | 'delivered' | 'read' | 'failed' | null) =>
+    invite({ id: `wa-${delivery_report}`, dispatch_attempts: [{ channel: 'WHATSAPP', status: 'SENT', sent_at: 't', failure_code: null, delivery_report, delivery_error_code: delivery_report === 'failed' ? 131042 : null }] })
+
+  it('a message Meta accepted then refused (131042) is a failure, not «sent»', () => {
+    const state = supplierState(wa('failed'))
+    expect(state.key).toBe('FAILED')
+    expect(state.label).toBe('لم تصل رسالة واتساب')
+    expect(state.channel).toBe('واتساب')
+  })
+
+  it('delivered or read says it arrived; no report keeps the old wording', () => {
+    expect(supplierState(wa('delivered')).label).toBe('وصلت — بانتظار الرد')
+    expect(supplierState(wa('read')).label).toBe('وصلت — بانتظار الرد')
+    expect(supplierState(wa(null)).label).toBe('أُرسل — بانتظار الرد')
+  })
+
+  it('an undelivered message does not count as reached', () => {
+    const rfq = { current_version: { payload: { lines: [{}] } }, invitations: [wa('failed'), wa('delivered')] } as unknown as ConstructionRfq
+    expect(requestProgress(rfq).reached).toBe(1)
+  })
+})
+
 describe('quotes', () => {
   it('reads partial coverage against the lines the supplier was asked for', () => {
     expect(quoteCoverage({ coverage: { requested: 5, priced: 3, complete: false } })!.label).toBe('عرض جزئي — 3 من 5 بنود')
