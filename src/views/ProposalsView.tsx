@@ -1048,20 +1048,28 @@ export function ProposalsView({ navigate }: NavProps) {
           const chosen = new Set(lines.flatMap((i) => selected[i.id] || [])).size
           const picks = lines.reduce((sum, i) => sum + (selected[i.id] || []).length, 0)
           const unpicked = lines.filter((i) => !(selected[i.id] || []).length)
-          // A line whose only suppliers are «مورد محتمل» (activity-level) is
-          // not "nothing found": they are shown on its card for the buyer to
-          // judge, just not ticked for him.
-          // Suppliers the buyer rejected are hidden on the card, so they leave
-          // nothing to review.
-          const toReview = unpicked.filter((i) => {
+          // An unticked line falls in one of three buckets, judged by the
+          // suppliers still visible on its card (rejected ones are hidden):
+          //  - cleared: it still has evidence-backed suppliers (what auto-pick
+          //    would tick), so the buyer emptied it himself;
+          //  - toReview: only «مورد محتمل» (activity-level) suppliers are left,
+          //    shown for the buyer to judge but never ticked for him;
+          //  - empty: nothing at all.
+          let cleared = 0
+          let toReview = 0
+          for (const i of unpicked) {
+            if (autoPickFor(i, 1).length) { cleared += 1; continue }
             const rejected = new Set(i.rejectedSupplierIds || [])
-            return [
+            const visible = [
+              ...(i.suppliers || []),
               ...(i.mapSuggestion?.suppliers || []),
               ...(i.familySuggestion?.suppliers || []),
               ...(i.outcomeSuggestion?.suppliers || []),
+              ...(i.aiSuggestion?.suppliers || []),
             ].some((s) => s?.id && !rejected.has(s.id))
-          }).length
-          const empty = unpicked.length - toReview
+            if (visible) toReview += 1
+          }
+          const empty = unpicked.length - cleared - toReview
           return (
             <div
               className={`mb-6 rounded-2xl border px-5 py-4 ${unpicked.length === 0 ? 'bg-[#F3FBF6] border-[#CFF5DC]' : 'bg-amber-50 border-amber-200'}`}
@@ -1078,6 +1086,7 @@ export function ProposalsView({ navigate }: NavProps) {
                   ? 'كل بند له موردون مختارون بدليل على المادة. راجعهم قبل الإرسال.'
                   : [
                       empty > 0 ? `${empty} بندًا لم نجد لها موردًا في دليلنا.` : '',
+                      cleared > 0 ? `${cleared} بندًا ألغيت اختيار مورديه، وموردوه ما زالوا في البند.` : '',
                       toReview > 0
                         ? `${toReview} بندًا لها «مورد محتمل» فقط (اختير لنشاطه لا لمادته)، فلم نخترهم لك: راجعهم في البند واختر من يناسب.`
                         : '',
