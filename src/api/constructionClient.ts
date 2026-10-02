@@ -1023,6 +1023,23 @@ export async function getConstructionComparison(id: string): Promise<Constructio
  * An add-on: call only when `services.has('equivalents')`. A 403 with
  * CONSTRUCTION_SERVICE_DISABLED means the account does not have it.
  */
+/** «مطابقة الموردين على مستوى الطلب» for an existing request (opt-in `supplier_match_v2`). */
+export async function getRfqSupplierPlan(id: string): Promise<import('../lib/supplierPlan').SupplierPlan> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/supplier-plan`)
+}
+
+/** The same plan for booklet lines before a request exists. */
+export async function planBoqSuppliers(
+  rows: Array<{ key: string; name: string }>,
+  options: { city?: string; district?: string } = {},
+): Promise<import('../lib/supplierPlan').SupplierPlan> {
+  return request('/api/construction/boq/supplier-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows, ...options }),
+  })
+}
+
 export async function getRfqEquivalents(
   id: string,
 ): Promise<{ service: 'equivalents'; lines: import('../lib/brandEquivalence').EquivalenceLine[] }> {

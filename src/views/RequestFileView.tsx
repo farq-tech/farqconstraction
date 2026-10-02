@@ -28,6 +28,8 @@ import {
 import { rfqProjectName } from '../lib/rfqIdentity'
 import { BookletChip } from '../components/BookletChip'
 import EquivalentsPanel from '../components/brand/EquivalentsPanel'
+import SupplierPlanPanel from '../components/SupplierPlanPanel'
+import { SUPPLIER_MATCH_V2_SERVICE } from '../lib/supplierPlan'
 import { WEB_DISCOVERY_SERVICE } from '../lib/webAlternatives'
 import { EQUIVALENTS_SERVICE } from '../lib/brandEquivalence'
 import { useServices } from '../api/useServices'
@@ -671,6 +673,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
               )
             })
           )}
+          {services.has(SUPPLIER_MATCH_V2_SERVICE) && <SupplierPlanPanel key={rfq.id} rfqId={rfq.id} />}
         </div>
       )}
 
