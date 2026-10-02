@@ -1,7 +1,34 @@
 import type { BOQItem, Supplier } from '../types'
 
-/** How many suppliers the system chooses for a line on its own. */
+/**
+ * The most suppliers the system chooses for a line on its own. A ceiling, not
+ * a target: a line with three evidence-backed suppliers gets three.
+ */
 export const AUTO_PICK = 10
+
+/**
+ * PRECISION OVER PADDING. The owner: «لا تعبّي القائمة بموردين ما لهم علاقة
+ * عشان توصل لرقم». When true, only suppliers with evidence for THIS material
+ * are ticked on their own: his own earlier choices, who priced or answered
+ * about it in an earlier round, who priced it for the company before, the
+ * suppliers the map names for the material, catalogue matches and the
+ * model-named lane. Suppliers of the activity (the map's family top-up /
+ * sector fallback, «على مستوى النشاط») and the family lane stay ON SCREEN,
+ * marked «مورد محتمل», for the buyer to tick himself.
+ *
+ * Set to false to restore the old behaviour (fill up to `AUTO_PICK` from the
+ * activity and family lanes too).
+ */
+export const AUTO_PICK_EVIDENCE_ONLY = true
+
+/**
+ * «نتائج الجولات» grades that are evidence about this material or its own
+ * trade: he priced it, answered about it, priced a material sold with it, or
+ * priced a sibling. 'SIMILAR' only says his registered activity resembles
+ * those who priced it — the same weakness as an activity-level supplier — so
+ * with `AUTO_PICK_EVIDENCE_ONLY` it is shown but not ticked.
+ */
+export const OUTCOME_GRADES_AUTO_PICKED: ReadonlySet<string> = new Set(['PRICED', 'ANSWERED', 'ALSO_SELLS', 'FAMILY_PRICED'])
 
 const ACTIVITY_GRADE = 'على مستوى النشاط'
 
@@ -87,12 +114,15 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
  * Order: what he chose before, then suppliers who already priced this
  * material for the company («مقدّم عروض سابقاً», from any lane of this line —
  * the API put them first inside each lane), then suppliers named for the
- * material, catalogue matches, the named-suggestion lane, suppliers of the
- * activity («مورد محتمل»), then the family and sector. Never one he rejected.
+ * material, catalogue matches, the named-suggestion lane. Suppliers of the
+ * activity («مورد محتمل») and the family/sector lane follow only when
+ * `AUTO_PICK_EVIDENCE_ONLY` is off. Never one he rejected, and never padded to
+ * reach `limit`.
  * Right after his own choices comes «نتائج الجولات» (outcomeSuggestion): who
  * priced this same material in an earlier round — even when no directory list
  * holds him — then who answered about it, prices it alongside a material he
- * priced, or resembles those who priced it, in the server's order. The owner,
+ * priced, or priced a sibling, in the server's order (one who only resembles
+ * those who priced it, 'SIMILAR', is not ticked under `AUTO_PICK_EVIDENCE_ONLY`). The owner,
  * 1 Oct 2026: «اهم شي نستفيد من الي ردو ومتوفر عندهم». Replayed on the first
  * two booklets, the lists without it held none of the 160 suppliers who had
  * priced those lines.
@@ -105,22 +135,23 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
   const rejected = new Set(item.rejectedSupplierIds || [])
   const map = item.mapSuggestion?.suppliers || []
-  const lanes = [
-    map.filter((s) => s.evidence !== ACTIVITY_GRADE),
-    item.suppliers,
-    item.aiSuggestion?.suppliers || [],
-    map.filter((s) => s.evidence === ACTIVITY_GRADE),
-    item.familySuggestion?.suppliers || [],
-  ]
+  const named = map.filter((s) => s.evidence !== ACTIVITY_GRADE)
+  const activity = map.filter((s) => s.evidence === ACTIVITY_GRADE)
+  const family = item.familySuggestion?.suppliers || []
+  const outcomes = (item.outcomeSuggestion?.suppliers || []).filter(
+    (s) => !AUTO_PICK_EVIDENCE_ONLY || (s.roundOutcome != null && OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)),
+  )
+  const lanes = [named, item.suppliers, item.aiSuggestion?.suppliers || [], activity, family]
   const ordered = [
     ...(item.learnedSuggestion?.suppliers || []),
-    ...(item.outcomeSuggestion?.suppliers || []),
+    ...outcomes,
+    // A prior quoter is evidence in himself, whichever lane listed him.
     ...lanes.flat().filter(isPriorQuoter),
-    ...specialistsFirst(map.filter((s) => s.evidence !== ACTIVITY_GRADE), context),
+    ...specialistsFirst(named, context),
     ...specialistsFirst(item.suppliers, context),
     ...specialistsFirst(item.aiSuggestion?.suppliers || [], context),
-    ...specialistsFirst(map.filter((s) => s.evidence === ACTIVITY_GRADE), context),
-    ...specialistsFirst(item.familySuggestion?.suppliers || [], context),
+    // Activity and family: no evidence for the material. Shown, never padded in.
+    ...(AUTO_PICK_EVIDENCE_ONLY ? [] : [...specialistsFirst(activity, context), ...specialistsFirst(family, context)]),
   ]
   const chosen: Supplier[] = []
   const seen = new Set<string>()

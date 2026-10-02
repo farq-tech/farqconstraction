@@ -668,13 +668,17 @@ export function ProposalsView({ navigate }: NavProps) {
    * that is an ORDER of evidence, not an empty screen:
    *
    *   1. suppliers he chose for this same line in an earlier booklet
-   *   2. suppliers named for the material itself
-   *   3. suppliers of the catalogue item it matched
-   *   4. suppliers the model named the material for
-   *   5. only then suppliers of the activity, marked «مورد محتمل»
+   *   2. who priced or answered about it in an earlier round («نتائج الجولات»)
+   *   3. who priced it for the company before («مقدّم عروض سابقاً»)
+   *   4. suppliers named for the material itself
+   *   5. suppliers of the catalogue item it matched
+   *   6. suppliers the model named the material for
    *
-   * Up to five per line, never one he rejected, and never sent without the
-   * send screen listing every recipient first. An automatic pick is NOT fed to
+   * Suppliers of the activity and the family lane («مورد محتمل») are shown
+   * but NOT ticked (`AUTO_PICK_EVIDENCE_ONLY` in lib/autoPick): precision over
+   * padding. Up to `AUTO_PICK` (ten) per line — a ceiling, not a target —
+   * never one he rejected, and never sent without the send screen listing
+   * every recipient first. An automatic pick is NOT fed to
    * learning: the system does not learn from its own guesses.
    */
   const [openAll, setOpenAll] = useState<{ open: boolean; at: number }>({ open: true, at: 0 })
