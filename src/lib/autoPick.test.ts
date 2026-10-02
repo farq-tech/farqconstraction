@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { AUTO_PICK, AUTO_PICK_EVIDENCE_ONLY, autoPickFor, buildPickContext, isPriorQuoter } from './autoPick'
+import { AUTO_PICK, AUTO_PICK_EVIDENCE_ONLY, autoPickFor, buildPickContext, hasVisibleSuppliers, isPriorQuoter } from './autoPick'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -147,6 +147,20 @@ describe('autoPickFor — precision over padding (AUTO_PICK_EVIDENCE_ONLY)', () 
       familySuggestion: { family: 'paints', suppliers: [sup('قطاع-1', 'على مستوى النشاط'), sup('قطاع-2', 'على مستوى النشاط')] },
     })
     expect(autoPickFor(item).map((s) => s.id)).toEqual(['دهانات'])
+  })
+
+  it('a prior quoter on a SIMILAR outcome row is still ticked', () => {
+    const item = line(9, 'paints', [], {
+      outcomeSuggestion: { suppliers: [{ ...graded('شبيه-سعّر-سابقًا', 'SIMILAR'), priorQuotes: 2 }, graded('شبيه', 'SIMILAR')] },
+    })
+    expect(autoPickFor(item).map((s) => s.id)).toEqual(['شبيه-سعّر-سابقًا'])
+  })
+
+  it('hasVisibleSuppliers counts any lane and ignores rejected suppliers', () => {
+    const activityOnly = line(9, 'paints', [sup('نشاط', 'على مستوى النشاط')])
+    expect(hasVisibleSuppliers(activityOnly)).toBe(true)
+    expect(hasVisibleSuppliers({ ...activityOnly, rejectedSupplierIds: ['نشاط'] })).toBe(false)
+    expect(hasVisibleSuppliers(line(9, 'paints', []))).toBe(false)
   })
 
   it('ticks named AI suppliers but never activity-grade ones from the AI lane', () => {

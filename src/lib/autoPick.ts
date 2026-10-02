@@ -141,10 +141,11 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   // The AI lane can carry activity-grade rows too; only its named ones are evidence.
   const allAi = item.aiSuggestion?.suppliers || []
   const ai = AUTO_PICK_EVIDENCE_ONLY ? allAi.filter((s) => s.evidence !== ACTIVITY_GRADE) : allAi
-  const outcomes = (item.outcomeSuggestion?.suppliers || []).filter(
+  const allOutcomes = item.outcomeSuggestion?.suppliers || []
+  const outcomes = allOutcomes.filter(
     (s) => !AUTO_PICK_EVIDENCE_ONLY || (s.roundOutcome != null && OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)),
   )
-  const lanes = [named, item.suppliers, allAi, activity, family]
+  const lanes = [named, item.suppliers, allAi, activity, family, allOutcomes]
   const ordered = [
     ...(item.learnedSuggestion?.suppliers || []),
     ...outcomes,
@@ -165,4 +166,21 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
     if (chosen.length >= limit) break
   }
   return chosen
+}
+
+/**
+ * Whether the line's card still shows any supplier the buyer has not rejected,
+ * in any lane. A line with none of the evidence-backed picks but some of these
+ * has «مورد محتمل» suppliers to review — it is not "nothing in our directory".
+ */
+export function hasVisibleSuppliers(item: BOQItem): boolean {
+  const rejected = new Set(item.rejectedSupplierIds || [])
+  return [
+    ...(item.suppliers || []),
+    ...(item.mapSuggestion?.suppliers || []),
+    ...(item.familySuggestion?.suppliers || []),
+    ...(item.outcomeSuggestion?.suppliers || []),
+    ...(item.aiSuggestion?.suppliers || []),
+    ...(item.learnedSuggestion?.suppliers || []),
+  ].some((s) => s?.id && !rejected.has(s.id))
 }

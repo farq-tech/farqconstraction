@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { autoPickFor, buildPickContext } from '../lib/autoPick'
+import { autoPickFor, buildPickContext, hasVisibleSuppliers } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
 import { matchSuppliersForItems, parseBoqFile } from '../lib/parseBoq'
@@ -743,7 +743,11 @@ export function UploadView({ navigate }: NavProps) {
   // The same choice the proposals page makes, so both screens say one thing.
   const pickContext = buildPickContext(items)
   const picksById = new Map(items.map((i) => [i.id, i.workOnly ? [] : autoPickFor(i, undefined, pickContext)]))
-  const searchingCount = items.filter((i) => !i.workOnly && !(picksById.get(i.id) || []).length).length
+  const unpicked = items.filter((i) => !i.workOnly && !(picksById.get(i.id) || []).length)
+  // Lines with only «مورد محتمل» suppliers are shown on the next screen for
+  // review; they are not "nothing in our directory".
+  const possibleCount = unpicked.filter(hasVisibleSuppliers).length
+  const searchingCount = unpicked.length - possibleCount
   const supplierCount = new Set([...picksById.values()].flat().map((s) => s.id)).size
   const coveredCount = items.filter((i) => (picksById.get(i.id) || []).length > 0).length
 
@@ -1033,6 +1037,9 @@ export function UploadView({ navigate }: NavProps) {
                     <div className="text-xs text-neutral-500 mt-0.5">
                       {searchingCount ? 'بلا مورد في دليلنا' : 'بندًا لها موردون'}
                     </div>
+                    {possibleCount > 0 && (
+                      <div className="text-[11px] text-amber-700 mt-0.5">و{possibleCount} بمورد محتمل للمراجعة</div>
+                    )}
                   </div>
                   <div>
                     <div className="text-2xl font-black text-[#123F3A]">{supplierCount}</div>

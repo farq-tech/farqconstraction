@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTO_PICK, autoPickFor, buildPickContext, isPriorQuoter } from '../lib/autoPick'
+import { AUTO_PICK, autoPickFor, buildPickContext, hasVisibleSuppliers, isPriorQuoter } from '../lib/autoPick'
 import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
@@ -1059,15 +1059,7 @@ export function ProposalsView({ navigate }: NavProps) {
           let toReview = 0
           for (const i of unpicked) {
             if (autoPickFor(i, 1).length) { cleared += 1; continue }
-            const rejected = new Set(i.rejectedSupplierIds || [])
-            const visible = [
-              ...(i.suppliers || []),
-              ...(i.mapSuggestion?.suppliers || []),
-              ...(i.familySuggestion?.suppliers || []),
-              ...(i.outcomeSuggestion?.suppliers || []),
-              ...(i.aiSuggestion?.suppliers || []),
-            ].some((s) => s?.id && !rejected.has(s.id))
-            if (visible) toReview += 1
+            if (hasVisibleSuppliers(i)) toReview += 1
           }
           const empty = unpicked.length - cleared - toReview
           return (
