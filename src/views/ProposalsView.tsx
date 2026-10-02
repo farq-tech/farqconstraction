@@ -1047,10 +1047,21 @@ export function ProposalsView({ navigate }: NavProps) {
           const covered = lines.filter((i) => (selected[i.id] || []).length > 0).length
           const chosen = new Set(lines.flatMap((i) => selected[i.id] || [])).size
           const picks = lines.reduce((sum, i) => sum + (selected[i.id] || []).length, 0)
-          const empty = lines.length - covered
+          const unpicked = lines.filter((i) => !(selected[i.id] || []).length)
+          // A line whose only suppliers are «مورد محتمل» (activity-level) is
+          // not "nothing found": they are shown on its card for the buyer to
+          // judge, just not ticked for him.
+          const toReview = unpicked.filter((i) =>
+            [
+              ...(i.mapSuggestion?.suppliers || []),
+              ...(i.familySuggestion?.suppliers || []),
+              ...(i.outcomeSuggestion?.suppliers || []),
+            ].length > 0,
+          ).length
+          const empty = unpicked.length - toReview
           return (
             <div
-              className={`mb-6 rounded-2xl border px-5 py-4 ${empty === 0 ? 'bg-[#F3FBF6] border-[#CFF5DC]' : 'bg-amber-50 border-amber-200'}`}
+              className={`mb-6 rounded-2xl border px-5 py-4 ${unpicked.length === 0 ? 'bg-[#F3FBF6] border-[#CFF5DC]' : 'bg-amber-50 border-amber-200'}`}
               dir="rtl"
             >
               <div className="text-base font-black text-[#0D1F1D]">
@@ -1060,9 +1071,15 @@ export function ProposalsView({ navigate }: NavProps) {
                 مجموع الاختيارات {picks.toLocaleString('en-US')}: المورد الواحد يُختار لكل بنود مادته، فيصله طلب عرض واحد يشملها كلها.
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
-                {empty === 0
-                  ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال: من عليه «مورد محتمل» اختير لنشاطه لا لمادته.'
-                  : `${empty} بندًا لم نجد لها موردًا في دليلنا. البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين، ومن عليه «مورد محتمل» اختير لنشاطه لا لمادته.`}
+                {unpicked.length === 0
+                  ? 'كل بند له موردون مختارون بدليل على المادة. راجعهم قبل الإرسال.'
+                  : [
+                      empty > 0 ? `${empty} بندًا لم نجد لها موردًا في دليلنا.` : '',
+                      toReview > 0
+                        ? `${toReview} بندًا لها «مورد محتمل» فقط (اختير لنشاطه لا لمادته)، فلم نخترهم لك: راجعهم في البند واختر من يناسب.`
+                        : '',
+                      `البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين ممن لدينا دليل على مادتهم، ولم نكمل العدد بغيرهم.`,
+                    ].filter(Boolean).join(' ')}
                 {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
               </div>
             </div>
