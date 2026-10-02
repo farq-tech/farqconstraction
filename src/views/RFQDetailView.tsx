@@ -21,7 +21,9 @@ import {
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
   type ConstructionRfq,
+  type ProviderDelivery,
 } from '../api/constructionClient'
+import { deliveryFailureReason } from '../lib/requestFile'
 
 type Tab = 'correspondence' | 'offers' | 'items' | 'log'
 
@@ -36,14 +38,21 @@ const TABS: [Tab, string][] = [
 const CHANNEL_LABEL: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'محادثة' }
 
 /** Where one supplier stands, in the buyer's words, with the colour that says it. */
-function supplierStage(invite: { response_status?: string; opened_at?: string | null; dispatch_attempts?: Array<{ status: string; channel: string }> }): { label: string; cls: string } {
+function supplierStage(invite: { response_status?: string; opened_at?: string | null; dispatch_attempts?: Array<{ status: string; channel: string; provider_delivery?: ProviderDelivery }> }): { label: string; cls: string } {
   const response = String(invite.response_status || '').toUpperCase()
   if (response === 'QUOTED') return { label: 'قدّم عرضًا', cls: 'bg-[#CFF5DC] text-[#1a7a45]' }
   if (response === 'DECLINED') return { label: 'اعتذر', cls: 'bg-neutral-100 text-neutral-500' }
   if (invite.opened_at) return { label: 'فتح الطلب', cls: 'bg-[#eef4fb] text-[#2F6CB5]' }
-  const sent = (invite.dispatch_attempts || []).find((a) => a.status === 'SENT')
-  if (sent) return { label: `وصله عبر ${CHANNEL_LABEL[sent.channel] || sent.channel}`, cls: 'bg-neutral-100 text-neutral-600' }
-  const failed = (invite.dispatch_attempts || []).find((a) => a.status === 'DELIVERY_FAILED')
+  // SENT is the provider's acceptance; «وصله» needs its receipt (WhatsApp delivered/read).
+  const attempts = invite.dispatch_attempts || []
+  const live = attempts.filter((a) => a.status === 'SENT' && a.provider_delivery?.state !== 'FAILED')
+  const reached = live.find((a) => a.provider_delivery?.state === 'READ' || a.provider_delivery?.state === 'DELIVERED')
+  if (reached) return { label: `${reached.provider_delivery?.state === 'READ' ? 'قرأه' : 'وصله'} عبر ${CHANNEL_LABEL[reached.channel] || reached.channel}`, cls: 'bg-neutral-100 text-neutral-600' }
+  const sent = live[0]
+  if (sent) return { label: `أُرسل عبر ${CHANNEL_LABEL[sent.channel] || sent.channel}`, cls: 'bg-neutral-100 text-neutral-600' }
+  const undelivered = attempts.find((a) => a.status === 'SENT' && a.provider_delivery?.state === 'FAILED')
+  if (undelivered) return { label: `لم يصله — ${deliveryFailureReason(undelivered.provider_delivery)}`, cls: 'bg-red-50 text-red-700' }
+  const failed = attempts.find((a) => a.status === 'DELIVERY_FAILED')
   if (failed) return { label: 'لم يصله', cls: 'bg-red-50 text-red-700' }
   return { label: 'لم يُرسل بعد', cls: 'bg-amber-50 text-amber-700' }
 }

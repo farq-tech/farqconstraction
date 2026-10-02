@@ -3,6 +3,7 @@ import type {
   ConstructionInvitation,
   ConstructionRfq,
   ConstructionSupplierOutcomeEvent,
+  ProviderDelivery,
 } from '../api/constructionClient'
 import { isHeldOffer, vatStatusLabel } from './priceReview'
 
@@ -52,17 +53,61 @@ export type SupplierState = {
 
 const CHANNEL_AR: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: 'واتساب', HARAJ: 'محادثة' }
 
+type DispatchAttempt = NonNullable<ConstructionInvitation['dispatch_attempts']>[number]
+
+/** Why WhatsApp did not deliver, in the buyer's words (Meta error codes). */
+const WHATSAPP_FAILURE_AR: Record<number, string> = {
+  131042: 'حساب واتساب للأعمال عليه مستحقات غير مسددة',
+  131026: 'الرقم لا يستقبل الرسالة على واتساب',
+  131049: 'واتساب أوقفها ضمن حد الرسائل لهذا الرقم',
+  131047: 'انتهت مهلة الـ24 ساعة للرد',
+  131050: 'المورد أوقف استقبال رسائلنا',
+}
+
+export function deliveryFailureReason(delivery?: ProviderDelivery | null): string {
+  const code = Number(delivery?.error_code)
+  return WHATSAPP_FAILURE_AR[code] || 'رفض واتساب تسليم الرسالة'
+}
+
+/** The provider receipt of one accepted WhatsApp send, in words; '' when not tracked. */
+export function providerDeliveryLabel(delivery?: ProviderDelivery | null): string {
+  if (!delivery) return ''
+  if (delivery.state === 'READ') return 'قرأها المورد'
+  if (delivery.state === 'DELIVERED') return 'وصلت لجهاز المورد'
+  if (delivery.state === 'FAILED') return `لم تصل — ${deliveryFailureReason(delivery)}`
+  if (delivery.state === 'ACCEPTED') return 'قبلها واتساب — لم يؤكَّد وصولها'
+  return 'لا تأكيد من واتساب بعد'
+}
+
+/** Accepted by the provider, then reported undelivered by its receipts. */
+export function deliveryFailed(attempt: DispatchAttempt): boolean {
+  return attempt.status === 'SENT' && attempt.provider_delivery?.state === 'FAILED'
+}
+
+/** A send that counts: accepted by the provider and not later reported undelivered. */
+function standing(attempt: DispatchAttempt): boolean {
+  return attempt.status === 'SENT' && !deliveryFailed(attempt)
+}
+
 /**
  * Where the request stands with one supplier. «Sent» means an attempt the
- * provider accepted (dispatch_attempts.status = SENT); a failed attempt is
- * never counted as reached.
+ * provider accepted (dispatch_attempts.status = SENT); «وصلته» only when the
+ * provider's receipt says so (WhatsApp delivered/read). A failed attempt — or
+ * an accepted one WhatsApp later reported undelivered — is never «sent».
  */
 export function supplierState(invite: ConstructionInvitation, awardedInviteId?: string | null): SupplierState {
   const attempts = (invite.dispatch_attempts || []).filter((a) => (a.message_type || 'RFQ') === 'RFQ')
-  const sent = attempts.find((a) => a.status === 'SENT')
+  const live = attempts.filter(standing)
+  const sent = live.find((a) => a.provider_delivery?.state === 'READ') || live.find((a) => a.provider_delivery?.state === 'DELIVERED') || live[0]
   if (awardedInviteId && invite.id === awardedInviteId) return { key: 'AWARDED', label: 'تمت الترسية عليه', cls: 'bg-[#CFF5DC] text-[#1a7a45]' }
   if (String(invite.response_status || '').toUpperCase() === 'QUOTED') return { key: 'QUOTED', label: 'تم استلام العرض', cls: 'bg-[#e0efec] text-[#123F3A]' }
-  if (sent) return { key: 'SENT', label: 'أُرسل — بانتظار الرد', cls: 'bg-neutral-100 text-neutral-600', channel: CHANNEL_AR[sent.channel] || sent.channel }
+  if (sent) {
+    const state = sent.provider_delivery?.state
+    const label = state === 'READ' ? 'قرأ الرسالة — بانتظار الرد' : state === 'DELIVERED' ? 'وصلته الرسالة — بانتظار الرد' : 'أُرسل — بانتظار الرد'
+    return { key: 'SENT', label, cls: 'bg-neutral-100 text-neutral-600', channel: CHANNEL_AR[sent.channel] || sent.channel }
+  }
+  const undelivered = attempts.find(deliveryFailed)
+  if (undelivered) return { key: 'FAILED', label: `لم تصله — ${deliveryFailureReason(undelivered.provider_delivery)}`, cls: 'bg-red-50 text-red-700', channel: CHANNEL_AR[undelivered.channel] || undelivered.channel }
   if (attempts.some((a) => a.status === 'DELIVERY_FAILED')) return { key: 'FAILED', label: 'تعذر الإرسال', cls: 'bg-red-50 text-red-700' }
   if (attempts.some((a) => a.status === 'NOT_SENT' && a.channel === 'WHATSAPP')) {
     return { key: 'MANUAL', label: 'بانتظار إرسال واتساب يدويًا', cls: 'bg-amber-50 text-amber-700' }
@@ -75,7 +120,7 @@ export type Progress = { items: number; reached: number; quoted: number; percent
 /** Header figures: lines requested, suppliers the request reached, suppliers that quoted. */
 export function requestProgress(rfq: ConstructionRfq): Progress {
   const invites = rfq.invitations || []
-  const reached = invites.filter((i) => (i.dispatch_attempts || []).some((a) => a.status === 'SENT' && (a.message_type || 'RFQ') === 'RFQ')).length
+  const reached = invites.filter((i) => (i.dispatch_attempts || []).some((a) => standing(a) && (a.message_type || 'RFQ') === 'RFQ')).length
   const quoted = invites.filter((i) => String(i.response_status || '').toUpperCase() === 'QUOTED').length
   const items = (rfq.current_version?.payload?.lines || []).length
   return { items, reached, quoted, percent: reached ? Math.round((Math.min(quoted, reached) / reached) * 100) : 0 }
