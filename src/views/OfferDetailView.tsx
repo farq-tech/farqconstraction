@@ -19,6 +19,7 @@ import {
   type ConstructionInvitation,
   type ConstructionRfq,
 } from '../api/constructionClient'
+import { providerDeliveryLabel } from '../lib/requestFile'
 import { buildRfqEmailPreview } from '../lib/rfqEmailPreview'
 import { RfqEmailPreviewModal } from '../components/RfqEmailPreviewModal'
 import BrandChips from '../components/brand/BrandChips'
@@ -373,6 +374,7 @@ export function OfferDetailView({ navigate }: NavProps) {
                   {formatDispatchAttemptStatus(attempt.status)}
                   {attempt.failure_code ? ` · ${attempt.failure_code}` : ''}
                   {attempt.sent_at ? ` · ${formatArDate(attempt.sent_at)}` : ''}
+                  {attempt.provider_delivery ? ` · ${providerDeliveryLabel(attempt.provider_delivery)}` : ''}
                 </span>
               </div>
             ))}

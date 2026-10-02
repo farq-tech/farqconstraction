@@ -104,7 +104,19 @@ export type ConstructionInvitation = {
     status: string
     sent_at: string | null
     failure_code: string | null
+    /**
+     * WhatsApp only: what Meta's delivery receipts say about a SENT (= accepted)
+     * attempt. Absent when receipts are not tracked yet.
+     */
+    provider_delivery?: ProviderDelivery
   }>
+}
+
+export type ProviderDelivery = {
+  state: 'READ' | 'DELIVERED' | 'ACCEPTED' | 'FAILED' | 'UNCONFIRMED'
+  at: string | null
+  error_code?: number | null
+  error_title?: string | null
 }
 
 export type ConstructionRfq = {

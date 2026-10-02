@@ -12,6 +12,7 @@ import {
   requestProgress,
   requestState,
   supplierState,
+  providerDeliveryLabel,
   taxLabel,
   leadTimeLabel,
 } from './requestFile'
@@ -61,6 +62,39 @@ describe('supplier state and progress', () => {
     expect(supplierState(d!).channel).toBe('البريد')
     expect(supplierState(a!).key).toBe('QUOTED')
     expect(supplierState(a!, 'a').key).toBe('AWARDED')
+  })
+})
+
+describe('whatsapp delivery receipts', () => {
+  const wa = (state: 'READ' | 'DELIVERED' | 'ACCEPTED' | 'FAILED' | 'UNCONFIRMED', error_code: number | null = null) =>
+    invite({ id: state, dispatch_attempts: [{ channel: 'WHATSAPP', status: 'SENT', sent_at: 't', failure_code: null, provider_delivery: { state, at: 't', error_code } }] })
+
+  it('accepted but undelivered is never sent or reached, and says why', () => {
+    const failed = wa('FAILED', 131042)
+    expect(supplierState(failed).key).toBe('FAILED')
+    expect(supplierState(failed).label).toBe('لم تصله — حساب واتساب للأعمال عليه مستحقات غير مسددة')
+    expect(supplierState(wa('FAILED', 131026)).label).toContain('الرقم لا يستقبل الرسالة')
+    expect(supplierState(wa('FAILED', 999)).label).toContain('رفض واتساب تسليم الرسالة')
+    const rfq = { current_version: { payload: { lines: [{}] } }, invitations: [failed, wa('DELIVERED')] } as unknown as ConstructionRfq
+    expect(requestProgress(rfq).reached).toBe(1)
+  })
+
+  it('«وصلته» only on a delivered/read receipt; no receipt stays «أُرسل»', () => {
+    expect(supplierState(wa('READ')).label).toBe('قرأ الرسالة — بانتظار الرد')
+    expect(supplierState(wa('DELIVERED')).label).toBe('وصلته الرسالة — بانتظار الرد')
+    expect(supplierState(wa('ACCEPTED')).label).toBe('أُرسل — بانتظار الرد')
+    expect(supplierState(wa('UNCONFIRMED')).label).toBe('أُرسل — بانتظار الرد')
+    expect(providerDeliveryLabel({ state: 'UNCONFIRMED', at: null })).toBe('لا تأكيد من واتساب بعد')
+    expect(providerDeliveryLabel(undefined)).toBe('')
+  })
+
+  it('an email that went out still counts when the WhatsApp copy failed', () => {
+    const both = invite({ dispatch_attempts: [
+      { channel: 'WHATSAPP', status: 'SENT', sent_at: 't', failure_code: null, provider_delivery: { state: 'FAILED', at: 't', error_code: 131042 } },
+      { channel: 'EMAIL', status: 'SENT', sent_at: 't', failure_code: null },
+    ] })
+    expect(supplierState(both).key).toBe('SENT')
+    expect(supplierState(both).channel).toBe('البريد')
   })
 })
 
