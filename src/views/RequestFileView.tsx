@@ -24,6 +24,7 @@ import {
   type ConstructionInvitation,
   type ConstructionRfq,
   type ConstructionSupplierOutcomeEvent,
+  attemptUndelivered,
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
 import { BookletChip } from '../components/BookletChip'
@@ -295,6 +296,9 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         retry: true,
         sendConsent: false,
         harajLimit: invitePreferredChannel(invite) === 'HARAJ' ? 1 : undefined,
+        // Meta refused a paid WhatsApp send already confirmed for this supplier
+        // (e.g. 131042): the resend goes out the same way, not as a wa.me link.
+        whatsappPaid: (invite.dispatch_attempts || []).some(attemptUndelivered) || undefined,
       })
       setRfq(updated)
       const after = (updated.invitations || []).find((i) => i.id === invite.id)

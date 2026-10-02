@@ -4,6 +4,7 @@ import type {
   ConstructionRfq,
   ConstructionSupplierOutcomeEvent,
 } from '../api/constructionClient'
+import { attemptReached, attemptUndelivered } from '../api/constructionClient'
 import { isHeldOffer, vatStatusLabel } from './priceReview'
 
 /**
@@ -59,10 +60,15 @@ const CHANNEL_AR: Record<string, string> = { EMAIL: 'البريد', WHATSAPP: '�
  */
 export function supplierState(invite: ConstructionInvitation, awardedInviteId?: string | null): SupplierState {
   const attempts = (invite.dispatch_attempts || []).filter((a) => (a.message_type || 'RFQ') === 'RFQ')
-  const sent = attempts.find((a) => a.status === 'SENT')
+  const sent = attempts.find(attemptReached)
   if (awardedInviteId && invite.id === awardedInviteId) return { key: 'AWARDED', label: 'تمت الترسية عليه', cls: 'bg-[#CFF5DC] text-[#1a7a45]' }
   if (String(invite.response_status || '').toUpperCase() === 'QUOTED') return { key: 'QUOTED', label: 'تم استلام العرض', cls: 'bg-[#e0efec] text-[#123F3A]' }
-  if (sent) return { key: 'SENT', label: 'أُرسل — بانتظار الرد', cls: 'bg-neutral-100 text-neutral-600', channel: CHANNEL_AR[sent.channel] || sent.channel }
+  if (sent) {
+    const seen = sent.delivery_report === 'delivered' || sent.delivery_report === 'read'
+    return { key: 'SENT', label: seen ? 'وصلت — بانتظار الرد' : 'أُرسل — بانتظار الرد', cls: 'bg-neutral-100 text-neutral-600', channel: CHANNEL_AR[sent.channel] || sent.channel }
+  }
+  // Meta accepted the WhatsApp message, then refused to deliver it.
+  if (attempts.some(attemptUndelivered)) return { key: 'FAILED', label: 'لم تصل رسالة واتساب', cls: 'bg-red-50 text-red-700', channel: CHANNEL_AR.WHATSAPP }
   if (attempts.some((a) => a.status === 'DELIVERY_FAILED')) return { key: 'FAILED', label: 'تعذر الإرسال', cls: 'bg-red-50 text-red-700' }
   if (attempts.some((a) => a.status === 'NOT_SENT' && a.channel === 'WHATSAPP')) {
     return { key: 'MANUAL', label: 'بانتظار إرسال واتساب يدويًا', cls: 'bg-amber-50 text-amber-700' }
@@ -75,7 +81,7 @@ export type Progress = { items: number; reached: number; quoted: number; percent
 /** Header figures: lines requested, suppliers the request reached, suppliers that quoted. */
 export function requestProgress(rfq: ConstructionRfq): Progress {
   const invites = rfq.invitations || []
-  const reached = invites.filter((i) => (i.dispatch_attempts || []).some((a) => a.status === 'SENT' && (a.message_type || 'RFQ') === 'RFQ')).length
+  const reached = invites.filter((i) => (i.dispatch_attempts || []).some((a) => attemptReached(a) && (a.message_type || 'RFQ') === 'RFQ')).length
   const quoted = invites.filter((i) => String(i.response_status || '').toUpperCase() === 'QUOTED').length
   const items = (rfq.current_version?.payload?.lines || []).length
   return { items, reached, quoted, percent: reached ? Math.round((Math.min(quoted, reached) / reached) * 100) : 0 }
