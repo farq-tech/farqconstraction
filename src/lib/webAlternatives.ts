@@ -38,6 +38,10 @@ export type WebAlternative = {
   price_available: boolean
   pricing_candidate: boolean
   last_verified_at: string | null
+  /** Held back by the server: dearer than the line's reference price. */
+  hidden_reason?: 'MORE_EXPENSIVE' | null
+  hidden_reason_ar?: string | null
+  saving_vs_reference_percent?: number | null
 }
 
 export type WebLine = {
@@ -82,7 +86,7 @@ export function matchStateClass(state: string | null | undefined): string {
 export function visibleAlternatives(alternatives: WebAlternative[] | null | undefined, showAll = false): WebAlternative[] {
   const list = Array.isArray(alternatives) ? alternatives : []
   if (showAll) return list
-  return list.filter((a) => a.match_state === 'CONFIRMED_EQUIVALENT' || a.match_state === 'NEEDS_CONFIRMATION')
+  return list.filter((a) => !a.hidden_reason && (a.match_state === 'CONFIRMED_EQUIVALENT' || a.match_state === 'NEEDS_CONFIRMATION'))
 }
 
 export function hiddenCount(alternatives: WebAlternative[] | null | undefined): number {
@@ -96,7 +100,7 @@ export function safeLink(url: string | null | undefined): string | null {
 
 /** «السعر: غير متوفر» or «مرجع عام: 1.25 USD (2026-10-02)». */
 export function priceText(a: WebAlternative): string {
-  if (!a.price_available || !a.price) return 'السعر: غير متوفر — يُطلب من الموردين'
+  if (!a.price_available || !a.price) return 'السعر غير معروف — يُطلب من الموردين'
   const amount = Number(a.price.price).toLocaleString('en-US', { maximumFractionDigits: 2 })
   const day = a.price.observed_at ? ` (${String(a.price.observed_at).slice(0, 10)})` : ''
   return `سعر مرجعي عام: ${amount} ${a.price.currency || ''}${day}`.replace(/\s+/g, ' ').trim()

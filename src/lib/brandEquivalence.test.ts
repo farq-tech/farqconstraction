@@ -12,7 +12,11 @@ import {
   confidenceLabel,
   datasheetHint,
   draftHasBrand,
+  hiddenCandidatesLabel,
   isServiceDisabledError,
+  PRICE_UNKNOWN_TEXT,
+  referenceText,
+  savingText,
   missingAttrsText,
   requestedBrandHint,
   savingNoteText,
@@ -175,5 +179,30 @@ describe('BrandChips', () => {
     expect(html).toContain('SASO')
     expect(html).toContain('بديل')
     expect(html).toContain('href="https://x.sa/d.pdf"')
+  })
+})
+
+describe('«بدائل مكافئة» — saving and held-back alternatives', () => {
+  it('shows the expected saving only when there is one', () => {
+    expect(savingText({ saving_vs_requested_percent: 24, saving_per_unit: 120 })).toBe('توفير متوقع: 120 ر.س للوحدة (24%)')
+    expect(savingText({ saving_vs_requested_percent: 10, saving_per_unit: null })).toBe('توفير متوقع: (10%)')
+    expect(savingText({ saving_vs_requested_percent: null, saving_per_unit: null })).toBeNull()
+    expect(savingText({ saving_vs_requested_percent: -5, saving_per_unit: null })).toBeNull()
+  })
+
+  it('names the reference price and where it comes from', () => {
+    expect(referenceText({ kind: 'LINE_QUOTE', brand: null, best_price: 500, price_source_ar: 'أقل سعر وصلك لهذا البند' })).toBe('السعر المرجعي: 500 ر.س · أقل سعر وصلك لهذا البند')
+    expect(referenceText({ kind: 'REQUESTED_BRAND', brand: 'ITCC', best_price: 25, price_source_ar: 'سعر منشور في كتالوج المورد' })).toBe('السعر المرجعي: 25 ر.س · سعر منشور في كتالوج المورد · الماركة المطلوبة ITCC')
+    expect(referenceText(null)).toBeNull()
+    expect(referenceText({ brand: 'X', best_price: null, price_source_ar: null })).toBeNull()
+  })
+
+  it('counts held-back alternatives with their reasons', () => {
+    const held = (reason: string) => ({ hidden_reason_ar: reason }) as unknown as EquivalenceCandidate
+    expect(hiddenCandidatesLabel([])).toBeNull()
+    expect(hiddenCandidatesLabel([held('أغلى من السعر المرجعي للبند')])).toBe('عرض 1 بديل مخفي (أغلى من السعر المرجعي للبند)')
+    expect(hiddenCandidatesLabel([held('المادة غير مؤكدة من المصدر'), held('أغلى من السعر المرجعي للبند'), held('أغلى من السعر المرجعي للبند')]))
+      .toBe('عرض 3 بدائل مخفية (المادة غير مؤكدة من المصدر / أغلى من السعر المرجعي للبند)')
+    expect(PRICE_UNKNOWN_TEXT).toBe('السعر غير معروف')
   })
 })

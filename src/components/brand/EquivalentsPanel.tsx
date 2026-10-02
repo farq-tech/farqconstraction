@@ -14,12 +14,17 @@ import {
 } from '../../lib/webAlternatives'
 import {
   MAX_CANDIDATES,
+  PRICE_UNKNOWN_TEXT,
   attrText,
   candidatePriceText,
   confidenceLabel,
+  hiddenCandidatesLabel,
   isServiceDisabledError,
   missingAttrsText,
+  referenceText,
   requestedBrandHint,
+  savingText,
+  type EquivalenceCandidate,
   type EquivalenceLine,
 } from '../../lib/brandEquivalence'
 
@@ -146,8 +151,12 @@ export default function EquivalentsPanel({ rfqId, webEnabled = false }: { rfqId:
 type WebProps = { line: WebLine | null; searching: boolean; busy: boolean; error: string | null; onSearch: () => void }
 
 function LineSection({ line, web }: { line: EquivalenceLine; web: WebProps | null }) {
+  const [showHidden, setShowHidden] = useState(false)
   const candidates = (line.candidates || []).slice(0, MAX_CANDIDATES)
+  const held = line.hidden_candidates || []
   const hint = requestedBrandHint(line.requested_brand, line.allows_equivalent)
+  const reference = referenceText(line.reference)
+  const heldLabel = hiddenCandidatesLabel(held)
   return (
     <details className="rounded-xl border border-neutral-100">
       <summary className="cursor-pointer px-3 py-2 text-sm">
@@ -156,58 +165,76 @@ function LineSection({ line, web }: { line: EquivalenceLine; web: WebProps | nul
       </summary>
       <div className="px-3 pb-3 space-y-2">
         {hint && <div className="text-xs text-neutral-600">{hint}</div>}
+        {reference && <div className="text-xs text-neutral-600">{reference}</div>}
         {line.status !== 'OK' && line.note_ar && (
-          <div className="text-xs text-neutral-600 bg-neutral-50 rounded-lg px-2.5 py-1.5">{line.note_ar}</div>
+          <div className="text-xs text-neutral-700 bg-neutral-50 rounded-lg px-2.5 py-1.5 font-semibold">{line.note_ar}</div>
         )}
-        {candidates.map((c) => {
-          const missing = missingAttrsText(c.missing_attrs)
-          const price = candidatePriceText(c)
-          const sheet = c.datasheet_url && /^https?:\/\//.test(c.datasheet_url) ? c.datasheet_url : null
-          return (
-            <div key={c.product_id} className="rounded-lg bg-[#fafafa] px-3 py-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm">
-                  <span className="font-bold text-[#0D1F1D]">{c.brand}</span>
-                  <span className="text-neutral-600"> — {c.product}</span>
-                </div>
-                <span
-                  className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    c.confidence === 'HIGH' ? 'bg-[#e3f4ea] text-[#1a7a45]' : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {confidenceLabel(c.confidence)}
-                </span>
-              </div>
-              {(c.matched_attrs || []).length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {c.matched_attrs.map((a) => (
-                    <span key={`m-${a.key}`} className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#e3f4ea] text-[#1a7a45]">
-                      {attrText(a)}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {missing && (
-                <div className="mt-1">
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-neutral-100 text-neutral-500">{missing}</span>
-                </div>
-              )}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-neutral-600">
-                {price && <span className="font-semibold text-[#123F3A]">{price}</span>}
-                {c.standard && <span>{c.standard}</span>}
-                {c.origin_country && <span>المنشأ: {c.origin_country}</span>}
-                {sheet && (
-                  <a href={sheet} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#123F3A] underline">
-                    ورقة البيانات
-                  </a>
-                )}
-              </div>
-            </div>
-          )
-        })}
+        {candidates.map((c) => (
+          <CandidateCard key={c.product_id || `${c.brand}-${c.best_price}`} c={c} />
+        ))}
+        {heldLabel && (
+          <button type="button" onClick={() => setShowHidden(!showHidden)} className="text-[11px] text-neutral-500 underline">
+            {showHidden ? 'إخفاء البدائل المخفية' : heldLabel}
+          </button>
+        )}
+        {showHidden && held.map((c) => <CandidateCard key={`h-${c.product_id || c.brand}`} c={c} muted />)}
         {web && <WebSection web={web} />}
       </div>
     </details>
+  )
+}
+
+function CandidateCard({ c, muted = false }: { c: EquivalenceCandidate; muted?: boolean }) {
+  const missing = missingAttrsText(c.missing_attrs)
+  const price = candidatePriceText(c)
+  const saving = savingText(c)
+  const sheet = c.datasheet_url && /^https?:\/\//.test(c.datasheet_url) ? c.datasheet_url : null
+  return (
+    <div className={`rounded-lg px-3 py-2 ${muted ? 'bg-neutral-50 opacity-80' : 'bg-[#fafafa]'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm">
+          <span className="font-bold text-[#0D1F1D]">{c.brand}</span>
+          <span className="text-neutral-600"> — {c.product}</span>
+        </div>
+        <span
+          className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+            c.confidence === 'HIGH' ? 'bg-[#e3f4ea] text-[#1a7a45]' : 'bg-amber-100 text-amber-800'
+          }`}
+        >
+          {confidenceLabel(c.confidence)}
+        </span>
+      </div>
+      {muted && c.hidden_reason_ar && <div className="mt-1 text-[10px] text-red-700">مخفي: {c.hidden_reason_ar}</div>}
+      {(c.matched_attrs || []).length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {c.matched_attrs.map((a) => (
+            <span key={`m-${a.key}`} className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#e3f4ea] text-[#1a7a45]">
+              {attrText(a)}
+            </span>
+          ))}
+        </div>
+      )}
+      {missing && (
+        <div className="mt-1">
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-neutral-100 text-neutral-500">{missing}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-neutral-600">
+        {price ? (
+          <span className="font-semibold text-[#123F3A]">{price}</span>
+        ) : (
+          <span className="text-neutral-500">{c.price_status_ar || PRICE_UNKNOWN_TEXT}</span>
+        )}
+        {saving && <span className="font-bold text-[#1a7a45]">{saving}</span>}
+        {c.standard && <span>{c.standard}</span>}
+        {c.origin_country && <span>المنشأ: {c.origin_country}</span>}
+        {sheet && (
+          <a href={sheet} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#123F3A] underline">
+            ورقة البيانات
+          </a>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -266,6 +293,7 @@ function WebSection({ web }: { web: WebProps }) {
             {missing.length > 0 && (
               <div className="mt-1 text-[10px] text-neutral-500">مواصفات لم يذكرها المصدر: {missing.join('، ')}</div>
             )}
+            {a.hidden_reason_ar && <div className="mt-1 text-[10px] text-red-700">مخفي: {a.hidden_reason_ar}</div>}
             {a.match_state === 'REJECTED' && a.rejection_reasons.length > 0 && (
               <div className="mt-1 text-[10px] text-red-700">{a.rejection_reasons.join(' · ')}</div>
             )}
@@ -282,6 +310,9 @@ function WebSection({ web }: { web: WebProps }) {
                 </a>
               )}
               <span>{priceText(a)}</span>
+              {a.saving_vs_reference_percent != null && a.saving_vs_reference_percent > 0 && (
+                <span className="font-bold text-[#1a7a45]">توفير متوقع: {a.saving_vs_reference_percent}%</span>
+              )}
               {date && <span>{date}</span>}
             </div>
           </div>
@@ -289,7 +320,7 @@ function WebSection({ web }: { web: WebProps }) {
       })}
       {hidden > 0 && (
         <button type="button" onClick={() => setShowAll(!showAll)} className="text-[11px] text-neutral-500 underline">
-          {showAll ? 'إخفاء غير المطابق وغير الموثّق' : `عرض ${hidden} غير مطابق أو غير موثّق`}
+          {showAll ? 'إخفاء غير المطابق وغير الموثّق والأغلى' : `عرض ${hidden} غير مطابق أو غير موثّق أو أغلى`}
         </button>
       )}
     </div>

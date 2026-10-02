@@ -34,8 +34,14 @@ describe('«بدائل من الإنترنت»', () => {
     expect(hiddenCount(list)).toBe(2)
   })
 
+  it('hides an alternative the server held back as dearer than the line’s reference', () => {
+    const list = [alt('CONFIRMED_EQUIVALENT'), alt('NEEDS_CONFIRMATION', { hidden_reason: 'MORE_EXPENSIVE', hidden_reason_ar: 'أغلى من السعر المرجعي للبند' })]
+    expect(visibleAlternatives(list)).toHaveLength(1)
+    expect(hiddenCount(list)).toBe(1)
+  })
+
   it('price is optional and shown only as a dated public reference', () => {
-    expect(priceText(alt('CONFIRMED_EQUIVALENT'))).toMatch(/غير متوفر/)
+    expect(priceText(alt('CONFIRMED_EQUIVALENT'))).toMatch(/السعر غير معروف/)
     const priced = alt('CONFIRMED_EQUIVALENT', { price_available: true, price_type: 'public_reference', price: { price: 1.25, currency: 'USD', price_type: 'public_reference', source_url: 'https://x', observed_at: '2026-10-02T00:00:00Z' } })
     expect(priceText(priced)).toBe('سعر مرجعي عام: 1.25 USD (2026-10-02)')
   })

@@ -181,6 +181,22 @@ export type EquivalenceCandidate = {
   origin_country: string | null
   datasheet_url: string | null
   source_url: string | null
+  /** «السعر غير معروف» when no price is known. */
+  price_known?: boolean
+  price_status_ar?: string | null
+  /** Against the line's reference price (requested brand, else the lowest quote for the line). */
+  saving_vs_requested_percent?: number | null
+  saving_per_unit?: number | null
+  /** Only on hidden_candidates: why it is held back. */
+  hidden_reason?: 'MATERIAL_UNVERIFIED' | 'MORE_EXPENSIVE' | null
+  hidden_reason_ar?: string | null
+}
+
+export type EquivalenceReference = {
+  kind?: 'REQUESTED_BRAND' | 'LINE_QUOTE'
+  brand: string | null
+  best_price: number | null
+  price_source_ar: string | null
 }
 
 export type EquivalenceLine = {
@@ -193,6 +209,9 @@ export type EquivalenceLine = {
   status: 'OK' | 'NO_ATTRIBUTES' | 'NO_CANDIDATES' | 'NO_CATALOG'
   note_ar: string | null
   candidates: EquivalenceCandidate[]
+  /** Held back: material not confirmed, or dearer than the reference. Shown only on request. */
+  hidden_candidates?: EquivalenceCandidate[]
+  reference?: EquivalenceReference | null
 }
 
 export const EQUIVALENTS_SERVICE = 'equivalents'
@@ -223,6 +242,38 @@ export function candidatePriceText(c: EquivalenceCandidate): string | null {
   if (c.price_includes_vat === true) parts.push('شامل الضريبة')
   else if (c.price_includes_vat === false) parts.push('غير شامل الضريبة')
   return parts.join(' · ')
+}
+
+export const PRICE_UNKNOWN_TEXT = 'السعر غير معروف'
+
+function sar(value: number): string {
+  return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })} ر.س`
+}
+
+/** «توفير متوقع: 120 ر.س للوحدة (24%)», only for a real saving. */
+export function savingText(c: Pick<EquivalenceCandidate, 'saving_vs_requested_percent' | 'saving_per_unit'>): string | null {
+  const pct = Number(c.saving_vs_requested_percent)
+  if (c.saving_vs_requested_percent == null || !Number.isFinite(pct) || pct <= 0) return null
+  const per = Number(c.saving_per_unit)
+  const amount = c.saving_per_unit != null && Number.isFinite(per) && per > 0 ? `${sar(per)} للوحدة ` : ''
+  return `توفير متوقع: ${amount}(${Math.round(pct * 10) / 10}%)`
+}
+
+/** «السعر المرجعي: 500 ر.س · أقل سعر وصلك لهذا البند», or null without a price. */
+export function referenceText(ref: EquivalenceReference | null | undefined): string | null {
+  if (!ref || ref.best_price == null || !Number.isFinite(Number(ref.best_price))) return null
+  const parts = [`السعر المرجعي: ${sar(ref.best_price)}`]
+  if (text(ref.price_source_ar)) parts.push(text(ref.price_source_ar))
+  if (ref.kind === 'REQUESTED_BRAND' && text(ref.brand)) parts.push(`الماركة المطلوبة ${text(ref.brand)}`)
+  return parts.join(' · ')
+}
+
+/** «عرض 2 بدائل مخفية (مادة غير مؤكدة / أغلى)», or null when none is held back. */
+export function hiddenCandidatesLabel(hidden: EquivalenceCandidate[] | null | undefined): string | null {
+  const list = Array.isArray(hidden) ? hidden : []
+  if (!list.length) return null
+  const reasons = [...new Set(list.map((c) => text(c.hidden_reason_ar)).filter(Boolean))]
+  return `عرض ${list.length} ${list.length === 1 ? 'بديل مخفي' : 'بدائل مخفية'}${reasons.length ? ` (${reasons.join(' / ')})` : ''}`
 }
 
 /** True when an error from the equivalents endpoint means «service off» — hide silently. */
