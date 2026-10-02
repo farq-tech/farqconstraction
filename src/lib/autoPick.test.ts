@@ -149,6 +149,13 @@ describe('autoPickFor — precision over padding (AUTO_PICK_EVIDENCE_ONLY)', () 
     expect(autoPickFor(item).map((s) => s.id)).toEqual(['دهانات'])
   })
 
+  it('weak rows the buyer copied into the line are not re-ticked', () => {
+    const item = line(9, 'paints', [], {
+      suppliers: [sup('منسوخ-نشاط', 'على مستوى النشاط'), graded('منسوخ-شبيه', 'SIMILAR'), sup('كتالوج', 'من الكتالوج')],
+    })
+    expect(autoPickFor(item).map((s) => s.id)).toEqual(['كتالوج'])
+  })
+
   it('a prior quoter on a SIMILAR outcome row is still ticked', () => {
     const item = line(9, 'paints', [], {
       outcomeSuggestion: { suppliers: [{ ...graded('شبيه-سعّر-سابقًا', 'SIMILAR'), priorQuotes: 2 }, graded('شبيه', 'SIMILAR')] },

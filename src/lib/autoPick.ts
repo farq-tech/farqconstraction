@@ -145,6 +145,15 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   const outcomes = allOutcomes.filter(
     (s) => !AUTO_PICK_EVIDENCE_ONLY || (s.roundOutcome != null && OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)),
   )
+  // `item.suppliers` also holds rows the buyer copied in from a suggestion lane;
+  // those keep their weak grade, and a weak grade is not evidence here either.
+  const matched = AUTO_PICK_EVIDENCE_ONLY
+    ? (item.suppliers || []).filter(
+        (s) =>
+          s.evidence !== ACTIVITY_GRADE &&
+          (s.roundOutcome == null || OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)),
+      )
+    : item.suppliers
   const lanes = [named, item.suppliers, allAi, activity, family, allOutcomes]
   const ordered = [
     ...(item.learnedSuggestion?.suppliers || []),
@@ -152,7 +161,7 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
     // A prior quoter is evidence in himself, whichever lane listed him.
     ...lanes.flat().filter(isPriorQuoter),
     ...specialistsFirst(named, context),
-    ...specialistsFirst(item.suppliers, context),
+    ...specialistsFirst(matched, context),
     ...specialistsFirst(ai, context),
     // Activity and family: no evidence for the material. Shown, never padded in.
     ...(AUTO_PICK_EVIDENCE_ONLY ? [] : [...specialistsFirst(activity, context), ...specialistsFirst(family, context)]),
