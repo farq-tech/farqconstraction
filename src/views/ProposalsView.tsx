@@ -1083,7 +1083,7 @@ export function ProposalsView({ navigate }: NavProps) {
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                 {unpicked.length === 0
-                  ? 'كل بند له موردون مختارون بدليل على المادة. راجعهم قبل الإرسال.'
+                  ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال، خصوصًا من عليه «مورد محتمل» فهو مختار لنشاطه لا لمادته.'
                   : [
                       empty > 0 ? `${empty} بندًا لم نجد لها موردًا في دليلنا.` : '',
                       cleared > 0 ? `${cleared} بندًا ألغيت اختيار مورديه، وموردوه ما زالوا في البند.` : '',

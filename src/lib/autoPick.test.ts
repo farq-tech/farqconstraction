@@ -149,6 +149,13 @@ describe('autoPickFor — precision over padding (AUTO_PICK_EVIDENCE_ONLY)', () 
     expect(autoPickFor(item).map((s) => s.id)).toEqual(['دهانات'])
   })
 
+  it('ticks named AI suppliers but never activity-grade ones from the AI lane', () => {
+    const item = line(9, 'paints', [], {
+      aiSuggestion: { suppliers: [sup('ذكي-نشاط', 'على مستوى النشاط'), sup('ذكي-مسمى', 'تسمية آلية')] } as BOQItem['aiSuggestion'],
+    })
+    expect(autoPickFor(item).map((s) => s.id)).toEqual(['ذكي-مسمى'])
+  })
+
   it('a line with only activity and family suppliers gets no automatic pick', () => {
     const item = line(9, 'paints', [sup('نشاط', 'على مستوى النشاط')], {
       familySuggestion: { family: 'paints', suppliers: [sup('قطاع', 'على مستوى النشاط')] },

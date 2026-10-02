@@ -138,10 +138,13 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   const named = map.filter((s) => s.evidence !== ACTIVITY_GRADE)
   const activity = map.filter((s) => s.evidence === ACTIVITY_GRADE)
   const family = item.familySuggestion?.suppliers || []
+  // The AI lane can carry activity-grade rows too; only its named ones are evidence.
+  const allAi = item.aiSuggestion?.suppliers || []
+  const ai = AUTO_PICK_EVIDENCE_ONLY ? allAi.filter((s) => s.evidence !== ACTIVITY_GRADE) : allAi
   const outcomes = (item.outcomeSuggestion?.suppliers || []).filter(
     (s) => !AUTO_PICK_EVIDENCE_ONLY || (s.roundOutcome != null && OUTCOME_GRADES_AUTO_PICKED.has(s.roundOutcome.grade)),
   )
-  const lanes = [named, item.suppliers, item.aiSuggestion?.suppliers || [], activity, family]
+  const lanes = [named, item.suppliers, allAi, activity, family]
   const ordered = [
     ...(item.learnedSuggestion?.suppliers || []),
     ...outcomes,
@@ -149,7 +152,7 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
     ...lanes.flat().filter(isPriorQuoter),
     ...specialistsFirst(named, context),
     ...specialistsFirst(item.suppliers, context),
-    ...specialistsFirst(item.aiSuggestion?.suppliers || [], context),
+    ...specialistsFirst(ai, context),
     // Activity and family: no evidence for the material. Shown, never padded in.
     ...(AUTO_PICK_EVIDENCE_ONLY ? [] : [...specialistsFirst(activity, context), ...specialistsFirst(family, context)]),
   ]
