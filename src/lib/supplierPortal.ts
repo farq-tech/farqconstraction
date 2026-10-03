@@ -506,3 +506,40 @@ export function fileSizeAr(bytes: number | null | undefined): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} ك.ب`
   return `${(bytes / (1024 * 1024)).toFixed(1)} م.ب`
 }
+
+// ─── A link of an older version of the request («تعديل الطلب») ─────────────
+
+export type SupersededNotice = {
+  title: string
+  text: string
+  note: string | null
+  /** True when this supplier was invited to the current version: «افتح النسخة الجديدة». */
+  canOpenCurrent: boolean
+  /** Said instead of the button when he was not invited to it. */
+  notInvitedText: string | null
+}
+
+/**
+ * What the portal says on a link the buyer has since revised. Null for a link
+ * of the current version — the quote form stays as it is. A superseded link is
+ * read-only: the API refuses a quote on it.
+ */
+export function supersededNotice(invite: Pick<PublicSupplierInvite, 'revision'> | null | undefined): SupersededNotice | null {
+  const rev = invite?.revision
+  if (!rev || rev.superseded !== true) return null
+  const n = Number(rev.current_version_number)
+  const version = Number.isFinite(n) && n > 0 ? ` (تم تحديثه إلى النسخة ${n})` : ''
+  const canOpenCurrent = rev.invited_to_current === true
+  return {
+    title: 'تم تحديث الطلب',
+    text: `هذا الرابط لنسخة سابقة من الطلب${version}.`,
+    note: rev.change_note?.trim() || null,
+    canOpenCurrent,
+    notInvitedText: canOpenCurrent ? null : 'لم تُدعَ إلى النسخة الجديدة.',
+  }
+}
+
+/** Where «افتح النسخة الجديدة» goes: this page with the new link token. */
+export function currentVersionHref(pathname: string, token: string): string {
+  return `${pathname || '/'}?supplier_token=${encodeURIComponent(token)}`
+}

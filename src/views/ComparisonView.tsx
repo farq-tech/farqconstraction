@@ -17,6 +17,7 @@ import EquivalentsPanel from '../components/brand/EquivalentsPanel'
 import { WEB_DISCOVERY_SERVICE } from '../lib/webAlternatives'
 import { EQUIVALENTS_SERVICE, requestedBrandHint, savingNoteText } from '../lib/brandEquivalence'
 import { useServices } from '../api/useServices'
+import PreviousVersionResponses from '../components/PreviousVersionResponses'
 
 /**
  * Side-by-side prices for one request.
@@ -266,6 +267,12 @@ export function ComparisonView({ navigate }: NavProps) {
           </div>
         </div>
       )}
+
+      {!loading && !error && data?.previous_version_responses?.length ? (
+        <div className="mt-6">
+          <PreviousVersionResponses responses={data.previous_version_responses} />
+        </div>
+      ) : null}
 
       {showEquivalents && selectedRfqId && !loading && !error && <EquivalentsPanel key={selectedRfqId} rfqId={selectedRfqId} webEnabled={services.has(WEB_DISCOVERY_SERVICE)} />}
     </div>

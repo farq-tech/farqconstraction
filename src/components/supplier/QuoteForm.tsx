@@ -55,6 +55,7 @@ export function QuoteForm({
   banner,
   onSubmitted,
   onInquire,
+  superseded = false,
 }: {
   token: string
   invite: PublicSupplierInvite
@@ -64,6 +65,8 @@ export function QuoteForm({
   onSubmitted: () => void
   /** Null when there is no chat (token-only portal, or after «ليس حسابي»). */
   onInquire: ((line: LineRef) => void) | null
+  /** A link of an older version of the request: read-only, the API refuses a quote on it. */
+  superseded?: boolean
 }) {
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>(() => {
     const next: Record<string, LineDraft> = {}
@@ -110,7 +113,7 @@ export function QuoteForm({
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
-  const closed = Boolean(invite.submission_closed_at)
+  const closed = Boolean(invite.submission_closed_at) || superseded
   const site = invite.site_supply || {}
   const siteFacts = (
     [
@@ -215,7 +218,7 @@ export function QuoteForm({
         </p>
         {closed && (
           <div className="mt-3 text-xs text-neutral-600 bg-neutral-100 rounded-xl px-3 py-2">
-            أُغلق استلام العروض — العرض للقراءة فقط.
+            {superseded ? 'نسخة سابقة من الطلب — للقراءة فقط.' : 'أُغلق استلام العروض — العرض للقراءة فقط.'}
           </div>
         )}
         {invite.my_quote && (

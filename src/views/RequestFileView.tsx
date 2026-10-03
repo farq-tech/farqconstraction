@@ -62,6 +62,10 @@ import VatUnknownChip from '../components/priceReview/VatUnknownChip'
 import { useConstructionAdmin } from '../components/priceReview/useConstructionAdmin'
 import { heldSummaryLabel, isHeldOffer, taxAssumptionsText } from '../lib/priceReview'
 import { specCardSummary, storedSiteSupplyFacts, validLink, type SpecCard } from '../lib/specCard'
+import RfqRevisionModal from '../components/RfqRevisionModal'
+import PreviousVersionResponses from '../components/PreviousVersionResponses'
+import { canReviseRfq, versionsLabel } from '../lib/rfqRevision'
+import { isReadOnlyBuild } from '../api/readOnlyMode'
 
 type Tab = 'overview' | 'items' | 'quotes' | 'suppliers' | 'messages' | 'history'
 const TABS: [Tab, string][] = [
@@ -128,6 +132,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const [lineSort, setLineSort] = useState<LineSort | null>(null)
   const [stepping, setStepping] = useState<'close' | 'open' | null>(null)
   const [broadcasting, setBroadcasting] = useState(false)
+  const [revising, setRevising] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const isAdmin = useConstructionAdmin()
 
@@ -328,6 +333,11 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
           <span className={`px-2 py-0.5 rounded-full font-semibold ${state.cls}`}>{state.label}</span>
           {deadline?.passed && state.key === 'OPEN' && <span className="px-2 py-0.5 rounded-full font-bold bg-red-50 text-red-700">انتهى الموعد</span>}
           <BookletChip rfqId={rfq.id} />
+          {versionsLabel(rfq.versions) && (
+            <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-semibold max-w-[320px] truncate" title={versionsLabel(rfq.versions) || undefined}>
+              {versionsLabel(rfq.versions)}
+            </span>
+          )}
         </div>
         <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D] leading-tight">{title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-neutral-600">
@@ -369,9 +379,15 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         const status = String(rfq.status || '').toUpperCase()
         const canClose = !rfq.submission_closed_at && ['SENT', 'PARTIALLY_SENT'].includes(status)
         const canOpen = Boolean(rfq.submission_closed_at) && !rfq.envelopes_opened_at && !rfq.award
-        if (!canClose && !canOpen) return null
+        const canRevise = canReviseRfq(rfq, isReadOnlyBuild())
+        if (!canClose && !canOpen && !canRevise) return null
         return (
           <div className="mb-5 flex flex-wrap items-center gap-2">
+            {canRevise && (
+              <button onClick={() => setRevising(true)} className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-bold text-[#0D1F1D] hover:bg-neutral-50">
+                تعديل الطلب
+              </button>
+            )}
             {canClose && (
               <button onClick={() => setStepping('close')} className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-bold text-[#0D1F1D] hover:bg-neutral-50">
                 إغلاق استلام العروض
@@ -382,9 +398,9 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                 فتح المظاريف
               </button>
             )}
-            <span className="text-xs text-neutral-500">
+            {(canClose || canOpen) && <span className="text-xs text-neutral-500">
               {canClose ? 'بعد الإغلاق لا يستطيع الموردون تقديم عرض أو تعديله.' : 'فتح المظاريف يُسجَّل باسمك ووقته في سجل الطلب.'}
-            </span>
+            </span>}
           </div>
         )
       })()}
@@ -638,6 +654,12 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         </div>
       )}
 
+      {tab === 'quotes' && comparison?.previous_version_responses?.length ? (
+        <div className="mt-5">
+          <PreviousVersionResponses responses={comparison.previous_version_responses} />
+        </div>
+      ) : null}
+
       {tab === 'suppliers' && (
         <div className="space-y-2">
           {invites.length === 0 ? (
@@ -730,6 +752,17 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
             </ol>
           )}
         </div>
+      )}
+
+      {revising && (
+        <RfqRevisionModal
+          rfqId={rfq.id}
+          onClose={() => setRevising(false)}
+          onSent={(out) => {
+            setNotice({ tone: 'ok', text: `أُرسلت النسخة ${out.version_number} من الطلب.` })
+            load(rfq.id, { comparison: true, outcomes: outcomes !== null }).catch(() => {})
+          }}
+        />
       )}
 
       {broadcasting && <BroadcastDialog rfqId={rfq.id} count={invites.length} onClose={() => setBroadcasting(false)} />}

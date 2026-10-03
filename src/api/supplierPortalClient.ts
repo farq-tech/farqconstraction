@@ -18,6 +18,7 @@
  *   POST /api/construction/supplier/requests/:inviteId/messages {body, client_message_id, attachments}
  *   GET  /api/construction/supplier/requests/:inviteId/files/:fileId (the file itself)
  *   POST /api/construction/supplier/requests/:inviteId/quotes
+ *   POST /api/construction/supplier/portal/:token/current-link → {supplier_token}
  *
  * When the session route is not there yet (404) or switched off (503 /
  * *_DISABLED), `openSession` answers `{ mode: 'legacy' }` and the portal keeps
@@ -768,6 +769,21 @@ export function createSupplierPortalClient(options: SupplierPortalClientOptions 
         '/api/construction/supplier/link/resend',
         { token },
         (payload) => ({ sent_to: strOrNull(record(unwrapData(payload)).sent_to) }),
+        { auth: false },
+      )
+    },
+
+    /**
+     * «افتح النسخة الجديدة» on a link of an older version of the request: the
+     * link of the current version, when this supplier was invited to it (404
+     * otherwise). The old token is the credential, as on the token routes.
+     */
+    async requestCurrentLink(token: string): Promise<{ supplier_token: string }> {
+      return call(
+        'POST',
+        `/api/construction/supplier/portal/${encodeURIComponent(token)}/current-link`,
+        {},
+        (payload) => ({ supplier_token: str(record(unwrapData(payload)).supplier_token) }),
         { auth: false },
       )
     },

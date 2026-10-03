@@ -3,6 +3,7 @@ import type { PublicSupplierInvite } from '../api/constructionClient'
 import type { SupplierMessage, TimelineStep } from '../api/supplierPortalClient'
 import {
   chatDaySeparatorAr,
+  currentVersionHref,
   daysAr,
   deadlineChip,
   deliverPending,
@@ -13,6 +14,7 @@ import {
   outboxReducer,
   requestFromLegacyInvite,
   requestStatusChip,
+  supersededNotice,
   timelineRows,
   visiblePending,
   withLineRef,
@@ -227,5 +229,38 @@ describe('requestFromLegacyInvite', () => {
     const byKind = Object.fromEntries(row.status_timeline.map((s) => [s.kind, s]))
     expect(byKind.QUOTE_RECEIVED.state).toBe('DONE')
     expect(byKind.SUBMISSION_CLOSED).toEqual({ kind: 'SUBMISSION_CLOSED', state: 'DONE', at: '2026-09-28T09:00:00Z' })
+  })
+})
+
+describe('superseded invite («تم تحديث الطلب»)', () => {
+  it('is silent for the current version', () => {
+    expect(supersededNotice(null)).toBeNull()
+    expect(supersededNotice({ revision: undefined })).toBeNull()
+    expect(supersededNotice({ revision: { superseded: false } })).toBeNull()
+  })
+
+  it('offers the new version when invited to it', () => {
+    const notice = supersededNotice({
+      revision: { superseded: true, current_version_number: 3, invited_to_current: true, change_note: ' تعديل: بندين ' },
+    })
+    expect(notice).toEqual({
+      title: 'تم تحديث الطلب',
+      text: 'هذا الرابط لنسخة سابقة من الطلب (تم تحديثه إلى النسخة 3).',
+      note: 'تعديل: بندين',
+      canOpenCurrent: true,
+      notInvitedText: null,
+    })
+  })
+
+  it('says so when not invited to the new version', () => {
+    const notice = supersededNotice({ revision: { superseded: true, current_version_number: 2, invited_to_current: false, change_note: null } })
+    expect(notice?.canOpenCurrent).toBe(false)
+    expect(notice?.notInvitedText).toBe('لم تُدعَ إلى النسخة الجديدة.')
+    expect(notice?.note).toBeNull()
+  })
+
+  it('builds the link of the new version', () => {
+    expect(currentVersionHref('/Construction', 'abc_DEF-123')).toBe('/Construction?supplier_token=abc_DEF-123')
+    expect(currentVersionHref('', 'tok')).toBe('/?supplier_token=tok')
   })
 })

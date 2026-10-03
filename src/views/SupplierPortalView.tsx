@@ -27,7 +27,15 @@ import {
   type SupplierSession,
 } from '../api/supplierPortalClient'
 import { captureSupplierLink } from '../lib/supplierLink'
-import { legacyDeadline, requestFromLegacyInvite, shortCompany, type LineRef } from '../lib/supplierPortal'
+import {
+  currentVersionHref,
+  legacyDeadline,
+  requestFromLegacyInvite,
+  shortCompany,
+  supersededNotice,
+  type LineRef,
+  type SupersededNotice,
+} from '../lib/supplierPortal'
 import {
   BottomSheet,
   Card,
@@ -357,7 +365,8 @@ export function SupplierPortalView(_props: NavProps) {
     <RequestTabs active={tab} onChange={setTab} unread={selected.unread_count} hidden={hiddenTabs} />
   )
 
-  const banner =
+  const superseded = selectedIsLinked ? supersededNotice(invite) : null
+  const accountBanner =
     mode === 'session' && account?.status === 'PROVISIONED' ? (
       <AccountReadyBanner
         supplierName={supplierName}
@@ -372,6 +381,15 @@ export function SupplierPortalView(_props: NavProps) {
         ألغينا الحساب. الرابط يبقى صالحاً لتقديم عرضك فقط — ولن تصلك تحديثات أو رسائل هنا.
       </div>
     ) : null
+  const banner =
+    superseded ? (
+      <div className="flex flex-col gap-3">
+        <SupersededBanner notice={superseded} token={token} client={client} />
+        {accountBanner}
+      </div>
+    ) : (
+      accountBanner
+    )
 
   const sheet = (
     <BottomSheet open={declineOpen} onClose={() => setDeclineOpen(false)} label="ليس حسابي">
@@ -429,6 +447,7 @@ export function SupplierPortalView(_props: NavProps) {
               now={now}
               banner={banner}
               onSubmitted={() => void refreshRequests()}
+              superseded={Boolean(superseded)}
               onInquire={
                 chatEnabled
                   ? (ref) => {
@@ -494,6 +513,53 @@ function AccountReadyBanner({
           ليس حسابي
         </SecondaryButton>
       </div>
+    </div>
+  )
+}
+
+/** «تم تحديث الطلب» — a link of an older version: read-only, with the way to the current one when invited to it. */
+function SupersededBanner({
+  notice,
+  token,
+  client,
+}: {
+  notice: SupersededNotice
+  token: string
+  client: ReturnType<typeof supplierPortalClient>
+}) {
+  const [state, setState] = useState<'idle' | 'opening' | 'failed'>('idle')
+  const openCurrent = async () => {
+    setState('opening')
+    try {
+      const out = await client.requestCurrentLink(token)
+      if (!out.supplier_token) throw new Error('no token')
+      window.location.assign(currentVersionHref(window.location.pathname, out.supplier_token))
+    } catch {
+      setState('failed')
+    }
+  }
+  return (
+    <div role="status" className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col gap-2">
+      <div className="text-[15px] font-black text-amber-900">{notice.title}</div>
+      <p className="text-[13px] font-semibold text-amber-900 leading-relaxed">{notice.text}</p>
+      {notice.note && (
+        <p className="text-[13px] text-amber-900 leading-relaxed">
+          <span className="font-bold">ملاحظة التعديل: </span>
+          {notice.note}
+        </p>
+      )}
+      {notice.canOpenCurrent ? (
+        <div className="flex flex-col gap-1.5">
+          <PrimaryButton disabled={state === 'opening'} onClick={() => void openCurrent()}>
+            {state === 'opening' ? 'جارٍ الفتح…' : 'افتح النسخة الجديدة'}
+          </PrimaryButton>
+          {state === 'failed' && (
+            <div className="text-[12px] text-red-700">تعذّر فتح النسخة الجديدة — استخدم آخر رابط وصلك من الشركة.</div>
+          )}
+        </div>
+      ) : (
+        <div className="text-[13px] font-bold text-neutral-700">{notice.notInvitedText}</div>
+      )}
     </div>
   )
 }

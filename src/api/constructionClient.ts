@@ -166,6 +166,8 @@ export type ConstructionRfq = {
   supplier_count: number
   response_count: number
   invitations: ConstructionInvitation[]
+  /** Every version of the request, oldest first (newer APIs; absent otherwise). */
+  versions?: ConstructionRfqVersion[]
   sender?: {
     name: string
     email: string
@@ -236,6 +238,8 @@ export type ConstructionComparison = {
     eligibility?: { eligible?: boolean; reason_codes?: string[] }
   }>
   awaiting_supplier_ids: string[]
+  /** Quotes given on an earlier version of the request (after «تعديل الطلب»). Never compared with the current ones. */
+  previous_version_responses?: PreviousVersionResponse[]
   quote_matrix?: {
     basis: string
     requested_line_count: number
@@ -322,6 +326,12 @@ export type PublicSupplierInvite = {
   expires_at?: string
   response_status: string
   submission_closed_at?: string | null
+  /**
+   * Present when this link belongs to an older version of the request: the
+   * invite is read-only and a quote on it is refused. Absent (or
+   * `superseded: false`) for the current version.
+   */
+  revision?: PublicInviteRevision | null
   /**
    * The supplier's own current quote, read-only (newer APIs). A link never
    * expires, so he always sees what he quoted — after the request closed too.
@@ -1028,6 +1038,187 @@ export async function getConstructionComparison(id: string): Promise<Constructio
   return request<ConstructionComparison>(
     `/api/construction/rfqs/${encodeURIComponent(id)}/comparison`,
   )
+}
+
+// ─── «تعديل الطلب»: a new version of a sent request, re-sent to chosen suppliers ───
+
+export type ConstructionRfqVersion = {
+  id: string
+  version_number: number
+  created_at: string
+  change_note: string | null
+}
+
+export type PreviousVersionResponse = {
+  supplier: { id: string; name_ar?: string | null }
+  version_number: number
+  rfq_version_id: string
+  submitted_at: string | null
+  total: number | null
+  currency: string
+  label_ar: string
+  lines: Array<{
+    line_key: string
+    name_ar: string
+    quantity: number
+    uom: string
+    unit_price: number | null
+    available: boolean | null
+  }>
+}
+
+export type PublicInviteRevision = {
+  superseded: boolean
+  current_version_number?: number
+  invited_to_current?: boolean
+  change_note?: string | null
+}
+
+/** How one supplier would receive the revised request. HELD = refused for a reason (`held_reason_ar`). */
+export type RevisionChannel = 'WHATSAPP_WINDOW' | 'WHATSAPP_TEMPLATE' | 'EMAIL' | 'HARAJ' | 'NONE' | 'HELD'
+
+export type RevisionSpecCard = {
+  material?: string
+  finish?: string
+  dimensions?: string
+  thickness?: string
+  [key: string]: unknown
+}
+
+export type RevisionLine = {
+  line_key?: string
+  name_ar: string
+  quantity: number
+  uom: string
+  spec_card?: RevisionSpecCard | null
+  original_description?: string | null
+  market_name_ar?: string | null
+}
+
+export type RevisionCandidate = {
+  /** The supplier's external key — what `supplier_ids` carries. */
+  supplier_id: string
+  name_ar: string
+  invite_id: string | null
+  quoted: boolean
+  open_conversation: boolean
+  window_open: boolean
+  window_until: string | null
+  channel: RevisionChannel
+  paid: boolean
+  held_reason_ar: string | null
+  preselected: boolean
+}
+
+export type RevisionCandidates = {
+  rfq_id: string
+  current_version_number: number
+  lines: Array<RevisionLine & { line_key: string }>
+  candidates: RevisionCandidate[]
+  pricing: { unit_price_sar: number; currency: 'SAR'; category: string }
+}
+
+export type RevisionSource = 'INVITED' | 'QUOTED' | 'OPEN_CONVERSATION' | 'SEARCH'
+
+export type RevisionRecipient = {
+  supplier_id: string
+  name_ar: string
+  sources: RevisionSource[]
+  channel: RevisionChannel
+  paid: boolean
+  window_until: string | null
+  held_reason_ar: string | null
+  message_preview: string | null
+}
+
+export type RevisionCost = {
+  paid_count: number
+  free_count: number
+  held_count: number
+  unit_price_sar: number
+  total_sar: number
+  currency: 'SAR'
+}
+
+export type RevisionPreview = {
+  revision_id: string
+  state: 'PREPARED' | 'SENT' | 'CANCELLED'
+  rfq_id: string
+  from_version_number: number
+  to_version_number: number
+  change_note: string
+  template: 'REMINDER' | 'INVITE' | null
+  lines: RevisionLine[]
+  recipients: RevisionRecipient[]
+  cost: RevisionCost
+}
+
+export type RevisionBody = {
+  lines: RevisionLine[]
+  change_note: string
+  supplier_ids: string[]
+  template?: 'REMINDER' | 'INVITE'
+}
+
+export type RevisionConfirmResult = {
+  revision_id: string
+  state: 'SENT'
+  rfq_version_id: string
+  version_number: number
+  results: Array<{ supplier_id: string; channel: RevisionChannel | string; status: string; error_code: string | null }>
+}
+
+/** The channels or the cost changed since the preview the buyer confirmed: re-read it and ask again. */
+export const CONSTRUCTION_REVISION_PREVIEW_CHANGED = 'CONSTRUCTION_REVISION_PREVIEW_CHANGED'
+
+export function isRevisionPreviewChanged(err: unknown): boolean {
+  return err instanceof ConstructionApiError && err.code === CONSTRUCTION_REVISION_PREVIEW_CHANGED
+}
+
+function revisionPath(rfqId: string, rest = ''): string {
+  return `/api/construction/rfqs/${encodeURIComponent(rfqId)}${rest}`
+}
+
+/** Lines of the current version and who could receive the revision, with each one's channel today. */
+export async function getRfqRevisionCandidates(rfqId: string): Promise<RevisionCandidates> {
+  return request<RevisionCandidates>(revisionPath(rfqId, '/revision-candidates'))
+}
+
+/** Prepare a revision: nothing is sent. Answers the preview (recipients, channels, cost). */
+export async function prepareRfqRevision(rfqId: string, body: RevisionBody): Promise<RevisionPreview> {
+  return request<RevisionPreview>(revisionPath(rfqId, '/revisions'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+/** The same preview, recomputed now (a free WhatsApp window may have closed). */
+export async function getRfqRevision(rfqId: string, revisionId: string): Promise<RevisionPreview> {
+  return request<RevisionPreview>(revisionPath(rfqId, `/revisions/${encodeURIComponent(revisionId)}`))
+}
+
+/**
+ * Send the prepared revision. `expected_*` are the figures of the preview the
+ * buyer saw; a 409 CONSTRUCTION_REVISION_PREVIEW_CHANGED means they no longer hold.
+ */
+export async function confirmRfqRevision(
+  rfqId: string,
+  revisionId: string,
+  expected: { expected_paid_count: number; expected_total_sar: number },
+): Promise<RevisionConfirmResult> {
+  return request<RevisionConfirmResult>(revisionPath(rfqId, `/revisions/${encodeURIComponent(revisionId)}/confirm`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true, ...expected }),
+    timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
+  })
+}
+
+export async function cancelRfqRevision(rfqId: string, revisionId: string): Promise<RevisionPreview> {
+  return request<RevisionPreview>(revisionPath(rfqId, `/revisions/${encodeURIComponent(revisionId)}/cancel`), {
+    method: 'POST',
+  })
 }
 
 /**
