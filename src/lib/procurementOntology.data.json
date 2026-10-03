@@ -1,5 +1,5 @@
 {
- "version": "cpo-v14",
+ "version": "cpo-v15",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -2658,6 +2658,24 @@
        "name": "length_m",
        "supplier_pool_affecting": false
       }
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "سلم",
+        "سلالم",
+        "درج"
+       ],
+       "block_any": [
+        "قفص",
+        "متنقل",
+        "المنيوم",
+        "ladder",
+        "caged",
+        "صيانه"
+       ],
+       "note": "A cat ladder or a step ladder is a ladder (scaffolding_access), not a stair railing."
+      }
      ]
     },
     {
@@ -2756,6 +2774,21 @@
       "ارفف"
      ],
      "note": "Mirrored from steel_platform_mezzanine: the ancestor decides «ميزانين» too, so it must decline the same lines."
+    },
+    {
+     "terms": [
+      "سلم",
+      "درج"
+     ],
+     "block_any": [
+      "قفص",
+      "متنقل",
+      "المنيوم",
+      "ladder",
+      "caged",
+      "صيانه"
+     ],
+     "note": "A cat ladder or a step ladder is a ladder (scaffolding_access), not a stair railing. (mirrored from handrail_balustrade)"
     }
    ]
   },
@@ -3229,7 +3262,6 @@
      "label_ar": "الممبرين البيتوميني",
      "strong_terms": [
       "ممبرين",
-      "بيتومين",
       "bitumen membrane",
       "bituminous membrane",
       "torch on membrane",
@@ -3344,7 +3376,11 @@
       "عزل بيتوميني دهان",
       "bitumen paint",
       "bitumen primer",
-      "bituminous coating"
+      "bituminous coating",
+      "طلاء بيتوميني",
+      "بيتومين سايل",
+      "الغشاء العازل للرطوبه",
+      "غشاء عازل للرطوبه"
      ]
     },
     {
@@ -5444,7 +5480,11 @@
       "لوح جبس اخضر",
       "green board",
       "مواد جبس بورد",
-      "دري وول بورد"
+      "دري وول بورد",
+      "تجليد جبس",
+      "تجليد جبس بورد",
+      "تلبيس جبس",
+      "كسوه جبس"
      ],
      "context_terms": [
       "مم",
@@ -9331,7 +9371,14 @@
         "دامبر دخان",
         "motorized damper",
         "volume damper",
-        "دامبر هواء"
+        "دامبر هواء",
+        "motorized fire damper",
+        "مخمد حريق",
+        "مخمدات حريق",
+        "مخمد دخان",
+        "مخمدات الحريق والدخان",
+        "fire and smoke damper",
+        "fsd"
        ],
        "weak_terms": [
         "damper",
@@ -9366,11 +9413,8 @@
      "label_ar": "دامبرز",
      "strong_terms": [
       "volume control damper",
-      "fire damper",
-      "smoke damper",
       "backdraft damper",
       "pressure relief damper",
-      "motorized damper",
       "دامبر",
       "دامبرز",
       "vcd damper"
@@ -9718,7 +9762,11 @@
       "مكيفات جداريه",
       "مكيف حايطي",
       "مكيف سبليت جداري",
-      "سبليت جداري"
+      "سبليت جداري",
+      "كمبروسر مكيف",
+      "كمبريسور مكيف",
+      "ac compressor",
+      "ضاغط مكيف"
      ],
      "term_guards": [
       {
@@ -12604,7 +12652,12 @@
       "sdb",
       "لوحه sdb",
       "لوحه اناره",
-      "لوحه باور"
+      "لوحه باور",
+      "لوحه تحكم كهربائيه",
+      "لوحات تحكم كهربائيه",
+      "electrical control panel",
+      "control panel electrical",
+      "لوحه كهربائيه"
      ],
      "term_guards": [
       {
@@ -13246,6 +13299,21 @@
      ],
      "weak_terms": [
       "control"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "control",
+        "تحكم"
+       ],
+       "block_any": [
+        "لوحه",
+        "لوحات",
+        "panel",
+        "board"
+       ],
+       "note": "«لوحة تحكم» is a panel; «كابل تحكم» stays a cable."
+      }
      ]
     },
     {
@@ -15109,7 +15177,11 @@
       "dp sensor",
       "منظم حراره غرفه",
       "حساس موقف",
-      "حساس موقف سياره"
+      "حساس موقف سياره",
+      "room pressure monitor",
+      "differential pressure monitor",
+      "مراقب ضغط الغرفه",
+      "شاشه مراقبه ضغط تفاضلي"
      ]
     },
     {
@@ -17525,6 +17597,25 @@
       "screw compressor",
       "piston compressor",
       "كمبروسر سكرو"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "كمبروسر",
+        "كمبريسور",
+        "compressor"
+       ],
+       "block_any": [
+        "مكيف",
+        "مكيفات",
+        "تكييف",
+        "ac",
+        "split",
+        "ثلاجه",
+        "refrigeration"
+       ],
+       "note": "An AC or fridge compressor is a spare part of that unit."
+      }
      ]
     },
     {
@@ -17551,6 +17642,24 @@
       "pneumatic wrench",
       "مفتاح هوايي"
      ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "كمبروسر",
+      "compressor"
+     ],
+     "block_any": [
+      "مكيف",
+      "مكيفات",
+      "تكييف",
+      "ac",
+      "split",
+      "ثلاجه",
+      "refrigeration"
+     ],
+     "note": "An AC or fridge compressor is a spare part of that unit. (mirrored from air_compressor)"
     }
    ]
   },
@@ -20876,7 +20985,20 @@
         "maglock",
         "electric strike",
         "قفل كهربايي",
-        "drop bolt"
+        "drop bolt",
+        "قفل باب كهرومغناطيسي",
+        "قفل كهروميكانيكي",
+        "electromechanical lock",
+        "electric door lock",
+        "وحده اقفال كهربائيه",
+        "اقفال كهربائيه للابواب",
+        "electromagnetic door lock",
+        "قفل كهربائي للابواب",
+        "قفل من النوع الكهرومغناطيسي",
+        "قفل باب من النوع الكهرومغناطيسي",
+        "قفل من النوع الكهروميكانيكي",
+        "كهرومغناطيسي",
+        "كهروميكانيكي"
        ],
        "weak_terms": [
         "قفل",
@@ -22040,6 +22162,24 @@
       "oven"
      ],
      "note": "Mirrored from glass_door: the ancestor decides «باب سيكوريت» too, so it must decline the same lines."
+    },
+    {
+     "terms": [
+      "زجاج مزدوج",
+      "double glazed"
+     ],
+     "block_any": [
+      "نافذه",
+      "نوافذ",
+      "شباك",
+      "شبابيك",
+      "window",
+      "windows",
+      "باب",
+      "ابواب",
+      "door"
+     ],
+     "note": "The glazing word inside a window line describes the window. (mirrored from insulated_glass_unit)"
     }
    ],
    "context_terms": [
@@ -22123,6 +22263,27 @@
       "igu",
       "triple glazed",
       "argon filled"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "زجاج مزدوج",
+        "double glazed",
+        "double glazing"
+       ],
+       "block_any": [
+        "نافذه",
+        "نوافذ",
+        "شباك",
+        "شبابيك",
+        "window",
+        "windows",
+        "باب",
+        "ابواب",
+        "door"
+       ],
+       "note": "The glazing word inside a window line describes the window."
+      }
      ]
     },
     {
@@ -22383,7 +22544,13 @@
       "aluminium windows",
       "aluminium doors",
       "شبابيك سحاب",
-      "شبابيك المنيوم سحاب"
+      "شبابيك المنيوم سحاب",
+      "نوافذ بزجاج مزدوج",
+      "نوافذ زجاج مزدوج",
+      "نافذه زجاج مزدوج",
+      "double glazed window",
+      "double glazed aluminium window",
+      "نوافذ المنيوم زجاج مزدوج"
      ],
      "context_terms": [
       "م2",
@@ -22409,7 +22576,13 @@
       "brise soleil",
       "مكسر شمس",
       "louver blade",
-      "شرايح المنيوم"
+      "شرايح المنيوم",
+      "fresh air louver",
+      "لوفر هواء نقي",
+      "لوفرات هواء نقي",
+      "لوفر هواء",
+      "exhaust louver",
+      "لوفر عادم"
      ]
     },
     {
@@ -22430,7 +22603,10 @@
       "كلادينج acp",
       "الواح كلادينج acp",
       "الوكوبوند",
-      "alucobond"
+      "alucobond",
+      "cladding tube",
+      "تيوبات كلادينج",
+      "الواح acp"
      ]
     },
     {
@@ -23933,7 +24109,11 @@
       "مونه تسويه ارضيات",
       "سيلف ليفلنج",
       "self levelling screed",
-      "sand cement screed"
+      "sand cement screed",
+      "مونه الاسمنت والرمل",
+      "cement sand mortar",
+      "sand cement mortar",
+      "مونه لاصقه"
      ]
     }
    ]
@@ -25130,6 +25310,23 @@
         "طوب"
        ],
        "note": "«مونة أسمنت ورمل» is a mortar line: sand named after the product head is an ingredient, not the product."
+      },
+      {
+       "terms": [
+        "رمل"
+       ],
+       "block_any": [
+        "مونه",
+        "مونة",
+        "بياض",
+        "لياسه",
+        "لياسة",
+        "mortar",
+        "screed",
+        "render",
+        "plaster"
+       ],
+       "note": "Sand inside a mortar/render/screed line is an ingredient, not the material bought."
       }
      ]
     },
@@ -26053,7 +26250,13 @@
       "منصه عمل",
       "work platform",
       "برج سقاله",
-      "mobile tower"
+      "mobile tower",
+      "سلم قفص",
+      "cat ladder",
+      "سلم حمايه",
+      "caged ladder",
+      "سلم صيانه",
+      "سلم معدني ثابت"
      ]
     }
    ]
@@ -26360,6 +26563,27 @@
       "argon"
      ],
      "note": "A gas cylinder is welding and cutting equipment, not door hardware."
+    },
+    {
+     "terms": [
+      "قفل",
+      "اقفال",
+      "lock",
+      "locks"
+     ],
+     "block_any": [
+      "كهرومغناطيسي",
+      "كهروميكانيكي",
+      "كهربائي",
+      "كهربائيه",
+      "مغناطيسي",
+      "electromagnetic",
+      "electromechanical",
+      "electric",
+      "magnetic",
+      "maglock"
+     ],
+     "note": "An electric lock is access control. (mirrored from locks_cylinders)"
     }
    ],
    "context_terms": [
@@ -26448,6 +26672,29 @@
       "door lock",
       "door locks",
       "قفل ابواب"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "قفل",
+        "اقفال",
+        "lock",
+        "locks"
+       ],
+       "block_any": [
+        "كهرومغناطيسي",
+        "كهروميكانيكي",
+        "كهربائي",
+        "كهربائيه",
+        "مغناطيسي",
+        "electromagnetic",
+        "electromechanical",
+        "electric",
+        "magnetic",
+        "maglock"
+       ],
+       "note": "An electric lock is access control."
+      }
      ]
     },
     {
@@ -26864,7 +27111,12 @@
       "oxygen outlet",
       "vacuum outlet",
       "medical air outlet",
-      "gas outlet طبي"
+      "gas outlet طبي",
+      "وحده راس السرير",
+      "وحده راس سرير",
+      "bed head unit",
+      "bedhead unit",
+      "وحده راس السرير غازات"
      ]
     },
     {
@@ -26875,7 +27127,12 @@
       "zone valve box",
       "صمامات غازات طبيه",
       "area valve service unit",
-      "avsu"
+      "avsu",
+      "صمام كروي للغازات الطبيه",
+      "صمام كروي لمواسير الغازات الطبيه",
+      "lockable ball valve medical gas",
+      "medical gas ball valve",
+      "صمام غازات طبيه قابل للقفل"
      ]
     },
     {
@@ -26900,7 +27157,12 @@
       "مولد اكسجين",
       "oxygen generator",
       "ضاغط هواء طبي",
-      "medical air compressor"
+      "medical air compressor",
+      "مضخه فاكيوم طبيه",
+      "medical vacuum pump",
+      "مضخه شفط طبيه",
+      "medical vacuum plant",
+      "مضخه تفريغ طبيه"
      ]
     },
     {
