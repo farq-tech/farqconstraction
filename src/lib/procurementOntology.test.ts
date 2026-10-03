@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v13')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v14')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -542,9 +542,9 @@ describe('no field may imply a family the resolution does not have', () => {
   const LINES = [
     'توريد كاميرا مراقبة IP 4 MP', // A
     'توريد لوحة توزيع كهربائية رئيسية 1600A', // B, real family
-    'توريد لوح تنظيم أدوات Pegboard Steel', // B, semantic recovery
-    'توريد منشار شريطي معدني Band Saw', // B, semantic recovery
-    'Pegboard Steel', // C
+    'توريد لوح رسم رقمي احترافي', // B, semantic recovery
+    'توريد ماسح كتب Overhead Scanner', // B, semantic recovery
+    'جهاز فرز مستندات بالباركود', // C
     'أجور تركيب فقط بدون مواد', // C, rejected
   ]
 
@@ -573,18 +573,18 @@ describe('no field may imply a family the resolution does not have', () => {
 
   it('the B value is not named after a field that may be null', () => {
     // Guards the rename: `level: 'family'` was the misleading field.
-    const r = resolve('توريد لوح تنظيم أدوات Pegboard Steel')
+    const r = resolve('توريد لوح رسم رقمي احترافي')
     expect(r.level).toBe('local_resolved')
     expect(r.level).not.toBe('family')
     expect(r.family).toBeNull()
   })
 
   it('a semantic recovery carries no family, no pool key and no archetypes', () => {
-    // «Pegboard Steel» must NOT become translucent_roofing just because the weak
-    // term «لوح» belongs to that family — nor Band Saw become hand_tools.
+    // «لوح رسم رقمي» must NOT become translucent_roofing just because the weak
+    // term «لوح» belongs to that family — nor a bare «ماسح» become a document scanner.
     for (const line of [
-      'توريد لوح تنظيم أدوات Pegboard Steel',
-      'توريد منشار شريطي معدني Band Saw',
+      'توريد لوح رسم رقمي احترافي',
+      'توريد ماسح كتب Overhead Scanner',
     ]) {
       const r = resolve(line)
       expect(r.source).toBe('semantic_recovery')
@@ -605,9 +605,9 @@ describe('no field may imply a family the resolution does not have', () => {
 
   it('recovered lines never share a pool with a confident family', () => {
     const batch = resolveOntologyBatch([
-      'توريد لوح تنظيم أدوات Pegboard Steel',
+      'توريد لوح رسم رقمي احترافي',
       'توريد لوح بولي كربونيت شفاف للسقف',
-      'توريد منشار شريطي معدني Band Saw',
+      'توريد ماسح كتب Overhead Scanner',
     ])
     const [pegboard, polycarbonate, bandsaw] = batch.lines.map((l) => l.resolution)
     expect(polycarbonate!.family).toBe('translucent_roofing')
@@ -630,8 +630,8 @@ describe('no field may imply a family the resolution does not have', () => {
     const batch = resolveOntologyBatch([
       'توريد كاميرا مراقبة IP 4 MP',
       'توريد لوحة توزيع كهربائية رئيسية 1600A',
-      'توريد لوح تنظيم أدوات Pegboard Steel',
-      'Pegboard Steel',
+      'توريد لوح رسم رقمي احترافي',
+      'جهاز فرز مستندات بالباركود',
     ])
     const recoveries = batch.family_by_method.semantic_recovery
     expect(recoveries).toBe(1)
@@ -1387,7 +1387,7 @@ describe('generalization: unseen variants resolve without literal aliases', () =
     ['توريد وتركيب تجليد جدران HPL خارجي', 'surface_cladding'],
     ['توريد كسوة أعمدة ألوكبوند 4 مم', 'column_cladding'],
     ['توريد حنفية حريق تحت الأرض UL/FM', 'fire_hydrant'],
-    ['توريد مضخة غاطسة للنزح 15 kW', 'industrial_pump'],
+    ['توريد مضخة غاطسة للنزح 15 kW', 'submersible_pump'],
     ['توريد متر ليزر مدى 100 م دقة ±1 مم', 'laser_distance_meter'],
   ])('%s -> %s', (line, intent) => {
     expect(resolve(line).intent).toBe(intent)
@@ -1969,7 +1969,7 @@ describe('an opener is not part of the value it introduces', () => {
     ['Rescue Kit Height 30m', 'rescue_kit'],
     ['Digital Thickness Gauge 0-25mm', 'precision_gauge'],
     ['اسمنت مادة رابطة', 'concrete_repair'],
-    ['خرسانة مادة معالجة', 'concrete_repair'],
+    ['خرسانة مادة معالجة', 'curing_compound'],
   ] as const) {
     it(`decides away from position 0: ${line}`, () => {
       expect(resolveOntology(line).intent).toBe(expected)
@@ -2630,7 +2630,7 @@ describe('cpo-v13: seven common materials that were family-only', () => {
     ['محبس بوابة 2 بوصة', 'gate_valve'],
     ['صمام تحكم كهربائي', 'control_valve'],
     ['دهان جدران داخلي بلاستيك', 'interior_wall_paint'],
-    ['دهان ايبوكسي للارضيات', 'primer_coating'],
+    ['دهان ايبوكسي للارضيات', 'epoxy_floor_coating'],
     ['كاشف دخان', 'smoke_heat_detector'],
     ['لوحة انذار حريق معنونة', 'fire_alarm_panel'],
     ['حديد تسليح 16 مم', 'rebar'],
@@ -2639,5 +2639,35 @@ describe('cpo-v13: seven common materials that were family-only', () => {
   ]
   for (const [line, intent] of cases) {
     it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+  }
+})
+
+/**
+ * cpo-v14 — the widening the owner asked for on 3 Oct 2026: every material a Saudi
+ * booklet commonly buys reaches its own intent under the names buyers write
+ * (formal, colloquial, English, transliterated, misspelled). The probes are the
+ * contract: positive lines per new intent, and the collisions each trade feared.
+ */
+describe('cpo-v14: the wider dictionary keeps its probes', () => {
+  const { probes } = JSON.parse(
+    readFileSync(new URL('../../fixtures/ontology/cpo-v14-probes.json', import.meta.url), 'utf8'),
+  ) as {
+    probes: Array<{
+      line: string
+      expect_intent?: string
+      expect_family?: string
+      expect_not_intent?: string
+      expect_not_family?: string
+    }>
+  }
+  it('has a probe set', () => expect(probes.length).toBeGreaterThan(700))
+  for (const p of probes) {
+    it(p.line, () => {
+      const r = resolveOntology(p.line)
+      if (p.expect_intent) expect(r.intent, p.line).toBe(p.expect_intent)
+      if (p.expect_family) expect(r.family, p.line).toBe(p.expect_family)
+      if (p.expect_not_intent) expect(r.intent, p.line).not.toBe(p.expect_not_intent)
+      if (p.expect_not_family) expect(r.family, p.line).not.toBe(p.expect_not_family)
+    })
   }
 })
