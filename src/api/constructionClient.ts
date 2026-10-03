@@ -3492,3 +3492,33 @@ export async function listContractingTenders(
   params.set('page_size', String(opts.pageSize || 20))
   return request<ContractingTenderPage>(`/api/construction/tenders?${params.toString()}`, { signal })
 }
+
+// ─── «انضم لفرق كمورد» — the owner's list (api: lib/construction/supplier-join-http.js) ───
+
+export type SupplierJoinStatus = 'INVITED' | 'JOINED' | 'DECLINED'
+
+export type SupplierJoinRow = {
+  supplier_id: string
+  name: string | null
+  city: string | null
+  phone_masked: string | null
+  status: SupplierJoinStatus
+  invited_at: string | null
+  joined_at: string | null
+  declined_at: string | null
+  ahmad_invited_at: string | null
+  live_link_expires_at: string | null
+}
+
+export async function listSupplierJoins(): Promise<{ counts: Record<SupplierJoinStatus, number>; suppliers: SupplierJoinRow[] }> {
+  const result = await request<{ counts?: Record<SupplierJoinStatus, number>; suppliers?: SupplierJoinRow[] } | null>('/api/construction/supplier-joins')
+  return {
+    counts: { INVITED: 0, JOINED: 0, DECLINED: 0, ...(result?.counts || {}) },
+    suppliers: Array.isArray(result?.suppliers) ? result!.suppliers : [],
+  }
+}
+
+/** A one-time join link for one supplier; the address is returned once, here only. */
+export async function createSupplierJoinLink(supplierId: string): Promise<{ url: string; expires_at: string }> {
+  return request<{ url: string; expires_at: string }>(`/api/construction/supplier-joins/${encodeURIComponent(supplierId)}/link`, { method: 'POST' })
+}

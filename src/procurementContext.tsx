@@ -75,6 +75,9 @@ function initialViewFromUrl(): AppView {
     if (captureSupplierLink()) return 'supplier'
     const params = new URLSearchParams(window.location.search)
     const view = params.get('view')
+    // «انضم لفرق كمورد»: the one-time join link (`?join_token=`), or a reload of it.
+    if (params.has('join_token') || view === 'join') return 'join'
+    if (view === 'supplier-joins') return 'supplier-joins'
     // Links in the email alerts: a supplier conversation or a request.
     if (view === 'inbox' && UUID_PARAM.test(params.get('thread') || '')) return 'inbox-thread'
     if (view === 'rfq' && UUID_PARAM.test(params.get('rfq') || '')) return 'rfq-detail'

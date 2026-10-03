@@ -44,6 +44,7 @@ import { StatusPanel } from '../components/supplier/StatusPanel'
 import { RequestsList } from '../components/supplier/RequestsList'
 import { SupplierChat } from '../components/supplier/SupplierChat'
 import { AccountView } from '../components/supplier/AccountView'
+import PhoneLogin from '../components/supplier/PhoneLogin'
 
 type Phase = 'no-token' | 'loading' | 'expired' | 'error' | 'ready'
 type Screen = 'list' | 'request' | 'account'
@@ -99,7 +100,8 @@ export function SupplierPortalView(_props: NavProps) {
   const client = useMemo(() => supplierPortalClient(), [])
   const now = useNow()
 
-  const [phase, setPhase] = useState<Phase>(token ? 'loading' : 'no-token')
+  // A supplier signed in with phone + password («انضم لفرق كمورد») holds a session and no link.
+  const [phase, setPhase] = useState<Phase>(token || client.currentSession() ? 'loading' : 'no-token')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [mode, setMode] = useState<'session' | 'legacy'>('legacy')
   const [session, setSession] = useState<SupplierSession | null>(null)
@@ -115,7 +117,29 @@ export function SupplierPortalView(_props: NavProps) {
   const [declineError, setDeclineError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!token) return
+    if (!token) {
+      const held = client.currentSession()
+      if (!held) {
+        setPhase('no-token')
+        return
+      }
+      setPhase('loading')
+      setSession(held)
+      setAccount(held.account)
+      setMode('session')
+      let list: SupplierRequest[] = []
+      try {
+        list = await client.listRequests()
+      } catch {
+        list = []
+      }
+      setRequests(list)
+      setSelectedId(null)
+      setScreen('list')
+      setTab('status')
+      setPhase(client.currentSession() ? 'ready' : 'no-token')
+      return
+    }
     setPhase('loading')
     setLoadError(null)
     const [opened, portal] = await Promise.allSettled([client.openSession(token), getPublicSupplierInvite(token)])
@@ -242,6 +266,9 @@ export function SupplierPortalView(_props: NavProps) {
               تدخل البوابة من الرابط اللي وصلك من الشركة بالإيميل أو الواتساب.
             </p>
           </Card>
+          <div className="mt-4">
+            <PhoneLogin onDone={() => void load()} />
+          </div>
         </Centered>
       </Frame>
     )

@@ -104,6 +104,13 @@ function buildNav(
             Icon: SettingsIcon,
             active: (v: AppView) => v === 'services',
           },
+          // «انضمام الموردين»: who was invited to join Farq as a supplier, who joined, who declined.
+          {
+            id: 'supplier-joins' as AppView,
+            label: 'انضمام الموردين',
+            Icon: SettingsIcon,
+            active: (v: AppView) => v === 'supplier-joins',
+          },
         ]
       : []),
     {
@@ -343,7 +350,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services' && item.id !== 'tenders').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
+          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services' && item.id !== 'supplier-joins' && item.id !== 'tenders').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button

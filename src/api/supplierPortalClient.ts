@@ -331,6 +331,14 @@ const EXPIRED_CODES = new Set([
 ])
 
 export function supplierErrorMessageAr(status: number, code: string): string {
+  // «انضم لفرق كمورد» and the phone login.
+  if (code === 'INVALID_CREDENTIALS') return 'رقم الجوال أو كلمة السر غير صحيحة.'
+  if (code === 'ACCOUNT_LOCKED') return 'محاولات كثيرة — انتظر ربع ساعة ثم أعد المحاولة.'
+  if (code === 'JOIN_LINK_INVALID') return 'الرابط غير صالح: انتهت مدته أو استُخدم من قبل.'
+  if (code === 'CONSENT_REQUIRED') return 'ضع علامة الموافقة أولاً.'
+  if (code === 'PASSWORD_MISMATCH') return 'كلمتا السر غير متطابقتين.'
+  if (code === 'PHONE_ALREADY_REGISTERED') return 'هذا الرقم مسجّل في حساب مورد آخر — ادخل بكلمة سره.'
+  if (code === 'ALREADY_JOINED') return 'الحساب مفعّل من قبل — ادخل برقم جوالك وكلمة السر.'
   if (code === 'SUPPLIER_SESSION_EXPIRED' || code === 'SUPPLIER_SESSION_REQUIRED' || (status === 401 && !EXPIRED_CODES.has(code)))
     return 'انتهت الجلسة — افتح رابط الدعوة من جديد.'
   // Links never expire; this is a link that is wrong, incomplete or revoked.
@@ -425,6 +433,29 @@ export const browserTransport: Transport = async (req) => {
     return { status: 0, payload: null }
   } finally {
     globalThis.clearTimeout(timer)
+  }
+}
+
+// ─── «انضم لفرق كمورد» ─────────────────────────────────────────────────────
+
+export type JoinPreview = {
+  company_name: string | null
+  phone_masked: string | null
+  trades: string[]
+  city: string | null
+  expires_at: string | null
+  terms_version: string
+}
+
+export function normalizeJoinPreview(raw: unknown): JoinPreview {
+  const r = record(raw)
+  return {
+    company_name: strOrNull(r.company_name),
+    phone_masked: strOrNull(r.phone_masked),
+    trades: Array.isArray(r.trades) ? r.trades.map(str).filter(Boolean) : [],
+    city: strOrNull(r.city),
+    expires_at: strOrNull(r.expires_at),
+    terms_version: str(r.terms_version),
   }
 }
 
@@ -614,6 +645,32 @@ export function createSupplierPortalClient(options: SupplierPortalClientOptions 
         },
         { onProgress: input.attachments.length ? onProgress : undefined },
       )
+    },
+
+    /**
+     * «انضم لفرق كمورد» (api: lib/construction/supplier-join-http.js). The join
+     * token travels in the body only; these calls need no session.
+     */
+    joinPreview(token: string): Promise<JoinPreview> {
+      return call('POST', '/api/construction/supplier/join/preview', { token }, (payload) => normalizeJoinPreview(unwrapData(payload)), { auth: false })
+    },
+
+    joinAccept(token: string, input: { password: string; password_confirm: string; consent: boolean }): Promise<{ status: string; phone_masked: string | null }> {
+      return call('POST', '/api/construction/supplier/join/accept', { token, ...input }, (payload) => {
+        const data = record(unwrapData(payload))
+        return { status: str(data.status), phone_masked: strOrNull(data.phone_masked) }
+      }, { auth: false })
+    },
+
+    joinDecline(token: string): Promise<{ status: string }> {
+      return call('POST', '/api/construction/supplier/join/decline', { token }, (payload) => ({ status: str(record(unwrapData(payload)).status) }), { auth: false })
+    },
+
+    /** Phone + password → the portal session (scope FULL), held like a link's session. */
+    async loginWithPhone(phone: string, password: string): Promise<SupplierSession> {
+      const session = await call('POST', '/api/construction/supplier/login', { phone, password }, normalizeSession, { auth: false })
+      remember(session)
+      return session
     },
 
     async declineAccount(): Promise<SupplierAccount | null> {

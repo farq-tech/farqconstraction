@@ -24,6 +24,8 @@ import { SupplierDetailView } from './views/SupplierDetailView'
 import { SettingsView } from './views/SettingsView'
 import { AccessDeniedView } from './views/AccessDeniedView'
 import { SupplierPortalView } from './views/SupplierPortalView'
+import { SupplierJoinView } from './views/SupplierJoinView'
+import { SupplierJoinsAdminView } from './views/SupplierJoinsAdminView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
 import { useEffect, useRef } from 'react'
@@ -63,6 +65,7 @@ function AppRoutes() {
   }, [session.isAuthenticated])
 
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
+  if (view === 'join') return <SupplierJoinView navigate={navigate} />
   // An invited colleague arrives signed out; the page creates the session.
   if (view === 'invite') return <InviteView navigate={navigate} />
   // A production build has no demo identity, so without a session every screen
@@ -134,6 +137,7 @@ function AppRoutes() {
       {view === 'inbox-thread' && <InboxThreadView navigate={navigate} />}
       {view === 'access-denied' && <AccessDeniedView navigate={navigate} />}
       {view === 'services' && <ServicesAdminView navigate={navigate} />}
+      {view === 'supplier-joins' && <SupplierJoinsAdminView navigate={navigate} />}
       </ErrorBoundary>
     </Shell>
   )
