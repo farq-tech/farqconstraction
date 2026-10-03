@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTO_PICK, autoPickFor, buildPickContext, isPriorQuoter } from '../lib/autoPick'
+import { autoPickConfident, buildPickContext, isPriorQuoter } from '../lib/autoPick'
 import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
@@ -707,7 +707,7 @@ export function ProposalsView({ navigate }: NavProps) {
       // Marked done only once something was chosen: a line whose suggestions
       // arrive later (a restored session, a retried chunk) is picked then,
       // instead of staying empty for good.
-      const chosen = autoPickFor(item, AUTO_PICK, pickContext)
+      const chosen = autoPickConfident(item, pickContext)
       if (chosen.length) {
         autoDone.current.add(item.id)
         picks[item.id] = chosen
@@ -1062,8 +1062,8 @@ export function ProposalsView({ navigate }: NavProps) {
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                 {empty === 0
-                  ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال: من عليه «مورد محتمل» اختير لنشاطه لا لمادته.'
-                  : `${empty} بندًا لم نجد لها موردًا في دليلنا. البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين، ومن عليه «مورد محتمل» اختير لنشاطه لا لمادته.`}
+                  ? 'اختير كل مورد تأكدنا أنه يبيع المادة. من يُراسَل على واتساب (برسوم) اختير فقط عند تأكد كبير؛ «مورد محتمل» لم يُختر، وتضيفه بنفسك إن شئت.'
+                  : `${empty} بندًا لم نجد لها موردًا متأكدًا منه في دليلنا. للبقية اختير كل مورد تأكدنا أنه يبيع المادة؛ من يُراسَل على واتساب (برسوم) اختير فقط عند تأكد كبير، و«مورد محتمل» لم يُختر.`}
                 {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
               </div>
             </div>

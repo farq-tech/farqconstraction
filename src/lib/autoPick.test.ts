@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { autoPickFor, buildPickContext, isPriorQuoter } from './autoPick'
+import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter } from './autoPick'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -128,5 +128,30 @@ describe('autoPickFor — «نتائج الجولات»', () => {
       rejectedSupplierIds: ['مرفوض'],
     })
     expect(autoPickFor(item, 4).map((s) => s.id)).toEqual(['اختياره', 'الرطبة', 'بيت الكهرباء', 'مصنع'])
+  })
+})
+
+describe('autoPickConfident — every confident match, WhatsApp only when sure', () => {
+  const wa = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'واتساب', ...extra })
+  const mail = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'بريد', ...extra })
+  it('takes all free-channel matches, WhatsApp only on name/activity/outcome evidence, never «مورد محتمل»', () => {
+    const item = line(1, 'masonry_blocks', [
+      wa('wa-name', { why: 'الاسم: «للبلوك»' }),
+      wa('wa-activity', { why: 'النشاط المسجّل: «بلوك اسمنتي»' }),
+      wa('wa-lineword', { why: 'كلمة البند: «بلوك»' }),
+      wa('wa-haraj', { why: 'وسوم حراج: «بلوك»' }),
+      wa('wa-other-city', { why: 'الاسم: «بلوك» — خارج مدينة الطلب', outOfCity: true }),
+      mail('mail-lineword', { why: 'كلمة البند: «بلوك»' }),
+      mail('mail-maybe', { evidence: 'على مستوى النشاط', why: 'نشاط العائلة: «مواد بناء»' }),
+      wa('wa-maybe', { evidence: 'على مستوى النشاط' }),
+    ], {
+      outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar'), roundOutcome: { grade: 'SIMILAR' } }] },
+    })
+    const ids = autoPickConfident(item).map((s) => s.id)
+    expect(ids).toEqual(['wa-priced', 'wa-name', 'wa-activity', 'mail-lineword'])
+  })
+  it('a rejected supplier stays out even when sure', () => {
+    const item = line(2, 'masonry_blocks', [wa('a', { why: 'الاسم: «بلوك»' })], { rejectedSupplierIds: ['a'] })
+    expect(autoPickConfident(item)).toEqual([])
   })
 })

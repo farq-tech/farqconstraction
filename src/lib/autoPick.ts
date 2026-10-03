@@ -102,6 +102,49 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
  * same handful of general suppliers fill the first five slots of nearly every
  * line, whatever the material was («نفس الموردين ثابتين على كل بند»).
  */
+/**
+ * How sure we are that this supplier sells this line's material.
+ *
+ *   SURE     he priced or answered about it in a round, the buyer chose him
+ *            before, or the map's reason is his NAME or REGISTERED ACTIVITY
+ *            naming the material — and he is not in another city
+ *   LIKELY   the map confirmed the material some other way («نشاط متطابق»:
+ *            the line's own word in his name, Haraj tags)
+ *   MAYBE    «مورد محتمل»: his trade only
+ */
+export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
+
+export function confidenceOf(s: Supplier): Confidence {
+  if (s.learned || isPriorQuoter(s)) return 'SURE'
+  if (s.roundOutcome && (s.roundOutcome.grade === 'PRICED' || s.roundOutcome.grade === 'ANSWERED')) return 'SURE'
+  if (s.outOfCity) return 'MAYBE'
+  if (s.evidence === 'نشاط متطابق') {
+    const why = s.why || ''
+    return why.startsWith('الاسم') || why.startsWith('النشاط المسجّل') || why.startsWith('المادة') ? 'SURE' : 'LIKELY'
+  }
+  return 'MAYBE'
+}
+
+/**
+ * Everyone the system is confident about, not a fixed ten.
+ *
+ * The owner, 3 Oct 2026: «يختار لي كل المطابقين المتوفرين، وإذا كان واتساب
+ * يتأكد تأكد كبير جدًا عشان ما تكون تكلفة كبيرة». A message by email or
+ * Haraj chat costs nothing, so every LIKELY-or-better match is taken. A
+ * WhatsApp template is paid per message, so a WhatsApp-only supplier is taken
+ * only when we are SURE. «مورد محتمل» is never taken on his own; the buyer
+ * adds him by hand. Rejected suppliers never. Order as autoPickFor.
+ */
+export function autoPickConfident(item: BOQItem, context?: PickContext): Supplier[] {
+  const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
+  return all.filter((s) => {
+    const c = confidenceOf(s)
+    if (c === 'MAYBE') return false
+    if (s.channel === 'واتساب') return c === 'SURE'
+    return true
+  })
+}
+
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
   const rejected = new Set(item.rejectedSupplierIds || [])
   const map = item.mapSuggestion?.suppliers || []

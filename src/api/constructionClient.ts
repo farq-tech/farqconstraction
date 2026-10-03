@@ -1695,6 +1695,24 @@ export type ConstructionWhatsAppPricing = {
   currency?: string
 }
 
+export type ConstructionEntitlement = {
+  unlimited_credits?: boolean
+  supplier_credits?: number | null
+  credits_used?: number
+  credits_remaining?: number | null
+  has_package?: boolean
+  low?: boolean
+}
+
+/** This buyer's allowances as the server counts them (GET /entitlement); null when billing is off. */
+export async function fetchConstructionEntitlement(): Promise<ConstructionEntitlement | null> {
+  try {
+    return (await request<ConstructionEntitlement>('/api/construction/entitlement')) || null
+  } catch {
+    return null
+  }
+}
+
 /** Price per WhatsApp message from Farq's number, read from the template's category on Meta. */
 export async function fetchConstructionWhatsAppPricing(): Promise<ConstructionWhatsAppPricing> {
   try {

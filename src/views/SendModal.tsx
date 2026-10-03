@@ -11,7 +11,10 @@ import {
   matchConstructionBoqCatalog,
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
+  fetchConstructionEntitlement,
   fetchConstructionWhatsAppPricing,
+  type ConstructionEntitlement,
+  type ConstructionWhatsAppPricing,
   inboxReplyErrorMessageAr,
   formatArDate,
   startConstructionDispatch,
@@ -186,6 +189,17 @@ export function SendModal({
   const [fastEmailFirst, setFastEmailFirst] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [showRecipients, setShowRecipients] = useState(false)
+  // What this send will cost, known BEFORE anything leaves (the owner's rule,
+  // 3 Oct 2026): WhatsApp is paid per message, email and Haraj chat are free,
+  // and every distinct supplier of the request spends one supplier credit.
+  const [waPricing, setWaPricing] = useState<ConstructionWhatsAppPricing | null>(null)
+  const [entitlement, setEntitlement] = useState<ConstructionEntitlement | null>(null)
+  useEffect(() => {
+    let alive = true
+    void fetchConstructionWhatsAppPricing().then((p) => { if (alive) setWaPricing(p) })
+    void fetchConstructionEntitlement().then((e) => { if (alive) setEntitlement(e) })
+    return () => { alive = false }
+  }, [])
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'form' | 'sending' | 'done'>('form')
   const [error, setError] = useState<string | null>(null)
@@ -250,6 +264,14 @@ export function SendModal({
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
   sendBlockers.push(...siteSupplyProblems(siteSupply))
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
+  const byChannel = recipients.reduce(
+    (acc, r) => { if (r.channel === 'واتساب') acc.wa += 1; else if (r.channel === 'محادثة') acc.haraj += 1; else acc.email += 1; return acc },
+    { email: 0, wa: 0, haraj: 0 },
+  )
+  const waUnit = waPricing?.enabled && waPricing.price_sar ? waPricing.price_sar : null
+  const waTotal = waUnit != null ? byChannel.wa * waUnit : null
+  const creditsLeft = entitlement && !entitlement.unlimited_credits && entitlement.credits_remaining != null ? entitlement.credits_remaining : null
+  const creditsShort = creditsLeft != null && recipients.length > creditsLeft
 
   useEffect(() => {
     if (phase !== 'sending') return
@@ -1189,6 +1211,52 @@ export function SendModal({
                   <div className="text-xs text-amber-700 mt-1">{searchingItems} بنود ما زال البحث عن موردين لها جاريًا — تُرسل لاحقًا.</div>
                 )}
               </div>
+
+              {recipients.length > 0 && (
+                <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${creditsShort ? 'border-amber-200 bg-amber-50' : 'border-neutral-100 bg-white'}`} aria-live="polite">
+                  <div className="text-xs font-bold text-[#0D1F1D] mb-2">التكلفة قبل الإرسال</div>
+                  <div className="space-y-1 text-xs text-neutral-700">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>بريد إلكتروني · {byChannel.email}</span>
+                      <span className="font-semibold text-[#123F3A]">بدون تكلفة</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>محادثة · {byChannel.haraj}</span>
+                      <span className="font-semibold text-[#123F3A]">بدون تكلفة</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>واتساب من رقم فرق · {byChannel.wa}</span>
+                      <span className="font-semibold text-[#0D1F1D]">
+                        {byChannel.wa === 0
+                          ? '—'
+                          : waTotal != null
+                            ? `${waTotal.toFixed(2)} ريال (${byChannel.wa} × ${waUnit!.toFixed(2)})`
+                            : waPricing && !waPricing.enabled
+                              ? 'الإرسال من رقم فرق متوقف — روابط واتساب ويب'
+                              : 'جارٍ قراءة السعر…'}
+                      </span>
+                    </div>
+                    {byChannel.wa > 0 && waTotal != null && (
+                      <div className="text-[11px] text-neutral-500 leading-relaxed">
+                        واتساب يُرسل فقط للموردين الذين ليس لهم بريد، وبعد موافقتك الصريحة على المبلغ أثناء الإرسال. السعر من Meta وقد يتغير.
+                      </div>
+                    )}
+                    {entitlement && (
+                      <div className="flex items-center justify-between gap-3 pt-1 border-t border-neutral-100 mt-1">
+                        <span>رصيد الموردين · يحتاج {recipients.length}</span>
+                        <span className={`font-semibold ${creditsShort ? 'text-amber-800' : 'text-[#0D1F1D]'}`}>
+                          {entitlement.unlimited_credits ? 'غير محدود' : creditsLeft != null ? `المتبقي ${creditsLeft}` : '—'}
+                        </span>
+                      </div>
+                    )}
+                    {creditsShort && (
+                      <div className="text-[11px] text-amber-900 leading-relaxed">
+                        الرصيد لا يكفي لكل الموردين: يتوقف الإرسال عند انتهائه. قلّل الموردين أو أضف رصيدًا قبل الإرسال.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="mb-4 rounded-2xl border border-neutral-100 bg-white divide-y divide-neutral-100 text-sm">
                 <div className="flex items-center justify-between gap-3 px-4 py-2.5">
