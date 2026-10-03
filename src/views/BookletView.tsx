@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { NavProps } from '../types'
-import { ClockIcon } from '../icons'
+import { ClockIcon, TruckIcon } from '../icons'
+import { cleanSupplierName } from '../lib/supplierName'
 import {
   ConstructionApiError,
   closeConstructionBooklet,
@@ -19,6 +20,7 @@ import { heldSummaryLabel } from '../lib/priceReview'
 import {
   bookletClosed,
   bookletDeadline,
+  bookletDeliveryText,
   bookletMoney,
   bookletStateLabel,
   columnTotal,
@@ -154,7 +156,7 @@ export function BookletView({ navigate }: NavProps) {
   const bestFull = summary?.best_full_booklet || null
   const bestFullName = bestFull
     ? matrix.columns.find((c) => c.supplier_id === String(bestFull.supplier_id))?.name ||
-      (data.suppliers || []).find((s) => String(s.supplier_id) === String(bestFull.supplier_id))?.name ||
+      cleanSupplierName((data.suppliers || []).find((s) => String(s.supplier_id) === String(bestFull.supplier_id))?.name) ||
       'مورد'
     : null
   const noQuotes = matrix.columns.length === 0
@@ -406,6 +408,7 @@ export function BookletView({ navigate }: NavProps) {
                                   يحتاج مراجعة
                                 </span>
                               )}
+                              <DeliveryNote text={bookletDeliveryText(cell)} />
                             </>
                           ) : cell ? (
                             <>
@@ -415,6 +418,7 @@ export function BookletView({ navigate }: NavProps) {
                               <div className="text-xs text-neutral-400">الإجمالي {bookletMoney(cell.total, cell.currency)}</div>
                               {cell.best && <div className="text-[10px] font-bold text-[#1a7a45] mt-0.5">الأفضل لهذا البند</div>}
                               <VatUnknownChip value={cell.prices_include_tax} className="mt-0.5" />
+                              <DeliveryNote text={bookletDeliveryText(cell)} />
                               {cell.notes && <div className="text-[10px] text-neutral-500 mt-0.5 line-clamp-2">{cell.notes}</div>}
                               {statedValidityLabel(cell.valid_until) && (
                                 <div className="text-[10px] text-neutral-400 mt-0.5">{statedValidityLabel(cell.valid_until)}</div>
@@ -464,6 +468,17 @@ export function BookletView({ navigate }: NavProps) {
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+/** The supplier's delivery terms under his price, small and muted. */
+function DeliveryNote({ text }: { text: string | null }) {
+  if (!text) return null
+  return (
+    <div className="flex items-start gap-1 text-[10px] text-neutral-500 mt-0.5">
+      <TruckIcon className="w-3 h-3 shrink-0 mt-px" />
+      <span className="line-clamp-2">{text}</span>
     </div>
   )
 }

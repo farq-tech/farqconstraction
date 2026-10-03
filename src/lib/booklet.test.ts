@@ -3,6 +3,7 @@ import type { ConstructionBookletDetail, ConstructionBookletOffer } from '../api
 import {
   bookletChipText,
   bookletClosed,
+  bookletDeliveryText,
   bookletStateLabel,
   statedValidityLabel,
   bookletDeadline,
@@ -238,5 +239,15 @@ describe('booklet state and stated validity («عروض الموردين لا ت
     expect(past).not.toMatch(/انتهت|منتهي|تنتهي/)
     expect(statedValidityLabel(null)).toBeNull()
     expect(statedValidityLabel('not a date')).toBeNull()
+  })
+})
+
+describe('bookletDeliveryText', () => {
+  it("shows the supplier's delivery terms, else the stated charge", () => {
+    expect(bookletDeliveryText({ delivery_note: 'بدون شحن — المورد في جدة', delivery: null, currency: 'SAR' })).toBe('بدون شحن — المورد في جدة')
+    expect(bookletDeliveryText({ delivery_note: null, delivery: 0, currency: 'SAR' })).toBe('التوصيل مشمول')
+    expect(bookletDeliveryText({ delivery_note: '  ', delivery: 150, currency: 'SAR' })).toBe(`التوصيل ${bookletMoney(150, 'SAR')}`)
+    expect(bookletDeliveryText({ currency: 'SAR' })).toBeNull()
+    expect(bookletDeliveryText(null)).toBeNull()
   })
 })

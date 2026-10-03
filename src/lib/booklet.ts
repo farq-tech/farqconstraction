@@ -8,6 +8,7 @@ import type {
 } from '../api/constructionClient'
 import { formatMoney, quoteDeadline, type Deadline } from './requestFile'
 import { isHeldOffer } from './priceReview'
+import { cleanSupplierName } from './supplierName'
 
 /**
  * Pure logic behind the booklet screens (الكراسة): one comparison across every
@@ -146,7 +147,7 @@ export function buildBookletMatrix(detail: Partial<ConstructionBookletDetail> | 
     const s = supplierById.get(id)
     return {
       supplier_id: id,
-      name: String(s?.name || '').trim() || 'مورد',
+      name: cleanSupplierName(s?.name) || 'مورد',
       waves: [...new Set((s?.waves || []).map(Number).filter(Number.isFinite))].sort((a, b) => a - b),
       quote_total: num(s?.quote_total),
       currency: s?.currency || null,
@@ -277,6 +278,21 @@ export function bookletStateLabel(booklet: ConstructionBookletState | null | und
  * The supplier's stated validity, as neutral information, or null when he
  * stated none. Never a warning: the quote stands until the booklet is closed.
  */
+/**
+ * The supplier's delivery terms under a booklet price: his own words
+ * («بدون شحن — المورد في جدة») first, else the charge he stated
+ * («التوصيل مشمول» for 0). Null when he said nothing (or on an older API).
+ */
+export function bookletDeliveryText(offer: Pick<ConstructionBookletOffer, 'delivery_note' | 'delivery' | 'currency'> | null | undefined): string | null {
+  if (!offer) return null
+  const note = String(offer.delivery_note ?? '').replace(/\s+/g, ' ').trim()
+  if (note) return note
+  const fee = num(offer.delivery)
+  if (fee == null || fee < 0) return null
+  if (fee === 0) return 'التوصيل مشمول'
+  return `التوصيل ${bookletMoney(fee, offer.currency)}`
+}
+
 export function statedValidityLabel(value: string | null | undefined): string | null {
   if (!value) return null
   const at = new Date(value)

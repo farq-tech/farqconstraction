@@ -18,6 +18,7 @@ import { WEB_DISCOVERY_SERVICE } from '../lib/webAlternatives'
 import { EQUIVALENTS_SERVICE, requestedBrandHint, savingNoteText } from '../lib/brandEquivalence'
 import { useServices } from '../api/useServices'
 import PreviousVersionResponses from '../components/PreviousVersionResponses'
+import { cleanSupplierName } from '../lib/supplierName'
 
 /**
  * Side-by-side prices for one request.
@@ -151,7 +152,7 @@ export function ComparisonView({ navigate }: NavProps) {
                 <th className="px-4 py-3 font-bold text-[#0D1F1D] min-w-[220px]">البند</th>
                 {responses.map((r) => (
                   <th key={String(r.supplier.id)} className="px-4 py-3 font-bold text-[#0D1F1D] min-w-[160px] align-top">
-                    {r.supplier.name_ar || r.supplier.name_en || 'مورد'}
+                    {cleanSupplierName(r.supplier.name_ar) || cleanSupplierName(r.supplier.name_en) || 'مورد'}
                     <SupplierScoreBadge score={summaries.get(String(r.supplier.id))?.score} className="ms-1.5" />
                     {r.eligibility?.eligible === false && (
                       <div className="text-[10px] font-semibold text-amber-700 mt-0.5">عرض غير مكتمل</div>

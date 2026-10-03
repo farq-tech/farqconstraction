@@ -15,6 +15,7 @@ import {
   formatRfqReference,
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
+import { cleanSupplierName } from '../lib/supplierName'
 
 const STATUS_CONF = {
   complete: { label: 'وصل عرض', className: 'bg-[#CFF5DC] text-[#1a7a45]' },
@@ -328,7 +329,7 @@ export function OffersView({ navigate }: NavProps) {
                       </span>
                     </div>
                     <div className="text-lg font-black text-[#0D1F1D]">
-                      {offer.supplierName}
+                      {cleanSupplierName(offer.supplierName) || 'مورد'}
                     </div>
 
                     {attempts.length > 0 && (

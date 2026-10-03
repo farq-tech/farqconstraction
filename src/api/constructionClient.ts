@@ -22,6 +22,7 @@ import {
 } from './constructionAuth'
 import { CONSTRUCTION_READ_ONLY, isBlockedWrite, READ_ONLY_MESSAGE } from './readOnlyMode'
 import { farqSession } from './farqSession'
+import { cleanSupplierName } from '../lib/supplierName'
 
 export { constructionHeaders }
 
@@ -182,7 +183,14 @@ export type ConstructionRfq = {
  * price is never PRICED: it is not compared, not the lowest, not in a total
  * until an admin confirms it or applies the suggestion. Absent on older APIs.
  */
-export type PriceReviewCode = 'TOTAL_AS_UNIT' | 'PER_THOUSAND' | 'PER_PACK' | 'OUTLIER_HIGH' | 'OUTLIER_LOW'
+export type PriceReviewCode =
+  | 'TOTAL_AS_UNIT'
+  | 'PER_THOUSAND'
+  | 'PER_PACK'
+  | 'OUTLIER_HIGH'
+  | 'OUTLIER_LOW'
+  /** Held by hand until the supplier confirms the price («تحتاج تأكيد»). */
+  | 'NEEDS_CONFIRMATION'
 
 export type PriceReview = {
   code: PriceReviewCode | string
@@ -1407,6 +1415,10 @@ export type ConstructionBookletOffer = {
   previous_quote_version_id?: string | null
   price_cut_per_unit?: number | null
   price_cut_percent?: number | null
+  /** The supplier's delivery terms in his words, e.g. «بدون شحن — المورد في جدة» (newer APIs). */
+  delivery_note?: string | null
+  /** Delivery charge he stated; 0 = included, null/absent = not stated (newer APIs). */
+  delivery?: number | null
 }
 
 export type ConstructionBookletDetail = {
@@ -1915,8 +1927,8 @@ export function inboxThreadSupplierLabel(thread: ConstructionInboxThread): strin
     thread.request_context?.supplier_name_ar,
     thread.request_context?.supplier_name,
   ]
-    .map((v) => String(v || '').trim())
-    .find((v) => v.length > 0 && v !== 'مورد')
+    .map((v) => cleanSupplierName(v))
+    .find((v): v is string => Boolean(v))
   if (raw) return raw
   const id = String(thread.supplier_id || '').trim()
   if (id) return `مورد ${id.slice(0, 8)}`

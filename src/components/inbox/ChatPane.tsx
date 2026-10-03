@@ -38,6 +38,8 @@ import { MessageBubble } from './MessageBubble'
 import { QuoteCard, SupplierPanel } from './SupplierPanel'
 import { SupplierAvatar } from './SupplierAvatar'
 import { useSupplierContext } from './useSupplierContext'
+import { cleanSupplierName } from '../../lib/supplierName'
+import { outboundSenderLabel } from '../../lib/inboxSender'
 
 const PANEL_PREF_KEY = 'farq.inbox.supplierPanel.v1'
 
@@ -93,9 +95,10 @@ function messageAuthor(
   thread: ConstructionInboxThreadDetail,
 ): string {
   if (message.direction === 'INBOUND') {
-    return String(message.employee_name || inboxThreadSupplierLabel(thread) || 'المورد')
+    return cleanSupplierName(message.employee_name) || inboxThreadSupplierLabel(thread) || 'المورد'
   }
-  return String(message.employee_name || 'فريقنا')
+  // A colleague's display name; never a raw e-mail; automated replies speak as «أحمد من فرق».
+  return outboundSenderLabel(message.employee_name)
 }
 
 function saveBlob(blob: Blob, filename: string) {

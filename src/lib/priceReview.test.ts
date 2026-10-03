@@ -72,7 +72,8 @@ describe('VAT basis', () => {
     expect(vatStatusLabel(undefined)).toBe('الضريبة غير مذكورة')
     expect(vatNotStated(null)).toBe(true)
     expect(vatNotStated(false)).toBe(false)
-    expect(vatNotStated(undefined)).toBe(false)
+    expect(vatNotStated(undefined)).toBe(true)
+    expect(vatNotStated(true)).toBe(false)
   })
 
   it('states both readings of a total whose VAT is unknown', () => {
@@ -99,6 +100,18 @@ describe('priceReviewText', () => {
     expect(priceReviewText(review({ suggestion_ar: 'سعر الوحدة غالبًا 40 ريال' }))!.suggestion).toBe('سعر الوحدة غالبًا 40 ريال')
     expect(priceReviewText(review({ suggested_unit_price: null }))!.suggestion).toBeNull()
     expect(priceReviewText(null)).toBeNull()
+  })
+
+  it('labels a hand-held price «تحتاج تأكيد» with its reason, and no suggestion without a price', () => {
+    const held = review({
+      code: 'NEEDS_CONFIRMATION',
+      reason_ar: 'تحتاج تأكيد: السعر يبدو للعلبة وليس للحبة',
+      suggested_unit_price: null,
+      suggestion_ar: null,
+    })
+    expect(priceReviewText(held)).toEqual({ badge: 'تحتاج تأكيد', reason: 'السعر يبدو للعلبة وليس للحبة', suggestion: null })
+    expect(canApplySuggestion(held)).toBe(false)
+    expect(priceReviewText(review({ code: 'NEEDS_CONFIRMATION', reason_ar: '' }))!.badge).toBe('تحتاج تأكيد')
   })
 
   it('offers the suggestion only when there is one', () => {

@@ -33,7 +33,7 @@ import { useProcurement } from '../procurementContext'
 import { farqSession } from '../api/farqSession'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
-import { cleanLineName, parseQty, readQty } from '../lib/sendGuards'
+import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty } from '../lib/sendGuards'
 import SiteSupplySection from '../components/SiteSupplySection'
 import { EMPTY_SITE_SUPPLY, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
 
@@ -260,7 +260,7 @@ export function SendModal({
   if (badNameItems.length) sendBlockers.push(`اسم غير مقروء في ${badNameItems.length} بندًا (رقم ${badNameItems.slice(0, 5).map((i) => i.id).join('، ')}).`)
   if (!department) sendBlockers.push('اختر القسم الهندسي لهذا الطلب: لم نستطع تحديده من البنود.')
   if (!quoteDeadline) sendBlockers.push('حدّد آخر موعد لاستلام العروض.')
-  else if (deadline && quoteDeadline >= deadline) sendBlockers.push('آخر موعد لاستلام العروض يجب أن يسبق موعد التوريد.')
+  else if (deliveryBeforeDeadline(deadline, quoteDeadline)) sendBlockers.push(DELIVERY_BEFORE_DEADLINE_AR)
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
   sendBlockers.push(...siteSupplyProblems(siteSupply))
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
@@ -1144,6 +1144,8 @@ export function SendModal({
       setPhase('done')
       if (isAbortError(err) || cancelRef.current) {
         setError('أُلغي الطلب أو انتهت المهلة أثناء التحضير.')
+      } else if (err instanceof ConstructionApiError && err.code === DELIVERY_BEFORE_DEADLINE_CODE) {
+        setError(DELIVERY_BEFORE_DEADLINE_AR)
       } else if (err instanceof ConstructionApiError && err.code === 'CONSTRUCTION_SUPPLIER_INVALID') {
         setError('مورد أو أكثر غير صالح للإرسال.')
       } else if (
@@ -1291,7 +1293,7 @@ export function SendModal({
                 onRequestType={setRequestType}
               />
 
-              {(showDetails || !department || !quoteDeadline) && (
+              {(showDetails || !department || !quoteDeadline || deliveryBeforeDeadline(deadline, quoteDeadline)) && (
                 <div className="mb-4 rounded-2xl border border-neutral-100 bg-white px-4 pt-4">
               <div className="space-y-3 mb-4">
                 <div>
@@ -1308,8 +1310,12 @@ export function SendModal({
                     type="date"
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
+                    aria-invalid={deliveryBeforeDeadline(deadline, quoteDeadline) || undefined}
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] ${deliveryBeforeDeadline(deadline, quoteDeadline) ? 'border-red-300' : 'border-neutral-200'}`}
                   />
+                  {deliveryBeforeDeadline(deadline, quoteDeadline) && (
+                    <div className="text-[11px] text-red-700 mt-1">{DELIVERY_BEFORE_DEADLINE_AR}</div>
+                  )}
                 </div>
               </div>
 

@@ -24,12 +24,16 @@ import { buildRfqEmailPreview } from '../lib/rfqEmailPreview'
 import { RfqEmailPreviewModal } from '../components/RfqEmailPreviewModal'
 import BrandChips from '../components/brand/BrandChips'
 import { brandFromLine } from '../lib/brandEquivalence'
+import { cleanSupplierName } from '../lib/supplierName'
+import { vatNotStated, vatStatusLabel } from '../lib/priceReview'
 
 export function OfferDetailView({ navigate }: NavProps) {
   const { selectedRfqId, selectedOfferId, openRfq } = useProcurement()
   const [rfq, setRfq] = useState<ConstructionRfq | null>(null)
   const [invite, setInvite] = useState<ConstructionInvitation | null>(null)
   const [quoteTotal, setQuoteTotal] = useState<number | null>(null)
+  /** The quote's VAT basis; undefined until a quote is found. */
+  const [quoteTax, setQuoteTax] = useState<boolean | null | undefined>(undefined)
   const [quoteLines, setQuoteLines] = useState<Array<Record<string, unknown>>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +73,7 @@ export function OfferDetailView({ navigate }: NavProps) {
           response?.offer?.totals?.goods_total ??
           response?.offer?.totals?.subtotal
         setQuoteTotal(total != null ? Number(total) : null)
+        setQuoteTax(response ? (response.offer?.prices_include_tax ?? null) : undefined)
         setQuoteLines(Array.isArray(response?.offer?.lines) ? response!.offer.lines! : [])
         if (!found) setError('الدعوة غير موجودة في هذا الطلب')
       })
@@ -89,7 +94,7 @@ export function OfferDetailView({ navigate }: NavProps) {
     const lines = payload?.lines || []
     return buildRfqEmailPreview({
       rfqId: rfq.id,
-      supplierName: invite.supplier?.name_ar || invite.supplier?.name_en || undefined,
+      supplierName: cleanSupplierName(invite.supplier?.name_ar) || cleanSupplierName(invite.supplier?.name_en) || undefined,
       recipientEmail: invite.supplier?.email,
       engineeringDepartment:
         rfq.engineering_department ||
@@ -248,6 +253,7 @@ export function OfferDetailView({ navigate }: NavProps) {
   })
   const attempts = invite.dispatch_attempts || []
   const alreadySent = String(invite.delivery_status || '').toUpperCase() === 'SENT'
+  const supplierDisplayName = cleanSupplierName(invite.supplier?.name_ar) || cleanSupplierName(invite.supplier?.name_en) || 'مورد'
   const sendLabel = isHaraj ? 'إرسال عبر المحادثة' : 'إرسال البريد'
 
   return (
@@ -258,12 +264,12 @@ export function OfferDetailView({ navigate }: NavProps) {
         </button>
         <span className="text-neutral-300">/</span>
         <span className="text-neutral-600 font-semibold truncate">
-          {invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد'}
+          {supplierDisplayName}
         </span>
       </div>
 
       <h1 className="text-3xl font-black text-[#0D1F1D] mb-1">
-        {invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد'}
+        {supplierDisplayName}
       </h1>
       <p className="text-sm text-neutral-500 mb-2">{title}</p>
       <p className="text-xs text-neutral-400 mb-6">
@@ -291,6 +297,9 @@ export function OfferDetailView({ navigate }: NavProps) {
           <div className="font-bold text-[#0D1F1D] text-sm">
             {quoteTotal != null ? formatSar(quoteTotal) : '—'}
           </div>
+          {quoteTotal != null && quoteTax !== undefined && (
+            <div className={`text-[11px] mt-0.5 ${vatNotStated(quoteTax) ? 'text-amber-700' : 'text-neutral-500'}`}>{vatStatusLabel(quoteTax)}</div>
+          )}
         </div>
       </div>
 

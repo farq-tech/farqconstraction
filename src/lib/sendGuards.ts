@@ -29,3 +29,24 @@ export function cleanLineName(raw: string): string {
     .replace(/\s+/g, ' ')
     .trim()
 }
+
+export const DELIVERY_BEFORE_DEADLINE_CODE = 'CONSTRUCTION_DELIVERY_BEFORE_DEADLINE'
+export const DELIVERY_BEFORE_DEADLINE_AR = 'تاريخ التوريد لا يمكن أن يكون قبل آخر موعد لاستلام العروض'
+
+/** «YYYY-MM-DD» from a date input or an ISO timestamp; null when unreadable. */
+function dayOf(value: string | null | undefined): string | null {
+  const m = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null
+}
+
+/**
+ * True when the delivery date falls before the last day for quotes — a
+ * supplier cannot deliver what he has not been asked to price yet. The same
+ * day is allowed. Missing or unreadable dates are left to the other checks.
+ */
+export function deliveryBeforeDeadline(deliveryDate: string | null | undefined, quoteDeadline: string | null | undefined): boolean {
+  const delivery = dayOf(deliveryDate)
+  const deadline = dayOf(quoteDeadline)
+  if (!delivery || !deadline) return false
+  return delivery < deadline
+}

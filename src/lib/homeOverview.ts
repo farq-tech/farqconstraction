@@ -5,6 +5,7 @@ import type {
 } from '../api/constructionClient'
 import { bookletClosed, bookletDeadline, buildBookletMatrix, type BookletCell } from './booklet'
 import { isHeldOffer, vatStatusLabel } from './priceReview'
+import { cleanSupplierName } from './supplierName'
 
 /**
  * The home page («الرئيسية»): the booklets and their lines in one picture,
@@ -193,7 +194,7 @@ export function quotesSince(detail: ConstructionBookletDetail, now: number, wind
 function supplierNames(detail: ConstructionBookletDetail): Map<string, string> {
   const names = new Map<string, string>()
   for (const s of detail.suppliers || []) {
-    const n = String(s.name || '').trim()
+    const n = cleanSupplierName(s.name)
     if (n) names.set(String(s.supplier_id), n)
   }
   return names

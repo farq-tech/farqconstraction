@@ -24,9 +24,9 @@ export function vatStatusLabel(pricesIncludeTax: boolean | null | undefined): st
   return 'الضريبة غير مذكورة'
 }
 
-/** The muted «الضريبة غير مذكورة» chip: only when the API says null (not stated). */
+/** The muted «الضريبة غير مذكورة» chip: whenever the basis is not stated (null or absent). */
 export function vatNotStated(pricesIncludeTax: boolean | null | undefined): boolean {
-  return pricesIncludeTax === null
+  return pricesIncludeTax == null
 }
 
 function money(value: number | null | undefined, currency?: string | null): string | null {
@@ -38,8 +38,23 @@ function money(value: number | null | undefined, currency?: string | null): stri
 
 export type PriceReviewText = { badge: string; reason: string; suggestion: string | null }
 
+/** Held by hand until the supplier confirms: labelled «تحتاج تأكيد», not «يحتاج مراجعة». */
+export const NEEDS_CONFIRMATION_CODE = 'NEEDS_CONFIRMATION'
+const CONFIRM_PREFIX = /^\s*تحتاج\s+(?:إلى\s+)?تأكيد\s*[:：\-—–]?\s*/
+
+export function needsConfirmation(review: Pick<PriceReview, 'code'> | null | undefined): boolean {
+  return String(review?.code || '').toUpperCase() === NEEDS_CONFIRMATION_CODE
+}
+
 export function priceReviewText(review: PriceReview | null | undefined, currency?: string | null): PriceReviewText | null {
   if (!review) return null
+  if (needsConfirmation(review)) {
+    // The badge already says «تحتاج تأكيد»; the reason keeps only the why.
+    const why = String(review.reason_ar || '').replace(CONFIRM_PREFIX, '').trim()
+    const s = money(review.suggested_unit_price, currency)
+    const suggestion = String(review.suggestion_ar || '').trim() || (s ? `التصحيح المقترح: ${s}` : null)
+    return { badge: 'تحتاج تأكيد', reason: why || 'السعر بانتظار تأكيد المورد', suggestion }
+  }
   const reason = String(review.reason_ar || '').trim() || 'السعر بعيد عن المتوقع لهذا البند'
   let suggestion = String(review.suggestion_ar || '').trim() || null
   if (!suggestion) {
