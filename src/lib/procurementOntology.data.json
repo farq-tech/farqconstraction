@@ -1,5 +1,5 @@
 {
- "version": "cpo-v18",
+ "version": "cpo-v19",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -2680,7 +2680,13 @@
       "درابزين سلم",
       "هاندريل حديد",
       "درابزين حديد",
-      "هاندريل ستانلس"
+      "هاندريل ستانلس",
+      "railing",
+      "railings",
+      "stair railing",
+      "balcony railing",
+      "هاندريل",
+      "هاند ريل"
      ],
      "context_terms": [
       "ستانلس",
@@ -25399,6 +25405,158 @@
       "fluted panel",
       "بانل شرايح خشب",
       "شرايح خشب جداري"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "wpc",
+        "wpc panel",
+        "الواح wpc",
+        "بديل الخشب",
+        "بديل خشب"
+       ],
+       "block_any": [
+        "باب",
+        "ابواب",
+        "door",
+        "doors"
+       ],
+       "note": "A WPC DOOR is a door (wpc_door), not a WPC wall panel. (mirrored from wpc_door)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pvc_wpc_doors",
+   "sector": "ARCHITECTURAL_FINISHES",
+   "label_ar": "أبواب PVC و WPC",
+   "strong_terms": [
+    "ابواب pvc",
+    "باب pvc",
+    "ابواب wpc",
+    "باب wpc"
+   ],
+   "weak_terms": [
+    "pvc",
+    "wpc"
+   ],
+   "context_terms": [
+    "باب",
+    "ابواب",
+    "door",
+    "doors",
+    "حمام",
+    "حمامات",
+    "غرف",
+    "داخلي",
+    "داخليه"
+   ],
+   "supplier_terms": [
+    "ابواب",
+    "doors",
+    "ابواب pvc",
+    "ابواب wpc",
+    "ابواب بلاستيك"
+   ],
+   "preferred_archetypes": [
+    "joinery_supplier"
+   ],
+   "allowed_archetypes": [
+    "general_building_materials",
+    "interior_finishing",
+    "fitout_contractor",
+    "general_trading",
+    "joinery_panel_supplier"
+   ],
+   "facets": [
+    {
+     "name": "dimensions",
+     "supplier_pool_affecting": false
+    },
+    {
+     "name": "material",
+     "supplier_pool_affecting": true
+    },
+    {
+     "name": "finish",
+     "supplier_pool_affecting": false
+    }
+   ],
+   "intents": [
+    {
+     "id": "pvc_door",
+     "label_ar": "أبواب PVC",
+     "strong_terms": [
+      "باب pvc",
+      "ابواب pvc",
+      "pvc door",
+      "pvc doors",
+      "باب بي في سي",
+      "ابواب بي في سي",
+      "باب حمام pvc",
+      "ابواب حمام pvc",
+      "ابواب حمامات pvc",
+      "باب بلاستيك",
+      "ابواب بلاستيك",
+      "باب بلاستيكي",
+      "ابواب بلاستيكيه",
+      "plastic door",
+      "plastic doors",
+      "pvc"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "pvc"
+       ],
+       "require_any": [
+        "باب",
+        "ابواب",
+        "door",
+        "doors"
+       ],
+       "block_any": [
+        "upvc",
+        "يو بي في سي",
+        "شباك",
+        "نافذه",
+        "نوافذ",
+        "window"
+       ],
+       "note": "Bare «pvc» names the door only beside a door word and never a uPVC window/door system (upvc_window)."
+      }
+     ]
+    },
+    {
+     "id": "wpc_door",
+     "label_ar": "أبواب WPC",
+     "strong_terms": [
+      "باب wpc",
+      "ابواب wpc",
+      "wpc door",
+      "wpc doors",
+      "باب دبليو بي سي",
+      "ابواب دبليو بي سي",
+      "ابواب غرف wpc",
+      "باب غرفه wpc",
+      "باب حمام wpc",
+      "ابواب حمامات wpc",
+      "wpc"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "wpc"
+       ],
+       "require_any": [
+        "باب",
+        "ابواب",
+        "door",
+        "doors"
+       ],
+       "note": "Bare «wpc» is the wall panel (wood_wall_panel) unless a door word is on the line."
+      }
      ]
     }
    ]
