@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v15')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v16')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -2670,4 +2670,21 @@ describe('cpo-v14: the wider dictionary keeps its probes', () => {
       if (p.expect_not_family) expect(r.family, p.line).not.toBe(p.expect_not_family)
     })
   }
+})
+
+/** cpo-v16. Four misroutes a 60-line random review of cpo-v15 found (7 %). */
+describe('cpo-v16: fuel tanks, indoor signage, parking sensors, and a ceiling that is only a location', () => {
+  const cases: Array<[string, string | null]> = [
+    ['الخزانات الارضية واليومية لتزويد المولدات الوقود', 'fuel_tank'],
+    ['خزان ديزل يومي 1000 لتر للمولد', 'fuel_tank'],
+    ['مولد ديزل 500 كيلو فولت امبير', 'diesel_genset'],
+    ['لوحات ارشادية داخلية حسب مواصفات التصميم الداخلي', 'wayfinding_signage'],
+    ['لوحات مرورية تحذيرية', 'traffic_sign'],
+    ['حساس موقف فوقي', 'parking_guidance_sensor'],
+    ['بلاطة سقف مستعار 60×60 ألياف معدنية', 'acoustic_ceiling_tile'],
+  ]
+  for (const [line, intent] of cases) it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+  it('a fragment that only locates something above the ceiling does not buy a ceiling', () => {
+    expect(resolve('بكابلات مثبت فوق السقف المستعار').intent).not.toBe('acoustic_ceiling_tile')
+  })
 })
