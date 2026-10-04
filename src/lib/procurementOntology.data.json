@@ -1,5 +1,5 @@
 {
- "version": "cpo-v17",
+ "version": "cpo-v18",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -2514,6 +2514,21 @@
       "busbar"
      ],
      "note": "An electrical enclosure is MADE OF sheet steel but is not sheet steel; it is bought from a panel builder, not a steel stockist."
+    },
+    {
+     "terms": [
+      "شينكو",
+      "شنكو"
+     ],
+     "block_any": [
+      "ساتر",
+      "سواتر",
+      "سور",
+      "اسوار",
+      "hoarding",
+      "سياج"
+     ],
+     "note": "«شينكو» is also the site hoarding itself (fencing/site_hoarding); as sheet it needs roof/wall/sheet context."
     }
    ],
    "intents": [
@@ -2530,7 +2545,34 @@
       "galvanized sheet",
       "صاج ملون",
       "prepainted coil",
-      "ppgi"
+      "ppgi",
+      "صاج مموج",
+      "corrugated sheet",
+      "corrugated sheets",
+      "corrugated gi sheet",
+      "corrugated roofing sheet",
+      "roofing sheet",
+      "roofing sheets",
+      "aluzinc sheet",
+      "الوزنك",
+      "صاج الوزنك",
+      "صاج جدران",
+      "صاج اسقف"
+     ],
+     "weak_terms": [
+      "شينكو",
+      "شنكو"
+     ],
+     "context_terms": [
+      "سقف",
+      "اسقف",
+      "سطح",
+      "جدار",
+      "جدران",
+      "مموج",
+      "roof",
+      "roofing",
+      "ملون"
      ]
     },
     {
@@ -7015,7 +7057,13 @@
     "لتر",
     "فرز",
     "متنقله",
-    "مهملات"
+    "مهملات",
+    "يارده",
+    "yard",
+    "قمامه",
+    "زباله",
+    "مخلفات",
+    "سكيب"
    ],
    "supplier_terms": [
     "نظافه",
@@ -7063,7 +7111,22 @@
       "حاويه مخلفات",
       "roll off container",
       "construction waste container",
-      "waste containers"
+      "waste containers",
+      "سكيب",
+      "سكيبات",
+      "skip bin",
+      "skip bins",
+      "waste skip",
+      "dumpster",
+      "dumpsters",
+      "حاويات قمامه",
+      "حاويه قمامه",
+      "حاويه زباله",
+      "حاويات زباله"
+     ],
+     "weak_terms": [
+      "حاويه",
+      "حاويات"
      ]
     },
     {
@@ -7087,9 +7150,51 @@
       "dust bin",
       "dustbin",
       "trash can",
-      "litter bin"
+      "litter bin",
+      "صناديق نفايات",
+      "صندوق نفايات"
      ],
      "note": "small indoor/outdoor bins; municipal skips/wheelie bins stay in waste_skip"
+    },
+    {
+     "id": "waste_compactor",
+     "label_ar": "ضواغط النفايات",
+     "strong_terms": [
+      "ضاغطه نفايات",
+      "ضاغط نفايات",
+      "ضواغط نفايات",
+      "مكبس نفايات",
+      "waste compactor",
+      "garbage compactor",
+      "trash compactor"
+     ],
+     "facets": [
+      {
+       "name": "capacity",
+       "supplier_pool_affecting": false
+      }
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "حاويه",
+      "حاويات",
+      "container"
+     ],
+     "block_any": [
+      "تخزين",
+      "قدم",
+      "ft",
+      "كونتينر",
+      "شحن",
+      "shipping",
+      "storage",
+      "مكتب",
+      "سكن"
+     ],
+     "note": "Bare «حاويه» is waste only with waste/skip/yard context; a storage or shipping container is temporary_site_buildings."
     }
    ]
   },
@@ -9046,6 +9151,87 @@
        "note": "fuel/chemical tanks are not water tanks"
       }
      ]
+    },
+    {
+     "id": "water_tanker_supply",
+     "label_ar": "توريد مياه بالصهاريج (وايت)",
+     "strong_terms": [
+      "وايت مياه",
+      "وايت ماء",
+      "وايتات مياه",
+      "صهريج مياه",
+      "صهاريج مياه",
+      "تانكر مياه",
+      "water tanker",
+      "tanker water",
+      "نقل مياه بالوايت",
+      "توريد مياه بالصهاريج",
+      "مياه صهاريج"
+     ],
+     "weak_terms": [
+      "وايت",
+      "وايتات"
+     ],
+     "context_terms": [
+      "مياه",
+      "ماء",
+      "طن",
+      "جالون",
+      "رحله"
+     ],
+     "note": "«وايت» is also «white» (وايت بورد، وايت سيمنت): weak, with water context only. «صهريج» alone is a storage tank as often as a tanker.",
+     "facets": [
+      {
+       "name": "capacity",
+       "supplier_pool_affecting": false
+      }
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "وايت",
+      "وايتات"
+     ],
+     "block_any": [
+      "بورد",
+      "board",
+      "اسمنت",
+      "سمنت",
+      "سيمنت",
+      "cement",
+      "ديزل",
+      "diesel",
+      "رخام",
+      "دهان",
+      "لون"
+     ],
+     "note": "«وايت» = white in a board, cement or colour line."
+    },
+    {
+     "terms": [
+      "صهريج مياه",
+      "صهاريج مياه"
+     ],
+     "block_any": [
+      "ارضي",
+      "علوي",
+      "خرساني",
+      "خرسانيه",
+      "خرسانه",
+      "grp",
+      "فايبر",
+      "الياف",
+      "ستانلس",
+      "مجلفن",
+      "بلاستيك",
+      "بولي",
+      "تخزين",
+      "سعه",
+      "خزان"
+     ],
+     "note": "A built or supplied storage «صهريج» is a water tank, not tanker delivery."
     }
    ]
   },
@@ -17061,7 +17247,28 @@
       "مخاريط مروريه",
       "مخاريط",
       "traffic cones",
-      "حواجز بلاستيك مروريه"
+      "حواجز بلاستيك مروريه",
+      "اكواز",
+      "كونز",
+      "اكواز سلامه",
+      "اكواز مروريه",
+      "كوز سلامه",
+      "كوز مروري",
+      "safety cone",
+      "safety cones",
+      "traffic barricade",
+      "سلاسل تحذير",
+      "سلاسل تحذيريه",
+      "سلسله تحذيريه",
+      "warning chain",
+      "barrier tape",
+      "شريط حاجز",
+      "شريط تحذيري",
+      "حواجز بلاستيك",
+      "حاجز بلاستيك",
+      "حواجز سلامه بلاستيك",
+      "plastic barrier",
+      "plastic barriers"
      ]
     },
     {
@@ -17083,7 +17290,16 @@
       "لوحه الزاميه",
       "لوحه خروج غير مضييه",
       "لوحه معدات حريق",
-      "لوحه الزام"
+      "لوحه الزام",
+      "لوحات سلامه",
+      "لوحه سلامه",
+      "استيكرات تحذيريه",
+      "استيكر تحذيري",
+      "استيكرات سلامه",
+      "ملصقات تحذيريه",
+      "ملصقات سلامه",
+      "safety stickers",
+      "warning stickers"
      ]
     },
     {
@@ -17097,7 +17313,14 @@
       "speed hump",
       "مطب",
       "عمود حماية",
-      "حاجز مواقف"
+      "حاجز مواقف",
+      "مانع صدمات",
+      "موانع صدمات",
+      "واقي اعمده",
+      "واقي عمود",
+      "column guard",
+      "column guards",
+      "column protector"
      ]
     },
     {
@@ -17200,6 +17423,59 @@
       "مصباح تحذيري",
       "مصباح تحذير شمسي"
      ]
+    },
+    {
+     "id": "safety_mesh_fence",
+     "label_ar": "شبك السلامة البرتقالي",
+     "strong_terms": [
+      "شبك برتقالي",
+      "شبك موقع برتقالي",
+      "شبك بلاستيك برتقالي",
+      "شبك سلامه",
+      "شبك تحذيري",
+      "safety mesh",
+      "barrier mesh",
+      "orange mesh",
+      "orange safety fence",
+      "snow fence"
+     ],
+     "facets": [
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "لوحات سلامه",
+      "لوحه سلامه"
+     ],
+     "block_any": [
+      "كهرباء",
+      "كهربايي",
+      "كهرباييه",
+      "توزيع",
+      "قاطع",
+      "قواطع",
+      "تحكم",
+      "امبير"
+     ],
+     "note": "Bare «لوحه» is also an electrical panel; with electrical context it is not a sign."
+    },
+    {
+     "terms": [
+      "مانع صدمات",
+      "موانع صدمات"
+     ],
+     "block_any": [
+      "باب",
+      "ابواب",
+      "door"
+     ],
+     "note": "A door bumper is architectural hardware."
     }
    ]
   },
@@ -18296,6 +18572,66 @@
       "anaerobic adhesive",
       "retaining compound"
      ]
+    },
+    {
+     "id": "fuel_supply",
+     "label_ar": "توريد الديزل والوقود",
+     "strong_terms": [
+      "توريد ديزل",
+      "تعبيه ديزل",
+      "تانكر ديزل",
+      "وايت ديزل",
+      "ديزل للمولدات",
+      "وقود ديزل",
+      "توريد وقود",
+      "تعبيه وقود",
+      "توريد محروقات",
+      "diesel fuel",
+      "diesel supply",
+      "fuel supply"
+     ],
+     "context_terms": [
+      "لتر",
+      "مولد",
+      "مولدات",
+      "وقود",
+      "محروقات"
+     ],
+     "note": "Bare «ديزل / بنزين» names a generator, pump or tank as often as fuel: not a term here.",
+     "facets": [
+      {
+       "name": "capacity",
+       "supplier_pool_affecting": false
+      }
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "diesel fuel",
+      "diesel supply",
+      "fuel supply",
+      "وقود ديزل",
+      "توريد ديزل",
+      "توريد وقود"
+     ],
+     "block_any": [
+      "tank",
+      "tanks",
+      "خزان",
+      "خزانات",
+      "مضخه",
+      "مضخات",
+      "pump",
+      "filter",
+      "فلتر",
+      "مواسير",
+      "ماسوره",
+      "pipe",
+      "pipes"
+     ],
+     "note": "A fuel tank, pump, filter or pipe is equipment, not fuel."
     }
    ]
   },
@@ -23844,7 +24180,11 @@
       "wayfinding signage",
       "wayfinding sign",
       "directional signage",
-      "لوحات ارشاد"
+      "لوحات ارشاد",
+      "لوحات مواقف",
+      "لوحه مواقف",
+      "parking sign",
+      "parking signs"
      ]
     },
     {
@@ -23893,7 +24233,14 @@
       "bench خارجي",
       "صواري اعلام",
       "ساريه علم",
-      "صواري"
+      "صواري",
+      "مقاعد حدايق",
+      "مقعد حدايق",
+      "كراسي حدايق",
+      "outdoor bench",
+      "garden bench",
+      "park bench",
+      "حواجز حدايق"
      ]
     },
     {
@@ -24033,6 +24380,86 @@
       "طوابق",
       "interior"
      ]
+    },
+    {
+     "id": "building_signage",
+     "label_ar": "لوحات المباني والإعلانات",
+     "strong_terms": [
+      "لوحات داخليه",
+      "لوحه داخليه",
+      "لوحات ممرات",
+      "لوحه اعلانيه",
+      "لوحات اعلانيه",
+      "لوحه مضييه",
+      "لوحات مضييه",
+      "لوحه اسم المشروع",
+      "لوحه المشروع",
+      "لوحه مشروع",
+      "لوحات اكريليك",
+      "لوحه اكريليك",
+      "project signboard",
+      "project sign board",
+      "building signage",
+      "signage",
+      "sign board",
+      "signboard",
+      "acrylic sign",
+      "3d letters"
+     ],
+     "note": "Sibling of wayfinding_signage (interior) and traffic_sign (road); the sign-maker pool is one trade. «لوحه» alone is an electrical panel as often as a sign (family guard).",
+     "facets": [
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "material",
+       "supplier_pool_affecting": false
+      }
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "لوحات داخليه",
+      "لوحه داخليه",
+      "لوحات ممرات",
+      "لوحه اعلانيه",
+      "لوحات اعلانيه",
+      "لوحه مضييه",
+      "لوحات مضييه",
+      "لوحه اسم المشروع",
+      "لوحه المشروع",
+      "لوحه مشروع",
+      "لوحات اكريليك",
+      "لوحه اكريليك",
+      "لوحات مواقف",
+      "لوحه مواقف"
+     ],
+     "block_any": [
+      "كهرباء",
+      "كهربايي",
+      "كهرباييه",
+      "توزيع",
+      "تحكم",
+      "قاطع",
+      "قواطع",
+      "امبير",
+      "mcb",
+      "mccb",
+      "فولت",
+      "تسخين",
+      "انذار",
+      "busbar",
+      "panel",
+      "مخرج",
+      "خروج",
+      "طواري",
+      "exit",
+      "emergency"
+     ],
+     "note": "Bare «لوحه» is ambiguous with electrical panels/boards: a sign term steps aside when the line speaks switchgear."
     }
    ]
   },
@@ -26291,7 +26718,14 @@
       "مظله شراعيه",
       "مظلات شراعيه",
       "مظلات هرميه",
-      "مظلات مخروطيه"
+      "مظلات مخروطيه",
+      "خيام",
+      "خيمه",
+      "خيام مناسبات",
+      "خيمه مناسبات",
+      "tent",
+      "tents",
+      "event tent"
      ]
     },
     {
@@ -26442,6 +26876,27 @@
       "icu"
      ],
      "note": "A bed for a patient is healthcare fit-out, not a bedroom wardrobe line."
+    },
+    {
+     "terms": [
+      "مكتب",
+      "مكاتب"
+     ],
+     "block_any": [
+      "جاهز",
+      "جاهزه",
+      "متنقل",
+      "متنقله",
+      "كرفان",
+      "كرفانات",
+      "بورتاكابين",
+      "portacabin",
+      "كابين",
+      "cabin",
+      "بركس",
+      "بركسات"
+     ],
+     "note": "«مكاتب جاهزه / كرفان مكتب» is a prefab site office (temporary_site_buildings), not a desk."
     }
    ],
    "context_terms": [
@@ -30038,6 +30493,282 @@
       "jute bags",
       "rubble bags"
      ]
+    },
+    {
+     "id": "bottled_drinking_water",
+     "label_ar": "مياه الشرب المعبأة",
+     "strong_terms": [
+      "مياه شرب معباه",
+      "مياه شرب جالونات",
+      "جالونات مياه",
+      "جالون مياه",
+      "قوارير مياه",
+      "كراتين مياه",
+      "مياه معباه",
+      "drinking water bottles",
+      "bottled water",
+      "bottled drinking water",
+      "water gallons"
+     ],
+     "note": "Bare «مياه شرب» is a pipe, tank, cooler or network line far more often than bottled water: not a term here.",
+     "facets": []
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "مياه شرب معباه",
+      "مياه شرب جالونات",
+      "جالونات مياه",
+      "جالون مياه",
+      "قوارير مياه",
+      "كراتين مياه",
+      "مياه معباه",
+      "drinking water bottles",
+      "bottled water",
+      "bottled drinking water",
+      "water gallons"
+     ],
+     "block_any": [
+      "خزان",
+      "خزانات",
+      "مواسير",
+      "ماسوره",
+      "انابيب",
+      "pipe",
+      "tank",
+      "فلتر",
+      "filter",
+      "مبرد",
+      "مبردات",
+      "كولر",
+      "cooler",
+      "سخان",
+      "heater",
+      "مضخه",
+      "pump",
+      "شبكه",
+      "تمديدات",
+      "محطه",
+      "تحليه",
+      "معالجه",
+      "موزع",
+      "dispenser"
+     ],
+     "note": "Water equipment (tanks, coolers, dispensers, pipes) is never the bottled water itself."
+    }
+   ]
+  },
+  {
+   "id": "temporary_site_buildings",
+   "sector": "BUILDING_ENVELOPE",
+   "label_ar": "المباني الجاهزة والمؤقتة للمواقع",
+   "strong_terms": [
+    "بورتاكابين",
+    "بورتا كابين",
+    "portacabin",
+    "porta cabin",
+    "portable cabin",
+    "كرفان",
+    "كرفانات",
+    "كرافان",
+    "بركس",
+    "بركسات",
+    "غرف جاهزه",
+    "prefab cabin",
+    "prefabricated cabin",
+    "site cabin"
+   ],
+   "context_terms": [
+    "موقع",
+    "عمال",
+    "سكن",
+    "3x6",
+    "6x12"
+   ],
+   "supplier_terms": [
+    "كرفانات",
+    "بورتاكابين",
+    "مباني جاهزه",
+    "portacabin"
+   ],
+   "preferred_archetypes": [
+    "general_building_materials"
+   ],
+   "allowed_archetypes": [
+    "general_building_materials"
+   ],
+   "facets": [
+    {
+     "name": "dimensions",
+     "supplier_pool_affecting": false
+    }
+   ],
+   "intents": [
+    {
+     "id": "portacabin",
+     "label_ar": "كرفانات ومكاتب جاهزة",
+     "strong_terms": [
+      "بورتاكابين",
+      "بورتا كابين",
+      "portacabin",
+      "porta cabin",
+      "portacabin office",
+      "portable cabin",
+      "storage cabin",
+      "كرفان",
+      "كرفانات",
+      "كرافان",
+      "كرفان مكتب",
+      "كرفان سكن عمال",
+      "بركس",
+      "بركسات",
+      "مكاتب جاهزه",
+      "مكتب جاهز",
+      "غرف جاهزه",
+      "غرفه جاهزه",
+      "كبينه جاهزه",
+      "site office cabin",
+      "prefab cabin",
+      "prefabricated cabin",
+      "site cabin",
+      "سكن عمال جاهز"
+     ],
+     "note": "«مكاتب جاهزه» names a site office only with site/cabin/prefab context (family guard); bare «مكتب» stays office furniture.",
+     "facets": [
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
+     ]
+    },
+    {
+     "id": "portable_toilet",
+     "label_ar": "دورات مياه متنقلة",
+     "strong_terms": [
+      "حمامات متنقله",
+      "حمام متنقل",
+      "دورات مياه متنقله",
+      "دوره مياه متنقله",
+      "portable toilet",
+      "portable toilets",
+      "mobile toilet",
+      "toilet cabin",
+      "كرفان حمامات"
+     ],
+     "facets": []
+    },
+    {
+     "id": "storage_container",
+     "label_ar": "حاويات التخزين (كونتينر)",
+     "strong_terms": [
+      "كونتينر",
+      "كونتينرات",
+      "كونتينر تخزين",
+      "حاويه تخزين",
+      "حاويات تخزين",
+      "حاويه شحن",
+      "حاويات شحن",
+      "shipping container",
+      "storage container",
+      "container 40ft",
+      "container 20ft"
+     ],
+     "context_terms": [
+      "قدم",
+      "ft",
+      "تخزين"
+     ],
+     "note": "Shipping/storage containers by the foot (20/40 ft). Bare «حاويه» decides nothing here or in waste_containers.",
+     "facets": [
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "مكاتب جاهزه",
+      "مكتب جاهز"
+     ],
+     "require_any": [
+      "موقع",
+      "مشروع",
+      "مشاريع",
+      "كرفان",
+      "كرفانات",
+      "بورتا",
+      "بورتاكابين",
+      "portacabin",
+      "cabin",
+      "كابين",
+      "prefab",
+      "مسبقه الصنع",
+      "ساندوتش",
+      "sandwich",
+      "متنقل",
+      "متنقله",
+      "عمال",
+      "سكن",
+      "مبني",
+      "مباني",
+      "3x6",
+      "6x12"
+     ],
+     "block_any": [
+      "خشب",
+      "خشبي",
+      "موظف",
+      "موظفين",
+      "ادراج",
+      "طاوله",
+      "كرسي",
+      "اثاث",
+      "mdf",
+      "ميلامين",
+      "desk"
+     ],
+     "note": "«مكاتب جاهزه» is a prefab site office only with site/cabin/prefab/building context; with desk context it is furniture."
+    },
+    {
+     "terms": [
+      "غرف جاهزه",
+      "غرفه جاهزه"
+     ],
+     "block_any": [
+      "تفتيش",
+      "تصريف",
+      "صرف",
+      "manhole",
+      "خرسانه",
+      "خرسانيه",
+      "محول",
+      "محولات",
+      "كهرباء",
+      "تبريد",
+      "تجميد"
+     ],
+     "note": "Precast inspection chambers, transformer kiosks and cold rooms are other trades."
+    },
+    {
+     "terms": [
+      "كونتينر",
+      "كونتينرات"
+     ],
+     "block_any": [
+      "نفايات",
+      "قمامه",
+      "زباله",
+      "مخلفات",
+      "waste",
+      "garbage",
+      "سكيب",
+      "skip"
+     ],
+     "note": "A waste container is waste_containers."
     }
    ]
   }
