@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { farqSession } from '../../api/farqSession'
+import { disablePush } from '../push'
 import { useFarqSession } from '../../api/useFarqSession'
 import { FileIcon, PriceIcon, AccountIcon } from '../../icons'
 import type { Nav } from '../MobileApp'
@@ -41,6 +42,7 @@ export default function MoreScreen({ nav }: { nav: Nav }) {
           onClick={async () => {
             setLeaving(true)
             try {
+              await disablePush()
               await farqSession.signOut()
             } finally {
               setLeaving(false)

@@ -14,6 +14,7 @@ import PricesScreen from './screens/PricesScreen'
 import NewRequestScreen from './screens/NewRequestScreen'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon } from '../icons'
 import { statusBar } from './native'
+import { enablePush } from './push'
 
 export type Tab = 'home' | 'requests' | 'inbox' | 'suppliers' | 'more'
 
@@ -86,6 +87,16 @@ export default function MobileApp() {
   useEffect(() => {
     statusBar(onDark)
   }, [onDark])
+
+  // Notifications: ask once after sign-in; a tap opens what it is about.
+  useEffect(() => {
+    if (!session.isAuthenticated) return
+    void enablePush((target) => {
+      if (target.kind === 'QUOTE' && target.rfq_id) switchTab('requests', { kind: 'request', id: String(target.rfq_id) })
+      else if (target.invite_id) switchTab('inbox', { kind: 'thread', inviteId: String(target.invite_id) })
+      else if (target.rfq_id) switchTab('requests', { kind: 'request', id: String(target.rfq_id) })
+    })
+  }, [session.isAuthenticated, switchTab])
 
   if (!session.isAuthenticated) return <LoginScreen />
 
