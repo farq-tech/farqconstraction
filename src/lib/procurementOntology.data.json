@@ -1,5 +1,5 @@
 {
- "version": "cpo-v20",
+ "version": "cpo-v21",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -1056,6 +1056,47 @@
     "بطاقات ذكيه",
     "smart cards"
    ]
+  },
+  "advertising_agency": {
+   "label_ar": "وكالات الدعاية والإعلان والتسويق",
+   "patterns": [
+    "وكاله اعلان",
+    "وكاله اعلانات",
+    "وكاله اعلانيه",
+    "وكاله للاعلان",
+    "وكاله دعايه",
+    "للدعايه والاعلان",
+    "للدعايه والاعلانات",
+    "للدعايه والاعلام",
+    "للاعلان",
+    "للاعلانات",
+    "للاعلان والتسويق",
+    "وكاله تسويق",
+    "وكاله تسويقيه",
+    "للتسويق الرقمي",
+    "للانتاج الاعلامي"
+   ],
+   "note": "Owner, 4 Oct 2026 («وكالة سيليكون للإعلان» matched silicone sealant): an advertising or marketing agency never supplies a building material. Patterns are company-NAME forms («… للدعاية والإعلان», «وكالة …»). Bare «تسويق», «دعاية وإعلان» and the English tags/categories (advertising, Advertising agency) are NOT patterns: «للتجارة والتسويق» names half the trading houses, and multi-trade sellers list them among their activities beside cement and steel (545 such profiles, 4 Oct)."
+  },
+  "security_guard_services": {
+   "label_ar": "شركات الحراسات الأمنية",
+   "patterns": [
+    "حراسات امنيه",
+    "حراسه امنيه",
+    "للحراسات الامنيه",
+    "الحراسات الامنيه",
+    "للحراسات",
+    "حراسات",
+    "خدمات حراسه",
+    "خدمات الحراسه",
+    "حراسه وامن",
+    "security guard",
+    "security guards",
+    "security guarding",
+    "guarding services",
+    "manned guarding"
+   ],
+   "note": "Owner, 4 Oct 2026 («مخارج طوارئ» returned guard companies): manned-guarding companies supply no product line. physical_security is exempt — some guard firms also install CCTV."
   }
  },
  "facets": {
@@ -2359,7 +2400,14 @@
         "حديد انشايي",
         "قطاعات حديد h",
         "بروفيلات حديد",
-        "بروفيل حديد"
+        "بروفيل حديد",
+        "قطاعات حديديه",
+        "قطاعات حديديه مجوفه",
+        "زوايا حديديه",
+        "حديد زوايا",
+        "مبسطات حديديه",
+        "قضبان حديديه مسطحه",
+        "خوص حديد"
        ],
        "weak_terms": [
         "قطاع",
@@ -2416,12 +2464,28 @@
         "peb building",
         "steel building",
         "steel structure building",
-        "warehouse steel structure"
+        "warehouse steel structure",
+        "انشاءات فولاذيه",
+        "انشاءات حديديه",
+        "انشاءات معدنيه",
+        "هياكل معدنيه",
+        "هياكل حديديه",
+        "هياكل فولاذيه",
+        "مستودعات حديديه",
+        "مستودعات حديديه جاهزه",
+        "مباني فولاذيه",
+        "اطارات فراغيه",
+        "space frame",
+        "هياكل معدنيه ثلاثيه الابعاد"
        ],
        "note": "Fabricated steel buildings sit under steel_sections because the family has a single category; the supplier pool is the same structural steel trade."
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -2437,7 +2501,15 @@
     "gi sheet",
     "chequered plate",
     "صاج مضلع",
-    "لوح حديد"
+    "لوح حديد",
+    "مسطحات مدرفله",
+    "مسطحات صلب",
+    "مسطحات مجلفنه",
+    "مسطحات حديديه",
+    "مبسطات صلب",
+    "صاج مقصوص",
+    "صاج مشرح",
+    "صاج لفات"
    ],
    "weak_terms": [
     "صاج",
@@ -2614,6 +2686,10 @@
       "لوح ستانلس"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -2707,7 +2783,20 @@
       "steel stairs",
       "metal staircase",
       "سلم هروب حديد",
-      "سلم طواري حديد"
+      "سلم طواري حديد",
+      "درج وسلالم",
+      "درج حديدي",
+      "سلالم حديديه",
+      "درج سلالم ثابته",
+      "سلالم ثابته",
+      "درج خشب",
+      "درج خشبي",
+      "سلالم خشبيه",
+      "سلالم خشب",
+      "سلم حلزوني",
+      "سلالم حلزونيه",
+      "spiral staircase",
+      "staircase"
      ],
      "context_terms": [
       "ستانلس",
@@ -2756,6 +2845,35 @@
         "صيانه"
        ],
        "note": "A cat ladder or a step ladder is a ladder (scaffolding_access), not a stair railing."
+      },
+      {
+       "terms": [
+        "درج وسلالم",
+        "سلالم حديديه",
+        "سلالم ثابته",
+        "staircase",
+        "سلالم خشب",
+        "سلالم خشبيه",
+        "سلالم حديد",
+        "سلالم معدنيه",
+        "درج حديد"
+       ],
+       "block_any": [
+        "كابل",
+        "كابلات",
+        "كيابل",
+        "cable",
+        "متحرك",
+        "متحركه",
+        "escalator",
+        "نقال",
+        "نقاله",
+        "تلسكوبي",
+        "portable",
+        "مسبح",
+        "مسابح"
+       ],
+       "note": "Cable ladders, escalators, portable and pool ladders are other products."
       }
      ]
     },
@@ -2785,7 +2903,12 @@
       "expanded metal",
       "expanded metal mesh",
       "expanded mesh",
-      "شبك اكسباندد"
+      "شبك اكسباندد",
+      "شبك ارضيات",
+      "ارضيات شبك",
+      "مشايات حديديه",
+      "مشايات حديد",
+      "ارضيات مشايات حديديه"
      ]
     },
     {
@@ -2908,6 +3031,10 @@
      ],
      "note": "Expanded metal lath for plaster is a plaster accessory."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -3013,7 +3140,9 @@
       "شبك حديد ملحوم",
       "شبك تسليح للارضيات",
       "شبك برك",
-      "mesh تسليح"
+      "mesh تسليح",
+      "شبك صبه",
+      "شبك الصبيات"
      ]
     },
     {
@@ -3044,7 +3173,9 @@
       "اغطيه حديد تسليح",
       "طواقي حديد",
       "طاقيه حديد",
-      "اغطيه اسياخ"
+      "اغطيه اسياخ",
+      "مباعدات بلاستيكيه",
+      "مباعدات تسليح"
      ],
      "term_guards": [
       {
@@ -3082,7 +3213,9 @@
       "tie wire",
       "rebar tie wire",
       "annealed wire",
-      "black annealed wire"
+      "black annealed wire",
+      "اسلاك ملينه",
+      "سلك ملين"
      ],
      "term_guards": [
       {
@@ -3138,7 +3271,29 @@
       "glass"
      ],
      "note": "A reinforced steel door or safe is not rebar."
+    },
+    {
+     "terms": [
+      "شبك حديد"
+     ],
+     "blocked_by_head": [
+      "باب",
+      "ابواب",
+      "door",
+      "سياج",
+      "اسوار",
+      "سور",
+      "نوافذ",
+      "شبابيك",
+      "بوابه",
+      "بوابات"
+     ],
+     "note": "A mesh door, fence or window is not reinforcement mesh."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -3212,7 +3367,11 @@
       "wall panel معزول",
       "puf panel",
       "eps panel",
-      "لوح معزول"
+      "لوح معزول",
+      "الواح معدنيه معزوله",
+      "الواح معزوله من حديد",
+      "الواح جدران معزوله",
+      "الواح جدران مشكله ومعزوله"
      ]
     },
     {
@@ -3230,6 +3389,10 @@
       "cold room panels"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -3318,7 +3481,11 @@
       "polycarbonate",
       "لوح شفاف",
       "فايبر جلاس شفاف",
-      "frp sheet"
+      "frp sheet",
+      "بولي كربونات",
+      "الواح بولي كربونات",
+      "لكسان",
+      "الواح لكسان"
      ]
     },
     {
@@ -3348,6 +3515,10 @@
       "glass domes"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -3364,7 +3535,13 @@
     "waterproofing",
     "طبقه عازله",
     "طبقات عازله",
-    "عازل رطوبه"
+    "عازل رطوبه",
+    "مواد مقاومه للماء",
+    "مواد عازله للماء",
+    "مانعه لتسرب المياه",
+    "مواد عزل مايي",
+    "عوازل مايه",
+    "عوازل مايي"
    ],
    "weak_terms": [
     "عزل",
@@ -3621,6 +3798,10 @@
      ],
      "note": "A roll of thermal or acoustic insulation is thermal_insulation."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -3687,7 +3868,9 @@
     "warehouse_equipment_supplier"
    ],
    "hard_conflicts": [
-    "paint_only_supplier"
+    "paint_only_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -3754,7 +3937,20 @@
       "ابواب غرف كهرباء",
       "ابواب خدمات حديد",
       "ابواب خدمات",
-      "louvered steel door"
+      "louvered steel door",
+      "ابواب صلب",
+      "باب صلب",
+      "ابواب امنيه",
+      "باب امني",
+      "security door",
+      "ابواب ونوافذ حديديه",
+      "ابواب وشبابيك حديد",
+      "ابواب وشبابيك حديديه",
+      "نوافذ حديديه",
+      "شبابيك حديد",
+      "شبابيك حديديه",
+      "شبابيك حمايه",
+      "ابواب ونوافذ وواجهات حديديه"
      ],
      "term_guards": [
       {
@@ -3786,6 +3982,24 @@
         "fire door"
        ],
        "note": "A fire-rated steel door is a certified fire door and a different supplier list."
+      },
+      {
+       "terms": [
+        "ابواب امنيه",
+        "باب امني",
+        "security door"
+       ],
+       "block_any": [
+        "بوابه",
+        "بوابات",
+        "دوار",
+        "turnstile",
+        "كاشف",
+        "معادن",
+        "تفتيش",
+        "metal detector"
+       ],
+       "note": "A security gate or metal-detector door is physical security."
       }
      ]
     },
@@ -3815,7 +4029,12 @@
       "ابواب مخارج الطواري",
       "emergency exit door",
       "fire exit door",
-      "fire rated steel door"
+      "fire rated steel door",
+      "ابواب طواري",
+      "باب طواري",
+      "ابواب طواريء",
+      "ابواب مانعه للحريق",
+      "باب مانع للحريق"
      ]
     },
     {
@@ -3845,7 +4064,9 @@
       "باب رولينج",
       "shutter door",
       "شتر محلات",
-      "باب لفاف"
+      "باب لفاف",
+      "ابواب شرايح",
+      "باب شرايح"
      ]
     },
     {
@@ -3874,7 +4095,13 @@
       "باب مستودع",
       "ابواب مستودعات",
       "hangar door",
-      "باب هنجر"
+      "باب هنجر",
+      "ابواب كراجات",
+      "ابواب كراج",
+      "garage doors",
+      "ابواب مقطعيه",
+      "باب مقطعي",
+      "ابواب انزلاقيه علويه"
      ]
     },
     {
@@ -3947,7 +4174,66 @@
       "revolving door",
       "باب دوار",
       "ابواب دواره",
-      "باب حساس زجاج"
+      "باب حساس زجاج",
+      "ابواب سحابه وانزلاقيه",
+      "ابواب انزلاقيه",
+      "باب انزلاقي",
+      "ابواب منزلقه",
+      "باب منزلق",
+      "ابواب سحابه ومنزلقه",
+      "sliding door",
+      "sliding doors",
+      "ابواب دورانيه",
+      "باب دوراني"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "ابواب انزلاقيه",
+        "باب انزلاقي",
+        "ابواب منزلقه",
+        "باب منزلق",
+        "sliding door",
+        "sliding doors"
+       ],
+       "block_any": [
+        "خشب",
+        "خشبي",
+        "خشبيه",
+        "wood",
+        "wooden",
+        "المنيوم",
+        "الومنيوم",
+        "aluminium",
+        "aluminum",
+        "زجاج",
+        "زجاجي",
+        "زجاجيه",
+        "glass",
+        "حديد",
+        "حديدي",
+        "حديديه",
+        "steel",
+        "pvc",
+        "upvc",
+        "خزانه",
+        "دولاب",
+        "مطبخ",
+        "wardrobe",
+        "بوابه",
+        "بوابات",
+        "gate",
+        "سور",
+        "صلب",
+        "معدني",
+        "معدنيه",
+        "شرايح",
+        "مجلفن",
+        "لفاف",
+        "رول"
+       ],
+       "note": "A sliding door of a named material belongs with that material; bare sliding doors go to the automatic/sliding door houses."
+      }
      ]
     }
    ]
@@ -4015,7 +4301,9 @@
    ],
    "hard_conflicts": [
     "paint_only_supplier",
-    "plumbing_only_supplier"
+    "plumbing_only_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -4248,7 +4536,13 @@
         "قباب grp",
         "frp decorative",
         "عناصر فايبر جلاس",
-        "ديكورات فايبر جلاس"
+        "ديكورات فايبر جلاس",
+        "ديكورات فايبرجلاس",
+        "ديكورات فيبرجلاس",
+        "قباب فايبرجلاس",
+        "قباب فيبرجلاس",
+        "واجهات فايبرجلاس",
+        "واجهات مباني من الفايبرجلاس"
        ]
       },
       {
@@ -4832,7 +5126,10 @@
       "acrylic putty",
       "wall filler",
       "سكيم معجون",
-      "تمعجن"
+      "تمعجن",
+      "معاجين",
+      "معاجين سد الشقوق",
+      "معجون سد شقوق"
      ],
      "term_guards": [
       {
@@ -4992,6 +5289,10 @@
      ],
      "note": "A joint sealer is a sealant."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -5175,6 +5476,10 @@
      ],
      "note": "Mirrored from epoxy_floor_coating: the ancestor decides «ايبوكسي» too, so it must decline the same lines."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -5407,6 +5712,10 @@
      ],
      "note": "A tile, membrane, flooring or concrete bonding agent is its own product."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -5453,7 +5762,9 @@
     "joinery_supplier"
    ],
    "hard_conflicts": [
-    "paint_only_supplier"
+    "paint_only_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -5503,7 +5814,10 @@
       "رنر",
       "ستد وتراك",
       "track and runner",
-      "قطاعات جبس بورد"
+      "قطاعات جبس بورد",
+      "قواطع معدنيه للجدران",
+      "قواطع حديديه للجدران",
+      "قواطع وقوايم معدنيه"
      ],
      "weak_terms": [
       "هيكل",
@@ -5536,7 +5850,15 @@
       "suspension channel",
       "ceiling channel",
       "cold rolled channel",
-      "main tee"
+      "main tee",
+      "حديد تعليق",
+      "جسور حامله للاسقف",
+      "بروفيلات حامله للاسقف",
+      "حوامل اسقف مستعاره",
+      "حوامل الاسقف المعلقه",
+      "سكك حديديه لتعليق الاسقف",
+      "تعليق الاسقف المستعاره",
+      "حوامل ومثبتات اسقف مستعاره"
      ],
      "weak_terms": [
       "جسر"
@@ -5604,7 +5926,11 @@
       "اسقف عازله للصوت",
       "acoustic ceiling",
       "acoustic ceilings",
-      "اسقف مستعاره 60x60"
+      "اسقف مستعاره 60x60",
+      "بلاط جبس",
+      "بلاط جبس معلق",
+      "بلاط اسقف",
+      "بلاط ديكور للاسقف"
      ],
      "term_guards": [
       {
@@ -5751,7 +6077,12 @@
       "expanded mesh ceiling",
       "سقف ستريب",
       "اسقف ستريب",
-      "اسقف شرايح معدنيه"
+      "اسقف شرايح معدنيه",
+      "بلاط المنيوم للاسقف",
+      "بلاط المنيوم للاسقف المعدنيه",
+      "بلاطات الالمنيوم للاسقف",
+      "بلاط ديكور للاسقف من الومنيوم",
+      "شرايح معدنيه للاسقف"
      ],
      "context_terms": [
       "معدني",
@@ -5943,7 +6274,8 @@
       "جبس ديكور",
       "ديكور جبس",
       "شاسيه جبس",
-      "شاسيه جبس بورد"
+      "شاسيه جبس بورد",
+      "اسقف مستعاره من الجبس"
      ]
     },
     {
@@ -5976,7 +6308,13 @@
       "جدران جيبسوم بورد",
       "قواطع جافه",
       "قاطع جاف",
-      "dry wall partition"
+      "dry wall partition",
+      "حوايط جبسيه",
+      "حوايط جبس",
+      "بلوكات جبسيه",
+      "بلوك جبس",
+      "الواح وحوايط جبسيه",
+      "الواح وفواصل جبسيه"
      ]
     },
     {
@@ -6005,7 +6343,46 @@
       "حليات جبس",
       "grg",
       "جي ار جي",
-      "glass reinforced gypsum"
+      "glass reinforced gypsum",
+      "اقواس جبسيه",
+      "وحدات جبسيه زخرفيه",
+      "قباب جبسيه",
+      "مجسمات جبسيه",
+      "اعمده جبسيه",
+      "زوايا جبسيه",
+      "صرر جبسيه",
+      "اطارات جبسيه",
+      "اعمده واقواس جبسيه"
+     ]
+    },
+    {
+     "id": "office_partition",
+     "label_ar": "القواطع المكتبية والداخلية (خشب/فورميكا/متحركة)",
+     "strong_terms": [
+      "قواطع مكتبيه",
+      "قواطع خشبيه",
+      "قواطع خشب",
+      "قواطع فورميكا",
+      "قواطع متحركه",
+      "قواطع ديمونتابل",
+      "قواطع ديامونتابل",
+      "office partition",
+      "office partitions",
+      "demountable partition",
+      "انظمه قواطع داخليه",
+      "قواطع داخليه",
+      "قواطع خشبيه مكتبيه"
+     ],
+     "note": "Office / interior partition systems that are not gypsum (gypsum_partition), toilet cubicles (toilet_partition) or glass (architectural_glass).",
+     "facets": [
+      {
+       "name": "material",
+       "supplier_pool_affecting": true
+      },
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
      ]
     }
    ],
@@ -6197,6 +6574,24 @@
       "wooden"
      ],
      "note": "Mirrored from tile_skirting: the ancestor decides «وزرات» too, so it must decline the same lines."
+    },
+    {
+     "terms": [
+      "سيراميك",
+      "سراميك",
+      "بورسلان"
+     ],
+     "blocked_by_head": [
+      "عوازل",
+      "عازل",
+      "insulator",
+      "insulators",
+      "لوحات",
+      "لوحه",
+      "سخان",
+      "سخانات"
+     ],
+     "note": "A ceramic electrical insulator, or an enamelled street/house-number plate, is not tile."
     }
    ],
    "supplier_terms": [
@@ -6214,7 +6609,9 @@
     "interior_finishing"
    ],
    "hard_conflicts": [
-    "paint_only_supplier"
+    "paint_only_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -6330,7 +6727,8 @@
       "quartz countertop",
       "granite countertop",
       "marble countertop",
-      "كوارتز ستون"
+      "كوارتز ستون",
+      "حجر صناعي"
      ],
      "term_guards": [
       {
@@ -6480,7 +6878,8 @@
       "ceramic floor tiles",
       "سرميك",
       "سيرامك",
-      "بلاط سرميك"
+      "بلاط سرميك",
+      "بلاط فخاري"
      ],
      "term_guards": [
       {
@@ -6768,7 +7167,26 @@
       "heavy duty shelving",
       "رفوف مستودعات",
       "ارفف مستودعات",
-      "ارفف معدنيه"
+      "ارفف معدنيه",
+      "ارفف وزوايا معدنيه",
+      "انظمه تخزين"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "انظمه تخزين"
+       ],
+       "block_any": [
+        "طاقه",
+        "بطاريات",
+        "battery",
+        "بيانات",
+        "data",
+        "مياه",
+        "ماء"
+       ],
+       "note": "Energy, data or water storage systems are not racking."
+      }
      ]
     },
     {
@@ -6784,9 +7202,16 @@
       "ارفف حديد",
       "slotted angle shelving",
       "slotted angle",
-      "رف معدني"
+      "رف معدني",
+      "ارفف سوبر ماركت",
+      "رفوف سوبر ماركت",
+      "ارفف جندول"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -6881,6 +7306,10 @@
      "name": "capacity",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -7126,6 +7555,10 @@
      ],
      "note": "A crane scale, crane hook or sling is lifting accessory; a mobile patient lift is healthcare."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -7336,6 +7769,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -7424,6 +7861,10 @@
       "ميزان بسكول"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -7548,7 +7989,9 @@
       "trash can",
       "litter bin",
       "صناديق نفايات",
-      "صندوق نفايات"
+      "صندوق نفايات",
+      "براميل نفايات",
+      "براميل بلاستيكيه للنفايات"
      ],
      "note": "small indoor/outdoor bins; municipal skips/wheelie bins stay in waste_skip"
     },
@@ -7592,6 +8035,10 @@
      ],
      "note": "Bare «حاويه» is waste only with waste/skip/yard context; a storage or shipping container is temporary_site_buildings."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -7928,6 +8375,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -8097,7 +8548,9 @@
       "محبس سكينه",
       "محبس سكين",
       "os&y gate valve",
-      "بلف بوابه"
+      "بلف بوابه",
+      "صمامات بوابيه",
+      "صمام بوابي"
      ]
     },
     {
@@ -8132,7 +8585,11 @@
       "swing check valve",
       "dual plate check valve",
       "spring check valve",
-      "تشيك فالف"
+      "تشيك فالف",
+      "صمامات لارجعيه",
+      "صمام لا رجعي",
+      "صمام لارجعي",
+      "صمامات الحجز ضد الرجوع"
      ]
     },
     {
@@ -8280,6 +8737,32 @@
      "weak_terms": [
       "dismantling"
      ]
+    },
+    {
+     "id": "safety_relief_valve",
+     "label_ar": "صمامات الأمان والتنفيس",
+     "strong_terms": [
+      "صمام امان",
+      "صمامات امان",
+      "safety valve",
+      "safety valves",
+      "relief valve",
+      "pressure relief valve",
+      "safety relief valve",
+      "صمام تنفيس ضغط",
+      "صمامات تنفيس الضغط"
+     ],
+     "note": "Pressure safety/relief valves (boilers, water heaters, vessels, chillers). An air release valve is air_release_valve.",
+     "facets": [
+      {
+       "name": "diameter",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "material",
+       "supplier_pool_affecting": true
+      }
+     ]
     }
    ],
    "term_guards": [
@@ -8328,6 +8811,10 @@
      ],
      "note": "A building or bridge expansion joint is not a pipe expansion joint."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -8804,7 +9291,10 @@
       "polypropylene pipe",
       "ppr fitting",
       "وصلات ppr",
-      "كوع ppr"
+      "كوع ppr",
+      "انابيب بولي بروبلين",
+      "مواسير بولي بروبلين",
+      "انابيب ومواسير من بولي بروبلين"
      ],
      "context_terms": [
       "pn20",
@@ -8882,7 +9372,13 @@
       "ريدكشن",
       "ريدوسر",
       "فلنج",
-      "فلنج حديد"
+      "فلنج حديد",
+      "وصلات بي في سي",
+      "وصلات بولي بروبلين",
+      "وصلات بلاستيكيه",
+      "قطع ولوازم بلاستيكيه للانابيب",
+      "وصلات وملحقات بولي بروبلين",
+      "قطع بلاستيك من بي في سي"
      ],
      "weak_terms": [
       "reducer",
@@ -8950,6 +9446,20 @@
         "ورده"
        ],
        "note": "A flange nut or flange bolt is a fastener: the fastener trade names it, not the pipe trade."
+      },
+      {
+       "terms": [
+        "وصلات بلاستيكيه"
+       ],
+       "block_any": [
+        "كهرباء",
+        "كهرباييه",
+        "كهرباييه",
+        "علب",
+        "اسلاك",
+        "كابلات"
+       ],
+       "note": "Plastic electrical fittings are conduit accessories."
       }
      ]
     },
@@ -8982,7 +9492,10 @@
       "بايب بلاستيك",
       "بايبات pvc",
       "بايب pvc",
-      "بايبات upvc"
+      "بايبات upvc",
+      "انابيب بي في سي",
+      "انابيب من بي في سي",
+      "انابيب بي في سي مقساه"
      ],
      "term_guards": [
       {
@@ -9039,6 +9552,21 @@
         "تنقيط"
        ],
        "note": "A PVC pipe for electrical conduit, drainage or irrigation is another product; those lines go to their own intents (electrical_conduit, drainage_pipe, irrigation)."
+      },
+      {
+       "terms": [
+        "انابيب بي في سي",
+        "انابيب من بي في سي"
+       ],
+       "block_any": [
+        "الدم",
+        "دم",
+        "طبي",
+        "طبيه",
+        "محاليل",
+        "medical"
+       ],
+       "note": "Medical PVC tubing is not a building pipe."
       }
      ],
      "note": "Pressure/water-supply PVC and UPVC pipe. Drainage PVC is drainage_pipe."
@@ -9164,7 +9692,12 @@
       "بايب بولي ايثيلين",
       "مواسير بولي ايثلين",
       "انابيب بولي اثيلين",
-      "مواسير بولي اثيلين"
+      "مواسير بولي اثيلين",
+      "انابيب بولي ايثلين",
+      "انابيب بولي ايثلين عالي الكثافه",
+      "انابيب من بوليمرات الايثيلين",
+      "انابيب صلبه من بوليمرات ايثيلين",
+      "انابيب عاليه الكثافه"
      ],
      "term_guards": [
       {
@@ -9197,6 +9730,23 @@
         "twin wall"
        ],
        "note": "Corrugated / twin-wall HDPE is buried drainage from a drainage extruder, not pressure-pipe plumbing."
+      },
+      {
+       "terms": [
+        "انابيب بولي ايثلين",
+        "مواسير بولي ايثلين",
+        "انابيب بولي اثيلين",
+        "مواسير بولي اثيلين",
+        "انابيب بولي ايثيلين"
+       ],
+       "block_any": [
+        "تنقيط",
+        "بالتنقيط",
+        "نقاط",
+        "نقاطات",
+        "drip"
+       ],
+       "note": "A PE drip line is irrigation_emitter."
       }
      ]
     },
@@ -9215,7 +9765,13 @@
       "مواسير الياف زجاجيه",
       "انابيب الياف زجاجيه",
       "glass reinforced pipe",
-      "gre pipe"
+      "gre pipe",
+      "انابيب فايبرجلاس",
+      "مواسير فايبرجلاس",
+      "انابيب فيبرجلاس",
+      "مواسير فيبرجلاس",
+      "انابيب ومواسير فيبرجلاس",
+      "انابيب فايبرجلاس مقواه"
      ]
     },
     {
@@ -9259,7 +9815,13 @@
       "مواسير كربون ستيل",
       "ماسوره كربون ستيل",
       "مواسير سيملس",
-      "مواسير اسود"
+      "مواسير اسود",
+      "انابيب صلب",
+      "مواسير صلب",
+      "انابيب حديديه",
+      "انابيب حديد",
+      "انابيب فولاذيه",
+      "انابيب صلب ملحومه"
      ],
      "note": "Galvanized/black/carbon steel pipe; grade and finish are facets."
     },
@@ -9348,6 +9910,10 @@
       "مواسير سي بي في سي"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -9464,6 +10030,10 @@
       "bulk water meter"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -9486,7 +10056,12 @@
     "خزان فايبر",
     "خزان بلاستيك",
     "خزان pe",
-    "خزان بولي ايثيلين"
+    "خزان بولي ايثيلين",
+    "توانك",
+    "تانكات",
+    "توانك مياه",
+    "تانكات مياه",
+    "توانك وصهاريج حديديه للمياه"
    ],
    "weak_terms": [
     "خزان",
@@ -9554,7 +10129,11 @@
       "خزانات grp",
       "خزان الياف",
       "grp sectional tank",
-      "grp panel tank"
+      "grp panel tank",
+      "خزانات فايبرجلاس",
+      "خزانات فيبرجلاس",
+      "خزانات من الياف زجاجيه",
+      "خزانات المياه من الياف زجاجيه"
      ],
      "weak_terms": [
       "فايبر جلاس",
@@ -9580,7 +10159,8 @@
       "poly tank",
       "خزان بولي",
       "خزان بلاستيك علوي",
-      "خزانات بولي ايثيلين"
+      "خزانات بولي ايثيلين",
+      "خزانات مياه بلاستيكيه"
      ],
      "weak_terms": [
       "بولي ايثيلين",
@@ -9600,7 +10180,10 @@
       "خزانات ستانلس",
       "خزان ستانلس ستيل",
       "stainless tank",
-      "خزان استانلس"
+      "خزان استانلس",
+      "توانك ستانلس",
+      "توانك ستانلس ستيل",
+      "توانك استانلس"
      ],
      "weak_terms": [
       "ستانلس",
@@ -9669,7 +10252,12 @@
       "galvanized steel tank",
       "galvanised steel tank",
       "galvanized tank",
-      "hdg tank"
+      "hdg tank",
+      "خزانات حديديه",
+      "خزانات حديد",
+      "خزانات صلب",
+      "خزانات وصهاريج حديديه",
+      "خزانات وصهاريج من الفولاذ"
      ],
      "weak_terms": [
       "مجلفن",
@@ -9819,6 +10407,10 @@
      ],
      "note": "A fuel, gas, air, expansion or septic tank is not a water tank."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -10103,6 +10695,10 @@
      ],
      "note": "UV lamps in an air handler are HVAC."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -10159,7 +10755,9 @@
     "space heater",
     "مكيفات",
     "مكيف سبليت",
-    "سبليت"
+    "سبليت",
+    "مكيفات فريون",
+    "مكيف فريون"
    ],
    "weak_terms": [
     "مروحه",
@@ -10257,7 +10855,13 @@
         "vav box",
         "vav terminal",
         "variable air volume",
-        "وحده vav"
+        "وحده vav",
+        "وحدات تحكم في حجم الهواء",
+        "وحده تحكم في حجم الهواء",
+        "تحكم في حجم الهواء",
+        "حجم الهواء المتغير",
+        "حجم هواء متغير",
+        "وحدات حجم الهواء المتغير"
        ],
        "weak_terms": [
         "vav"
@@ -10290,7 +10894,13 @@
         "hepa",
         "h14",
         "فلتر هيبا",
-        "فلتر مطلق"
+        "فلتر مطلق",
+        "فلاتر هواء",
+        "مرشحات هواء",
+        "مرشحات تنقيه الهواء",
+        "فلاتر جيب",
+        "فلاتر هواء ميني بليت",
+        "فلاتر هواء كيس"
        ],
        "weak_terms": [
         "filter",
@@ -10315,6 +10925,23 @@
          "name": "standard",
          "supplier_pool_affecting": true
         }
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "فلاتر هواء",
+          "مرشحات هواء"
+         ],
+         "block_any": [
+          "سياره",
+          "سيارات",
+          "car",
+          "vehicle",
+          "محرك ديزل",
+          "مولد"
+         ],
+         "note": "A vehicle or genset engine air filter is not an HVAC filter."
+        }
        ]
       },
       {
@@ -10336,7 +10963,11 @@
         "fire and smoke damper",
         "fsd",
         "دمبر حريق",
-        "دمبر دخان"
+        "دمبر دخان",
+        "خامدات هواء",
+        "خامد هواء",
+        "كاتمات حريق",
+        "كواتم حريق"
        ],
        "weak_terms": [
         "damper",
@@ -10407,7 +11038,9 @@
       "دامبرات تحكم",
       "دامبر تحكم هواء",
       "manual damper",
-      "manual volume damper"
+      "manual volume damper",
+      "تحكم دخول وخروج الهواء",
+      "وحدات تحكم دخول وخروج الهواء"
      ],
      "context_terms": [
       "مم",
@@ -10503,7 +11136,15 @@
       "disc valve",
       "فتحات سحب هواء",
       "فتحات راجع",
-      "فتحه راجع"
+      "فتحه راجع",
+      "فتحات هواء",
+      "فتحه هواء",
+      "فتحات توزيع الهواء",
+      "فتحات توزيع ونشر الهواء",
+      "ناشرات هواء",
+      "ناشر هواء",
+      "موزعات هواء",
+      "فتحات اجهزه التكييف"
      ],
      "weak_terms": [
       "diffuser",
@@ -10532,7 +11173,8 @@
       "علاقات دكت",
       "duct hanger",
       "duct support",
-      "flexible connector دكت"
+      "flexible connector دكت",
+      "اكسسوارات مجاري الهواء"
      ]
     },
     {
@@ -10736,7 +11378,12 @@
       "كمبروسر مكيف",
       "كمبريسور مكيف",
       "ac compressor",
-      "ضاغط مكيف"
+      "ضاغط مكيف",
+      "سبيليت",
+      "مكيفات سبيليت",
+      "مكيف سبيليت",
+      "مكيفات منفصله",
+      "مكيف منفصل"
      ],
      "term_guards": [
       {
@@ -10939,7 +11586,43 @@
       "باكدج يونت",
       "وحده باكدج",
       "وحدات باكدج",
-      "مكيف مركزي مجمع"
+      "مكيف مركزي مجمع",
+      "اجهزه تكييف مركزيه",
+      "اجهزه تكييف مركزي",
+      "مكيفات مركزيه",
+      "مكيف مركزي"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "اجهزه تكييف مركزيه",
+        "اجهزه تكييف مركزي",
+        "مكيفات مركزيه",
+        "مكيف مركزي"
+       ],
+       "block_any": [
+        "vrf",
+        "vrv",
+        "chiller",
+        "تشيلر",
+        "شيلر",
+        "تشلر",
+        "fcu",
+        "ahu",
+        "فان كويل",
+        "كاسيت",
+        "cassette",
+        "مخفي",
+        "دكت",
+        "سبليت",
+        "سبيليت",
+        "split",
+        "مناوله",
+        "هواء نقي",
+        "دولابي"
+       ],
+       "note": "«مكيف مركزي VRF / تشيلر / مخفي / كاسيت» names its own system; only a bare central-AC line is a package unit."
+      }
      ]
     },
     {
@@ -10989,7 +11672,8 @@
       "وحده تشيلر",
       "مبرد مياه مركزي",
       "وحده تبريد مياه",
-      "absorption chiller"
+      "absorption chiller",
+      "اجهزه الماء المثلج"
      ],
      "term_guards": [
       {
@@ -11026,7 +11710,11 @@
       "وحدات مناوله الهواء",
       "مناوله هواء",
       "مناوله الهواء",
-      "اي اتش يو"
+      "اي اتش يو",
+      "وحدات معالجه الهواء",
+      "وحده معالجه هواء",
+      "وحده معالجه الهواء",
+      "معالجه الهواء وترطيبه"
      ]
     },
     {
@@ -11114,7 +11802,11 @@
       "duct work",
       "دكت تكييف",
       "دكتات تكييف",
-      "تمديد دكت"
+      "تمديد دكت",
+      "مجاري هواء حلزونيه",
+      "تمديدات هواء حلزونيه",
+      "مجاري تهويه",
+      "مجاري تهويه معدنيه"
      ],
      "term_guards": [
       {
@@ -11169,7 +11861,8 @@
       "دكت فليكسبل",
       "خرطوم تكييف",
       "خراطيم تكييف",
-      "قنوات هواء مرنه"
+      "قنوات هواء مرنه",
+      "تمديدات هواء مرنه"
      ],
      "term_guards": [
       {
@@ -11203,7 +11896,8 @@
       "مجاري هواء مسبقه العزل",
       "دكت فينوليك",
       "دكت بانل",
-      "دكت الواح معزوله"
+      "دكت الواح معزوله",
+      "مجاري الهواء والتكييف من الالواح مسبقه العزل"
      ]
     },
     {
@@ -11374,6 +12068,29 @@
         "كاشف"
        ],
        "note": "a refrigerant code inside a unit spec («Package AC R410A») is a facet of the unit, not a gas purchase"
+      },
+      {
+       "terms": [
+        "فريون",
+        "فريونات",
+        "غاز فريون",
+        "غاز الفريون"
+       ],
+       "blocked_by_head": [
+        "مكيف",
+        "مكيفات",
+        "اجهزه تكييف",
+        "اجهزه",
+        "تكييف",
+        "وحدات",
+        "وحده",
+        "سبليت",
+        "سبيليت",
+        "split",
+        "unit",
+        "units"
+       ],
+       "note": "«أجهزة تكييف مركزية … تعمل بغاز الفريون» / «مكيفات فريون» are AC units, not the gas."
       }
      ]
     },
@@ -11557,6 +12274,18 @@
         "steel"
        ],
        "note": "«برادة حديد» is metal filings"
+      },
+      {
+       "terms": [
+        "موزع مياه"
+       ],
+       "block_any": [
+        "حريق",
+        "الحريق",
+        "اطفاء",
+        "fire"
+       ],
+       "note": "A fire-water distributor is a hydrant fitting."
       }
      ]
     },
@@ -11648,6 +12377,34 @@
       "industrial fan"
      ],
      "note": "Appliance-type fans (pedestal, drum, misting) sold by appliance/electrical dealers, not ventilation fans for ducts."
+    },
+    {
+     "id": "heat_exchanger",
+     "label_ar": "المبادلات الحرارية",
+     "strong_terms": [
+      "مبادل حراري",
+      "مبادلات حراريه",
+      "وحدات تبادل حراري",
+      "وحده تبادل حراري",
+      "heat exchanger",
+      "heat exchangers",
+      "plate heat exchanger",
+      "phe",
+      "shell and tube heat exchanger",
+      "مبادل حراري صفايحي",
+      "مبادلات حراريه صفايحيه"
+     ],
+     "note": "Plate / shell-and-tube heat exchangers on chilled- and hot-water systems.",
+     "facets": [
+      {
+       "name": "capacity",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "material",
+       "supplier_pool_affecting": true
+      }
+     ]
     }
    ],
    "term_guards": [
@@ -11719,6 +12476,10 @@
      ],
      "note": "A silencer on a generator is a generator line."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -11848,7 +12609,9 @@
       "قواعد حمام",
       "قاعده افرنجي",
       "قاعده عربي",
-      "قاعده افرنجيه"
+      "قاعده افرنجيه",
+      "مغاطس",
+      "مغطس"
      ],
      "term_guards": [
       {
@@ -12225,6 +12988,10 @@
      ],
      "note": "A bathroom accessories set is washroom_accessories."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -12424,7 +13191,13 @@
         "فوهه حريق",
         "فوهات حريق",
         "فوهه حريق خارجيه",
-        "فوهه اطفاء"
+        "فوهه اطفاء",
+        "ماخذ مياه الحريق",
+        "ماخذ وموزع مياه الحريق",
+        "ماخذ مياه اطفاء",
+        "موزع مياه الحريق",
+        "ماخذ حريق",
+        "صمامات تزويد المياه لسيارات الاطفاء"
        ],
        "weak_terms": [
         "hydrant",
@@ -12658,7 +13431,13 @@
         "هوز ريل",
         "خزانه حريق",
         "lay flat hose",
-        "صندوق خرطوم حريق"
+        "صندوق خرطوم حريق",
+        "صناديق اطفاء",
+        "صندوق اطفاء",
+        "صناديق اطفاء حريق",
+        "صناديق اطفاء الحريق",
+        "بكرات اطفاء",
+        "صناديق وبكرات اطفاء"
        ]
       },
       {
@@ -12913,7 +13692,9 @@
       "حشو فواصل مقاوم للحريق",
       "fire batt",
       "passive fire protection",
-      "سد اختراقات الحريق"
+      "سد اختراقات الحريق",
+      "الواح مقاومه للحريق",
+      "الواح عازله مقاومه للحريق"
      ],
      "context_terms": [
       "حريق",
@@ -12925,6 +13706,10 @@
      "note": "Firestopping is its own trade (specialist applicators). «fire rated sealant/foam» stay with sealants_adhesives where cpo-v18 put them.",
      "facets": []
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -13248,6 +14033,10 @@
      ],
      "note": "A traffic flasher, vehicle siren or intruder siren is not a fire alarm sounder."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -13296,7 +14085,9 @@
     "قواطع كهرباء",
     "قاطع كهرباء",
     "circuit breaker",
-    "circuit breakers"
+    "circuit breakers",
+    "لوحات فصل وتوصيل التيار",
+    "لوحات فصل وتوصيل"
    ],
    "weak_terms": [
     "لوحه",
@@ -13425,7 +14216,29 @@
       "دورات مياه",
       "المنيوم",
       "زجاج",
-      "partition"
+      "partition",
+      "خشب",
+      "خشبيه",
+      "خشبي",
+      "خرسانيه",
+      "خرساني",
+      "اسمنتيه",
+      "اسمنتي",
+      "مسبقه",
+      "فورميكا",
+      "حديديه للجدران",
+      "للجدران",
+      "جدران",
+      "حوايط",
+      "اسقف",
+      "مكتبيه",
+      "مكتبي",
+      "ديكور",
+      "ديكورات",
+      "فايبرجلاس",
+      "فيبرجلاس",
+      "معدنيه للجدران",
+      "قوايم"
      ],
      "note": "«قواطع» is a SHAPE word in Arabic: partitions as often as breakers. Without electrical evidence it must not reach a switchgear pool."
     },
@@ -13789,7 +14602,12 @@
       "سكينه كهرباء",
       "سكاكين كهرباء",
       "disconnector",
-      "disconnect switch"
+      "disconnect switch",
+      "مفاتيح وصل وقطع",
+      "مفاتيح قطع ووصل",
+      "مفتاح وصل وقطع",
+      "مفاتيح تقسيم ووصل وقطع",
+      "وصل وقطع التيار"
      ],
      "note_terms": "«قاطع عزل» is an ordinary way to say isolator, and it needs to be THIS family's vocabulary rather than a bare «عزل» sitting in the breaker guards. Bare «عزل» is insulation's word, and borrowing it cost «قاطع 32 امبير عزل مزدوج» its intent."
     },
@@ -13921,7 +14739,18 @@
       "طبلون كهرباء",
       "طبلونات كهرباء",
       "تابلوه",
-      "تابلو كهرباء"
+      "تابلو كهرباء",
+      "مراكز احمال",
+      "مركز احمال",
+      "load center",
+      "load centre",
+      "تابلوهات كهرباء",
+      "تابلوهات كهرباييه",
+      "تابلوهات ولوحات",
+      "صناديق توزيع",
+      "صندوق توزيع",
+      "لوحات تغذيه",
+      "لوحه تغذيه"
      ],
      "term_guards": [
       {
@@ -13963,6 +14792,32 @@
         "اسلاك"
        ],
        "note": "«كابل لوحة توزيع» is a cable feeding a board; the product head decides."
+      },
+      {
+       "terms": [
+        "صناديق توزيع",
+        "صندوق توزيع",
+        "لوحات تغذيه",
+        "لوحه تغذيه"
+       ],
+       "block_any": [
+        "مياه",
+        "ماء",
+        "water",
+        "هواء",
+        "air",
+        "ري",
+        "غاز",
+        "gas",
+        "الياف",
+        "fiber",
+        "fibre",
+        "هاتف",
+        "اتصالات",
+        "بيانات",
+        "data"
+       ],
+       "note": "A water, air, irrigation, gas or telecom distribution box is not an electrical board."
       }
      ]
     },
@@ -13984,7 +14839,10 @@
       "floor standing enclosure",
       "wall mount enclosure",
       "enclosure stainless steel",
-      "stainless steel enclosure"
+      "stainless steel enclosure",
+      "كباين كهرباييه",
+      "كباين كهرباء",
+      "صناديق معدنيه للكهرباء"
      ]
     },
     {
@@ -14053,7 +14911,17 @@
       "لوحه ام دي بي",
       "لوحه الكهرباء الرييسيه",
       "لوحه توزيع عموميه",
-      "لوحه عموميه"
+      "لوحه عموميه",
+      "لوحات مفاتيح كهرباييه",
+      "لوحه مفاتيح كهرباييه",
+      "لوحات مفاتيح تشغيل",
+      "لوحه مفاتيح تشغيل",
+      "لوحات مفاتيح جهد منخفض",
+      "لوحه مفاتيح جهد منخفض",
+      "لوحات مفاتيح ذات جهد منخفض",
+      "لوحات توزيع كهرباييه رييسيه",
+      "لوحه تغذيه رييسيه",
+      "لوحات تغذيه رييسيه"
      ],
      "term_guards": [
       {
@@ -14087,7 +14955,10 @@
       "وحدات حلقيه",
       "ار ام يو",
       "ring main units",
-      "ring main switchgear"
+      "ring main switchgear",
+      "مفاتيح توزيع حلقيه",
+      "مفتاح توزيع حلقي",
+      "وحدات توزيع حلقيه"
      ]
     },
     {
@@ -14146,7 +15017,10 @@
       "لوحات ضغط متوسط",
       "مفاتيح ضغط متوسط",
       "قواطع جهد متوسط",
-      "قواطع ضغط متوسط"
+      "قواطع ضغط متوسط",
+      "مفاتيح ضغط منخفض ومتوسط",
+      "لوحات مفاتيح تشغيل جهد متوسط",
+      "لوحه مفاتيح تشغيل جهد متوسط"
      ]
     },
     {
@@ -14170,6 +15044,10 @@
       "قاعده فيوز"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -14264,9 +15142,20 @@
       "نجمه مثلث",
       "motor starter",
       "motor control center",
-      "mcc"
+      "mcc",
+      "لوحات تحكم المحركات",
+      "لوحه تحكم محركات",
+      "لوحات تحكم بالمحركات",
+      "لوحه تحكم بالمحركات",
+      "مراكز تحكم بالمحركات",
+      "مراكز التحكم بالمحركات",
+      "لوحه تحكم بالمحركات ضغط متوسط"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -14602,7 +15491,14 @@
       "mv",
       "كابل mv",
       "mv cu",
-      "mv al"
+      "mv al",
+      "كابلات كهرباييه ضغط متوسط",
+      "كابلات ضغط متوسط",
+      "كابل ضغط متوسط",
+      "كابلات جهد متوسط",
+      "كابلات ضغط عالي",
+      "كابلات جهد عالي",
+      "كابلات عاليه ومتوسطه الجهد"
      ],
      "weak_terms": [
       "mv",
@@ -14735,6 +15631,10 @@
       "كابل متعدد الشعيرات مرن"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -14845,7 +15745,9 @@
       "سلالم كابلات",
       "ladder type tray",
       "لادر كابلات",
-      "سلم كيابل"
+      "سلم كيابل",
+      "سلالم حامله للكابلات",
+      "سلالم وموانيء حامله للكابلات"
      ]
     },
     {
@@ -14861,7 +15763,14 @@
       "skirting trunking",
       "ترنك كابلات",
       "ترنك كهرباء",
-      "دكت اسلاك"
+      "دكت اسلاك",
+      "قنوات كوابل",
+      "قنوات كوابل واسلاك",
+      "مجاري اسلاك",
+      "مجاري الاسلاك",
+      "مجري اسلاك",
+      "قنوات اسلاك",
+      "حوامل ومجاري اسلاك"
      ]
     },
     {
@@ -14918,10 +15827,44 @@
       "flexible conduit كهرباء",
       "conduits كهرباء",
       "electrical conduit",
-      "electrical conduits"
+      "electrical conduits",
+      "ليات كهرباء",
+      "ليات للكهرباء",
+      "ليات بلاستيكيه للكهرباء",
+      "ليات كهرباييه",
+      "انابيب بي في سي للكهرباء",
+      "انابيب بلاستيكيه لتغليف الاسلاك",
+      "ليات زراعيه وكهرباييه",
+      "مواسير للتمديدات الكهرباييه",
+      "انابيب للتمديدات الكهرباييه",
+      "للتمديدات الكهرباييه"
      ],
      "weak_terms": [
       "conduit"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "للتمديدات الكهرباييه"
+       ],
+       "blocked_by_head": [
+        "اسلاك",
+        "سلك",
+        "كابل",
+        "كابلات",
+        "كيابل",
+        "لوحات",
+        "لوحه",
+        "مفاتيح",
+        "مفتاح",
+        "علب",
+        "علبه",
+        "افياش",
+        "فيش",
+        "ادوات"
+       ],
+       "note": "«… للتمديدات الكهربائية» names conduit only when the head is a pipe; wire, boards, switches and boxes keep their own intent."
+      }
      ]
     },
     {
@@ -14943,7 +15886,10 @@
       "علب كهرباء",
       "جاكس بوكس",
       "علبه تجميع",
-      "علب تجميع"
+      "علب تجميع",
+      "علب مفاتيح",
+      "علبه مفاتيح",
+      "علب مفاتيح كهرباء"
      ]
     },
     {
@@ -15022,6 +15968,40 @@
       "connector block",
       "شيكولاته كهرباء"
      ]
+    },
+    {
+     "id": "cable_protection_cover",
+     "label_ar": "أغطية وبلاطات حماية الكابلات",
+     "strong_terms": [
+      "اغطيه كوابل",
+      "اغطيه كابلات",
+      "اغطيه كيابل",
+      "غطاء كابلات",
+      "غطاء كوابل",
+      "غطاء كابل",
+      "cable cover",
+      "cable covers",
+      "cable protection cover",
+      "cable protection tile",
+      "cable tile",
+      "cable tiles",
+      "طوب كابلات",
+      "بلاط كابلات",
+      "بلاط حمايه كابلات",
+      "بلاطات حمايه الكابلات",
+      "بلاط حمايه الكابلات"
+     ],
+     "note": "Buried-cable protection covers and tiles (PE or concrete) laid over cables in a trench, not trunking lids.",
+     "facets": [
+      {
+       "name": "material",
+       "supplier_pool_affecting": true
+      },
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
+     ]
     }
    ],
    "term_guards": [
@@ -15051,6 +16031,10 @@
      ],
      "note": "A waterproofing, foil or warning tape is not electrical insulation tape."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -15245,6 +16229,10 @@
       "portable earth set"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -15320,7 +16308,16 @@
       "step down transformer",
       "step up transformer",
       "محول كهرباء",
-      "محولات كهرباء"
+      "محولات كهرباء",
+      "محولات بعوازل سايله",
+      "محولات قوي",
+      "محول قوي",
+      "محولات قوي كهرباييه",
+      "power transformer",
+      "محولات رفع",
+      "محولات خفض",
+      "محولات رفع كهرباييه",
+      "محولات خفض كهرباييه"
      ]
     },
     {
@@ -15355,7 +16352,13 @@
       "محطه محولات",
       "محطه كهرباء فرعيه",
       "substation",
-      "محطه محول"
+      "محطه محول",
+      "محطات توزيع كهرباييه معلبه",
+      "محطات توزيع معلبه",
+      "محطه توزيع معلبه",
+      "محطات كهرباييه معلبه",
+      "محولات فرعيه جهد متوسط",
+      "محطات كهرباييه جهد متوسط"
      ],
      "term_guards": [
       {
@@ -15392,6 +16395,10 @@
      ],
      "note": "«مبنى محطة المحولات» is the building that houses the substation, not the substation."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -15562,7 +16569,11 @@
       "الخزانات الارضيه واليوميه",
       "خزانات ارضيه للوقود",
       "خزانات وقود المولدات",
-      "خزانات لتزويد المولدات"
+      "خزانات لتزويد المولدات",
+      "توانك وقود",
+      "توانك ديزل",
+      "تانك ديزل",
+      "توانك مياه وديزل"
      ],
      "context_terms": [
       "مولد",
@@ -15590,6 +16601,10 @@
      ],
      "note": "A fuel tank FOR the generator is a tank. (mirrored from diesel_genset)"
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -15737,6 +16752,10 @@
       "sts"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -15927,7 +16946,11 @@
       "كشاف شمسي للطرق",
       "اناره شوارع بالطاقه الشمسيه",
       "solar street lights",
-      "عمود اناره بالطاقه الشمسيه"
+      "عمود اناره بالطاقه الشمسيه",
+      "مصابيح الشوارع",
+      "مصابيح شوارع",
+      "مصابيح للاناره الخارجيه",
+      "مصابيح اناره خارجيه"
      ]
     },
     {
@@ -15939,7 +16962,10 @@
       "lighting pole",
       "lamp post",
       "high mast",
-      "عمود مجلفن اناره"
+      "عمود مجلفن اناره",
+      "صواري اناره",
+      "صاري اناره",
+      "صواري الاناره"
      ]
     },
     {
@@ -15980,7 +17006,57 @@
       "لوحه مخرج طواري",
       "لوحات مخارج طواري",
       "علامه خروج مضييه",
-      "twin spot طواري"
+      "twin spot طواري",
+      "مخارج طواري",
+      "مخرج طواري",
+      "مخارج الطواري",
+      "مخرج الطواري",
+      "مخارج طواريء",
+      "مخرج طواريء",
+      "لوحات مخارج الطواري",
+      "لوحه مخرج الطواري",
+      "لوحات مخرج طواري",
+      "اشارات مخارج الطواري",
+      "اناره للطواري",
+      "اناره طواريء",
+      "اناره للطواريء",
+      "وحدات اناره للطواري",
+      "وحدات اناره للطواريء",
+      "وحدات اناره طواري",
+      "وحده اناره طواري",
+      "اضاءه للطواري"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "مخارج طواري",
+        "مخرج طواري",
+        "مخارج الطواري",
+        "مخرج الطواري",
+        "مخارج طواريء",
+        "مخرج طواريء"
+       ],
+       "block_any": [
+        "باب",
+        "ابواب",
+        "door",
+        "doors",
+        "عرض",
+        "مسافه",
+        "مساحه"
+       ],
+       "blocked_by_head": [
+        "سلم",
+        "سلالم",
+        "درج",
+        "stair",
+        "ممر",
+        "ممرات",
+        "بوابه",
+        "بوابات"
+       ],
+       "note": "«مخارج الطوارئ» on a door, stair or corridor line is the exit itself; on its own it is the exit-sign / emergency lighting item."
+      }
      ]
     },
     {
@@ -16046,7 +17122,11 @@
       "مصباح ليد",
       "مصابيح led",
       "لمبات",
-      "لمبه"
+      "لمبه",
+      "مصابيح توفير",
+      "مصابيح توفيريه",
+      "لمبات توفير",
+      "مصابيح توفير الطاقه"
      ],
      "term_guards": [
       {
@@ -16305,10 +17385,16 @@
       "facade",
       "طيران",
       "obstruction",
-      "ملعب"
+      "ملعب",
+      "طواريء",
+      "للطواريء"
      ],
      "note": "Mirrored from led_luminaire: the ancestor decides «وحده اناره» too, so it must decline the same lines."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -16432,11 +17518,30 @@
       "مخرج كهربايي",
       "مخارج كهرباييه",
       "فيشه كهرباء",
-      "فيش جداري"
+      "فيش جداري",
+      "قابس",
+      "قوابس"
      ],
      "weak_terms": [
       "فيش",
       "فيشه"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "قابس",
+        "قوابس"
+       ],
+       "block_any": [
+        "صناعي",
+        "صناعيه",
+        "industrial",
+        "سياره",
+        "سيارات",
+        "شاحن"
+       ],
+       "note": "An industrial or vehicle plug is not a wall socket."
+      }
      ]
     },
     {
@@ -16494,7 +17599,41 @@
       "سويتش كهرباء",
       "مفتاح مزدوج",
       "two gang switch",
-      "one gang switch"
+      "one gang switch",
+      "مفاتيح كهرباييه",
+      "مفتاح كهربايي",
+      "مفاتيح كهرباييه بلاستيكيه",
+      "مفاتيح كهرباييه بلاستيكه"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "مفاتيح كهرباييه",
+        "مفتاح كهربايي"
+       ],
+       "block_any": [
+        "جهد",
+        "ضغط",
+        "توتر",
+        "kv",
+        "ك ف",
+        "كيلو فولت",
+        "حلقيه",
+        "حلقي",
+        "توزيع",
+        "تقسيم",
+        "وصل وقطع",
+        "قطع ووصل",
+        "عزل",
+        "تحويل",
+        "لوحه",
+        "لوحات",
+        "مراكز",
+        "محركات",
+        "تحكم"
+       ],
+       "note": "Bare «مفاتيح كهربائية» are wiring-device switches; with a voltage class, ring/distribution, isolation or a board word they are switchgear."
+      }
      ]
     },
     {
@@ -16629,6 +17768,10 @@
      ],
      "note": "A 3-phase isolator is switchgear; a double-ended spanner («مفتاح مزدوج الطرف») is a hand tool."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -16807,6 +17950,10 @@
      "note": "Bare «مؤقت» means temporary (سياج مؤقت، اناره مؤقته) and bare «تايمر/timer» is weak: neither is a term here.",
      "facets": []
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -16908,6 +18055,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -17038,6 +18189,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -17138,6 +18293,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -17353,6 +18512,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -17533,6 +18696,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -17641,6 +18808,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -17748,6 +18919,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -18058,6 +19233,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -18145,6 +19324,10 @@
       "4 gas monitor"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -18261,6 +19444,10 @@
      ],
      "note": "An insulation, ceramic-fibre or welding blanket is not a rescue blanket."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -18600,6 +19787,10 @@
      ],
      "note": "A door bumper is architectural hardware."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -18876,6 +20067,10 @@
       "اطقم عده"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -19154,6 +20349,10 @@
      ],
      "note": "In a paint line «صنفره» is the sanding step of the work, not sandpaper."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -19348,6 +20547,10 @@
      ],
      "note": "Bare «الكترودات» are also earth electrodes and measuring electrodes."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -19429,6 +20632,10 @@
       "gas regulator لحام"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -19508,7 +20715,12 @@
       "كمبرسور",
       "كمبريسر",
       "كومبريسور",
-      "ضاغط هواء كهربايي"
+      "ضاغط هواء كهربايي",
+      "ضواغط هواييه",
+      "ضاغط هوايي",
+      "مضاغط هواء",
+      "مضاغط الهواء",
+      "ضواغط هواء"
      ],
      "term_guards": [
       {
@@ -19530,6 +20742,24 @@
         "refrigeration"
        ],
        "note": "An AC or fridge compressor is a spare part of that unit."
+      },
+      {
+       "terms": [
+        "ضواغط هواييه",
+        "ضاغط هوايي",
+        "مضاغط هواء",
+        "مضاغط الهواء",
+        "ضواغط هواء"
+       ],
+       "block_any": [
+        "تبريد",
+        "تكييف",
+        "ثلاجات",
+        "refrigeration",
+        "مكيف",
+        "مكيفات"
+       ],
+       "note": "A refrigeration compressor is HVAC."
       }
      ]
     },
@@ -19580,6 +20810,10 @@
      ],
      "note": "An AC or fridge compressor is a spare part of that unit. (mirrored from air_compressor)"
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -19681,6 +20915,10 @@
       "wet dry vacuum"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -19784,6 +21022,10 @@
       "parts bin"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -19956,6 +21198,10 @@
      ],
      "note": "A fuel tank, pump, filter or pipe is equipment, not fuel."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -20097,7 +21343,8 @@
       "all thread rod",
       "قضيب مسنن",
       "stud bolt",
-      "anchor rod"
+      "anchor rod",
+      "قضبان حديديه ملولبه"
      ]
     },
     {
@@ -20166,6 +21413,10 @@
      ],
      "note": "A chemical anchor is anchoring_epoxy; a fall-arrest anchor is fall_protection."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -20652,6 +21903,22 @@
          "name": "resolution_mp",
          "supplier_pool_affecting": false
         }
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "حراريه"
+         ],
+         "block_any": [
+          "طوب",
+          "بودره",
+          "ملاط",
+          "مونه",
+          "اسمنت",
+          "refractory"
+         ],
+         "note": "Refractory mortar for fire bricks is not thermal imaging."
+        }
        ]
       },
       {
@@ -20732,6 +21999,10 @@
       }
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -20813,6 +22084,10 @@
       "2u server"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -20882,6 +22157,10 @@
      "name": "data_speed",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -20990,6 +22269,10 @@
      ],
      "note": "An energy or thermal storage unit is not data storage."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -21050,6 +22333,10 @@
      "name": "rack_units",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -21138,6 +22425,10 @@
       "راوترات"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -21211,6 +22502,10 @@
       "وحده ضوييه"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -21322,6 +22617,10 @@
      ],
      "note": "A retaining, flood or fire-rated wall is construction, not a network firewall."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -21384,7 +22683,9 @@
     "data_center_integrator"
    ],
    "hard_conflicts": [
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -21759,9 +23060,15 @@
       "اسلاك هاتف",
       "سلك تلفون",
       "cat3 cable",
-      "كابل متعدد الازواج"
+      "كابل متعدد الازواج",
+      "كابلات انترفون",
+      "كابلات انترفون وهاتف"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -21860,7 +23167,10 @@
       "راك حايطي",
       "راك 42 يونت",
       "راكات شبكه",
-      "كابينه سيرفر"
+      "كابينه سيرفر",
+      "كباين اتصالات",
+      "كباين اجهزه اتصالات",
+      "كباين وارفف لكابلات الاتصالات"
      ]
     }
    ],
@@ -21888,6 +23198,10 @@
      ],
      "note": "A wall-mounted fire-hose, kitchen, electrical or medicine cabinet is not a comms cabinet."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -21974,6 +23288,10 @@
       "overhead busway"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -22055,6 +23373,10 @@
       "عزل ممر بارد"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -22111,6 +23433,10 @@
      "name": "protection_ip",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -22191,6 +23517,10 @@
      ],
      "facets": []
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -22296,6 +23626,9 @@
       "شاشه كمبيوتر"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "security_guard_services"
    ]
   },
   {
@@ -22679,7 +24012,57 @@
          "name": "interface",
          "supplier_pool_affecting": false
         }
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "لوحه مفاتيح"
+         ],
+         "block_any": [
+          "كهرباء",
+          "كهرباييه",
+          "كهربايي",
+          "كهرباييه",
+          "جهد",
+          "ضغط",
+          "تشغيل",
+          "امبير",
+          "فولت",
+          "kv",
+          "ك ف",
+          "محركات",
+          "توزيع",
+          "تحكم",
+          "اناره"
+         ],
+         "note": "«لوحات مفاتيح كهربائية / تشغيل / جهد منخفض» are switchboards, not keyboards."
+        }
        ]
+      }
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "لوحه مفاتيح"
+       ],
+       "block_any": [
+        "كهرباء",
+        "كهرباييه",
+        "كهربايي",
+        "كهرباييه",
+        "جهد",
+        "ضغط",
+        "تشغيل",
+        "امبير",
+        "فولت",
+        "kv",
+        "ك ف",
+        "محركات",
+        "توزيع",
+        "تحكم",
+        "اناره"
+       ],
+       "note": "«لوحات مفاتيح كهربائية / تشغيل / جهد منخفض» are switchboards, not keyboards. (mirrored from keyboards_peripherals)"
       }
      ]
     },
@@ -22822,6 +24205,34 @@
      ],
      "note": "Blank cards are a consumables trade. A card-printer supplier is ALLOWED here (it often stocks cards) but never PREFERRED: preference belongs to the supplier who names the cards."
     }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "لوحه مفاتيح"
+     ],
+     "block_any": [
+      "كهرباء",
+      "كهرباييه",
+      "كهربايي",
+      "كهرباييه",
+      "جهد",
+      "ضغط",
+      "تشغيل",
+      "امبير",
+      "فولت",
+      "kv",
+      "ك ف",
+      "محركات",
+      "توزيع",
+      "تحكم",
+      "اناره"
+     ],
+     "note": "«لوحات مفاتيح كهربائية / تشغيل / جهد منخفض» are switchboards, not keyboards. (mirrored from keyboards_peripherals)"
+    }
+   ],
+   "hard_conflicts": [
+    "security_guard_services"
    ]
   },
   {
@@ -23276,6 +24687,21 @@
          "name": "capacity",
          "supplier_pool_affecting": false
         }
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "وحده تحكم دخول"
+         ],
+         "block_any": [
+          "هواء",
+          "الهواء",
+          "تكييف",
+          "air",
+          "hvac"
+         ],
+         "note": "«وحدات تحكم دخول وخروج الهواء» is an air damper, not door access control."
+        }
        ]
       },
       {
@@ -23404,7 +24830,9 @@
         "speed gate",
         "بوابه امنيه",
         "full height turnstile",
-        "tripod turnstile"
+        "tripod turnstile",
+        "بوابات دواره",
+        "بوابه دواره"
        ],
        "weak_terms": [
         "بوابه",
@@ -23529,6 +24957,9 @@
      ],
      "facets": []
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency"
    ]
   },
   {
@@ -23603,6 +25034,10 @@
      "name": "data_speed",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -23677,6 +25112,10 @@
      "name": "range_m",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -23748,6 +25187,10 @@
      "name": "rack_units",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -23805,6 +25248,10 @@
      "name": "accuracy",
      "supplier_pool_affecting": false
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -24302,6 +25749,9 @@
      ],
      "note": "A paging, emergency or conference microphone belongs to its own intent; the bare word decides nothing there."
     }
+   ],
+   "hard_conflicts": [
+    "security_guard_services"
    ]
   },
   {
@@ -24324,7 +25774,9 @@
     "glasswool",
     "elastomeric insulation",
     "nitrile rubber insulation",
-    "phenolic insulation"
+    "phenolic insulation",
+    "عوازل حراريه",
+    "عوازل حراريه للمباني"
    ],
    "weak_terms": [
     "عزل",
@@ -24361,7 +25813,9 @@
    ],
    "hard_conflicts": [
     "sanitary_ware_supplier",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -24418,7 +25872,13 @@
       "فوم عازل",
       "فوم ازرق",
       "فوم عازل حراري",
-      "الواح فوم عازل"
+      "الواح فوم عازل",
+      "فوم جلاس",
+      "foam glass",
+      "بولستايرين",
+      "بوليستايرين",
+      "الواح عازله من البولستايرين",
+      "الواح عازله للحراره"
      ]
     },
     {
@@ -24509,7 +25969,11 @@
       "فيبر جلاس عازل",
       "لفايف صوف زجاجي",
       "صوف زجاجي لفايف",
-      "ceramic fiber blanket"
+      "ceramic fiber blanket",
+      "عوازل فايبرجلاس",
+      "عوازل فيبرجلاس",
+      "عوازل من الياف زجاجيه",
+      "عوازل حراره وصوت من الفيبرجلاس"
      ]
     },
     {
@@ -24755,7 +26219,9 @@
    ],
    "hard_conflicts": [
     "ppe_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -24780,7 +26246,10 @@
       "laminated glass",
       "pvb interlayer",
       "sgp interlayer",
-      "laminated safety glass"
+      "laminated safety glass",
+      "زجاج متعدد الطبقات",
+      "زجاج منضد",
+      "زجاج مامون منضد"
      ]
     },
     {
@@ -24794,7 +26263,27 @@
       "سيكوريت",
       "زجاج سيكوريت",
       "زجاج سكوريت",
-      "سكوريت"
+      "سكوريت",
+      "زجاج امان",
+      "زجاج امان معالج",
+      "زجاج مقوي",
+      "زجاج مقوي ومقاوم للكسر"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "زجاج امان",
+        "زجاج امان معالج"
+       ],
+       "block_any": [
+        "سيارات",
+        "سياره",
+        "car",
+        "vehicle",
+        "automotive"
+       ],
+       "note": "Automotive safety glass is not a building product."
+      }
      ]
     },
     {
@@ -24855,7 +26344,11 @@
       "جدران داخليه من الزجاج",
       "طوب زجاجي",
       "بلوك زجاج",
-      "طوبه زجاج"
+      "طوبه زجاج",
+      "زجاج ضد الحريق",
+      "زجاج مقاوم للحريق",
+      "fire rated glass",
+      "زجاج معشق"
      ]
     },
     {
@@ -24885,7 +26378,9 @@
       "sliding glass doors",
       "باب زجاج منزلق",
       "باب سكوريت",
-      "ابواب سكوريت"
+      "ابواب سكوريت",
+      "ابواب ودرف زجاجيه",
+      "ابواب ونوافذ زجاجيه"
      ],
      "term_guards": [
       {
@@ -25070,7 +26565,9 @@
    ],
    "hard_conflicts": [
     "ppe_supplier",
-    "sanitary_ware_supplier"
+    "sanitary_ware_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -25163,7 +26660,10 @@
       "نافذه زجاج مزدوج",
       "double glazed window",
       "double glazed aluminium window",
-      "نوافذ المنيوم زجاج مزدوج"
+      "نوافذ المنيوم زجاج مزدوج",
+      "نوافذ المونيوم",
+      "ابواب المونيوم",
+      "شبابيك المونيوم"
      ],
      "context_terms": [
       "م2",
@@ -25244,6 +26744,89 @@
       "نوافذ بي في سي",
       "شبابيك بي في سي"
      ]
+    },
+    {
+     "id": "aluminium_profile",
+     "label_ar": "قطاعات وألواح الألمنيوم الخام",
+     "strong_terms": [
+      "قطاعات المنيوم",
+      "قطاعات الومنيوم",
+      "قطاعات المونيوم",
+      "قطاعات الالمنيوم",
+      "قطاعات وقضبان المونيوم",
+      "قضبان وقطاعات المنيوم",
+      "قضبان المنيوم",
+      "قضبان المونيوم",
+      "قضبان الومنيوم",
+      "بروفيلات المنيوم",
+      "بروفيل المنيوم",
+      "بروفيلات الالمنيوم",
+      "مقاطع المنيوم",
+      "المنيوم مبثوق",
+      "قطاعات المنيوم مبثوقه",
+      "aluminium profile",
+      "aluminium profiles",
+      "aluminum profile",
+      "aluminum profiles",
+      "aluminium extrusion",
+      "aluminium extrusions",
+      "aluminum extrusion",
+      "صاج المنيوم",
+      "الواح المنيوم",
+      "لفايف المنيوم",
+      "لفات المنيوم",
+      "aluminium sheet",
+      "aluminium coil",
+      "اطارات المنيوم"
+     ],
+     "context_terms": [
+      "مبثوق",
+      "موكسد",
+      "بودره",
+      "انودايز",
+      "سماكه",
+      "طول"
+     ],
+     "note": "Mill/extruded aluminium sold by the metre or the tonne (profiles, bars, sheet, coil) — the stockist and the extruder, not the window/façade fabricator. «قطاعات واجهات المنيوم» stays curtain_wall_profile.",
+     "facets": [
+      {
+       "name": "thickness_mm",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "finish",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "الواح المنيوم",
+        "صاج المنيوم"
+       ],
+       "block_any": [
+        "مركب",
+        "كومبوزيت",
+        "composite",
+        "acp",
+        "كلادينج",
+        "كسوه",
+        "تكسيه",
+        "واجهات",
+        "سقف",
+        "اسقف",
+        "شمسيه",
+        "solar",
+        "معزوله",
+        "ساندوتش"
+       ],
+       "note": "A composite, cladding, ceiling, solar or sandwich panel is its own product."
+      }
+     ]
     }
    ]
   },
@@ -25314,7 +26897,9 @@
    ],
    "hard_conflicts": [
     "ppe_supplier",
-    "it_hardware_supplier"
+    "it_hardware_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -25378,7 +26963,11 @@
       "ductile iron manhole cover",
       "cast iron manhole cover",
       "manhole frame and cover",
-      "غطاء غرفه تفتيش حديد"
+      "غطاء غرفه تفتيش حديد",
+      "اغطيه فتحات تفتيش",
+      "غطاء فتحه تفتيش",
+      "اغطيه فتحات التفتيش",
+      "اغطيه مجاري"
      ]
     },
     {
@@ -25418,7 +27007,10 @@
       "مواسير صرف",
       "gravity sewer pipe",
       "structured wall pipe",
-      "مزراب"
+      "مزراب",
+      "انابيب فخاريه",
+      "مواسير فخاريه",
+      "انابيب فخاريه مزججه"
      ],
      "context_terms": [
       "sn4",
@@ -25520,7 +27112,77 @@
       "خرسانه مسبقه الصنع",
       "precast concrete",
       "بريكاست",
-      "precast"
+      "precast",
+      "خرسانيه مسبقه الصنع",
+      "خرسانيه مسبقه الصب",
+      "خرسانيه سابقه الصب",
+      "خرسانيه مسبقه الاجهاد",
+      "خرسانه مسبقه الاجهاد",
+      "منتجات خرسانيه مسبقه الصنع",
+      "عناصر انشاييه مسبقه الصنع",
+      "عناصر مسبقه الصنع",
+      "عناصر غير انشاييه مسبقه الصنع",
+      "حوايط مسبقه الصنع",
+      "حوايط داخليه مسبقه الصنع",
+      "اعمده مسبقه الصنع",
+      "ميدات مسبقه الصنع",
+      "جسور مسبقه الصنع",
+      "اعصاب مسبقه الصنع",
+      "قواعد مسبقه الصنع",
+      "قواطع مسبقه الصنع",
+      "قواطع خرسانيه",
+      "قواطع اسمنتيه",
+      "وحدات خرسانيه مسبقه الصب",
+      "كتل خرسانيه مسبقه الصب",
+      "مسبقه الاجهاد",
+      "اسقف خرسانيه جاهزه",
+      "ميدات والواح خرسانيه جاهزه",
+      "اعمده خرسانيه جاهزه",
+      "مصنوعات خرسانيه",
+      "دبل تي",
+      "double tee",
+      "درج اسمنتي",
+      "درج خرساني",
+      "درج خرساني مسبق الصب",
+      "وحدات خرسانيه مسلحه مسبقه الصب",
+      "خرسانيه مسلحه مسبقه الصب"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "خرسانيه مسبقه الصنع",
+        "خرسانيه مسبقه الصب",
+        "خرسانيه سابقه الصب",
+        "خرسانيه مسبقه الاجهاد",
+        "خرسانه مسبقه الاجهاد",
+        "مسبقه الاجهاد",
+        "وحدات خرسانيه مسبقه الصب",
+        "كتل خرسانيه مسبقه الصب",
+        "مصنوعات خرسانيه"
+       ],
+       "blocked_by_head": [
+        "مناهل",
+        "منهل",
+        "مانهول",
+        "غرف",
+        "غرفه",
+        "بيارات",
+        "بياره",
+        "عبارات",
+        "عباره",
+        "مواسير",
+        "انابيب",
+        "ماسوره",
+        "مصارف",
+        "اغطيه",
+        "بردورات",
+        "بلاط",
+        "انترلوك",
+        "خزانات",
+        "خزان"
+       ],
+       "note": "Manholes, chambers, septic tanks, culverts, pipes, kerbs and paving are their own precast products."
+      }
      ]
     },
     {
@@ -25539,7 +27201,11 @@
       "concrete pipe",
       "reinforced concrete pipe",
       "rcp pipe",
-      "culvert pipe"
+      "culvert pipe",
+      "انابيب خرسانيه",
+      "مواسير اسمنتيه",
+      "انابيب اسمنتيه",
+      "انابيب خرسانيه مسلحه"
      ]
     },
     {
@@ -25687,7 +27353,9 @@
    ],
    "hard_conflicts": [
     "ppe_supplier",
-    "it_hardware_supplier"
+    "it_hardware_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -25729,7 +27397,9 @@
       "بلاط رصيف",
       "بلاط خارجي",
       "بلاط ارضيات خارجيه",
-      "انترلوك خرساني"
+      "انترلوك خرساني",
+      "اندرلوك",
+      "بلاط اندرلوك"
      ]
     },
     {
@@ -25825,7 +27495,9 @@
    "hard_conflicts": [
     "ppe_supplier",
     "it_hardware_supplier",
-    "sanitary_ware_supplier"
+    "sanitary_ware_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -26028,7 +27700,8 @@
    ],
    "hard_conflicts": [
     "it_hardware_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -26105,7 +27778,10 @@
       "لوحات مواقف",
       "لوحه مواقف",
       "parking sign",
-      "parking signs"
+      "parking signs",
+      "لوحات اسماء الشوارع",
+      "لوحات اسماء شوارع",
+      "لوحات الشوارع"
      ]
     },
     {
@@ -26129,7 +27805,9 @@
       "عواكس ارضيه",
       "عاكس ارضي",
       "road reflector",
-      "عواكس طرق"
+      "عواكس طرق",
+      "عيون قطط",
+      "عين قطه"
      ]
     },
     {
@@ -26140,7 +27818,8 @@
       "bollard",
       "عمود حمايه",
       "removable bollard",
-      "fixed bollard"
+      "fixed bollard",
+      "مصدات معدنيه هيدروليكيه"
      ]
     },
     {
@@ -26162,6 +27841,26 @@
       "garden bench",
       "park bench",
       "حواجز حدايق"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "صواري"
+       ],
+       "block_any": [
+        "اناره",
+        "كهرباء",
+        "الكهرباء",
+        "اتصالات",
+        "الاتصالات",
+        "نقل",
+        "طاقه",
+        "الطاقه",
+        "ضغط",
+        "جهد"
+       ],
+       "note": "Power, telecom and lighting masts are not site furniture."
+      }
      ]
     },
     {
@@ -26194,7 +27893,10 @@
       "حواجز طرق معدنيه",
       "قاردريل",
       "جاردريل",
-      "w-beam barrier"
+      "w-beam barrier",
+      "قواطع طرق",
+      "مصدات خرسانيه",
+      "حواجز اسمنتيه"
      ]
     },
     {
@@ -26325,7 +28027,9 @@
       "sign board",
       "signboard",
       "acrylic sign",
-      "3d letters"
+      "3d letters",
+      "لوحات ارقام منازل",
+      "ارقام منازل"
      ],
      "note": "Sibling of wayfinding_signage (interior) and traffic_sign (road); the sign-maker pool is one trade. «لوحه» alone is an electrical panel as often as a sign (family guard).",
      "facets": [
@@ -26511,7 +28215,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "ppe_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -26576,7 +28282,18 @@
       "بلوك خرسانه",
       "بلك خرساني",
       "بلك مفرغ",
-      "بلك مصمت"
+      "بلك مصمت",
+      "كتل خرسانيه",
+      "كتل اسمنتيه",
+      "كتل بناء",
+      "كتل للبناء",
+      "كتل واجر للبناء",
+      "كتل واجر",
+      "بلوك هوردي",
+      "بلوك ملون",
+      "بلوك مصمط",
+      "بلوك واجهات",
+      "طوب رملي"
      ]
     },
     {
@@ -26597,7 +28314,10 @@
       "aerated concrete block",
       "aac",
       "بلوك خرساني خلوي",
-      "بلوك خفيف الوزن"
+      "بلوك خفيف الوزن",
+      "بلوك بيرلايت",
+      "بلوك بيرلايتي",
+      "بلوك هوردي بركاني"
      ]
     },
     {
@@ -26620,7 +28340,35 @@
       "طوب واجهات",
       "طوب ديكور",
       "brick veneer",
-      "طوب طفلي"
+      "طوب طفلي",
+      "اجر",
+      "طوب اجر",
+      "اجر احمر",
+      "طوب مثقب",
+      "طوب مجوف",
+      "طوب مجوف ومثقب",
+      "بلوك احمر",
+      "بلاط فخاري للاسقف"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "اجر"
+       ],
+       "block_any": [
+        "اجره",
+        "اجور",
+        "اجار",
+        "تاجير",
+        "ايجار",
+        "عامل",
+        "عمال",
+        "يوميه",
+        "ساعه",
+        "نقل"
+       ],
+       "note": "«أجر» is also a wage or a fare; only a masonry line keeps it."
+      }
      ]
     },
     {
@@ -26645,7 +28393,11 @@
       "بلوك خرساني عازل",
       "بلك عازل",
       "بلك معزول",
-      "بلك حراري"
+      "بلك حراري",
+      "طوب عازل",
+      "طوب عازل خفيف",
+      "بلوك هوردي عازل",
+      "هوردي عازل"
      ]
     },
     {
@@ -26731,7 +28483,9 @@
    ],
    "hard_conflicts": [
     "it_hardware_supplier",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -26792,7 +28546,17 @@
       "اضافه موخره",
       "اضافه موخره للتصلب",
       "موخر تصلب",
-      "معجل تصلب"
+      "معجل تصلب",
+      "مواد ملدنه",
+      "ملدن خرسانه",
+      "مضافات كيماويه",
+      "كيماويات الخلطه الخرسانيه",
+      "للخلطه الخرسانيه",
+      "كيماويات مواد البناء",
+      "كيماويات بناء",
+      "محضرات تضاف للاسمنت",
+      "تضاف للخرسانه",
+      "تضاف للاسمنت"
      ]
     },
     {
@@ -26858,7 +28622,11 @@
       "antisol",
       "كيورنج",
       "كيورنج كومباوند",
-      "معالجه الخرسانه بالرش"
+      "معالجه الخرسانه بالرش",
+      "كيماويات معالجه الخرسانه",
+      "معالجه وانضاج",
+      "انضاج الخرسانه",
+      "انضاج الاسطح الخرسانيه"
      ]
     },
     {
@@ -26882,7 +28650,9 @@
       "جراوت انشايي",
       "كونبكسترا",
       "conbextra",
-      "epoxy machine grout"
+      "epoxy machine grout",
+      "خرسانه غير متقلصه",
+      "غير متقلصه"
      ]
     },
     {
@@ -26984,7 +28754,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "cybersecurity_integrator",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -27080,7 +28852,14 @@
       "مونه الاسمنت والرمل",
       "cement sand mortar",
       "sand cement mortar",
-      "مونه لاصقه"
+      "مونه لاصقه",
+      "مونه جافه",
+      "مونه جاهزه جافه",
+      "خلطات اسمنتيه",
+      "مواد تمهيد وتسويه ارضيات",
+      "ملاط حراري",
+      "ملاط مقاوم للحراره",
+      "خلطات للطوب الحراري"
      ]
     }
    ]
@@ -27192,7 +28971,9 @@
    "hard_conflicts": [
     "ppe_supplier",
     "cybersecurity_integrator",
-    "sanitary_ware_supplier"
+    "sanitary_ware_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -27301,7 +29082,32 @@
       "باب غرفه خشب",
       "ابواب غرف خشب",
       "ابواب hdf",
-      "ابواب mdf"
+      "ابواب mdf",
+      "ابواب فورميكا",
+      "باب فورميكا",
+      "حلوق خشبيه",
+      "حلوق ابواب",
+      "حلق باب",
+      "حلوق وبراويز",
+      "ابواب ونوافذ خشبيه",
+      "ابواب وشبابيك خشبيه",
+      "ابواب قشره خشب",
+      "نوافذ خشبيه",
+      "شبابيك خشب",
+      "شبابيك خشبيه"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "حلوق خشبيه"
+       ],
+       "block_any": [
+        "مكيف",
+        "مكيفات",
+        "تكييف"
+       ],
+       "note": "A timber frame for a window AC unit is HVAC carpentry, not a door frame."
+      }
      ]
     },
     {
@@ -27455,6 +29261,52 @@
       {
        "name": "material",
        "supplier_pool_affecting": false
+      }
+     ]
+    },
+    {
+     "id": "wpc_decking_cladding",
+     "label_ar": "الخشب البلاستيكي (WPC) للأرضيات والتكسيات",
+     "strong_terms": [
+      "خشب بلاستيكي",
+      "خشب بلاستيك",
+      "الواح خشب بلاستيكي",
+      "wpc decking",
+      "wpc board",
+      "ديكينج wpc",
+      "ارضيات خشب بلاستيك",
+      "خشب مركب بلاستيكي",
+      "wood plastic composite"
+     ],
+     "note": "Wood-plastic composite boards, decking and cladding. A WPC DOOR stays pvc_wpc_doors/wpc_door.",
+     "facets": [
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "finish",
+       "supplier_pool_affecting": false
+      }
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "خشب بلاستيكي",
+        "خشب بلاستيك",
+        "الواح خشب بلاستيكي",
+        "خشب مركب بلاستيكي",
+        "wood plastic composite"
+       ],
+       "blocked_by_head": [
+        "باب",
+        "ابواب",
+        "door",
+        "doors",
+        "حلق",
+        "حلوق"
+       ],
+       "note": "A WPC door is wpc_door."
       }
      ]
     }
@@ -27624,7 +29476,10 @@
       "باب غرفه wpc",
       "باب حمام wpc",
       "ابواب حمامات wpc",
-      "wpc"
+      "wpc",
+      "ابواب خشب بلاستيكي",
+      "باب خشب بلاستيكي",
+      "ابواب خشب بلاستيك"
      ],
      "term_guards": [
       {
@@ -27663,6 +29518,10 @@
      ],
      "note": "Bare «pvc» names the door only beside a door word and never a uPVC window/door system (upvc_window). (mirrored from pvc_door)"
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -27733,7 +29592,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "cybersecurity_integrator",
-    "printing_supplier"
+    "printing_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -27899,7 +29760,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "cybersecurity_integrator",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "facets": [
     {
@@ -28004,7 +29867,16 @@
       "برابيش",
       "garden hose",
       "hose pipe",
-      "water hose"
+      "water hose",
+      "ليات زراعيه",
+      "ليات بولي ايثلين",
+      "ليات بلاستيكيه",
+      "ليات مياه",
+      "ليات من بي في سي",
+      "خراطيم بلاستيكيه",
+      "خراطيم بي في سي",
+      "خراطيم من بي في سي",
+      "خراطيم بلاستيكيه للمياه"
      ],
      "context_terms": [
       "ري",
@@ -28021,6 +29893,46 @@
       {
        "name": "length_m",
        "supplier_pool_affecting": false
+      }
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "ليات زراعيه",
+        "ليات بولي ايثلين",
+        "ليات بلاستيكيه",
+        "ليات من بي في سي"
+       ],
+       "block_any": [
+        "كهرباء",
+        "كهرباييه",
+        "كهرباييه",
+        "كهربايي",
+        "تمديدات كهرباييه",
+        "اسلاك",
+        "تنقيط",
+        "بالتنقيط",
+        "نقاط",
+        "نقاطات",
+        "drip"
+       ],
+       "note": "Electrical «ليات» are conduit; a PE drip line is irrigation_emitter."
+      },
+      {
+       "terms": [
+        "خراطيم بلاستيكيه",
+        "خراطيم بي في سي",
+        "خراطيم من بي في سي",
+        "خراطيم بلاستيكيه للمياه"
+       ],
+       "blocked_by_head": [
+        "انابيب",
+        "مواسير",
+        "ماسوره",
+        "مستلزمات",
+        "وصلات"
+       ],
+       "note": "«انابيب ومواسير وخراطيم …» is a pipe line first."
       }
      ]
     }
@@ -28115,7 +30027,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "ppe_supplier",
-    "cable_supplier"
+    "cable_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -28174,7 +30088,11 @@
       "مواد ملء فواصل",
       "ماده ملء فواصل",
       "ملء فواصل",
-      "joint sealant filler"
+      "joint sealant filler",
+      "موقفات المياه",
+      "موقف مياه",
+      "مواد ملء الفواصل",
+      "مواد ملء الفراغات والفواصل"
      ]
     },
     {
@@ -28301,7 +30219,9 @@
    "hard_conflicts": [
     "paint_only_supplier",
     "it_hardware_supplier",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -28362,7 +30282,8 @@
       "خرسانه جاهزه مسلحه",
       "concrete grade c30",
       "خرسانه انشاييه",
-      "خرصانه جاهزه"
+      "خرصانه جاهزه",
+      "خلطات خرسانيه مسبقه التجهيز"
      ],
      "weak_terms": [
       "خرسانه",
@@ -28565,7 +30486,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "paint_only_supplier",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -28794,7 +30717,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "cable_supplier",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -28840,7 +30765,14 @@
       "ready mix plaster",
       "external render",
       "sand cement render",
-      "بلاستر خارجي"
+      "بلاستر خارجي",
+      "تلييس",
+      "مواد تلييس",
+      "مواد تلييس جدران",
+      "خلطات تلييس",
+      "طبقه تلييس",
+      "مواد تلييس وتشطيب",
+      "خلطات اسمنتيه للتلييس"
      ]
     },
     {
@@ -28864,7 +30796,11 @@
       "سكم كوت",
       "skimcoat",
       "معجون لياسه",
-      "finishing plaster"
+      "finishing plaster",
+      "بودره جبس",
+      "جبس تلييس",
+      "جبس الرش",
+      "جبس رش"
      ]
     },
     {
@@ -28878,7 +30814,9 @@
       "بروفايل لياسه",
       "stop bead",
       "expanded metal lath",
-      "شبك ممدد لياسه"
+      "شبك ممدد لياسه",
+      "شبك تلييس",
+      "شبك تلييس وتدعيم"
      ]
     }
    ]
@@ -28994,7 +30932,9 @@
    "hard_conflicts": [
     "it_hardware_supplier",
     "cable_supplier",
-    "paint_only_supplier"
+    "paint_only_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -29275,7 +31215,9 @@
     "rebar_supplier",
     "ready_mix_supplier",
     "cable_supplier",
-    "ppe_supplier"
+    "ppe_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -29334,7 +31276,8 @@
       "مكتب خشب",
       "مكتب خشبي",
       "مكاتب خشب",
-      "مكتب موظفين"
+      "مكتب موظفين",
+      "مكاتب ومكتبات"
      ]
     },
     {
@@ -29378,6 +31321,18 @@
         "اسياخ"
        ],
        "note": "«كراسي تسليح / كراسي حديد للتسليح» are rebar chairs, not furniture."
+      },
+      {
+       "terms": [
+        "كراسي"
+       ],
+       "blocked_by_head": [
+        "حوامل",
+        "حامل",
+        "قواعد",
+        "قاعده"
+       ],
+       "note": "«حوامل وكراسي وحدات التكييف» are AC-unit stands."
       }
      ]
     },
@@ -29416,7 +31371,9 @@
       "خزانه حديد مكتبيه",
       "steel cupboard",
       "دواليب ملابس",
-      "wardrobes"
+      "wardrobes",
+      "مكتبات خشبيه",
+      "مكتبه خشبيه"
      ]
     },
     {
@@ -29633,7 +31590,9 @@
     "cybersecurity_integrator",
     "it_hardware_supplier",
     "sanitary_ware_supplier",
-    "paint_only_supplier"
+    "paint_only_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -29841,7 +31800,9 @@
     "sanitary_ware_supplier",
     "ready_mix_supplier",
     "ppe_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -30114,7 +32075,9 @@
    "hard_conflicts": [
     "ready_mix_supplier",
     "rebar_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -30182,6 +32145,21 @@
         "maglock"
        ],
        "note": "An electric lock is access control."
+      },
+      {
+       "terms": [
+        "قفل",
+        "اقفال"
+       ],
+       "blocked_by_head": [
+        "صمام",
+        "صمامات",
+        "محبس",
+        "محابس",
+        "valve",
+        "valves"
+       ],
+       "note": "«صمامات قفل» are shut-off valves."
       }
      ]
     },
@@ -30418,7 +32396,9 @@
     "sanitary_ware_supplier",
     "ready_mix_supplier",
     "ppe_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -30573,7 +32553,9 @@
     "ready_mix_supplier",
     "rebar_supplier",
     "paint_only_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -30840,7 +32822,9 @@
    "hard_conflicts": [
     "ready_mix_supplier",
     "rebar_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -31150,7 +33134,9 @@
    "hard_conflicts": [
     "ready_mix_supplier",
     "rebar_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -31357,7 +33343,9 @@
    "hard_conflicts": [
     "ready_mix_supplier",
     "paint_only_supplier",
-    "sanitary_ware_supplier"
+    "sanitary_ware_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -31532,7 +33520,9 @@
    "hard_conflicts": [
     "paint_only_supplier",
     "sanitary_ware_supplier",
-    "ready_mix_supplier"
+    "ready_mix_supplier",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -31593,7 +33583,11 @@
       "تراكر شمسي",
       "solar tracker",
       "قواعد الواح شمسيه",
-      "ballast mounting"
+      "ballast mounting",
+      "حوامل معدنيه للوحات توليد الطاقه الكهروضوييه",
+      "حوامل الواح شمسيه",
+      "حوامل الواح الطاقه الشمسيه",
+      "حوامل الواح كهروضوييه"
      ]
     },
     {
@@ -31782,7 +33776,9 @@
    "hard_conflicts": [
     "ready_mix_supplier",
     "rebar_supplier",
-    "cybersecurity_integrator"
+    "cybersecurity_integrator",
+    "advertising_agency",
+    "security_guard_services"
    ],
    "soft_conflicts": [
     "general_trading"
@@ -31857,7 +33853,11 @@
       "مظله شفط",
       "مظلات شفط",
       "هود ستانلس",
-      "شفاط ستانلس"
+      "شفاط ستانلس",
+      "مداخن مطابخ",
+      "شفط مطابخ",
+      "اجهزه شفط طارد مركزي",
+      "شفط طارد مركزي للمطابخ"
      ]
     },
     {
@@ -31891,7 +33891,8 @@
       "مغاسل مطابخ ستانلس",
       "مغسله مطبخ ستانلس",
       "احواض مطابخ ستانلس",
-      "stainless kitchen sink unit"
+      "stainless kitchen sink unit",
+      "مطابخ صناعيه"
      ]
     },
     {
@@ -31957,7 +33958,10 @@
       "cold room unit",
       "monoblock unit",
       "condensing unit cold room",
-      "ثلاجه غرف تبريد"
+      "ثلاجه غرف تبريد",
+      "غرف حفظ الموتي",
+      "ثلاجات موتي",
+      "ثلاجه موتي"
      ],
      "note": "complete cold rooms (panels + refrigeration unit) from refrigeration contractors"
     },
@@ -32181,6 +34185,10 @@
      ],
      "note": "Concrete test-cube moulds are lab equipment, not formwork."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -32394,6 +34402,10 @@
       "خلطه اسفلتيه بارده"
      ]
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -32474,7 +34486,9 @@
       "شبوك حديد",
       "شبك سور",
       "شبك اسوار مجلفن",
-      "شبك pvc"
+      "شبك pvc",
+      "شبك تسوير",
+      "اسوار سلكيه"
      ]
     },
     {
@@ -32602,6 +34616,10 @@
      ],
      "note": "Plaster lath, masonry reinforcement, welded mesh and insect screen are other products."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -32862,6 +34880,10 @@
      ],
      "note": "planter boxes/pots (GRC, fibreglass, concrete, wood); material is a facet"
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -33023,6 +35045,10 @@
      ],
      "note": "A soldering or PPR welding iron is a tool."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -33239,6 +35265,10 @@
      ],
      "note": "Water equipment (tanks, coolers, dispensers, pipes) is never the bottled water itself."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -33314,7 +35344,12 @@
       "prefab cabin",
       "prefabricated cabin",
       "site cabin",
-      "سكن عمال جاهز"
+      "سكن عمال جاهز",
+      "بيوت جاهزه",
+      "مباني جاهزه",
+      "مباني مسبقه الصنع",
+      "وحدات سكنيه جاهزه",
+      "مباني جاهزه خفيفه"
      ],
      "note": "«مكاتب جاهزه» names a site office only with site/cabin/prefab context (family guard); bare «مكتب» stays office furniture.",
      "facets": [
@@ -33452,6 +35487,10 @@
      ],
      "note": "A waste container is waste_containers."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   },
   {
@@ -33683,6 +35722,10 @@
      ],
      "note": "A horse, camel or car track is civil works, not a running track surface."
     }
+   ],
+   "hard_conflicts": [
+    "advertising_agency",
+    "security_guard_services"
    ]
   }
  ]
