@@ -13,6 +13,7 @@ import {
 import type { Nav } from '../MobileApp'
 import { Avatar, Card, ErrorNote, Group, Pill, Progress, Row, Screen, SectionTitle, Skeleton, Stat, num, sar, useLoad } from '../ui'
 import { requestState } from './RequestsScreen'
+import { listDeliveries, STATUS_AR, type SavedDelivery } from '../deliveries'
 
 type Offer = {
   supplierId: string
@@ -53,6 +54,7 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
   const rfq = useLoad<ConstructionRfq>(() => getConstructionRfq(id), [id])
   const comparison = useLoad<ConstructionComparison | null>(() => getConstructionComparison(id).catch(() => null), [id])
   const [allLines, setAllLines] = useState(false)
+  const deliveries = useLoad<{ deliveries: SavedDelivery[] }>(() => listDeliveries(id).catch(() => ({ deliveries: [] })), [id])
 
   const r = rfq.data
   const offers = offersOf(comparison.data)
@@ -99,6 +101,44 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
               <div className="text-[20px] font-black mt-1">{r.award.approved_total ? sar(r.award.approved_total) : '—'}</div>
               {r.award.selection_reason && <p className="text-[13px] text-neutral-500 mt-1 leading-relaxed">{r.award.selection_reason}</p>}
             </Card>
+          )}
+
+          <SectionTitle
+            action={<button onClick={() => nav.push({ kind: 'delivery', rfqId: id })} className="text-[13px] font-bold text-[#123F3A]">+ تسجيل توريد</button>}
+          >
+            التوريد {deliveries.data?.deliveries.length ? `(${deliveries.data.deliveries.length})` : ''}
+          </SectionTitle>
+          {!deliveries.data?.deliveries.length ? (
+            <Card onClick={() => nav.push({ kind: 'delivery', rfqId: id })} className="p-4 flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-[#e0efec] text-[#123F3A] flex items-center justify-center text-[18px]">⌗</span>
+              <div className="flex-1">
+                <div className="font-bold text-[15px]">لم يُسجَّل توريد بعد</div>
+                <div className="text-[13px] text-neutral-500">صوّر سند التسليم عند وصول المواد</div>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {deliveries.data.deliveries.map((dv) => {
+                const done = dv.lines.filter((l) => l.status === 'COMPLETE' || l.status === 'MATCHED').length
+                const issues = dv.lines.length - done
+                return (
+                  <Card key={dv.id} className="p-4">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="font-bold text-[15px] truncate">{dv.supplier_name || 'مورد'}</div>
+                      <div className="text-[12px] text-neutral-400 shrink-0">{formatArDate(dv.created_at)}</div>
+                    </div>
+                    <div className="text-[12px] text-neutral-500 mt-0.5">سند <bdi dir="ltr">{dv.note_number || '—'}</bdi> · {done} مكتمل{issues ? ` · ${issues} للمتابعة` : ''}</div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {dv.lines.slice(0, 4).map((l, i) => (
+                        <Pill key={i} tone={STATUS_AR[l.status]?.tone || 'neutral'}>
+                          {l.description.slice(0, 22)} · {l.delivered_quantity ?? '—'}{l.ordered_quantity ? `/${l.ordered_quantity}` : ''}
+                        </Pill>
+                      ))}
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
           )}
 
           <SectionTitle>العروض {offers.length ? `(${offers.length})` : ''}</SectionTitle>

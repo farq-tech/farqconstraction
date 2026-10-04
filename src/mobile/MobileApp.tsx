@@ -12,6 +12,7 @@ import MoreScreen from './screens/MoreScreen'
 import ReportsScreen from './screens/ReportsScreen'
 import PricesScreen from './screens/PricesScreen'
 import NewRequestScreen from './screens/NewRequestScreen'
+import DeliveryScanScreen from './screens/DeliveryScanScreen'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon } from '../icons'
 import { statusBar } from './native'
 import { enablePush } from './push'
@@ -25,6 +26,7 @@ export type Route =
   | { kind: 'reports' }
   | { kind: 'prices' }
   | { kind: 'new' }
+  | { kind: 'delivery'; rfqId?: string | null }
 
 export type Nav = {
   push: (route: Route) => void
@@ -117,6 +119,7 @@ export default function MobileApp() {
   else if (top?.kind === 'reports') screen = <ReportsScreen nav={nav} />
   else if (top?.kind === 'prices') screen = <PricesScreen nav={nav} />
   else if (top?.kind === 'new') screen = <NewRequestScreen nav={nav} />
+  else if (top?.kind === 'delivery') screen = <DeliveryScanScreen nav={nav} rfqId={top.rfqId || null} />
   else if (tab === 'home') screen = <HomeScreen nav={nav} />
   else if (tab === 'requests') screen = <RequestsScreen nav={nav} />
   else if (tab === 'inbox') screen = <InboxScreen nav={nav} />
@@ -124,7 +127,7 @@ export default function MobileApp() {
   else screen = <MoreScreen nav={nav} />
 
   // The composer owns the bottom edge inside a conversation.
-  const hideTabBar = top?.kind === 'thread' || top?.kind === 'new'
+  const hideTabBar = top?.kind === 'thread' || top?.kind === 'new' || top?.kind === 'delivery'
 
   return (
     <div className="min-h-[100dvh] bg-[#f2f3ef] text-[#0D1F1D]" dir="rtl">

@@ -32,7 +32,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>لتصوير كراسة الشروط أو عرض السعر ورفعها.</string>
+	<string>يستخدم فرق بناء الكاميرا لتصوير سندات التسليم والكراسات وعروض الأسعار.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>لحفظ الصور والمستندات التي تنزّلها من فرق بناء.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

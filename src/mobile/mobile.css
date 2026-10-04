@@ -47,3 +47,12 @@ select {
 .m-fade {
   animation: m-fade 200ms ease both;
 }
+
+@keyframes m-scan {
+  0% { top: 4%; opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { top: 96%; opacity: 0.2; }
+}
+.m-scan-line {
+  animation: m-scan 2.2s ease-in-out infinite alternate;
+}
