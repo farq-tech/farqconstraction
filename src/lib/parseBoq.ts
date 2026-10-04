@@ -607,8 +607,9 @@ function mapApiSuppliers(
 }
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
+type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>
+  hits: Map<string, RemoteHit>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -627,7 +628,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>()
+  const out = new Map<string, RemoteHit>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -657,6 +658,8 @@ async function matchViaFarqBoqApi(
     const chunks: ParsedLine[][] = []
     for (let i = 0; i < supplyLines.length; i += MATCH_API_LINE_CAP) chunks.push(supplyLines.slice(i, i + MATCH_API_LINE_CAP))
     const matchedRows: Awaited<ReturnType<typeof matchConstructionBoqCatalog>>['rows'] = []
+    // «سجل العرض»: each chunk is one match call with its own id; a line keeps the id of the call that answered it.
+    const exposureByKey = new Map<string, string>()
     // One chunk failing must not erase the others. Measured 2026-09-17: two
     // chunks in parallel, one 500, and Promise.all threw away 94 confirmed
     // matches and 37 map suggestions the other chunks had returned — 1,039
@@ -693,6 +696,7 @@ async function matchViaFarqBoqApi(
       }
       if (part) {
         matchedRows.push(...(part.rows || []))
+        if (part.exposure_id) for (const row of part.rows || []) exposureByKey.set(String(row.line_key), part.exposure_id)
         if (emitActivity) {
           const byKey = new Map((part.rows || []).map((row) => [row.line_key, row]))
           emitActivity({
@@ -715,6 +719,7 @@ async function matchViaFarqBoqApi(
     for (const row of matched.rows || []) {
       out.set(row.line_key, {
         farqSpecId: row.farq_spec_id,
+        exposureId: exposureByKey.get(String(row.line_key)),
         suppliers: mapApiSuppliers(row.suppliers || []),
         // An ontology-named material with the map's suppliers — beside the match, never in it.
         mapSuggestion: row.map_suggestion
@@ -812,6 +817,7 @@ export async function matchSuppliersForItems(
       suppliers,
       farqSpecId: api?.farqSpecId || undefined,
       lineKey: lineKeyFor(line),
+      ...(api?.exposureId ? { exposureId: api.exposureId } : {}),
       aiSuggestion: api?.aiSuggestion,
       learnedSuggestion: api?.learnedSuggestion,
       outcomeSuggestion: api?.outcomeSuggestion,

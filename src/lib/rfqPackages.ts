@@ -12,6 +12,10 @@ export type RfqPackageDraft = {
   category_keys: string[]
   line_keys: string[]
   selected_supplier_ids: string[]
+  /** «سجل العرض»: the match call whose lists these suppliers were chosen from. */
+  exposure_id?: string
+  /** Those of selected_supplier_ids the screen ticked by itself. */
+  auto_picked_supplier_ids?: string[]
 }
 
 export type RfqLineDraft = {
@@ -153,12 +157,16 @@ export function buildRfqPackagesFromSelection(input: {
     const lineKey = String(item.lineKey || `${item.id}:${item.farqSpecId || item.name}`)
     lineKeys.add(lineKey)
     const specId = item.farqSpecId || `item:${item.id}`
+    const auto = new Set((item.autoPickedSupplierIds || []).map(resolve))
+    const autoPicked = supplierIds.filter((id) => auto.has(id))
     packages.push({
       id: `material:${specId}:${item.id}`,
       name: item.name || specId,
       category_keys: [departmentForBoqItem(item) || input.fallbackDepartment || ''].filter(Boolean),
       line_keys: [lineKey],
       selected_supplier_ids: supplierIds,
+      ...(item.exposureId ? { exposure_id: item.exposureId } : {}),
+      ...(autoPicked.length ? { auto_picked_supplier_ids: autoPicked } : {}),
     })
   }
 

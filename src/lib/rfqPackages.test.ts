@@ -66,3 +66,18 @@ describe('buildRfqPackagesFromSelection', () => {
     ])).toBe('ARCHITECTURAL')
   })
 })
+
+describe('buildRfqPackagesFromSelection — «سجل العرض»', () => {
+  it('sends the match call id and the screen’s own picks on the package, only those still selected', () => {
+    const items = [
+      item({ id: 7, name: 'فيشر بلاستيك', farqSpecId: 'F-PLUG', lineKey: 'line-7', exposureId: 'e-1', autoPickedSupplierIds: ['auto-a', 'auto-b', 'auto-unticked'] }),
+      item({ id: 8, name: 'بلوك', lineKey: 'line-8' }),
+    ]
+    const { packages } = buildRfqPackagesFromSelection({ items, selectedByItem: { 7: ['auto-a', 'hand-c', 'auto-b'], 8: ['hand-d'] } })
+    expect(packages[0].exposure_id).toBe('e-1')
+    expect(packages[0].auto_picked_supplier_ids).toEqual(['auto-a', 'auto-b'])
+    expect(packages[0].selected_supplier_ids).toEqual(['auto-a', 'hand-c', 'auto-b'])
+    expect(packages[1]).not.toHaveProperty('exposure_id')
+    expect(packages[1]).not.toHaveProperty('auto_picked_supplier_ids')
+  })
+})

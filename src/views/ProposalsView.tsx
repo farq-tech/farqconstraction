@@ -736,7 +736,10 @@ export function ProposalsView({ navigate }: NavProps) {
           if (!add) return item
           const have = new Set(item.suppliers.map((s) => s.id))
           const suppliers = [...item.suppliers, ...add.filter((s) => !have.has(s.id))]
-          return { ...item, suppliers, supplierCount: suppliers.length, status: 'ready' as const }
+          // Remembered on the line so the request's package can say which ticks
+          // were the screen's own («سجل العرض»: shown → auto-picked → quoted).
+          const autoPickedSupplierIds = [...new Set([...(item.autoPickedSupplierIds || []), ...add.map((s) => s.id)])]
+          return { ...item, suppliers, supplierCount: suppliers.length, status: 'ready' as const, autoPickedSupplierIds }
         }),
       )
       setSelected((prev) => {

@@ -104,6 +104,13 @@ export interface BOQItem {
   outcomeSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */
   workOnly?: boolean
+  /**
+   * «سجل العرض»: the id of the match call that produced this line's lists. Sent
+   * on the line's package so «shown → chosen → quoted» can be measured.
+   */
+  exposureId?: string
+  /** The suppliers the screen ticked by itself (autoPickConfident), as opposed to the buyer's hand. */
+  autoPickedSupplierIds?: string[]
   /** The item code the booklet prints for this row. */
   itemCode?: string
   /**

@@ -3118,7 +3118,7 @@ export async function matchConstructionBoqCatalog(payload: {
     category?: string
     brand?: string
   }>
-}): Promise<{ rows: BoqCatalogMatchRow[]; matches?: BoqCatalogMatchRow[] }> {
+}): Promise<{ rows: BoqCatalogMatchRow[]; matches?: BoqCatalogMatchRow[]; /** «سجل العرض»: this match call's id, sent back on each package. */ exposure_id?: string }> {
   const baseRows =
     payload.rows?.length
       ? payload.rows.slice(0, 200)
@@ -3174,6 +3174,8 @@ export async function matchConstructionBoqCatalog(payload: {
   })
 
   const data = await request<{
+    /** «سجل العرض»: the id of this match call, sent back on each package the request creates. */
+    exposure?: { id?: string; status?: string } | null
     rows?: Array<{
       key?: string
       kind?: string
@@ -3325,7 +3327,7 @@ export async function matchConstructionBoqCatalog(payload: {
     }
   })
 
-  return { rows: mapped, matches: mapped }
+  return { rows: mapped, matches: mapped, exposure_id: data.exposure?.id || undefined }
 }
 
 /** A row the read refused to serve as an item, with the reason it refused. */
