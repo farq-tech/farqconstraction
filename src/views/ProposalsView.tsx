@@ -118,6 +118,10 @@ function SuggestionBox({
 }) {
   const t = SUGGESTION_TONE[tone]
   const picked = suppliers.filter((s) => selectedIds.includes(s.id)).length
+  // A long list (every confirmed seller) folds after twelve; the count stays whole.
+  const FOLD = 12
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? suppliers : suppliers.slice(0, FOLD)
   return (
     <div className={`mb-3 rounded-xl border px-4 py-3 ${t.box}`}>
       <div className="flex items-start justify-between gap-3">
@@ -129,7 +133,7 @@ function SuggestionBox({
       <div className={`text-[11px] mt-1 ${t.note}`}>{note}</div>
       {suppliers.length > 0 ? (
         <div className="mt-2 space-y-1.5">
-          {suppliers.map((s) => {
+          {shown.map((s) => {
             const checked = selectedIds.includes(s.id)
             return (
               <div
@@ -195,6 +199,15 @@ function SuggestionBox({
               </div>
             )
           })}
+          {suppliers.length > FOLD && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full py-2 text-xs font-bold text-[#123F3A] hover:underline"
+            >
+              {expanded ? 'إخفاء الباقي' : `عرض كل الموردين (${suppliers.length})`}
+            </button>
+          )}
         </div>
       ) : (
         <div className="text-[11px] text-neutral-500 mt-2">{emptyText}</div>

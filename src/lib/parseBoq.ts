@@ -724,9 +724,10 @@ async function matchViaFarqBoqApi(
               answeredBy: row.map_suggestion.answered_by,
               // The number shown is the number listed: the card said «12 موردًا»
               // over a list of eight.
-              supplierCount: mapApiSuppliers(row.map_suggestion.suppliers || []).length,
+              // Every confirmed seller the server vouches for — no cut here (the owner: «أي أحد يطابق اقترحه»).
+              supplierCount: mapApiSuppliers(row.map_suggestion.suppliers || [], Number.POSITIVE_INFINITY).length,
               zeroReason: row.map_suggestion.zero_reason,
-              suppliers: mapApiSuppliers(row.map_suggestion.suppliers || []),
+              suppliers: mapApiSuppliers(row.map_suggestion.suppliers || [], Number.POSITIVE_INFINITY),
             }
           : undefined,
         familySuggestion: row.family_suggestion?.family

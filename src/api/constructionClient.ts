@@ -3297,7 +3297,7 @@ export async function matchConstructionBoqCatalog(payload: {
               supplier_count: Number(row.map_suggestion.supplier_count) || 0,
               zero_reason: row.map_suggestion.zero_reason ?? null,
               // The ontology named the material; the map supplied the seller.
-              suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق'),
+              suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق', Number.POSITIVE_INFINITY),
             },
           }
         : {}),
