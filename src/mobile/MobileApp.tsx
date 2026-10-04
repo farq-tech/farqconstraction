@@ -12,7 +12,7 @@ import MoreScreen from './screens/MoreScreen'
 import ReportsScreen from './screens/ReportsScreen'
 import PricesScreen from './screens/PricesScreen'
 import NewRequestScreen from './screens/NewRequestScreen'
-import DeliveryScanScreen from './screens/DeliveryScanScreen'
+import PurchaseScanScreen from './screens/PurchaseScanScreen'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon } from '../icons'
 import { statusBar } from './native'
 import { enablePush } from './push'
@@ -25,8 +25,8 @@ export type Route =
   | { kind: 'thread'; inviteId: string }
   | { kind: 'reports' }
   | { kind: 'prices' }
-  | { kind: 'new' }
-  | { kind: 'delivery'; rfqId?: string | null }
+  | { kind: 'new'; draftId?: string }
+  | { kind: 'scan' }
 
 export type Nav = {
   push: (route: Route) => void
@@ -118,8 +118,8 @@ export default function MobileApp() {
   else if (top?.kind === 'thread') screen = <ThreadScreen key={top.inviteId} inviteId={top.inviteId} nav={nav} />
   else if (top?.kind === 'reports') screen = <ReportsScreen nav={nav} />
   else if (top?.kind === 'prices') screen = <PricesScreen nav={nav} />
-  else if (top?.kind === 'new') screen = <NewRequestScreen nav={nav} />
-  else if (top?.kind === 'delivery') screen = <DeliveryScanScreen nav={nav} rfqId={top.rfqId || null} />
+  else if (top?.kind === 'new') screen = <NewRequestScreen key={top.draftId || 'new'} nav={nav} draftId={top.draftId} />
+  else if (top?.kind === 'scan') screen = <PurchaseScanScreen nav={nav} />
   else if (tab === 'home') screen = <HomeScreen nav={nav} />
   else if (tab === 'requests') screen = <RequestsScreen nav={nav} />
   else if (tab === 'inbox') screen = <InboxScreen nav={nav} />
@@ -127,7 +127,7 @@ export default function MobileApp() {
   else screen = <MoreScreen nav={nav} />
 
   // The composer owns the bottom edge inside a conversation.
-  const hideTabBar = top?.kind === 'thread' || top?.kind === 'new' || top?.kind === 'delivery'
+  const hideTabBar = top?.kind === 'thread' || top?.kind === 'new' || top?.kind === 'scan'
 
   return (
     <div className="min-h-[100dvh] bg-[#f2f3ef] text-[#0D1F1D]" dir="rtl">

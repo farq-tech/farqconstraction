@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { deleteDraft, listDrafts } from '../purchaseRequests'
 import { formatRfqTitle, listBuyerRfqs, mapRfqUiStatus, type ConstructionRfqSummary } from '../../api/constructionClient'
 import type { Nav } from '../MobileApp'
 import { Card, Chips, Empty, ErrorNote, Pill, Screen, Skeleton, ago, sar, useLoad } from '../ui'
@@ -22,6 +23,7 @@ export default function RequestsScreen({ nav }: { nav: Nav }) {
   const { data, error, loading, reload } = useLoad(() => listBuyerRfqs(), [])
   const [filter, setFilter] = useState<Filter>('active')
   const [query, setQuery] = useState('')
+  const [drafts, setDrafts] = useState(() => listDrafts())
 
   const rows = useMemo(() => {
     const all = data?.rfqs || []
@@ -52,6 +54,34 @@ export default function RequestsScreen({ nav }: { nav: Nav }) {
         placeholder="ابحث باسم المشروع أو الموقع"
         className="w-full h-11 rounded-xl bg-black/[0.05] px-4 mb-3 outline-none placeholder:text-neutral-400"
       />
+      {drafts.length > 0 && (
+        <div className="mb-4">
+          <div className="text-[13px] font-bold text-neutral-500 mb-2 px-1">مسودات على هذا الجوال ({drafts.length})</div>
+          <div className="space-y-2">
+            {drafts.map((d) => (
+              <Card key={d.id} className="p-0 overflow-hidden">
+                <div className="flex items-stretch">
+                  <button onClick={() => nav.push({ kind: 'new', draftId: d.id })} className="flex-1 min-w-0 text-right p-4 active:bg-neutral-50">
+                    <div className="flex items-center gap-2">
+                      <Pill tone="warn">مسودة</Pill>
+                      <span className="font-bold text-[15px] truncate">{d.project || 'طلب بلا اسم'}</span>
+                    </div>
+                    <div className="text-[12px] text-neutral-500 mt-1">
+                      {d.lines.length} بند{d.reference ? <> · <bdi dir="ltr">{d.reference}</bdi></> : null} · {ago(d.updated_at)}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { deleteDraft(d.id); setDrafts(listDrafts()) }}
+                    className="px-4 text-[13px] font-semibold text-red-600 border-r border-neutral-100"
+                  >
+                    حذف
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
       <Chips<Filter>
         options={[
           ['active', 'النشطة'],

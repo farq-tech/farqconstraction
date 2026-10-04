@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   cancelConstructionDispatch,
   countHarajSupplierIds,
@@ -21,6 +21,7 @@ import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineer
 import { cleanLineName, parseQty, readQty } from '../../lib/sendGuards'
 import type { BOQItem, Supplier, SupplierEntry } from '../../types'
 import type { Nav } from '../MobileApp'
+import { deleteDraft, getDraft, saveDraft } from '../purchaseRequests'
 import { Avatar, Card, Chips, PrimaryButton, SectionTitle, Sheet } from '../ui'
 
 type Step = 'items' | 'suppliers' | 'details' | 'sending' | 'done'
@@ -62,14 +63,18 @@ function candidatesFor(item: BOQItem): Supplier[] {
   return all.filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true)))
 }
 
-export default function NewRequestScreen({ nav }: { nav: Nav }) {
+export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?: string }) {
+  // A draft from a photographed purchase request opens with its lines.
+  const draft = useMemo(() => (draftId ? getDraft(draftId) : null), [draftId])
   const [step, setStep] = useState<Step>('items')
-  const [lines, setLines] = useState<ParsedLine[]>([])
+  const [lines, setLines] = useState<ParsedLine[]>(() =>
+    (draft?.lines || []).map((l, i) => ({ id: i + 1, name: l.name, qty: l.qty, unit: l.unit, spec: l.spec })),
+  )
   const [fileName, setFileName] = useState<string | null>(null)
   const [reading, setReading] = useState<BoqReadProgress | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const nextId = useRef(1)
+  const nextId = useRef((draft?.lines.length || 0) + 1)
   const fileInput = useRef<HTMLInputElement>(null)
 
   // manual entry
@@ -88,7 +93,22 @@ export default function NewRequestScreen({ nav }: { nav: Nav }) {
 
   // details
   const profile = loadCompanyProfile()
-  const [project, setProject] = useState('')
+  const [project, setProject] = useState(draft?.project || '')
+  const [draftKey, setDraftKey] = useState<string | null>(draft?.id || null)
+
+  // Every change to the items or the project name is kept in the draft on this phone.
+  useEffect(() => {
+    if (!draftKey && !lines.length) return
+    const saved = saveDraft({
+      id: draftKey || undefined,
+      project,
+      reference: draft?.reference || null,
+      requester: draft?.requester || null,
+      lines: lines.map((l) => ({ name: l.name, qty: l.qty, unit: l.unit, spec: l.spec })),
+    })
+    if (!draftKey) setDraftKey(saved.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, project])
   const [city, setCity] = useState(profile.defaultDeliveryCity || 'الرياض')
   const [requiredDate, setRequiredDate] = useState(isoIn(profile.defaultDeadlineDays || 14))
   const [quoteDeadline, setQuoteDeadline] = useState(isoIn(5))
@@ -268,6 +288,7 @@ export default function NewRequestScreen({ nav }: { nav: Nav }) {
       if (haraj > 0) body.haraj_limit = haraj
       const created = await createConstructionRfq(body, { timeoutMs: 90_000 })
       setCreatedId(created.id)
+      if (draftKey) deleteDraft(draftKey)
 
       const detail = await getConstructionRfq(created.id)
       const invites = detail.invitations || []
@@ -361,6 +382,18 @@ export default function NewRequestScreen({ nav }: { nav: Nav }) {
                   />
                 </div>
               )}
+            </Card>
+
+            <Card className="p-4 mt-3" onClick={reading ? undefined : () => nav.push({ kind: 'scan' })}>
+              <div className="flex items-center gap-3">
+                <span className="w-12 h-12 rounded-2xl bg-[#e0efec] text-[#123F3A] flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10" /></svg>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[16px]">صوّر طلب شراء</div>
+                  <div className="text-[13px] text-neutral-500">من مشروع آخر، ورقيًا أو صورة أو PDF</div>
+                </div>
+              </div>
             </Card>
 
             <SectionTitle>أو اكتب البنود</SectionTitle>

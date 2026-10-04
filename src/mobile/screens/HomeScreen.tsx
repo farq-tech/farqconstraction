@@ -50,11 +50,11 @@ export default function HomeScreen({ nav }: { nav: Nav }) {
           <span className="text-[22px] leading-none">+</span> طلب تسعير جديد
         </button>
         <button
-          onClick={() => nav.push({ kind: 'delivery' })}
+          onClick={() => nav.push({ kind: 'scan' })}
           className="mt-2 w-full h-12 rounded-2xl bg-white/10 text-white font-bold text-[15px] flex items-center justify-center gap-2 m-press"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="#9BC53D" strokeWidth="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10" /></svg>
-          تحقق من توريد بتصوير الإيصال
+          صوّر طلب شراء ← مسودة طلب تسعير
         </button>
         <div className="grid grid-cols-3 gap-2 mt-3">
           {[
