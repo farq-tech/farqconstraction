@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import ontologyData from './procurementOntology.data.json'
 import {
   ONTOLOGY_VERSION,
   describeIntent,
@@ -403,7 +404,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v21')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v22')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -2686,5 +2687,73 @@ describe('cpo-v16: fuel tanks, indoor signage, parking sensors, and a ceiling th
   for (const [line, intent] of cases) it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
   it('a fragment that only locates something above the ceiling does not buy a ceiling', () => {
     expect(resolve('بكابلات مثبت فوق السقف المستعار').intent).not.toBe('acoustic_ceiling_tile')
+  })
+})
+
+/**
+ * cpo-v21 (audit-v21 of the cpo-v20 matcher): aliases and new intents for lines that stood at
+ * family level or unresolved, plus three SUPPLIER-side fields the line resolver must ignore:
+ * `seller_terms`, `sibling_groups` and the guard kind `supplier_require_any`.
+ */
+describe('cpo-v22 (audit-v21): audit aliases, new intents, and supplier-side fields the resolver ignores', () => {
+  const cases: Array<[string, string]> = [
+    ['مفتاح اتجاهين بلقمة واحدة', 'light_switch'],
+    ['مأخذ 13 أمبير', 'socket_outlet'],
+    ['3pin socket', 'socket_outlet'],
+    ['محطة نداء يدوية', 'manual_call_point'],
+    ['وحدة انذار صوتية', 'alarm_sounder'],
+    ['كورد توصيل نحاسي', 'copper_patch_cord'],
+    ['مكيفات اسبلت', 'split_ac'],
+    ['بلك', 'concrete_block'],
+    ['شينكو', 'gi_sheet_coil'],
+    ['خزان مياه علوي', 'grp_water_tank'],
+    ['كلورة مياه', 'water_disinfection'],
+    ['سجاد مساجد', 'broadloom_carpet'],
+    ['حوامل مكيفات', 'ac_mounting_bracket'],
+    ['دهان مقاوم للحريق', 'intumescent_paint'],
+    ['دهان مقاوم للحرارة', 'heat_resistant_paint'],
+    ['جهاز قياس الرطوبة', 'moisture_meter'],
+    ['اسطوانة ارجون', 'argon_gas_cylinder'],
+    ['كاميرات رصد مخالفات', 'traffic_enforcement_camera'],
+    ['كشك خدمة ذاتية للمسافر', 'self_service_kiosk'],
+    ['نظام الانتظار', 'queue_management_system'],
+    ['معالجة التربة ضد النمل الابيض', 'termite_soil_treatment'],
+  ]
+  for (const [line, intent] of cases) it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+
+  it('bare heads the audit leaves at family level stay there', () => {
+    for (const line of ['كابلات', 'مظلات', 'مواسير', 'بوية', 'محبس']) expect(resolve(line).intent, line).toBeNull()
+    expect(resolve('محبس شطاف').intent).toBe('wc_sanitaryware')
+    expect(resolve('بويه جرافيات').intent).toBe('texture_paint')
+  })
+
+  it('a supplier_require_any guard never blocks a BOQ line', () => {
+    // «رشاش» is guarded on the supplier side only (a surname in a shop name).
+    expect(resolve('رشاش حريق pendent').family).toBe('fire_fighting')
+    expect(resolve('قبان 60 طن').intent).toBe('weighbridge')
+  })
+
+  it('seller_terms never resolve a line', () => {
+    const data = ontologyData as unknown as { families: Array<{ intents?: Array<{ id: string; seller_terms?: string[] }>; categories?: Array<{ intents?: Array<{ id: string; seller_terms?: string[] }> }> }> }
+    const all = data.families.flatMap((f) => [...(f.intents || []), ...(f.categories || []).flatMap((c) => c.intents || [])])
+    const mcb = all.find((i) => i.id === 'mcb')
+    expect(mcb?.seller_terms).toContain('ادوات كهرباييه')
+    expect(resolve('ادوات كهربائيه').intent).not.toBe('mcb')
+    expect(resolve('كيماويات البناء').intent).not.toBe('form_release_agent')
+  })
+
+  it('every sibling group names known intents, and no intent sits in two groups', () => {
+    const data = ontologyData as unknown as { sibling_groups: Array<{ id: string; intents: string[] }> }
+    const known = new Set(listIntentIds())
+    const seen = new Set<string>()
+    expect(data.sibling_groups.length).toBeGreaterThan(15)
+    for (const g of data.sibling_groups) {
+      expect(g.intents.length, g.id).toBeGreaterThan(1)
+      for (const id of g.intents) {
+        expect(known.has(id), `${g.id}: ${id}`).toBe(true)
+        expect(seen.has(id), `${id} in two groups`).toBe(false)
+        seen.add(id)
+      }
+    }
   })
 })

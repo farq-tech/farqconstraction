@@ -1,6 +1,6 @@
 {
- "version": "cpo-v21",
- "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
+ "version": "cpo-v22",
+ "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction. | cpo-v22: audit-v21 API items — supplier-side guards (supplier_require_any), explicit sibling_groups, seller_terms, aliases and 10 new intents.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
   "inflection": {
@@ -2476,7 +2476,9 @@
         "مباني فولاذيه",
         "اطارات فراغيه",
         "space frame",
-        "هياكل معدنيه ثلاثيه الابعاد"
+        "هياكل معدنيه ثلاثيه الابعاد",
+        "steel structure fabrication",
+        "steel structure"
        ],
        "note": "Fabricated steel buildings sit under steel_sections because the family has a single category; the supplier pool is the same structural steel trade."
       }
@@ -2641,11 +2643,12 @@
       "alu zinc",
       "الواح الومنيوم مموجه",
       "profiled sheet",
-      "شينكو مجلفن"
-     ],
-     "weak_terms": [
+      "شينكو مجلفن",
       "شينكو",
       "شنكو",
+      "صاج شينكو"
+     ],
+     "weak_terms": [
       "زينكو"
      ],
      "context_terms": [
@@ -3371,7 +3374,10 @@
       "الواح معدنيه معزوله",
       "الواح معزوله من حديد",
       "الواح جدران معزوله",
-      "الواح جدران مشكله ومعزوله"
+      "الواح جدران مشكله ومعزوله",
+      "بانل عزل للاسقف",
+      "بانل عزل",
+      "ساندوتش بانل اسقف"
      ]
     },
     {
@@ -3513,6 +3519,21 @@
       "قبه زجاج",
       "glass dome",
       "glass domes"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "مناور"
+       ],
+       "supplier_require_any": [
+        "سكاي",
+        "قباب",
+        "زجاج",
+        "skylight",
+        "المنيوم"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     }
    ],
@@ -3661,6 +3682,9 @@
       "عزل مايي سايل",
       "liquid membrane",
       "عزل اكريليك مرن"
+     ],
+     "line_word_stop": [
+      "بولي"
      ]
     },
     {
@@ -3735,6 +3759,18 @@
       "xypex",
       "عزل اسمنتي مرن",
       "flexible cementitious"
+     ],
+     "seller_terms": [
+      "كيماويات البناء",
+      "كيماويات بناء",
+      "construction chemicals",
+      "سيكا",
+      "sika",
+      "فوسروك",
+      "fosroc",
+      "هنكل",
+      "henkel",
+      "دون كيميكال"
      ]
     },
     {
@@ -4066,7 +4102,9 @@
       "شتر محلات",
       "باب لفاف",
       "ابواب شرايح",
-      "باب شرايح"
+      "باب شرايح",
+      "ابواب منزلقه من الشرايح المعدنيه",
+      "باب شرايح معدنيه"
      ]
     },
     {
@@ -4978,7 +5016,8 @@
       "plastic paint",
       "دهان سقف",
       "دهان اسقف",
-      "ceiling paint"
+      "ceiling paint",
+      "دهان مايي اكريليك"
      ]
     },
     {
@@ -5156,6 +5195,18 @@
         "سيلانت"
        ],
        "note": "Solder paste, thermal paste and glazing/epoxy putties share the word; wall putty is a paint-shop product."
+      },
+      {
+       "terms": [
+        "معجون"
+       ],
+       "supplier_require_any": [
+        "دهانات",
+        "بويه",
+        "مواد بناء",
+        "paint"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
       }
      ]
     },
@@ -5218,6 +5269,26 @@
        "note": "Insulating varnish for motor windings is an electrical product."
       }
      ]
+    },
+    {
+     "id": "intumescent_paint",
+     "label_ar": "دهان مقاوم للحريق",
+     "strong_terms": [
+      "دهان مقاوم للحريق",
+      "دهان منتفخ",
+      "fire retardant paint"
+     ],
+     "facets": []
+    },
+    {
+     "id": "heat_resistant_paint",
+     "label_ar": "دهان مقاوم للحراره",
+     "strong_terms": [
+      "دهان مقاوم للحراره",
+      "heat resistant paint",
+      "high temperature paint"
+     ],
+     "facets": []
     }
    ],
    "term_guards": [
@@ -5579,6 +5650,21 @@
       "سيلكون شفاف",
       "سيليكون شفاف",
       "سيلكون حمامات"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "سيليكون"
+       ],
+       "supplier_require_any": [
+        "مواد بناء",
+        "عوازل",
+        "sealant",
+        "لاصق",
+        "كيماويات"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -6238,7 +6324,10 @@
       "access floor",
       "calcium sulphate panel",
       "steel cementitious panel",
-      "pedestal floor"
+      "pedestal floor",
+      "ارضيات مرفوعه",
+      "ارضيه مرفوعه",
+      "تايلز ارضيات مرفوعه"
      ]
     },
     {
@@ -6658,7 +6747,10 @@
       "ارضيات بي في سي",
       "ارضيات pvc",
       "pvc flooring",
-      "رول فينيل"
+      "رول فينيل",
+      "فينيل رول",
+      "ارضيات مطاط",
+      "ارضيات مطاطيه"
      ]
     },
     {
@@ -6728,7 +6820,14 @@
       "granite countertop",
       "marble countertop",
       "كوارتز ستون",
-      "حجر صناعي"
+      "حجر صناعي",
+      "marble slabs",
+      "granite slabs",
+      "slabs 2cm",
+      "بلاطات رخام",
+      "نوايم درج",
+      "قوايم درج",
+      "نوايم رخام"
      ],
      "term_guards": [
       {
@@ -7041,6 +7140,21 @@
       "solid wood flooring",
       "باركيه طبيعي"
      ]
+    },
+    {
+     "id": "broadloom_carpet",
+     "label_ar": "سجاد مساجد",
+     "strong_terms": [
+      "سجاد مساجد",
+      "سجاد مسجد",
+      "سجاد رول"
+     ],
+     "facets": [
+      {
+       "name": "material",
+       "supplier_pool_affecting": true
+      }
+     ]
     }
    ]
   },
@@ -7206,6 +7320,12 @@
       "ارفف سوبر ماركت",
       "رفوف سوبر ماركت",
       "ارفف جندول"
+     ],
+     "seller_terms": [
+      "رفوف",
+      "ارفف",
+      "shelves",
+      "shelving"
      ]
     }
    ],
@@ -7438,6 +7558,15 @@
       "بكره رفع",
       "pulley block",
       "snatch block"
+     ],
+     "seller_terms": [
+      "عدد وادوات",
+      "عدد كهرباييه",
+      "عدد صناعيه",
+      "معدات رفع",
+      "power tools",
+      "hand tools",
+      "tools & equipment"
      ]
     },
     {
@@ -7461,6 +7590,15 @@
       "dolly",
       "wheelbarrow",
       "wheel barrow"
+     ],
+     "seller_terms": [
+      "عدد وادوات",
+      "عدد كهرباييه",
+      "عدد صناعيه",
+      "معدات رفع",
+      "power tools",
+      "hand tools",
+      "tools & equipment"
      ]
     },
     {
@@ -7767,6 +7905,15 @@
        "name": "capacity",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "عدد وادوات",
+      "عدد كهرباييه",
+      "عدد صناعيه",
+      "معدات رفع",
+      "power tools",
+      "hand tools",
+      "tools & equipment"
      ]
     }
    ],
@@ -7844,6 +7991,11 @@
       "ميزان ارضي",
       "floor scale",
       "ميزان صناعي"
+     ],
+     "seller_terms": [
+      "موازين",
+      "ميازين",
+      "scales"
      ]
     },
     {
@@ -7859,6 +8011,25 @@
       "بسكول سيارات",
       "بسكول شاحنات",
       "ميزان بسكول"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "قبان"
+       ],
+       "supplier_require_any": [
+        "موازين",
+        "ميزان",
+        "scale",
+        "weigh"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
+     ],
+     "seller_terms": [
+      "موازين",
+      "ميازين",
+      "scales"
      ]
     }
    ],
@@ -7964,6 +8135,29 @@
      "weak_terms": [
       "حاويه",
       "حاويات"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "سكيب",
+        "سكيبات",
+        "skip"
+       ],
+       "block_any": [
+        "لاند",
+        "لاندسكيب",
+        "لاند سكيب",
+        "فيو",
+        "فيردي",
+        "landscape",
+        "landscaping",
+        "تنسيق حدايق",
+        "حدايق",
+        "مشاتل",
+        "زراعه"
+       ],
+       "note": "«لاند سكيب» / «فيو سكيب» / «فيردي سكيب» are landscaping firms; a skip is a waste container. Measured cpo-v20 live 2026-10-04: 4 of 10 confirmed sellers on the bare «سكيب» line."
+      }
      ]
     },
     {
@@ -8489,7 +8683,8 @@
       "brass ball valve",
       "محبس كره نحاس",
       "بلف كروي",
-      "محبس حنفيه"
+      "محبس حنفيه",
+      "محابس نحاس"
      ]
     },
     {
@@ -8684,7 +8879,8 @@
       "عوامه خزان",
       "عوامه مياه",
       "صمام عوامه",
-      "عوامه"
+      "عوامه",
+      "صمام عايم"
      ],
      "term_guards": [
       {
@@ -9294,7 +9490,8 @@
       "كوع ppr",
       "انابيب بولي بروبلين",
       "مواسير بولي بروبلين",
-      "انابيب ومواسير من بولي بروبلين"
+      "انابيب ومواسير من بولي بروبلين",
+      "بولي بروبلين"
      ],
      "context_terms": [
       "pn20",
@@ -9608,7 +9805,9 @@
       "شبكه صرف",
       "sewer network",
       "sewerage network",
-      "خطوط صرف صحي"
+      "خطوط صرف صحي",
+      "مواسير بلاستيك صرف",
+      "مواسير صرف بلاستيك"
      ],
      "note": "Building soil/waste/vent pipework sold by plumbing pipe suppliers; buried sewer/corrugated pipe stays in precast_drainage.buried_drainage_pipe.",
      "weak_terms": [
@@ -9638,7 +9837,14 @@
       "مواسير صرف مياه امطار",
       "مواسير صرف امطار",
       "مواسير مياه امطار",
-      "ماسوره صرف امطار"
+      "ماسوره صرف امطار",
+      "مواسير صرف مياه المطر",
+      "مواسير صرف مياه الامطار",
+      "مواسير تصريف مياه الامطار",
+      "مواسير تصريف مياه المطر",
+      "مواسير صرف الامطار",
+      "مواسير مياه المطر",
+      "مواسير المطر"
      ],
      "note": "Roof rainwater downpipes (usually UPVC), plumbing trade.",
      "weak_terms": [
@@ -9771,7 +9977,8 @@
       "انابيب فيبرجلاس",
       "مواسير فيبرجلاس",
       "انابيب ومواسير فيبرجلاس",
-      "انابيب فايبرجلاس مقواه"
+      "انابيب فايبرجلاس مقواه",
+      "مواسير جي ار بي"
      ]
     },
     {
@@ -9821,7 +10028,12 @@
       "انابيب حديديه",
       "انابيب حديد",
       "انابيب فولاذيه",
-      "انابيب صلب ملحومه"
+      "انابيب صلب ملحومه",
+      "انابيب غير ملحومه",
+      "مواسير غير ملحومه",
+      "انابيب مجلفنه",
+      "ماسوره gi",
+      "مواسير gi"
      ],
      "note": "Galvanized/black/carbon steel pipe; grade and finish are facets."
     },
@@ -9837,6 +10049,10 @@
       "انابيب ستانلس",
       "مواسير ستانلس ستيل",
       "ss pipe"
+     ],
+     "seller_terms": [
+      "ستانلس ستيل",
+      "stainless steel"
      ]
     },
     {
@@ -10133,7 +10349,10 @@
       "خزانات فايبرجلاس",
       "خزانات فيبرجلاس",
       "خزانات من الياف زجاجيه",
-      "خزانات المياه من الياف زجاجيه"
+      "خزانات المياه من الياف زجاجيه",
+      "خزان فيبر",
+      "خزان مياه علوي",
+      "تانكي مياه"
      ],
      "weak_terms": [
       "فايبر جلاس",
@@ -10203,6 +10422,10 @@
        ],
        "note": "A material word names the tank only on a tank line; stainless is also the kitchen trade's word."
       }
+     ],
+     "seller_terms": [
+      "ستانلس ستيل",
+      "stainless steel"
      ]
     },
     {
@@ -10217,7 +10440,8 @@
       "concrete water tank",
       "concrete tank",
       "reinforced concrete tank",
-      "rc water tank"
+      "rc water tank",
+      "خزان مياه ارضي"
      ],
      "weak_terms": [
       "خرساني",
@@ -10309,10 +10533,10 @@
       "tanker water",
       "نقل مياه بالوايت",
       "توريد مياه بالصهاريج",
-      "مياه صهاريج"
+      "مياه صهاريج",
+      "وايت"
      ],
      "weak_terms": [
-      "وايت",
       "وايتات"
      ],
      "context_terms": [
@@ -10587,7 +10811,9 @@
       "جهاز تعقيم مياه",
       "وحده كلوره",
       "chlorinator",
-      "uv unit"
+      "uv unit",
+      "كلوره مياه",
+      "كلوره"
      ]
     },
     {
@@ -11144,11 +11370,16 @@
       "ناشرات هواء",
       "ناشر هواء",
       "موزعات هواء",
-      "فتحات اجهزه التكييف"
+      "فتحات اجهزه التكييف",
+      "ناشرات",
+      "ناشر"
      ],
      "weak_terms": [
       "diffuser",
       "grille"
+     ],
+     "line_word_stop": [
+      "هواء"
      ]
     },
     {
@@ -11383,7 +11614,12 @@
       "مكيفات سبيليت",
       "مكيف سبيليت",
       "مكيفات منفصله",
-      "مكيف منفصل"
+      "مكيف منفصل",
+      "مكيفات اسبلت",
+      "مكيف اسبلت",
+      "وحده تكييف من النوع المنفصل",
+      "وحدات تكييف منفصله",
+      "وحدات تكييف من النوع المنفصل"
      ],
      "term_guards": [
       {
@@ -11715,6 +11951,14 @@
       "وحده معالجه هواء",
       "وحده معالجه الهواء",
       "معالجه الهواء وترطيبه"
+     ],
+     "seller_terms": [
+      "تكييف مركزي",
+      "hvac equipment",
+      "chiller"
+     ],
+     "line_word_stop": [
+      "هواء"
      ]
     },
     {
@@ -11733,6 +11977,11 @@
       "وحده ملف مروحه",
       "وحدات ملف مروحه",
       "مروحه ملف"
+     ],
+     "seller_terms": [
+      "تكييف مركزي",
+      "hvac equipment",
+      "chiller"
      ]
     },
     {
@@ -11806,7 +12055,9 @@
       "مجاري هواء حلزونيه",
       "تمديدات هواء حلزونيه",
       "مجاري تهويه",
-      "مجاري تهويه معدنيه"
+      "مجاري تهويه معدنيه",
+      "دكت",
+      "دكتات"
      ],
      "term_guards": [
       {
@@ -11838,7 +12089,10 @@
        "note": "the head decides: duct insulation, flexible duct, pre-insulated duct, duct accessories and duct sensors are other products"
       }
      ],
-     "note": "Fabricated rigid sheet-metal ductwork (rectangular/spiral). Gauge and size are facets."
+     "note": "Fabricated rigid sheet-metal ductwork (rectangular/spiral). Gauge and size are facets.",
+     "line_word_stop": [
+      "هواء"
+     ]
     },
     {
      "id": "flexible_duct",
@@ -11862,7 +12116,8 @@
       "خرطوم تكييف",
       "خراطيم تكييف",
       "قنوات هواء مرنه",
-      "تمديدات هواء مرنه"
+      "تمديدات هواء مرنه",
+      "فلكسبل دكت"
      ],
      "term_guards": [
       {
@@ -11938,7 +12193,8 @@
       "رفنت",
       "ريفنت",
       "y joint vrf",
-      "branch joint vrf"
+      "branch joint vrf",
+      "copper pipe refrigerant"
      ],
      "note": "ACR (air-conditioning & refrigeration) soft-drawn copper, sold by HVAC dealers; plain plumbing copper stays in pipes_fittings.",
      "term_guards": [
@@ -12405,6 +12661,18 @@
        "supplier_pool_affecting": true
       }
      ]
+    },
+    {
+     "id": "ac_mounting_bracket",
+     "label_ar": "حوامل مكيفات",
+     "strong_terms": [
+      "حوامل مكيفات",
+      "قواعد مكيفات",
+      "حامل مكيف",
+      "ac bracket",
+      "ac stand"
+     ],
+     "facets": []
     }
    ],
    "term_guards": [
@@ -12641,6 +12909,20 @@
         "فرشه"
        ],
        "note": "toilet roll holders / partitions are other products"
+      },
+      {
+       "terms": [
+        "مغسله"
+       ],
+       "supplier_require_any": [
+        "ادوات صحيه",
+        "سباكه",
+        "رخام",
+        "حمامات",
+        "sanitary",
+        "مغاسل"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07. a shop NAMED «مغسلة …» is a laundry/car wash"
       }
      ]
     },
@@ -12734,7 +13016,16 @@
       "مسكه l",
       "هاندريل زاويه",
       "قضيب مسك قابل للطي",
-      "مقعد حمام معاقين"
+      "مقعد حمام معاقين",
+      "ماسوره ستانلس لزوم المعوقين",
+      "ماسوره ستانلس ستيل لزوم المعوقين",
+      "ماسوره من الاستانلس ستيل لزوم المعوقين",
+      "ماسوره من الستانلس ستيل لزوم المعوقين",
+      "مقابض المعوقين",
+      "مقبض المعوقين",
+      "مقابض ذوي الاحتياجات",
+      "مقبض ذوي الاحتياجات",
+      "grab bars"
      ]
     },
     {
@@ -12788,7 +13079,12 @@
       "سيفونات",
       "area drain",
       "جريل تصريف ارضي",
-      "جريل صرف ارضي"
+      "جريل صرف ارضي",
+      "وصله اختبار وتنظيف",
+      "وصله اختبار و تنظيف",
+      "وصلات اختبار وتنظيف",
+      "وصله تنظيف",
+      "cleanout"
      ]
     },
     {
@@ -13314,6 +13610,19 @@
           "rotor"
          ],
          "note": "irrigation sprinkler heads are irrigation_emitter"
+        },
+        {
+         "terms": [
+          "رشاش"
+         ],
+         "supplier_require_any": [
+          "حريق",
+          "اطفاء",
+          "سلامه",
+          "fire",
+          "رشاشات"
+         ],
+         "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
         }
        ],
        "facets": [
@@ -13363,6 +13672,21 @@
         {
          "name": "standard",
          "supplier_pool_affecting": true
+        }
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "رشاش"
+         ],
+         "supplier_require_any": [
+          "حريق",
+          "اطفاء",
+          "سلامه",
+          "fire",
+          "رشاشات"
+         ],
+         "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
         }
        ]
       },
@@ -13438,6 +13762,21 @@
         "صناديق اطفاء الحريق",
         "بكرات اطفاء",
         "صناديق وبكرات اطفاء"
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "رشاش"
+         ],
+         "supplier_require_any": [
+          "حريق",
+          "اطفاء",
+          "سلامه",
+          "fire",
+          "رشاشات"
+         ],
+         "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+        }
        ]
       },
       {
@@ -13704,7 +14043,12 @@
       "دقيقه"
      ],
      "note": "Firestopping is its own trade (specialist applicators). «fire rated sealant/foam» stay with sealants_adhesives where cpo-v18 put them.",
-     "facets": []
+     "facets": [],
+     "seller_terms": [
+      "هيلتي",
+      "hilti",
+      "فايرستوب"
+     ]
     }
    ],
    "hard_conflicts": [
@@ -13828,7 +14172,18 @@
       "اكاشف دخان",
       "كواشف دخان بصريه",
       "كاشف دخان بصري معنون",
-      "اكاشف الدخان"
+      "اكاشف الدخان",
+      "مستشعر حراره",
+      "مستشعر دخان",
+      "كاشفات",
+      "كاشفات دخان",
+      "كاشفات حريق"
+     ],
+     "seller_terms": [
+      "انذار الحريق",
+      "انظمه انذار",
+      "انذار حريق",
+      "fire alarm"
      ]
     },
     {
@@ -13846,6 +14201,12 @@
       "لوحه حريق معنونه",
       "لوحه حريق تقليديه",
       "facp"
+     ],
+     "seller_terms": [
+      "انذار الحريق",
+      "انظمه انذار",
+      "انذار حريق",
+      "fire alarm"
      ]
     },
     {
@@ -13902,6 +14263,12 @@
        ],
        "note": "A bare «alarm network» is fire alarm unless the line says intrusion or gas."
       }
+     ],
+     "seller_terms": [
+      "انذار الحريق",
+      "انظمه انذار",
+      "انذار حريق",
+      "fire alarm"
      ]
     },
     {
@@ -13925,7 +14292,16 @@
       "mcp",
       "pull station",
       "manual pull station",
-      "كاسر زجاج حريق"
+      "كاسر زجاج حريق",
+      "محطه نداء يدويه",
+      "محطات نداء يدويه",
+      "محطه نداء يدوي"
+     ],
+     "seller_terms": [
+      "انذار الحريق",
+      "انظمه انذار",
+      "انذار حريق",
+      "fire alarm"
      ]
     },
     {
@@ -13964,7 +14340,17 @@
       "سارينه",
       "فلاشر انذار",
       "فلاشر",
-      "strobe"
+      "strobe",
+      "وحده انذار صوتيه",
+      "وحده انذار صوتي",
+      "انذار صوتي وضويي",
+      "انذار صوتي ضويي"
+     ],
+     "seller_terms": [
+      "انذار الحريق",
+      "انظمه انذار",
+      "انذار حريق",
+      "fire alarm"
      ]
     },
     {
@@ -14432,7 +14818,10 @@
       "قواطع منزليه",
       "قاطع لوحه",
       "breaker mcb",
-      "mcbs"
+      "mcbs",
+      "بريكر",
+      "بريكرات",
+      "قواطع كهرباييه"
      ],
      "weak_terms": [
       "قاطع",
@@ -14529,6 +14918,15 @@
         "ring main"
        ]
       }
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -14538,6 +14936,15 @@
       "acb",
       "air circuit breaker",
       "قاطع هوايي"
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -14565,6 +14972,15 @@
      ],
      "weak_terms": [
       "rcd"
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -14609,7 +15025,16 @@
       "مفاتيح تقسيم ووصل وقطع",
       "وصل وقطع التيار"
      ],
-     "note_terms": "«قاطع عزل» is an ordinary way to say isolator, and it needs to be THIS family's vocabulary rather than a bare «عزل» sitting in the breaker guards. Bare «عزل» is insulation's word, and borrowing it cost «قاطع 32 امبير عزل مزدوج» its intent."
+     "note_terms": "«قاطع عزل» is an ordinary way to say isolator, and it needs to be THIS family's vocabulary rather than a bare «عزل» sitting in the breaker guards. Bare «عزل» is insulation's word, and borrowing it cost «قاطع 32 امبير عزل مزدوج» its intent.",
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
+     ]
     },
     {
      "id": "transfer_switch",
@@ -14647,6 +15072,15 @@
       "thermal overload",
       "مؤقت كهربايي",
       "تايمر كهربايي"
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -15021,6 +15455,9 @@
       "مفاتيح ضغط منخفض ومتوسط",
       "لوحات مفاتيح تشغيل جهد متوسط",
       "لوحه مفاتيح تشغيل جهد متوسط"
+     ],
+     "line_word_stop": [
+      "مفاتيح"
      ]
     },
     {
@@ -15130,6 +15567,15 @@
       "بادئ تشغيل",
       "ستارتر ناعم",
       "soft start"
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -15405,7 +15851,11 @@
       "كيابل مدرعه",
       "nyy cable",
       "cu xlpe swa pvc",
-      "كابلات الكهرباء"
+      "كابلات الكهرباء",
+      "كابلات xlpe",
+      "armoured cable",
+      "كبل ارضي",
+      "cu xlpe"
      ],
      "weak_terms": [
       "lv"
@@ -15498,7 +15948,8 @@
       "كابلات جهد متوسط",
       "كابلات ضغط عالي",
       "كابلات جهد عالي",
-      "كابلات عاليه ومتوسطه الجهد"
+      "كابلات عاليه ومتوسطه الجهد",
+      "كيابل ضغط متوسط"
      ],
      "weak_terms": [
       "mv",
@@ -15837,7 +16288,9 @@
       "ليات زراعيه وكهرباييه",
       "مواسير للتمديدات الكهرباييه",
       "انابيب للتمديدات الكهرباييه",
-      "للتمديدات الكهرباييه"
+      "للتمديدات الكهرباييه",
+      "مواسير مرنه فليكس",
+      "فليكس كهرباء"
      ],
      "weak_terms": [
       "conduit"
@@ -15902,6 +16355,15 @@
       "brass gland",
       "nickel plated gland",
       "gland m"
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -16161,7 +16623,28 @@
       "cadweld",
       "كادويلد",
       "لحام حراري تاريض",
-      "لحام اكزوثيرمك"
+      "لحام اكزوثيرمك",
+      "قضبان تاريض",
+      "earthing rod",
+      "بير تاريض",
+      "تاريض"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "وصله اختبار",
+        "وصلات اختبار"
+       ],
+       "block_any": [
+        "تنظيف",
+        "تسليك",
+        "صرف",
+        "مجاري",
+        "cleanout",
+        "rodding"
+       ],
+       "note": "«وصلة اختبار وتنظيف» (test-and-clean) is a drainage cleanout fitting, not an earthing test link. Reader audit cpo-v21."
+      }
      ]
     },
     {
@@ -16185,6 +16668,9 @@
       "عداد صواعق",
       "قاعده صاعقه",
       "strike counter"
+     ],
+     "line_word_stop": [
+      "اعمده"
      ]
     },
     {
@@ -16317,7 +16803,8 @@
       "محولات رفع",
       "محولات خفض",
       "محولات رفع كهرباييه",
-      "محولات خفض كهرباييه"
+      "محولات خفض كهرباييه",
+      "transformer 13 8kv"
      ]
     },
     {
@@ -16510,6 +16997,9 @@
        ],
        "note": "A fuel tank FOR the generator is a tank."
       }
+     ],
+     "line_word_stop": [
+      "ديزل"
      ]
     },
     {
@@ -16695,7 +17185,10 @@
       "ups systems",
       "مانع انقطاع التيار",
       "مانع انقطاع",
-      "جهاز يو بي اس"
+      "جهاز يو بي اس",
+      "مصدر امداد طاقه",
+      "مصدر طاقه غير منقطع",
+      "مصدر امداد طاقه مزود ببطاريات"
      ]
     },
     {
@@ -16900,7 +17393,11 @@
       "بانل اضاءه",
       "panel light led",
       "لوحه اناره led",
-      "بانل لايت"
+      "بانل لايت",
+      "panel 60 60",
+      "led panel 60 60",
+      "panel light 60 60",
+      "بانل 60 60"
      ]
     },
     {
@@ -17024,7 +17521,13 @@
       "وحدات اناره للطواريء",
       "وحدات اناره طواري",
       "وحده اناره طواري",
-      "اضاءه للطواري"
+      "اضاءه للطواري",
+      "exit up",
+      "exit down",
+      "exit up down",
+      "emergency bulkhead",
+      "emergency battery",
+      "emergency battery pack"
      ],
      "term_guards": [
       {
@@ -17304,6 +17807,22 @@
       "اضاءه ديكور",
       "اضاءه ديكوريه",
       "decorative lighting"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "ثريا"
+       ],
+       "supplier_require_any": [
+        "اناره",
+        "نجف",
+        "كريستال",
+        "اضاءه",
+        "lighting",
+        "ثريات"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -17520,12 +18039,18 @@
       "فيشه كهرباء",
       "فيش جداري",
       "قابس",
-      "قوابس"
-     ],
-     "weak_terms": [
+      "قوابس",
+      "ماخذ",
+      "ماخذ كهرباء",
+      "ماخذ قوي",
       "فيش",
-      "فيشه"
+      "فيشه",
+      "sockets",
+      "3pin socket",
+      "duplex socket",
+      "male socket"
      ],
+     "weak_terms": [],
      "term_guards": [
       {
        "terms": [
@@ -17542,6 +18067,15 @@
        ],
        "note": "An industrial or vehicle plug is not a wall socket."
       }
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -17603,7 +18137,13 @@
       "مفاتيح كهرباييه",
       "مفتاح كهربايي",
       "مفاتيح كهرباييه بلاستيكيه",
-      "مفاتيح كهرباييه بلاستيكه"
+      "مفاتيح كهرباييه بلاستيكه",
+      "مفتاح اتجاه واحد",
+      "مفتاح اتجاهين",
+      "مفتاح بلقمه",
+      "مفتاح بلقمتين",
+      "مفتاح لقمه",
+      "مفاتيح بلقمه"
      ],
      "term_guards": [
       {
@@ -17634,6 +18174,15 @@
        ],
        "note": "Bare «مفاتيح كهربائية» are wiring-device switches; with a voltage class, ring/distribution, isolation or a board word they are switchgear."
       }
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -17879,6 +18428,15 @@
       "differential pressure monitor",
       "مراقب ضغط الغرفه",
       "شاشه مراقبه ضغط تفاضلي"
+     ],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
      ]
     },
     {
@@ -17948,7 +18506,16 @@
       "تشغيل"
      ],
      "note": "Bare «مؤقت» means temporary (سياج مؤقت، اناره مؤقته) and bare «تايمر/timer» is weak: neither is a term here.",
-     "facets": []
+     "facets": [],
+     "seller_terms": [
+      "ادوات كهرباييه",
+      "مواد كهرباييه",
+      "لوازم كهرباييه",
+      "كهرباييات",
+      "electrical supplies",
+      "electrical materials",
+      "electrical accessories"
+     ]
     }
    ],
    "hard_conflicts": [
@@ -18034,6 +18601,16 @@
        "name": "protection_class",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18149,6 +18726,16 @@
        "name": "protection_class",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18168,6 +18755,16 @@
        "name": "standard",
        "supplier_pool_affecting": true
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18187,6 +18784,14 @@
        "name": "standard",
        "supplier_pool_affecting": true
       }
+     ],
+     "seller_terms": [
+      "مستلزمات لحام",
+      "معدات لحام",
+      "ادوات لحام",
+      "welding supplies",
+      "welding equipment",
+      "الكترودات"
      ]
     }
    ],
@@ -18253,6 +18858,16 @@
        "name": "standard",
        "supplier_pool_affecting": true
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18291,6 +18906,16 @@
        "name": "standard",
        "supplier_pool_affecting": true
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     }
    ],
@@ -18409,6 +19034,16 @@
        "name": "protection_class",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18609,6 +19244,16 @@
        "name": "protection_class",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18653,6 +19298,16 @@
        "name": "protection_class",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18781,6 +19436,16 @@
        "name": "protection_class",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -18897,6 +19562,16 @@
        "name": "material",
        "supplier_pool_affecting": true
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -19018,6 +19693,16 @@
        "name": "capacity",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -19076,12 +19761,12 @@
       "نقطه ارتكاز",
       "سلك حياه",
       "اسلاك حياه",
-      "حبل حياه"
+      "حبل حياه",
+      "life line"
      ],
      "weak_terms": [
       "lifeline",
       "anchor",
-      "life line",
       "lifelines"
      ],
      "facets": [
@@ -19321,7 +20006,8 @@
       "جهاز قياس الغازات",
       "جهاز كشف غازات",
       "gas meter",
-      "4 gas monitor"
+      "4 gas monitor",
+      "كاشف غازات"
      ]
     }
    ],
@@ -19398,6 +20084,16 @@
       "صندوق اسعاف",
       "علبه اسعافات",
       "first aid bag"
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -19416,6 +20112,16 @@
       "thermal blanket",
       "emergency blanket",
       "space blanket"
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     }
    ],
@@ -19579,6 +20285,16 @@
       "حواجز سلامه بلاستيك",
       "plastic barrier",
       "plastic barriers"
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -19610,6 +20326,16 @@
       "ملصقات سلامه",
       "safety stickers",
       "warning stickers"
+     ],
+     "seller_terms": [
+      "ادوات سلامه",
+      "معدات سلامه",
+      "مستلزمات سلامه",
+      "ادوات السلامه",
+      "معدات الوقايه",
+      "safety equipment",
+      "safety supplies",
+      "ppe"
      ]
     },
     {
@@ -19985,7 +20711,6 @@
       "طقم لقم",
       "طقم لقمه",
       "hex key",
-      "الن",
       "allen key set",
       "socket wrench set",
       "مفتاح انجليزي",
@@ -19994,7 +20719,10 @@
       "مفتاح بلدي",
       "مفاتيح انجليزي",
       "adjustable wrench",
-      "مفتاح مواسير"
+      "مفتاح مواسير",
+      "مفتاح الن",
+      "مفاتيح الن",
+      "allen key"
      ]
     },
     {
@@ -20045,6 +20773,21 @@
       "سكينه كتر",
       "utility knife",
       "كتر"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "سكين",
+        "سكينه"
+       ],
+       "supplier_require_any": [
+        "عدد",
+        "ادوات",
+        "tools",
+        "معدات"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -20175,6 +20918,34 @@
       "شنيور شحن",
       "دريل شحن",
       "دريل كهربايي"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "دريل"
+       ],
+       "supplier_require_any": [
+        "عدد",
+        "ادوات",
+        "tools",
+        "معدات"
+       ],
+       "block_any": [
+        "ابار",
+        "حفر",
+        "حفار"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
+     ],
+     "seller_terms": [
+      "عدد وادوات",
+      "عدد كهرباييه",
+      "عدد صناعيه",
+      "معدات رفع",
+      "power tools",
+      "hand tools",
+      "tools & equipment"
      ]
     },
     {
@@ -20209,6 +20980,15 @@
       "صاروخ صغير",
       "صواريخ قطع",
       "chop saw"
+     ],
+     "seller_terms": [
+      "عدد وادوات",
+      "عدد كهرباييه",
+      "عدد صناعيه",
+      "معدات رفع",
+      "power tools",
+      "hand tools",
+      "tools & equipment"
      ]
     },
     {
@@ -20461,6 +21241,14 @@
       "ماكينات لحام",
       "مكاين لحام",
       "arc welder"
+     ],
+     "seller_terms": [
+      "مستلزمات لحام",
+      "معدات لحام",
+      "ادوات لحام",
+      "welding supplies",
+      "welding equipment",
+      "الكترودات"
      ]
     },
     {
@@ -20481,6 +21269,16 @@
       "الكترود لحام",
       "welding electrodes",
       "welding rods"
+     ],
+     "seller_terms": [
+      "مستلزمات لحام",
+      "معدات لحام",
+      "ادوات لحام",
+      "welding supplies",
+      "welding equipment"
+     ],
+     "line_word_stop": [
+      "اسلاك"
      ]
     },
     {
@@ -20509,6 +21307,14 @@
       "منضده لحام",
       "welding positioner",
       "welding curtain"
+     ],
+     "seller_terms": [
+      "مستلزمات لحام",
+      "معدات لحام",
+      "ادوات لحام",
+      "welding supplies",
+      "welding equipment",
+      "الكترودات"
      ]
     },
     {
@@ -20631,6 +21437,16 @@
       "منظم غاز لحام",
       "gas regulator لحام"
      ]
+    },
+    {
+     "id": "argon_gas_cylinder",
+     "label_ar": "اسطوانه ارجون",
+     "strong_terms": [
+      "اسطوانه ارجون",
+      "غاز ارجون",
+      "argon cylinder"
+     ],
+     "facets": []
     }
    ],
    "hard_conflicts": [
@@ -21098,6 +21914,20 @@
       "قريس",
       "شحم جريس",
       "جريس تشحيم"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "جريس"
+       ],
+       "supplier_require_any": [
+        "زيوت",
+        "oil",
+        "lubric",
+        "شحوم"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -21304,7 +22134,8 @@
       "anchor bolts",
       "كيميكال انكر",
       "انكر كيميكال",
-      "resin anchor"
+      "resin anchor",
+      "anchor bolt"
      ]
     },
     {
@@ -21327,7 +22158,8 @@
       "nylon plug",
       "خابور",
       "خوابير",
-      "خابور بلاستيك"
+      "خابور بلاستيك",
+      "مسامير فشر"
      ],
      "weak_terms": [
       "fisher"
@@ -21371,7 +22203,15 @@
       "بولت مجلفن",
       "بولت وصامله",
       "بولت وصواميل",
-      "bolts and nuts"
+      "bolts and nuts",
+      "bolts",
+      "nuts",
+      "washers",
+      "bolts nuts",
+      "screws",
+      "صواميل",
+      "مسامير جبس",
+      "مسامير"
      ],
      "weak_terms": [
       "مسمار"
@@ -21581,6 +22421,15 @@
          "name": "protection_ip",
          "supplier_pool_affecting": false
         }
+       ],
+       "seller_terms": [
+        "عدد وادوات",
+        "عدد كهرباييه",
+        "عدد صناعيه",
+        "معدات رفع",
+        "power tools",
+        "hand tools",
+        "tools & equipment"
        ]
       },
       {
@@ -21644,6 +22493,15 @@
          "name": "accuracy",
          "supplier_pool_affecting": false
         }
+       ],
+       "seller_terms": [
+        "عدد وادوات",
+        "عدد كهرباييه",
+        "عدد صناعيه",
+        "معدات رفع",
+        "power tools",
+        "hand tools",
+        "tools & equipment"
        ]
       },
       {
@@ -21702,6 +22560,12 @@
          "name": "range_m",
          "supplier_pool_affecting": false
         }
+       ],
+       "seller_terms": [
+        "اجهزه مساحيه",
+        "اجهزه المساحه",
+        "survey equipment",
+        "surveying instruments"
        ]
       },
       {
@@ -21755,6 +22619,15 @@
          "name": "length_m",
          "supplier_pool_affecting": false
         }
+       ],
+       "seller_terms": [
+        "عدد وادوات",
+        "عدد كهرباييه",
+        "عدد صناعيه",
+        "معدات رفع",
+        "power tools",
+        "hand tools",
+        "tools & equipment"
        ]
       },
       {
@@ -21996,6 +22869,15 @@
          "note": "water-leak detection rope/cable belongs to environmental monitoring"
         }
        ]
+      },
+      {
+       "id": "moisture_meter",
+       "label_ar": "جهاز قياس الرطوبه",
+       "strong_terms": [
+        "جهاز قياس الرطوبه",
+        "moisture meter"
+       ],
+       "facets": []
       }
      ]
     }
@@ -22081,7 +22963,22 @@
       "blade server",
       "خادم رفي",
       "1u server",
-      "2u server"
+      "2u server",
+      "سيرفر"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "خادم"
+       ],
+       "supplier_require_any": [
+        "سيرفر",
+        "server",
+        "تقنيه",
+        "حاسب"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     }
    ],
@@ -22422,7 +23319,8 @@
       "سويتش شبكه",
       "سويتشات شبكه",
       "راوتر",
-      "راوترات"
+      "راوترات",
+      "سويتشات"
      ]
     }
    ],
@@ -22583,7 +23481,13 @@
       "vpn",
       "utm"
      ],
-     "facets": []
+     "facets": [],
+     "seller_terms": [
+      "امن سيبراني",
+      "امن المعلومات",
+      "cyber security",
+      "cybersecurity"
+     ]
     }
    ],
    "term_guards": [
@@ -22835,7 +23739,9 @@
       "فايبر اوبتك",
       "fiber cable",
       "fibre cable",
-      "optical fiber cable"
+      "optical fiber cable",
+      "كيبل الياف بصريه",
+      "كيبل الياف"
      ]
     },
     {
@@ -22864,7 +23770,8 @@
       "copper patch cord",
       "باتش كورد",
       "rj45 patch cord",
-      "وصله شبكه"
+      "وصله شبكه",
+      "كورد توصيل نحاسي"
      ]
     },
     {
@@ -22922,7 +23829,9 @@
       "faceplate",
       "كيستون",
       "كيستون جاك",
-      "مخارج شبكه"
+      "مخارج شبكه",
+      "مخارج معلومات",
+      "مخارج المعلومات"
      ]
     },
     {
@@ -23170,7 +24079,8 @@
       "كابينه سيرفر",
       "كباين اتصالات",
       "كباين اجهزه اتصالات",
-      "كباين وارفف لكابلات الاتصالات"
+      "كباين وارفف لكابلات الاتصالات",
+      "راك شبكه"
      ]
     }
    ],
@@ -23623,7 +24533,11 @@
       "video wall",
       "شاشه جدار",
       "شاشات كمبيوتر",
-      "شاشه كمبيوتر"
+      "شاشه كمبيوتر",
+      "شاشه تلفزيون",
+      "شاشات تلفزيون",
+      "شاشه led",
+      "شاشات led"
      ]
     }
    ],
@@ -23857,12 +24771,12 @@
         "flatbed scanner",
         "sheetfed scanner",
         "ماسح مستندات",
-        "سكانر مستندات"
+        "سكانر مستندات",
+        "سكانر"
        ],
        "weak_terms": [
         "scanner",
-        "ماسح",
-        "سكانر"
+        "ماسح"
        ],
        "context_terms": [
         "مستندات",
@@ -24233,6 +25147,19 @@
    ],
    "hard_conflicts": [
     "security_guard_services"
+   ],
+   "intents": [
+    {
+     "id": "self_service_kiosk",
+     "label_ar": "كشك خدمه ذاتيه",
+     "strong_terms": [
+      "كشك خدمه ذاتيه",
+      "كشك خدمه ذاتي",
+      "self service kiosk",
+      "kiosk"
+     ],
+     "facets": []
+    }
    ]
   },
   {
@@ -24566,6 +25493,16 @@
          "supplier_pool_affecting": false
         }
        ]
+      },
+      {
+       "id": "traffic_enforcement_camera",
+       "label_ar": "كاميرات رصد مخالفات",
+       "strong_terms": [
+        "كاميرات رصد مخالفات",
+        "كاميرا ساهر",
+        "anpr camera"
+       ],
+       "facets": []
       }
      ]
     },
@@ -24649,6 +25586,29 @@
          "name": "protection_ip",
          "supplier_pool_affecting": false
         }
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "بصمه",
+          "بصمات"
+         ],
+         "supplier_require_any": [
+          "حضور",
+          "انصراف",
+          "امن",
+          "امنيه",
+          "انظمه",
+          "تقنيه",
+          "اجهزه",
+          "كاميرات",
+          "access",
+          "attendance",
+          "biometric",
+          "security"
+         ],
+         "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+        }
        ]
       },
       {
@@ -24701,6 +25661,27 @@
           "hvac"
          ],
          "note": "«وحدات تحكم دخول وخروج الهواء» is an air damper, not door access control."
+        },
+        {
+         "terms": [
+          "بصمه",
+          "بصمات"
+         ],
+         "supplier_require_any": [
+          "حضور",
+          "انصراف",
+          "امن",
+          "امنيه",
+          "انظمه",
+          "تقنيه",
+          "اجهزه",
+          "كاميرات",
+          "access",
+          "attendance",
+          "biometric",
+          "security"
+         ],
+         "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
         }
        ]
       },
@@ -24784,6 +25765,29 @@
          "name": "capacity",
          "supplier_pool_affecting": false
         }
+       ],
+       "term_guards": [
+        {
+         "terms": [
+          "بصمه",
+          "بصمات"
+         ],
+         "supplier_require_any": [
+          "حضور",
+          "انصراف",
+          "امن",
+          "امنيه",
+          "انظمه",
+          "تقنيه",
+          "اجهزه",
+          "كاميرات",
+          "access",
+          "attendance",
+          "biometric",
+          "security"
+         ],
+         "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+        }
        ]
       },
       {
@@ -24832,7 +25836,8 @@
         "full height turnstile",
         "tripod turnstile",
         "بوابات دواره",
-        "بوابه دواره"
+        "بوابه دواره",
+        "بوابه الكترونيه"
        ],
        "weak_terms": [
         "بوابه",
@@ -24881,6 +25886,11 @@
         "parking gate",
         "boom barrier",
         "حاجز ذراع"
+       ],
+       "seller_terms": [
+        "انظمه مواقف",
+        "انظمه المواقف",
+        "parking systems"
        ]
       },
       {
@@ -24933,6 +25943,11 @@
       "موقف",
       "parking",
       "سيارات"
+     ],
+     "seller_terms": [
+      "انظمه مواقف",
+      "انظمه المواقف",
+      "parking systems"
      ]
     },
     {
@@ -24955,7 +25970,33 @@
       "موظفين",
       "وجه"
      ],
-     "facets": []
+     "facets": [],
+     "term_guards": [
+      {
+       "terms": [
+        "بصمه",
+        "بصمات"
+       ],
+       "supplier_require_any": [
+        "حضور",
+        "انصراف",
+        "امن",
+        "امنيه",
+        "انظمه",
+        "تقنيه",
+        "اجهزه",
+        "كاميرات",
+        "access",
+        "attendance",
+        "biometric",
+        "security"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
+     ],
+     "seller_terms": [
+      "اجهزه حضور"
+     ]
     }
    ],
    "hard_conflicts": [
@@ -25385,7 +26426,10 @@
       "loudspeaker",
       "loudspeakers",
       "network speaker",
-      "speaker شبكه"
+      "speaker شبكه",
+      "سماعه صوت",
+      "سماعات صوت",
+      "سماعه صوت سقفيه"
      ],
      "term_guards": [
       {
@@ -25405,6 +26449,13 @@
        ],
        "note": "A handheld megaphone is not a fixed PA loudspeaker."
       }
+     ],
+     "seller_terms": [
+      "صوتيات",
+      "انظمه صوت",
+      "انظمه صوتيه",
+      "audio systems",
+      "sound systems"
      ]
     },
     {
@@ -25424,6 +26475,13 @@
       "amplifier pa",
       "100 v amplifier",
       "class d amplifier"
+     ],
+     "seller_terms": [
+      "صوتيات",
+      "انظمه صوت",
+      "انظمه صوتيه",
+      "audio systems",
+      "sound systems"
      ]
     },
     {
@@ -25517,6 +26575,13 @@
       "wireless microphone",
       "مايك لاسلكي",
       "gooseneck microphone"
+     ],
+     "seller_terms": [
+      "صوتيات",
+      "انظمه صوت",
+      "انظمه صوتيه",
+      "audio systems",
+      "sound systems"
      ]
     },
     {
@@ -25642,10 +26707,10 @@
      "strong_terms": [
       "لاقط صوت",
       "لواقط صوت",
-      "lavalier"
+      "lavalier",
+      "مايكروفون"
      ],
      "weak_terms": [
-      "مايكروفون",
       "مايكروفونات",
       "ميكروفون",
       "ميكروفونات",
@@ -25722,6 +26787,18 @@
        "supplier_pool_affecting": false
       }
      ]
+    },
+    {
+     "id": "queue_management_system",
+     "label_ar": "نظام الانتظار",
+     "strong_terms": [
+      "نظام الانتظار",
+      "نظام اداره الانتظار",
+      "نظام طوابير",
+      "queue management system",
+      "شاشه نظام الانتظار"
+     ],
+     "facets": []
     }
    ],
    "term_guards": [
@@ -25923,7 +27000,8 @@
       "عزل مواسير نحاس",
       "عزل مواسير النحاس",
       "عزل مواسير نحاس تكييف",
-      "عزل نحاس التكييف"
+      "عزل نحاس التكييف",
+      "مواسير مياه مبرده معزوله"
      ],
      "term_guards": [
       {
@@ -26003,6 +27081,9 @@
       "spray polyurethane",
       "spray pu foam",
       "sprayed polyurethane foam"
+     ],
+     "line_word_stop": [
+      "بولي"
      ]
     },
     {
@@ -26348,7 +27429,8 @@
       "زجاج ضد الحريق",
       "زجاج مقاوم للحريق",
       "fire rated glass",
-      "زجاج معشق"
+      "زجاج معشق",
+      "زجاج ساده"
      ]
     },
     {
@@ -26663,7 +27745,9 @@
       "نوافذ المنيوم زجاج مزدوج",
       "نوافذ المونيوم",
       "ابواب المونيوم",
-      "شبابيك المونيوم"
+      "شبابيك المونيوم",
+      "شباك",
+      "شبابيك"
      ],
      "context_terms": [
       "م2",
@@ -26941,6 +28025,24 @@
       "concrete manhole",
       "منهل",
       "منهولات"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "مناهل",
+        "منهل"
+       ],
+       "supplier_require_any": [
+        "خرسان",
+        "بريكاست",
+        "precast",
+        "مسبقه",
+        "اغطيه",
+        "حديد زهر",
+        "مصنع"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -28241,7 +29343,6 @@
       "block",
       "بلوكات",
       "طوب",
-      "بلك",
       "بلكات"
      ],
      "context_terms": [
@@ -28293,7 +29394,8 @@
       "بلوك ملون",
       "بلوك مصمط",
       "بلوك واجهات",
-      "طوب رملي"
+      "طوب رملي",
+      "بلك"
      ]
     },
     {
@@ -28556,7 +29658,20 @@
       "كيماويات بناء",
       "محضرات تضاف للاسمنت",
       "تضاف للخرسانه",
-      "تضاف للاسمنت"
+      "تضاف للاسمنت",
+      "مانع تسرب خرساني",
+      "اضافات مانعه للتسرب"
+     ],
+     "seller_terms": [
+      "كيماويات البناء",
+      "construction chemicals",
+      "سيكا",
+      "sika",
+      "فوسروك",
+      "fosroc",
+      "هنكل",
+      "henkel",
+      "دون كيميكال"
      ]
     },
     {
@@ -28603,6 +29718,18 @@
       "crack injection",
       "epoxy bonding agent",
       "ماده ربط ايبوكسي"
+     ],
+     "seller_terms": [
+      "كيماويات البناء",
+      "كيماويات بناء",
+      "construction chemicals",
+      "سيكا",
+      "sika",
+      "فوسروك",
+      "fosroc",
+      "هنكل",
+      "henkel",
+      "دون كيميكال"
      ]
     },
     {
@@ -28627,6 +29754,18 @@
       "معالجه وانضاج",
       "انضاج الخرسانه",
       "انضاج الاسطح الخرسانيه"
+     ],
+     "seller_terms": [
+      "كيماويات البناء",
+      "كيماويات بناء",
+      "construction chemicals",
+      "سيكا",
+      "sika",
+      "فوسروك",
+      "fosroc",
+      "هنكل",
+      "henkel",
+      "دون كيميكال"
      ]
     },
     {
@@ -28653,6 +29792,18 @@
       "epoxy machine grout",
       "خرسانه غير متقلصه",
       "غير متقلصه"
+     ],
+     "seller_terms": [
+      "كيماويات البناء",
+      "كيماويات بناء",
+      "construction chemicals",
+      "سيكا",
+      "sika",
+      "فوسروك",
+      "fosroc",
+      "هنكل",
+      "henkel",
+      "دون كيميكال"
      ]
     },
     {
@@ -28692,6 +29843,18 @@
       "form oil",
       "shuttering oil",
       "formwork release"
+     ],
+     "seller_terms": [
+      "كيماويات البناء",
+      "كيماويات بناء",
+      "construction chemicals",
+      "سيكا",
+      "sika",
+      "فوسروك",
+      "fosroc",
+      "هنكل",
+      "henkel",
+      "دون كيميكال"
      ]
     }
    ]
@@ -29810,6 +30973,12 @@
       "محبس ري كهربايي",
       "بلف ري",
       "محابس ري"
+     ],
+     "seller_terms": [
+      "مستلزمات ري",
+      "شبكات ري",
+      "انظمه ري",
+      "irrigation"
      ]
     },
     {
@@ -29851,9 +31020,21 @@
       "خرطوم تنقيط",
       "خراطيم تنقيط",
       "نقاطات ري",
-      "نقاطه"
+      "نقاطه",
+      "شبكه ري",
+      "مواسير ري",
+      "خطوط تنقيط",
+      "شبكه لمياه الري",
+      "شبكه مياه الري",
+      "شبكه مياه ري"
      ],
-     "note": "Irrigation must claim its own sprinklers POSITIVELY, not merely lose them. Guarding the word «رشاش»/`sprinkler` on the fire side only stops the wrong answer; without head names the landscape trade uses — pop-up, rotor, impact, gear drive — a garden line would fall to an honest but useless unknown instead of reaching an irrigation supplier."
+     "note": "Irrigation must claim its own sprinklers POSITIVELY, not merely lose them. Guarding the word «رشاش»/`sprinkler` on the fire side only stops the wrong answer; without head names the landscape trade uses — pop-up, rotor, impact, gear drive — a garden line would fall to an honest but useless unknown instead of reaching an irrigation supplier.",
+     "seller_terms": [
+      "مستلزمات ري",
+      "شبكات ري",
+      "انظمه ري",
+      "irrigation"
+     ]
     },
     {
      "id": "hose",
@@ -29934,6 +31115,12 @@
        ],
        "note": "«انابيب ومواسير وخراطيم …» is a pipe line first."
       }
+     ],
+     "seller_terms": [
+      "مستلزمات ري",
+      "شبكات ري",
+      "انظمه ري",
+      "irrigation"
      ]
     }
    ],
@@ -30093,6 +31280,18 @@
       "موقف مياه",
       "مواد ملء الفواصل",
       "مواد ملء الفراغات والفواصل"
+     ],
+     "seller_terms": [
+      "كيماويات البناء",
+      "كيماويات بناء",
+      "construction chemicals",
+      "سيكا",
+      "sika",
+      "فوسروك",
+      "fosroc",
+      "هنكل",
+      "henkel",
+      "دون كيميكال"
      ]
     },
     {
@@ -30539,7 +31738,8 @@
       "crushed gravel",
       "كري",
       "كري مغسول",
-      "كري بحص"
+      "كري بحص",
+      "aggregate 20mm"
      ]
     },
     {
@@ -30623,6 +31823,19 @@
         "plaster"
        ],
        "note": "Sand inside a mortar/render/screed line is an ingredient, not the material bought."
+      },
+      {
+       "terms": [
+        "سبيس"
+       ],
+       "supplier_require_any": [
+        "رمل",
+        "بحص",
+        "مواد بناء",
+        "دفان",
+        "نقل"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
       }
      ]
     },
@@ -30773,6 +31986,19 @@
       "طبقه تلييس",
       "مواد تلييس وتشطيب",
       "خلطات اسمنتيه للتلييس"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "بياض"
+       ],
+       "supplier_require_any": [
+        "لياسه",
+        "مواد بناء",
+        "اسمنت"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -30800,7 +32026,8 @@
       "بودره جبس",
       "جبس تلييس",
       "جبس الرش",
-      "جبس رش"
+      "جبس رش",
+      "بلاستر"
      ]
     },
     {
@@ -30970,7 +32197,8 @@
       "مظلات ممرات",
       "مظلات مواقف سيارات",
       "مظلات حديد",
-      "parking shade"
+      "parking shade",
+      "مظله مواقف"
      ]
     },
     {
@@ -31277,7 +32505,10 @@
       "مكتب خشبي",
       "مكاتب خشب",
       "مكتب موظفين",
-      "مكاتب ومكتبات"
+      "مكاتب ومكتبات",
+      "طاوله موتمرات",
+      "طاوله الموتمرات",
+      "طاولات اجتماعات"
      ]
     },
     {
@@ -31333,6 +32564,19 @@
         "قاعده"
        ],
        "note": "«حوامل وكراسي وحدات التكييف» are AC-unit stands."
+      },
+      {
+       "terms": [
+        "مجلس"
+       ],
+       "supplier_require_any": [
+        "اثاث",
+        "مفروشات",
+        "تنجيد",
+        "كنب",
+        "furniture"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
       }
      ]
     },
@@ -31373,7 +32617,8 @@
       "دواليب ملابس",
       "wardrobes",
       "مكتبات خشبيه",
-      "مكتبه خشبيه"
+      "مكتبه خشبيه",
+      "خزاين ملفات"
      ]
     },
     {
@@ -31845,6 +33090,21 @@
       "مصاعد ركاب",
       "ليفت",
       "ليفتات"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "ليفت"
+       ],
+       "block_any": [
+        "مان لفت",
+        "سيزر",
+        "بوم",
+        "فوركلفت",
+        "رافعات"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -32196,6 +33456,20 @@
       "مقابض ابواب ستانلس",
       "مقبض ستانلس",
       "stainless handle"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "رزه"
+       ],
+       "supplier_require_any": [
+        "ابواب",
+        "اكسسوارات",
+        "مقابض",
+        "hardware"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -32433,7 +33707,8 @@
       "موتور ثلاثي الاوجه",
       "ie3 motor",
       "موتور مانع انفجار",
-      "explosion proof motor"
+      "explosion proof motor",
+      "موتور كهرباء"
      ]
     },
     {
@@ -32592,6 +33867,14 @@
       "vacuum outlet",
       "medical air outlet",
       "gas outlet طبي"
+     ],
+     "seller_terms": [
+      "غازات طبيه",
+      "تمديدات غازات طبيه",
+      "تجهيزات طبيه",
+      "تجهيزات مستشفيات",
+      "medical gas",
+      "hospital equipment"
      ]
     },
     {
@@ -32638,6 +33921,14 @@
       "مضخه شفط طبيه",
       "medical vacuum plant",
       "مضخه تفريغ طبيه"
+     ],
+     "seller_terms": [
+      "غازات طبيه",
+      "تمديدات غازات طبيه",
+      "تجهيزات طبيه",
+      "تجهيزات مستشفيات",
+      "medical gas",
+      "hospital equipment"
      ]
     },
     {
@@ -32652,7 +33943,16 @@
       "شبكه غازات طبيه",
       "نظام غازات طبيه",
       "medical gas system",
-      "medical gas network"
+      "medical gas network",
+      "غازات طبيه"
+     ],
+     "seller_terms": [
+      "غازات طبيه",
+      "تمديدات غازات طبيه",
+      "تجهيزات طبيه",
+      "تجهيزات مستشفيات",
+      "medical gas",
+      "hospital equipment"
      ]
     },
     {
@@ -32675,6 +33975,14 @@
       "وحده رعايه سرير",
       "وحدات رعايه",
       "bed head trunking"
+     ],
+     "seller_terms": [
+      "غازات طبيه",
+      "تمديدات غازات طبيه",
+      "تجهيزات طبيه",
+      "تجهيزات مستشفيات",
+      "medical gas",
+      "hospital equipment"
      ]
     }
    ]
@@ -32910,6 +34218,14 @@
       "ستائر فصل",
       "cubicle curtains",
       "hospital curtain"
+     ],
+     "seller_terms": [
+      "غازات طبيه",
+      "تمديدات غازات طبيه",
+      "تجهيزات طبيه",
+      "تجهيزات مستشفيات",
+      "medical gas",
+      "hospital equipment"
      ]
     },
     {
@@ -33012,6 +34328,14 @@
        "name": "capacity",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "غازات طبيه",
+      "تمديدات غازات طبيه",
+      "تجهيزات طبيه",
+      "تجهيزات مستشفيات",
+      "medical gas",
+      "hospital equipment"
      ]
     },
     {
@@ -33035,7 +34359,15 @@
       "تمريض",
       "مستشفي"
      ],
-     "facets": []
+     "facets": [],
+     "seller_terms": [
+      "غازات طبيه",
+      "تمديدات غازات طبيه",
+      "تجهيزات طبيه",
+      "تجهيزات مستشفيات",
+      "medical gas",
+      "hospital equipment"
+     ]
     }
    ]
   },
@@ -33187,6 +34519,9 @@
       "دواليب مختبر",
       "خزائن مختبر",
       "lab cabinet"
+     ],
+     "seller_terms": [
+      "تجهيزات مختبرات"
      ]
     },
     {
@@ -33211,6 +34546,11 @@
       "ductless fume hood",
       "خزانه سحب ابخره",
       "دولاب سحب ابخره"
+     ],
+     "seller_terms": [
+      "اثاث مختبرات",
+      "تجهيزات مختبرات",
+      "laboratory furniture"
      ]
     },
     {
@@ -33557,7 +34897,15 @@
       "بانل شمسي",
       "solar panels",
       "pv modules",
-      "solar module"
+      "solar module",
+      "خلايا شمسيه",
+      "نظام طاقه شمسيه"
+     ],
+     "seller_terms": [
+      "طاقه شمسيه",
+      "انظمه شمسيه",
+      "solar energy",
+      "solar systems"
      ]
     },
     {
@@ -33571,6 +34919,12 @@
       "central inverter",
       "هجين شمسي",
       "hybrid inverter"
+     ],
+     "seller_terms": [
+      "طاقه شمسيه",
+      "انظمه شمسيه",
+      "solar energy",
+      "solar systems"
      ]
     },
     {
@@ -33613,6 +34967,12 @@
       "بطاريات ليثيوم شمسيه",
       "بطاريه ليثيوم شمسيه",
       "بطاريات ليثيوم للطاقه الشمسيه"
+     ],
+     "seller_terms": [
+      "طاقه شمسيه",
+      "انظمه شمسيه",
+      "solar energy",
+      "solar systems"
      ]
     },
     {
@@ -34513,7 +35873,8 @@
       "steel fence",
       "سياج مجلفن",
       "حواجز حديد مجلفن",
-      "سور حديد مجلفن"
+      "سور حديد مجلفن",
+      "سور شبك"
      ]
     },
     {
@@ -34529,6 +35890,9 @@
       "concertina wire",
       "كونسرتينا",
       "سلك شفرات"
+     ],
+     "line_word_stop": [
+      "اسلاك"
      ]
     },
     {
@@ -34729,6 +36093,22 @@
         "نقل"
        ],
        "note": "tree work (pruning/removal) is a service, not a tree supply"
+      },
+      {
+       "terms": [
+        "زهور",
+        "نخله",
+        "شجره"
+       ],
+       "supplier_require_any": [
+        "مشتل",
+        "مشاتل",
+        "نباتات",
+        "زراع",
+        "تنسيق",
+        "nursery"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
       }
      ],
      "note": "tree/shrub supply from nurseries; species and height are facets"
@@ -34748,6 +36128,24 @@
       "palm tree",
       "palm trees",
       "washingtonia"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "زهور",
+        "نخله",
+        "شجره"
+       ],
+       "supplier_require_any": [
+        "مشتل",
+        "مشاتل",
+        "نباتات",
+        "زراع",
+        "تنسيق",
+        "nursery"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -34774,6 +36172,24 @@
       "groundcover",
       "flowering plants",
       "climbers"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "زهور",
+        "نخله",
+        "شجره"
+       ],
+       "supplier_require_any": [
+        "مشتل",
+        "مشاتل",
+        "نباتات",
+        "زراع",
+        "تنسيق",
+        "nursery"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     },
     {
@@ -34948,7 +36364,11 @@
       "washer extractor",
       "commercial washing machine",
       "industrial washing machine",
-      "laundry washer"
+      "laundry washer",
+      "غساله صناعيه",
+      "غسالات صناعيه",
+      "laundry equipment",
+      "غساله 30 كجم"
      ]
     },
     {
@@ -34996,6 +36416,19 @@
       "مكابس كوي",
       "مكواه بخار",
       "garment press"
+     ],
+     "term_guards": [
+      {
+       "terms": [
+        "مكاوي"
+       ],
+       "supplier_require_any": [
+        "مغاسل",
+        "laundry",
+        "معدات"
+       ],
+       "note": "A homograph (surname / brand / other trade) in a supplier NAME: it confirms a seller only when his own text also names the trade. Audit cpo-v21 F07."
+      }
      ]
     }
    ],
@@ -35139,7 +36572,8 @@
       "duct tape",
       "packing tape",
       "double sided tape",
-      "cloth tape"
+      "cloth tape",
+      "pvc tape"
      ],
      "term_guards": [
       {
@@ -35157,6 +36591,15 @@
        ],
        "note": "electrical insulation tape and warning tape belong to their own trades"
       }
+     ],
+     "seller_terms": [
+      "عدد وادوات",
+      "عدد كهرباييه",
+      "عدد صناعيه",
+      "معدات رفع",
+      "power tools",
+      "hand tools",
+      "tools & equipment"
      ]
     },
     {
@@ -35402,6 +36845,9 @@
        "name": "dimensions",
        "supplier_pool_affecting": false
       }
+     ],
+     "seller_terms": [
+      "shipping containers"
      ]
     }
    ],
@@ -35727,6 +37173,250 @@
     "advertising_agency",
     "security_guard_services"
    ]
+  },
+  {
+   "id": "soil_treatment",
+   "sector": "CIVIL_CONCRETE",
+   "label_ar": "معالجة التربة",
+   "strong_terms": [],
+   "weak_terms": [],
+   "context_terms": [
+    "تربه",
+    "soil",
+    "نمل",
+    "termite"
+   ],
+   "supplier_terms": [
+    "مكافحه حشرات",
+    "مبيدات",
+    "pest control"
+   ],
+   "preferred_archetypes": [
+    "concrete_chemicals_supplier"
+   ],
+   "allowed_archetypes": [
+    "general_building_materials",
+    "general_trading"
+   ],
+   "hard_conflicts": [
+    "ppe_supplier",
+    "it_hardware_supplier",
+    "sanitary_ware_supplier"
+   ],
+   "facets": [],
+   "intents": [
+    {
+     "id": "termite_soil_treatment",
+     "label_ar": "معالجه التربه ضد النمل الابيض",
+     "strong_terms": [
+      "معالجه التربه ضد النمل الابيض",
+      "مبيد النمل الابيض",
+      "anti termite treatment",
+      "termiticide"
+     ],
+     "facets": []
+    }
+   ]
+  }
+ ],
+ "sibling_groups": [
+  {
+   "id": "wiring_devices_counter",
+   "intents": [
+    "socket_outlet",
+    "light_switch"
+   ],
+   "note": "one counter: every socket shop sells switches"
+  },
+  {
+   "id": "plastic_pressure_pipes",
+   "intents": [
+    "ppr_pipe",
+    "pex_pipe",
+    "upvc_pressure_pipe",
+    "pipe_fitting"
+   ],
+   "note": "donors = pipe_fitting + upvc_pressure_pipe sellers (plumbing pipe shops); HDPE excluded (civil)"
+  },
+  {
+   "id": "fire_alarm_devices",
+   "intents": [
+    "fire_alarm_panel",
+    "smoke_heat_detector",
+    "alarm_sounder",
+    "manual_call_point",
+    "fire_alarm_system"
+   ],
+   "note": "fire-alarm contractors sell panel, detectors, sounders, MCPs"
+  },
+  {
+   "id": "hand_tools_counter",
+   "intents": [
+    "tool_sets_storage",
+    "level_alignment",
+    "measuring_tape",
+    "wrenches_spanners",
+    "screwdrivers_pliers",
+    "striking_cutting_tools"
+   ],
+   "note": "«عدد يدويه» shops: levels, tapes, spanners, pliers, hammers"
+  },
+  {
+   "id": "lighting_counter",
+   "intents": [
+    "emergency_light",
+    "led_panel_light",
+    "led_luminaire",
+    "downlight",
+    "led_lamp"
+   ],
+   "note": "lighting shops sell emergency/panel/down lights"
+  },
+  {
+   "id": "dx_air_conditioners",
+   "intents": [
+    "split_ac",
+    "cassette_ac",
+    "concealed_ducted_ac",
+    "window_ac"
+   ],
+   "note": "AC shops sell split/cassette/ducted/window"
+  },
+  {
+   "id": "network_passive",
+   "intents": [
+    "patch_panel",
+    "copper_patch_cord",
+    "data_outlet",
+    "data_cable",
+    "comms_cabinet"
+   ],
+   "note": "network shops: patch panels, cords, outlets, cable, racks"
+  },
+  {
+   "id": "valves",
+   "intents": [
+    "gate_valve",
+    "check_valve",
+    "ball_valve",
+    "butterfly_valve",
+    "pressure_reducing_valve"
+   ],
+   "note": "valve stockists carry all valve types"
+  },
+  {
+   "id": "cable_containment",
+   "intents": [
+    "cable_tray",
+    "cable_trunking",
+    "cable_ladder",
+    "cable_support_accessories"
+   ],
+   "note": "tray factories make trunking, ladder, accessories"
+  },
+  {
+   "id": "ready_mix",
+   "intents": [
+    "structural_ready_mix",
+    "blinding_lean_concrete"
+   ],
+   "note": "every ready-mix plant pours blinding/plain concrete"
+  },
+  {
+   "id": "scaffold_access",
+   "intents": [
+    "scaffold_systems",
+    "ladders_platforms"
+   ],
+   "note": "scaffold renters supply towers/platforms"
+  },
+  {
+   "id": "door_hardware",
+   "intents": [
+    "hinges_handles",
+    "locks_cylinders",
+    "closers_exit_devices"
+   ],
+   "note": "door-hardware shops: closers, panic bars, hinges, locks"
+  },
+  {
+   "id": "lifts",
+   "intents": [
+    "passenger_elevator",
+    "freight_elevator"
+   ],
+   "note": "lift companies supply passenger and goods lifts"
+  },
+  {
+   "id": "water_treatment_units",
+   "intents": [
+    "water_filtration_unit",
+    "ro_desalination",
+    "water_softener",
+    "water_disinfection"
+   ],
+   "note": "filter/RO shops supply softeners and UV units"
+  },
+  {
+   "id": "commercial_kitchen",
+   "intents": [
+    "kitchen_ventilation",
+    "warewashing",
+    "kitchen_refrigeration",
+    "kitchen_stainless_furniture"
+   ],
+   "note": "restaurant-equipment shops: hoods, dishwashers, refrigeration, stainless"
+  },
+  {
+   "id": "earthing_lightning",
+   "intents": [
+    "earthing_accessories",
+    "lightning_protection"
+   ],
+   "note": "earthing and lightning material from the same suppliers"
+  },
+  {
+   "id": "ups_batteries",
+   "intents": [
+    "ups_system",
+    "battery_bank"
+   ],
+   "note": "UPS suppliers sell battery banks (donors = UPS activity, not car-battery names)"
+  },
+  {
+   "id": "mv_switchgear",
+   "intents": [
+    "mv_switchgear",
+    "ring_main_unit"
+   ],
+   "note": "MV switchgear makers supply RMUs"
+  },
+  {
+   "id": "traffic_safety_items",
+   "intents": [
+    "traffic_control_barrier",
+    "road_stud",
+    "parking_wheel_control",
+    "bollard",
+    "road_safety_barrier"
+   ],
+   "note": "traffic-safety suppliers: cones, studs, wheel stops, bollards, barriers"
+  },
+  {
+   "id": "drainage_castings",
+   "intents": [
+    "manhole_cover",
+    "stormwater_inlet"
+   ],
+   "note": "cast-iron/precast drainage: covers and gully gratings"
+  },
+  {
+   "id": "paving",
+   "intents": [
+    "paving_block",
+    "tactile_paving"
+   ],
+   "note": "interlock factories make tactile tiles"
   }
  ]
 }
