@@ -154,4 +154,23 @@ describe('autoPickConfident — every confident match, WhatsApp only when sure',
     const item = line(2, 'masonry_blocks', [wa('a', { why: 'الاسم: «بلوك»' })], { rejectedSupplierIds: ['a'] })
     expect(autoPickConfident(item)).toEqual([])
   })
+  // The owner, 4 Oct 2026: «إذا المصادر الأخرى لا يوجد مورد اختر عادي 100–200، وإذا فيه مليان اختر أفضل 30 لكل بند».
+  it('a line the free channels fill takes only the best 30 WhatsApp sellers; a thin line takes up to 200', () => {
+    const many = (n: number, mk: (id: string) => Supplier) => Array.from({ length: n }, (_, i) => mk(`${i}`))
+    const full = line(3, 'cement', [...many(40, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(500, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
+    const fullIds = autoPickConfident(full).map((s) => s.id)
+    expect(fullIds.filter((id) => id.startsWith('m')).length).toBe(40)
+    expect(fullIds.filter((id) => id.startsWith('w')).length).toBe(30)
+    // Evidence order is kept: the first thirty WhatsApp sellers in the lane order are the ones taken.
+    expect(fullIds.filter((id) => id.startsWith('w')).slice(0, 3)).toEqual(['w0', 'w1', 'w2'])
+
+    const thin = line(4, 'cement', [...many(5, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(500, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
+    const thinIds = autoPickConfident(thin).map((s) => s.id)
+    expect(thinIds.filter((id) => id.startsWith('w')).length).toBe(200)
+    expect(thinIds.filter((id) => id.startsWith('m')).length).toBe(5)
+
+    // Exactly at the threshold counts as full.
+    const edge = line(5, 'cement', [...many(30, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(100, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
+    expect(autoPickConfident(edge).filter((s) => s.channel === 'واتساب').length).toBe(30)
+  })
 })

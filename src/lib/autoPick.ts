@@ -135,14 +135,31 @@ export function confidenceOf(s: Supplier): Confidence {
  * only when we are SURE. «مورد محتمل» is never taken on his own; the buyer
  * adds him by hand. Rejected suppliers never. Order as autoPickFor.
  */
+/**
+ * WhatsApp is paid per message, so how many WhatsApp-only sellers the screen
+ * ticks by itself depends on what the free channels already cover. The owner,
+ * 4 Oct 2026: «واتساب إذا كانت المصادر الأخرى لا يوجد مورد اختر عادي 100–200
+ * مب مشكلة، وإذا فيه مليان اختر أفضل 30 لكل بند». A line the free channels
+ * already fill (WA_FULL_FREE_PICKS confirmed sellers by e-mail or chat) takes
+ * only the best WA_CAP_FULL WhatsApp sellers, in evidence order; a line they
+ * leave thin takes up to WA_CAP_THIN. Every seller stays listed and tickable.
+ */
+export const WA_FULL_FREE_PICKS = 30
+export const WA_CAP_FULL = 30
+export const WA_CAP_THIN = 200
+
 export function autoPickConfident(item: BOQItem, context?: PickContext): Supplier[] {
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
-  return all.filter((s) => {
+  const confident = all.filter((s) => {
     const c = confidenceOf(s)
     if (c === 'MAYBE') return false
     if (s.channel === 'واتساب') return c === 'SURE'
     return true
   })
+  const free = confident.filter((s) => s.channel !== 'واتساب').length
+  const waCap = free >= WA_FULL_FREE_PICKS ? WA_CAP_FULL : WA_CAP_THIN
+  let wa = 0
+  return confident.filter((s) => (s.channel !== 'واتساب' ? true : ++wa <= waCap))
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
