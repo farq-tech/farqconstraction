@@ -1,5 +1,5 @@
 {
- "version": "cpo-v16",
+ "version": "cpo-v17",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -2347,7 +2347,19 @@
         "مجاري حديد",
         "wide flange beam",
         "universal beam",
-        "universal column"
+        "universal column",
+        "مواسير مربعه",
+        "ماسوره مربعه",
+        "مواسير مستطيله",
+        "مواسير حديد مربعه",
+        "square tube",
+        "square pipe",
+        "rectangular tube",
+        "حديد انشائي",
+        "حديد انشايي",
+        "قطاعات حديد h",
+        "بروفيلات حديد",
+        "بروفيل حديد"
        ],
        "weak_terms": [
         "قطاع",
@@ -2789,6 +2801,19 @@
       "صيانه"
      ],
      "note": "A cat ladder or a step ladder is a ladder (scaffolding_access), not a stair railing. (mirrored from handrail_balustrade)"
+    },
+    {
+     "terms": [
+      "حواجز حمايه"
+     ],
+     "block_any": [
+      "طرق",
+      "طريق",
+      "guardrail",
+      "جوانب",
+      "شارع",
+      "مروري"
+     ]
     }
    ]
   },
@@ -3347,7 +3372,6 @@
       "ممبرين epdm",
       "hdpe waterproofing membrane",
       "bentonite membrane",
-      "بنتونايت",
       "عزل بنتونايت"
      ]
     },
@@ -5654,7 +5678,10 @@
       "قواطع جبسوم بورد",
       "قواطع جبسم بورد",
       "قاطع جيبسوم بورد",
-      "جدران جيبسوم بورد"
+      "جدران جيبسوم بورد",
+      "قواطع جافه",
+      "قاطع جاف",
+      "dry wall partition"
      ]
     },
     {
@@ -8088,6 +8115,22 @@
       "acr"
      ],
      "note": "Mirrored from copper_pipe: the ancestor decides «ماسوره نحاس» too, so it must decline the same lines."
+    },
+    {
+     "terms": [
+      "امطار"
+     ],
+     "require_any": [
+      "مواسير",
+      "ماسوره",
+      "انابيب",
+      "انبوب",
+      "pipe",
+      "pipes",
+      "نزول",
+      "downpipe"
+     ],
+     "note": "Weak «امطار» decides only with a pipe word; otherwise inlets, chambers and gratings belong to precast_drainage."
     }
    ],
    "supplier_terms": [
@@ -8419,7 +8462,11 @@
       "downpipe",
       "down pipe",
       "داون بايب",
-      "مواسير تصريف الامطار"
+      "مواسير تصريف الامطار",
+      "مواسير صرف مياه امطار",
+      "مواسير صرف امطار",
+      "مواسير مياه امطار",
+      "ماسوره صرف امطار"
      ],
      "note": "Roof rainwater downpipes (usually UPVC), plumbing trade.",
      "weak_terms": [
@@ -10780,6 +10827,20 @@
       "reach in"
      ],
      "note": "Mirrored from chiller: the ancestor decides «chiller» too, so it must decline the same lines."
+    },
+    {
+     "terms": [
+      "كاتم صوت",
+      "كاتم للصوت"
+     ],
+     "block_any": [
+      "مولد",
+      "مولده",
+      "مولدات",
+      "generator",
+      "genset"
+     ],
+     "note": "A silencer on a generator is a generator line."
     }
    ]
   },
@@ -10953,9 +11014,7 @@
       "paper towel dispenser",
       "toilet roll holder",
       "مراه حمام",
-      "مرايا",
       "مرايا بدون اطار",
-      "مرايه",
       "مراه",
       "اكسسوارات الحمامات",
       "اكسسوارات حمامات",
@@ -11069,11 +11128,22 @@
       "فلور درين",
       "درين ارضي",
       "سيفون ارضي",
-      "roof drain",
       "gully",
       "صفايه ستانلس",
       "مصيده ارضيه",
-      "بالوعات"
+      "بالوعات",
+      "بلاعه",
+      "بلاعات",
+      "بلاعه ارضيه",
+      "بلاعات ارضيه",
+      "صفايات ارضيه",
+      "مصافي ارضيات",
+      "مصفاه ارضيه",
+      "سيفون",
+      "سيفونات",
+      "area drain",
+      "جريل تصريف ارضي",
+      "جريل صرف ارضي"
      ]
     },
     {
@@ -11180,6 +11250,43 @@
       "grease separator",
       "oil interceptor",
       "فاصل زيوت"
+     ]
+    },
+    {
+     "id": "roof_drain",
+     "label_ar": "مصارف الأسطح",
+     "strong_terms": [
+      "مصفاه سطح",
+      "مصافي اسطح",
+      "مصرف سطح",
+      "مصارف اسطح",
+      "roof drain",
+      "roof drains",
+      "roof outlet",
+      "جريل تصريف",
+      "جريل مصرف"
+     ],
+     "weak_terms": [
+      "مصرف مياه امطار",
+      "مصرف امطار",
+      "مصارف امطار",
+      "مصارف مياه امطار"
+     ],
+     "context_terms": [
+      "سطح",
+      "امطار",
+      "تصريف"
+     ],
+     "note": "«مصفاه» alone is a Y-strainer (valves) and «جريل» alone is an air grille (hvac); on a roof both are drainage.",
+     "facets": [
+      {
+       "name": "diameter",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "material",
+       "supplier_pool_affecting": true
+      }
      ]
     }
    ],
@@ -11659,7 +11766,12 @@
         "pre action valve",
         "preaction valve",
         "dry pipe valve",
-        "محبس انذار رطب"
+        "محبس انذار رطب",
+        "محبس حريق",
+        "محابس حريق",
+        "fire valve",
+        "os&y valve",
+        "محبس شبكه حريق"
        ],
        "term_guards": [
         {
@@ -12267,6 +12379,25 @@
       "تحكم"
      ],
      "note": "Mirrored from main_distribution_board: the ancestor decides «لوحه رييسيه» too, so it must decline the same lines."
+    },
+    {
+     "terms": [
+      "قواطع",
+      "قاطع"
+     ],
+     "block_any": [
+      "جافه",
+      "جبس",
+      "جبسيه",
+      "جبسي",
+      "drywall",
+      "حمامات",
+      "دورات مياه",
+      "المنيوم",
+      "زجاج",
+      "partition"
+     ],
+     "note": "«قواطع» is a SHAPE word in Arabic: partitions as often as breakers. Without electrical evidence it must not reach a switchgear pool."
     }
    ],
    "supplier_terms": [
@@ -13155,6 +13286,38 @@
       "باتش كورد"
      ],
      "note": "Fibre and structured cabling are a different trade and a different supplier pool from power cable. «كابل» stays fully decisive for copper power cable — it only steps aside when the line itself says fibre or data."
+    },
+    {
+     "terms": [
+      "كابل",
+      "كيبل",
+      "كابلات",
+      "cable",
+      "كيابل",
+      "كوابل",
+      "كيبلات"
+     ],
+     "block_any": [
+      "تراي",
+      "tray",
+      "ladder",
+      "لق",
+      "lug",
+      "termination",
+      "cleat",
+      "clamp",
+      "مشابك",
+      "مشبك",
+      "junction",
+      "علبه",
+      "علب",
+      "بوكس",
+      "gland",
+      "جلاند",
+      "trunking",
+      "ترنك"
+     ],
+     "note": "Trays, ladders, lugs, cleats, glands and boxes are cable ACCESSORIES — a different supplier pool. Bare «كابل» steps aside when the line names one; «كابل نحاس» and the other product terms stay decisive."
     }
    ],
    "supplier_terms": [
@@ -13551,7 +13714,12 @@
       "cable trays",
       "مجاري كابلات",
       "حوامل كيابل",
-      "حامل كيابل"
+      "حامل كيابل",
+      "كيبل تراي",
+      "كابل تراي",
+      "كيبل تري",
+      "حامل كابلات مجلفن",
+      "حاملات كابلات"
      ]
     },
     {
@@ -13597,7 +13765,12 @@
       "tray cover",
       "غطاء تراي",
       "ladder bend",
-      "tray support bracket"
+      "tray support bracket",
+      "مشابك كابلات",
+      "مشبك كابل",
+      "كلبسات كابلات",
+      "cable clamp",
+      "cable cleat"
      ]
     },
     {
@@ -13652,7 +13825,11 @@
       "علبه تفريع كهرباء",
       "علبه توصيل كهرباييه",
       "صندوق مخارج جداري",
-      "بوكس كهرباء"
+      "بوكس كهرباء",
+      "علب كهرباء",
+      "جاكس بوكس",
+      "علبه تجميع",
+      "علب تجميع"
      ]
     },
     {
@@ -13695,7 +13872,15 @@
       "كوس نحاس",
       "cable lugs",
       "copper lugs",
-      "كوس كابل"
+      "كوس كابل",
+      "كابل لق",
+      "كيبل لق",
+      "لقات",
+      "لق كابل",
+      "اطراف كابلات",
+      "طرف كابل",
+      "اطراف كيبل",
+      "cable termination"
      ],
      "weak_terms": [
       "lug"
@@ -14110,7 +14295,17 @@
       "diesel genset",
       "generator set",
       "مولد طواري",
-      "مولدات ديزل"
+      "مولدات ديزل",
+      "مولد كاتم للصوت",
+      "مولد كاتم صوت",
+      "مولد كاتم",
+      "مولد صامت",
+      "silent generator",
+      "soundproof generator",
+      "sound attenuated generator",
+      "مولده",
+      "مولده كهرباء",
+      "مولده ديزل"
      ],
      "term_guards": [
       {
@@ -14303,7 +14498,10 @@
       "مزود طاقه غير منقطعه",
       "مزود طاقه احتياطي",
       "ups system",
-      "ups systems"
+      "ups systems",
+      "مانع انقطاع التيار",
+      "مانع انقطاع",
+      "جهاز يو بي اس"
      ]
     },
     {
@@ -14317,7 +14515,16 @@
       "بطاريات ups",
       "lithium battery bank",
       "نظام مراقبه بطاريات",
-      "battery monitoring"
+      "battery monitoring",
+      "بطاريات جافه",
+      "بطاريه جافه",
+      "بنك بطاريات",
+      "بطاريات يو بي اس",
+      "dry battery",
+      "sealed battery"
+     ],
+     "context_terms": [
+      "بطاريات"
      ]
     },
     {
@@ -14327,7 +14534,11 @@
       "dc charger",
       "rectifier",
       "شاحن تيار مستمر",
-      "مقوم تيار"
+      "مقوم تيار",
+      "شاحن بطاريات",
+      "شاحن بطاريه",
+      "شواحن بطاريات",
+      "battery charger"
      ]
     },
     {
@@ -16658,7 +16869,12 @@
       "كاشف غاز محمول",
       "portable gas detector",
       "multi gas detector",
-      "جهاز كشف غازات محمول"
+      "جهاز كشف غازات محمول",
+      "جهاز قياس غازات",
+      "جهاز قياس الغازات",
+      "جهاز كشف غازات",
+      "gas meter",
+      "4 gas monitor"
      ]
     }
    ]
@@ -17243,8 +17459,6 @@
     "فريزه",
     "milling machine",
     "precision milling",
-    "شاحن بطاريات",
-    "battery charger",
     "مثقاب عمودي",
     "drill press"
    ],
@@ -17362,8 +17576,6 @@
       "precision milling",
       "مسدس مسامير",
       "nail gun",
-      "شاحن بطاريات",
-      "battery charger",
       "lathe",
       "مسدس برشام",
       "مسدس برشام لاسلكي",
@@ -22207,7 +22419,14 @@
       "sprayed polyurethane",
       "polyurethane foam insulation",
       "pu foam insulation",
-      "عزل اسطح بالفوم"
+      "عزل اسطح بالفوم",
+      "عزل فوم بولي يوريثان رش",
+      "فوم بولي يوريثان رش",
+      "فوم بولي يوريثان بالرش",
+      "رش بولي يوريثان",
+      "spray polyurethane",
+      "spray pu foam",
+      "sprayed polyurethane foam"
      ]
     },
     {
@@ -22225,6 +22444,21 @@
       "عزل فقاعي",
       "radiant barrier",
       "عزل فويل"
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "elastomeric"
+     ],
+     "block_any": [
+      "bearing",
+      "pad",
+      "ركائز",
+      "ركايز",
+      "bridge",
+      "جسر"
      ]
     }
    ]
@@ -22545,6 +22779,39 @@
       "لوح زجاج",
       "glass sheet",
       "glass sheets"
+     ]
+    },
+    {
+     "id": "mirror_glass",
+     "label_ar": "مرايا وزجاج مرايا",
+     "strong_terms": [
+      "زجاج مرايا",
+      "مرايا زجاج",
+      "مرايا",
+      "مرايه",
+      "مرايا حمامات",
+      "mirror",
+      "mirrors",
+      "mirror glass",
+      "silver mirror",
+      "مرايا مغاسل"
+     ],
+     "context_terms": [
+      "زجاج",
+      "حمام",
+      "مغسله",
+      "مم"
+     ],
+     "note": "Mirror sheets are a glazier product; they were sitting on washroom_accessories which is a dispenser/holder pool.",
+     "facets": [
+      {
+       "name": "thickness_mm",
+       "supplier_pool_affecting": false
+      },
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
      ]
     }
    ]
@@ -22879,7 +23146,6 @@
       "manhole chamber",
       "مانهول",
       "مناهل",
-      "catch basin",
       "soakaway chamber",
       "منهول صغير",
       "منهول",
@@ -23046,7 +23312,14 @@
       "precast concrete wall panels",
       "precast wall panels",
       "precast panels",
-      "precast concrete panels"
+      "precast concrete panels",
+      "قطع خرسانه سابقه الصب",
+      "خرسانه سابقه الصب",
+      "خرسانه مسبقه الصب",
+      "خرسانه مسبقه الصنع",
+      "precast concrete",
+      "بريكاست",
+      "precast"
      ]
     },
     {
@@ -23085,6 +23358,50 @@
       "بياره فايبر",
       "septic tank grp"
      ]
+    },
+    {
+     "id": "stormwater_inlet",
+     "label_ar": "مصارف وكبنات مياه الأمطار",
+     "strong_terms": [
+      "مصرف مياه امطار",
+      "مصارف مياه امطار",
+      "مصارف امطار",
+      "كبنات مياه الامطار",
+      "كبنات امطار",
+      "كبنه امطار",
+      "catch basin",
+      "catch basins",
+      "storm water inlet",
+      "stormwater inlet",
+      "مدخل مياه امطار"
+     ],
+     "context_terms": [
+      "امطار",
+      "تصريف",
+      "شبكه"
+     ],
+     "facets": [
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
+     ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "مصرف مياه امطار",
+      "مصارف مياه امطار",
+      "مصارف امطار",
+      "مدخل مياه امطار"
+     ],
+     "block_any": [
+      "سطح",
+      "اسطح",
+      "roof"
+     ],
+     "note": "A rainwater outlet ON A ROOF is sanitary_ware/roof_drain; the stormwater inlet is the one at ground level."
     }
    ]
   },
@@ -23183,7 +23500,12 @@
       "بلاط متداخل",
       "بلوك رصف",
       "حجر رصف",
-      "انترلوك ملون"
+      "انترلوك ملون",
+      "بلاط ارصفه",
+      "بلاط رصيف",
+      "بلاط خارجي",
+      "بلاط ارضيات خارجيه",
+      "انترلوك خرساني"
      ]
     },
     {
@@ -23219,7 +23541,10 @@
       "tactile tile",
       "blister tile",
       "بلاط تحذيري",
-      "corduroy tile"
+      "corduroy tile",
+      "بلاط مكفوفين",
+      "بلاط ذوي الاعاقه",
+      "بلاط ارشادي للمكفوفين"
      ]
     }
    ]
@@ -23336,10 +23661,10 @@
       "جيو ممبرين",
       "جيوممبرين hdpe",
       "بطانه hdpe",
-      "geosynthetic clay liner",
-      "gcl",
       "hdpe geomembrane",
-      "pond liner"
+      "pond liner",
+      "gcl",
+      "geosynthetic clay liner"
      ]
     },
     {
@@ -23358,6 +23683,29 @@
       "reno mattress",
       "مراتب رينو",
       "جدار جابيون"
+     ]
+    },
+    {
+     "id": "bentonite_gcl",
+     "label_ar": "بنتونايت وبطانات طينية",
+     "strong_terms": [
+      "بنتونايت",
+      "طبقه بنتونايت",
+      "بنتونيت",
+      "bentonite mat",
+      "bentonite liner",
+      "bentonite waterproofing"
+     ],
+     "context_terms": [
+      "عزل",
+      "تربه",
+      "بطانه"
+     ],
+     "facets": [
+      {
+       "name": "thickness_mm",
+       "supplier_pool_affecting": false
+      }
      ]
     }
    ]
@@ -23509,7 +23857,18 @@
       "cat eye",
       "reflective stud",
       "delineator",
-      "عمود ارشادي"
+      "عمود ارشادي",
+      "مرايا طرق",
+      "مرايا مروريه",
+      "مرايا محدبه",
+      "convex mirror",
+      "traffic mirror",
+      "عين قط",
+      "عيون قط",
+      "عواكس ارضيه",
+      "عاكس ارضي",
+      "road reflector",
+      "عواكس طرق"
      ]
     },
     {
@@ -23560,7 +23919,14 @@
       "قارد ريل",
       "جارد ريل",
       "crash cushion",
-      "مخفف صدمات"
+      "مخفف صدمات",
+      "حواجز حمايه guardrail",
+      "حواجز حمايه طرق",
+      "حواجز معدنيه جوانب الطرق",
+      "حواجز طرق معدنيه",
+      "قاردريل",
+      "جاردريل",
+      "w-beam barrier"
      ]
     },
     {
@@ -24009,7 +24375,13 @@
       "اضافات مانعه للنفاذيه",
       "high range water reducer",
       "hrwr",
-      "plasticizer للخرسانه"
+      "plasticizer للخرسانه",
+      "مواد اضافيه للخرسانه",
+      "اضافات الخرسانه",
+      "اضافه موخره",
+      "اضافه موخره للتصلب",
+      "موخر تصلب",
+      "معجل تصلب"
      ]
     },
     {
@@ -25030,7 +25402,14 @@
       "بروفايل فاصل حركه",
       "expansion joint profile",
       "seismic joint cover",
-      "غطاء فاصل زلزالي"
+      "غطاء فاصل زلزالي",
+      "فواصل ارضيات",
+      "فاصل ارضيات",
+      "فواصل تمدد ارضيات",
+      "فاصل تمدد",
+      "فواصل تمدد",
+      "فاصل تمدد المنيوم",
+      "فواصل تمدد المنيوم"
      ]
     },
     {
@@ -25043,7 +25422,46 @@
       "joint filler board",
       "لوح حشو فواصل",
       "expansion joint filler",
-      "مانع تسرب فواصل"
+      "مانع تسرب فواصل",
+      "واتر ستوب",
+      "ووتر ستوب",
+      "وتر ستوب",
+      "مواد ملء فواصل",
+      "ماده ملء فواصل",
+      "ملء فواصل",
+      "joint sealant filler"
+     ]
+    },
+    {
+     "id": "bridge_bearing_joint",
+     "label_ar": "ركائز وفواصل الجسور",
+     "strong_terms": [
+      "ركائز مطاطيه",
+      "ركايز مطاطيه",
+      "ركائز جسور",
+      "مطاط ركائز",
+      "bearing pad",
+      "elastomeric bearing",
+      "elastomeric bearing pad",
+      "pot bearing",
+      "bridge bearing",
+      "فواصل جسور",
+      "فاصل تمدد جسر",
+      "bridge expansion joint",
+      "modular expansion joint"
+     ],
+     "context_terms": [
+      "جسر",
+      "جسور",
+      "bridge",
+      "deck"
+     ],
+     "note": "«elastomeric» alone is pipe insulation today; on a bridge it is a bearing.",
+     "facets": [
+      {
+       "name": "dimensions",
+       "supplier_pool_affecting": false
+      }
      ]
     }
    ]
@@ -25259,6 +25677,28 @@
       "لايت ويت كونكريت",
       "ستامب كونكريت"
      ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "خرسانه",
+      "خرسانات"
+     ],
+     "block_any": [
+      "اضافات",
+      "اضافيه",
+      "مكعبات",
+      "اختبار",
+      "قوالب",
+      "سابقه الصب",
+      "مسبقه الصب",
+      "مسبقه الصنع",
+      "precast",
+      "بريكاست",
+      "cube"
+     ],
+     "note": "Weak «خرسانه» must not decide for admixtures, test moulds or precast elements."
     }
    ]
   },
@@ -25738,6 +26178,24 @@
       "كاتم صوت"
      ],
      "note": "A generator canopy is the acoustic enclosure around a genset, sold by a generator supplier. Same word, different trade."
+    },
+    {
+     "terms": [
+      "ساتر",
+      "سواتر"
+     ],
+     "block_any": [
+      "موقع",
+      "شينكو",
+      "شنكو",
+      "معدني",
+      "معدنيه",
+      "hoarding",
+      "مشروع",
+      "موقت",
+      "مؤقت"
+     ],
+     "note": "A shade/privacy screen is fabric or HDPE mesh; a site hoarding is sheet metal on posts and is fencing."
     }
    ],
    "context_terms": [
@@ -25847,7 +26305,6 @@
       "hdpe shade net",
       "سواتر حديد",
       "سواتر قماش",
-      "سواتر شينكو",
       "سواتر خشب",
       "سواتر بلاستيك",
       "ساتر حديد",
@@ -25968,6 +26425,23 @@
       "ملزمه"
      ],
      "note": "A workbench or tool cabinet belongs to workshop fit-out, not to office furniture."
+    },
+    {
+     "terms": [
+      "سرير",
+      "اسره"
+     ],
+     "block_any": [
+      "مريض",
+      "طبي",
+      "طبيه",
+      "مستشفى",
+      "مستشفيات",
+      "hospital",
+      "عنايه",
+      "icu"
+     ],
+     "note": "A bed for a patient is healthcare fit-out, not a bedroom wardrobe line."
     }
    ],
    "context_terms": [
@@ -26064,7 +26538,11 @@
       "manager desk",
       "office workstation",
       "مكاتب ورك ستيشن",
-      "ورك ستيشن مكتبي"
+      "ورك ستيشن مكتبي",
+      "مكتب خشب",
+      "مكتب خشبي",
+      "مكاتب خشب",
+      "مكتب موظفين"
      ]
     },
     {
@@ -27364,7 +27842,10 @@
       "medical pendant",
       "ceiling pendant",
       "بندنت طبي",
-      "معلق سقفي طبي"
+      "معلق سقفي طبي",
+      "وحده رعايه سرير",
+      "وحدات رعايه",
+      "bed head trunking"
      ]
     }
    ]
@@ -27541,7 +28022,14 @@
       "privacy curtain",
       "cubicle track",
       "مسار ستاره سقفي",
-      "cubicle curtain"
+      "cubicle curtain",
+      "ستاره مريض",
+      "ستائر مرضى",
+      "ستائر فصل طبيه",
+      "ستاره فصل",
+      "ستائر فصل",
+      "cubicle curtains",
+      "hospital curtain"
      ]
     },
     {
@@ -27574,6 +28062,46 @@
         "سماعه"
        ],
        "note": "nurse call master stations belong to the low-current/electrical trade"
+      }
+     ]
+    },
+    {
+     "id": "hospital_bed",
+     "label_ar": "أسرّة المرضى",
+     "strong_terms": [
+      "سرير مريض",
+      "اسره مرضى",
+      "سرير طبي",
+      "اسره طبيه",
+      "سرير مستشفى",
+      "اسره مستشفيات",
+      "اسره مستشفى",
+      "hospital bed",
+      "hospital beds",
+      "patient bed",
+      "icu bed",
+      "سرير كهربائي طبي",
+      "سرير عنايه",
+      "سرير فحص",
+      "سرير فحص طبي",
+      "سرير كشف",
+      "اسره فحص",
+      "examination couch",
+      "examination bed",
+      "exam table"
+     ],
+     "context_terms": [
+      "مريض",
+      "طبي",
+      "مستشفى",
+      "كهربائي",
+      "عنايه"
+     ],
+     "note": "«سرير» today is strong on interior_furniture/storage_units, which sends every hospital bed to a furniture pool.",
+     "facets": [
+      {
+       "name": "capacity",
+       "supplier_pool_affecting": false
       }
      ]
     }
@@ -27714,7 +28242,17 @@
       "laboratory furniture",
       "lab casework",
       "island bench",
-      "wall bench مختبر"
+      "wall bench مختبر",
+      "حوض ايبوكسي",
+      "احواض ايبوكسي",
+      "احواض مختبر",
+      "epoxy sink",
+      "lab sink",
+      "laboratory sink",
+      "لاب بنش",
+      "دواليب مختبر",
+      "خزائن مختبر",
+      "lab cabinet"
      ]
     },
     {
@@ -28373,7 +28911,11 @@
       "stainless steel table",
       "stainless steel work table",
       "stainless shelving",
-      "prep table"
+      "prep table",
+      "مغاسل مطابخ ستانلس",
+      "مغسله مطبخ ستانلس",
+      "احواض مطابخ ستانلس",
+      "stainless kitchen sink unit"
      ]
     },
     {
@@ -28946,8 +29488,40 @@
       "temporary fence",
       "temporary fencing",
       "construction hoarding",
-      "سواتر حديد للموقع"
+      "سواتر حديد للموقع",
+      "ساتر موقع",
+      "سواتر شينكو",
+      "ساتر شينكو",
+      "سواتر معدنيه",
+      "ساتر معدني",
+      "hoarding",
+      "hoardings",
+      "hoarding panels",
+      "حواجز موقع",
+      "بوابه موقع",
+      "بوابات موقع"
      ]
+    }
+   ],
+   "term_guards": [
+    {
+     "terms": [
+      "hoarding",
+      "hoardings"
+     ],
+     "block_any": [
+      "advertising",
+      "advertisement",
+      "sign",
+      "signage",
+      "signboard",
+      "billboard",
+      "اعلان",
+      "اعلانات",
+      "اعلاني",
+      "اعلانيه"
+     ],
+     "note": "An advertising hoarding is a sign board; only a site hoarding is fencing."
     }
    ]
   },

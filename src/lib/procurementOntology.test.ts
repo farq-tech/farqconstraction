@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v16')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v17')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
