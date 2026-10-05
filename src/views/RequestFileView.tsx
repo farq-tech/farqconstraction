@@ -73,6 +73,7 @@ import RfqRevisionModal from "../components/RfqRevisionModal"
 import PreviousVersionResponses from "../components/PreviousVersionResponses"
 import { canReviseRfq, versionsLabel } from "../lib/rfqRevision"
 import { isReadOnlyBuild } from "../api/readOnlyMode"
+import DiscountRequestDialog from '../components/DiscountRequestDialog'
 
 type Tab = "overview" | "items" | "quotes" | "suppliers" | "messages" | "history"
 const TABS: [Tab, string][] = [
@@ -161,6 +162,7 @@ export function RequestFileView({
   } | null>(null)
   const [resending, setResending] = useState<string | null>(null)
   const [awarding, setAwarding] = useState<Offer | null>(null)
+  const [discountOffer, setDiscountOffer] = useState<Offer | null>(null)
   const [lineSort, setLineSort] = useState<LineSort | null>(null)
   const [stepping, setStepping] = useState<"close" | null>(null)
   const [broadcasting, setBroadcasting] = useState(false)
@@ -779,13 +781,11 @@ export function RequestFileView({
                         String(row.offer.inviteId || "") === awardedInviteId
                       }
                       action={
-                        !rfq.award && state.key !== "CANCELLED" ? (
-                          <button
-                            onClick={() => setAwarding(row)}
-                            className="w-full mt-3 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm"
-                          >
-                            ترسية على هذا المورد
-                          </button>
+                        !rfq.award && state.key !== 'CANCELLED' ? (
+                          <div className="space-y-2 mt-3">
+                            {row.offer.inviteId && row.offer.quoteVersionId && <button onClick={() => setDiscountOffer(row)} className="w-full py-2.5 border border-[#123F3A]/30 text-[#123F3A] font-bold rounded-xl text-sm">اطلب تخفيض العرض</button>}
+                            <button onClick={() => setAwarding(row)} className="w-full py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm">ترسية على هذا المورد</button>
+                          </div>
                         ) : null
                       }
                     />
@@ -1258,6 +1258,7 @@ export function RequestFileView({
         />
       )}
 
+      {discountOffer && <DiscountRequestDialog inviteId={String(discountOffer.offer.inviteId)} quoteVersionId={String(discountOffer.offer.quoteVersionId)} supplierName={String(discountOffer.supplier.name_ar || discountOffer.supplier.name_en || 'المورد')} onClose={() => setDiscountOffer(null)} />}
       {broadcasting && (
         <BroadcastDialog
           rfqId={rfq.id}

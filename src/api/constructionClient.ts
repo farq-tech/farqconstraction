@@ -26,6 +26,13 @@ import { cleanSupplierName } from '../lib/supplierName'
 
 export { constructionHeaders }
 
+export async function askAhmad(message: string, history: { role: string; text: string }[], rfqId?: string | null): Promise<string> {
+  const result = await request<{ reply: string }>('/api/construction/assistant/chat', {
+    method: 'POST', body: JSON.stringify({ message, history, rfq_id: rfqId || undefined }), timeoutMs: 30000,
+  })
+  return result.reply
+}
+
 /** The colleague responsible for a request or a booklet. Absent on older APIs. */
 /** `label` is the display text; `email` may be stripped by the server's contact scrubber. */
 export type ConstructionOwner = { user_id: string; label?: string | null; email?: string | null; role?: string | null }
@@ -3744,4 +3751,20 @@ export async function listSupplierJoins(): Promise<{ counts: Record<SupplierJoin
 /** A one-time join link for one supplier; the address is returned once, here only. */
 export async function createSupplierJoinLink(supplierId: string): Promise<{ url: string; expires_at: string }> {
   return request<{ url: string; expires_at: string }>(`/api/construction/supplier-joins/${encodeURIComponent(supplierId)}/link`, { method: 'POST' })
+}
+
+// Durable, quote-specific discount requests; dispatch uses the existing inbox outbox.
+export type QuoteDiscountRequest = {
+  id: string; quote_version_id: string; text: string; send_at: string;
+  state: 'SCHEDULED' | 'PROCESSING' | 'SENT' | 'FAILED' | 'UNKNOWN' | 'SKIPPED' | 'CANCELLED';
+  failure_code?: string | null;
+}
+export function getQuoteDiscountRequests(inviteId: string) {
+  return request<{ requests: QuoteDiscountRequest[]; can_schedule: boolean }>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests`)
+}
+export function createQuoteDiscountRequest(inviteId: string, body: { idempotency_key: string; quote_version_id: string; delay_minutes: 0 | 60; text: string }) {
+  return request<QuoteDiscountRequest>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+export function cancelQuoteDiscountRequest(inviteId: string, id: string) {
+  return request<QuoteDiscountRequest>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
 }

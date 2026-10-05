@@ -38,6 +38,7 @@ export function isReadOnlyBuild(): boolean {
  * fixtures. Matched on the path, so a query string cannot smuggle anything in.
  */
 const READ_ONLY_POST_PATHS = [
+  '/api/construction/assistant/chat',
   '/api/construction/suppliers/match',
   '/api/construction/boq/match',
   '/api/construction/boq/parse-pdf',
