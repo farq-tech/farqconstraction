@@ -26,6 +26,13 @@ import { cleanSupplierName } from '../lib/supplierName'
 
 export { constructionHeaders }
 
+export async function askAhmad(message: string, history: { role: string; text: string }[], rfqId?: string | null): Promise<string> {
+  const result = await request<{ reply: string }>('/api/construction/assistant/chat', {
+    method: 'POST', body: JSON.stringify({ message, history, rfq_id: rfqId || undefined }), timeoutMs: 30000,
+  })
+  return result.reply
+}
+
 /** The colleague responsible for a request or a booklet. Absent on older APIs. */
 /** `label` is the display text; `email` may be stripped by the server's contact scrubber. */
 export type ConstructionOwner = { user_id: string; label?: string | null; email?: string | null; role?: string | null }

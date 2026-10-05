@@ -35,6 +35,15 @@ import { LearningReviewView } from './views/LearningReviewView'
 import { ServicesAdminView, ServiceOffView } from './views/ServicesAdminView'
 import { useServices } from './api/useServices'
 import { serviceForView, viewAllowed } from './lib/services'
+import AhmadAssistant from './components/AhmadAssistant'
+import { askAhmad } from './api/constructionClient'
+
+function ProcurementAssistant() {
+  const { navigate, selectedRfqId, view } = useProcurement()
+  const session = useFarqSession()
+  if (view === 'supplier' || view === 'join') return null
+  return <AhmadAssistant key={session.user?.id || 'guest'} signedIn={session.isAuthenticated} ask={(message, history) => askAhmad(message, history, selectedRfqId)} onAction={action => navigate(action === 'upload' ? 'create-upload' : action === 'offers' && selectedRfqId ? 'offers' : 'rfq-list')} />
+}
 
 function AppRoutes() {
   const {
@@ -161,6 +170,7 @@ export default function App() {
     <ProcurementProvider>
       <ReadOnlyBanner />
       <AppRoutes />
+      <ProcurementAssistant />
     </ProcurementProvider>
   )
 }
