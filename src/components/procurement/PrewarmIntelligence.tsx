@@ -12,17 +12,21 @@ export default function PrewarmIntelligence({ rfqId }: { rfqId: string }) {
   const [expanded, setExpanded] = useState(false)
   useEffect(() => {
     let alive = true
+    let internalAuthorized = false
     setData(null)
     setError(false)
     setExpanded(false)
     getPrewarmCapabilities()
-      .then((capabilities) => capabilities.can_release ? getConstructionPrewarm(rfqId) : { rfq_id: rfqId, enabled: false, lines: [] })
+      .then((capabilities) => {
+        internalAuthorized = capabilities.can_release
+        return internalAuthorized ? getConstructionPrewarm(rfqId) : { rfq_id: rfqId, enabled: false, lines: [] }
+      })
       .then((result) => {
         if (alive) setData(result)
       })
       .catch((err) => {
         if (
-          alive &&
+          alive && internalAuthorized &&
           !(
             err instanceof ConstructionApiError &&
             (['PREWARM_DISABLED', 'PREWARM_UNAVAILABLE'].includes(err.code) ||
