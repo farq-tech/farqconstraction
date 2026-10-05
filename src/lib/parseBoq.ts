@@ -46,6 +46,14 @@ export type ParsedLine = {
   codeVerified?: boolean
   /** Pure work (excavation, backfill…): nothing to buy, so nothing to match. */
   workOnly?: boolean
+  /**
+   * «الاسم الدارج بالسوق»: the reader's suggestion of the name suppliers use,
+   * checked on the server against this row's own text. Shown BESIDE `name`,
+   * never instead of it. Absent when the reader had none.
+   */
+  marketName?: string
+  /** 'memory' when the server named this line from the market-name memory. */
+  marketNameSource?: 'memory'
 }
 
 const UNIT_NORMALIZE: Record<string, string> = {
@@ -489,6 +497,21 @@ export function isStaleBundleError(message: string | null | undefined): boolean 
   )
 }
 
+/**
+ * Loads the booklet reader's chunks once the page is idle, so a later deploy
+ * (which renames them) can never leave an open tab without its reader. Errors
+ * are ignored: the reader still loads on demand when a booklet is uploaded.
+ */
+export function warmBoqReader(): void {
+  const run = () => {
+    void import('pdfjs-dist').catch(() => {})
+    void import('./lineResolution').catch(() => {})
+  }
+  const idle = (globalThis as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback
+  if (idle) idle(run)
+  else setTimeout(run, 3000)
+}
+
 export const STALE_BUNDLE_MESSAGE =
   'نُشرت نسخة أحدث من التطبيق أثناء فتح هذه الصفحة، فلم يعد قارئ الملفات الذي تحمله صفحتك موجودًا. ' +
   'أعد تحميل الصفحة ثم ارفع الكراسة من جديد. لم تُقرأ الكراسة، ولم نُعد استخدام كراسة سابقة.'
@@ -523,6 +546,17 @@ function lineKeyFor(line: ParsedLine): string {
   return `line-${line.id}`
 }
 
+const ROUND_GRADES = new Set(['PRICED', 'ANSWERED', 'ALSO_SELLS', 'FAMILY_PRICED', 'SIMILAR'])
+
+function roundOutcomeOf(raw: { grade: string; priced_lines?: number; similar_by?: string } | undefined): Supplier['roundOutcome'] {
+  if (!raw || !ROUND_GRADES.has(raw.grade)) return undefined
+  return {
+    grade: raw.grade as NonNullable<Supplier['roundOutcome']>['grade'],
+    pricedLines: Number(raw.priced_lines) > 0 ? Number(raw.priced_lines) : undefined,
+    similarBy: raw.similar_by || undefined,
+  }
+}
+
 function mapApiSuppliers(
   rows: Array<{
     id: string
@@ -532,10 +566,15 @@ function mapApiSuppliers(
     evidence?: string
     channel?: string
     learned?: boolean
+    prior_quotes?: number
+    round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }
+    why_ar?: string
+    out_of_city?: boolean
   }>,
+  limit = MATCH_SUPPLIERS_PER_LINE,
 ): Supplier[] {
   return rows
-    .slice(0, MATCH_SUPPLIERS_PER_LINE)
+    .slice(0, limit)
     .map((s) => {
       const evidence: Supplier['evidence'] =
         s.evidence === 'دليل مباشر' ||
@@ -545,7 +584,8 @@ function mapApiSuppliers(
         s.evidence === 'على مستوى النشاط' ||
         s.evidence === 'اختيارك' ||
         s.evidence === 'تسمية آلية' ||
-        s.evidence === 'خريطة فرق'
+        s.evidence === 'خريطة فرق' ||
+        s.evidence === 'نتائج الجولات'
           ? s.evidence
           : // Never grade a supplier by its position in the list.
             'من الكتالوج'
@@ -557,14 +597,19 @@ function mapApiSuppliers(
         city: cityLabel(s.city),
         evidence,
         learned: s.learned === true ? true : undefined,
+        priorQuotes: Number(s.prior_quotes) > 0 ? Number(s.prior_quotes) : undefined,
+        roundOutcome: roundOutcomeOf(s.round_outcome),
+        why: typeof s.why_ar === 'string' && s.why_ar ? s.why_ar : undefined,
+        outOfCity: s.out_of_city === true ? true : undefined,
         channel,
       }
     })
 }
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
+type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
 type RemoteMatch = {
-  hits: Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>
+  hits: Map<string, RemoteHit>
   /** Set when the request itself failed, so the screen can stop looking normal. */
   error?: string
 }
@@ -583,7 +628,7 @@ async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
 ): Promise<RemoteMatch> {
-  const out = new Map<string, { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; familySuggestion?: BOQItem['familySuggestion'] }>()
+  const out = new Map<string, RemoteHit>()
   if (!lines.length) return { hits: out }
   let error: string | undefined
   try {
@@ -613,6 +658,8 @@ async function matchViaFarqBoqApi(
     const chunks: ParsedLine[][] = []
     for (let i = 0; i < supplyLines.length; i += MATCH_API_LINE_CAP) chunks.push(supplyLines.slice(i, i + MATCH_API_LINE_CAP))
     const matchedRows: Awaited<ReturnType<typeof matchConstructionBoqCatalog>>['rows'] = []
+    // «سجل العرض»: each chunk is one match call with its own id; a line keeps the id of the call that answered it.
+    const exposureByKey = new Map<string, string>()
     // One chunk failing must not erase the others. Measured 2026-09-17: two
     // chunks in parallel, one 500, and Promise.all threw away 94 confirmed
     // matches and 37 map suggestions the other chunks had returned — 1,039
@@ -649,6 +696,7 @@ async function matchViaFarqBoqApi(
       }
       if (part) {
         matchedRows.push(...(part.rows || []))
+        if (part.exposure_id) for (const row of part.rows || []) exposureByKey.set(String(row.line_key), part.exposure_id)
         if (emitActivity) {
           const byKey = new Map((part.rows || []).map((row) => [row.line_key, row]))
           emitActivity({
@@ -671,6 +719,7 @@ async function matchViaFarqBoqApi(
     for (const row of matched.rows || []) {
       out.set(row.line_key, {
         farqSpecId: row.farq_spec_id,
+        exposureId: exposureByKey.get(String(row.line_key)),
         suppliers: mapApiSuppliers(row.suppliers || []),
         // An ontology-named material with the map's suppliers — beside the match, never in it.
         mapSuggestion: row.map_suggestion
@@ -680,9 +729,10 @@ async function matchViaFarqBoqApi(
               answeredBy: row.map_suggestion.answered_by,
               // The number shown is the number listed: the card said «12 موردًا»
               // over a list of eight.
-              supplierCount: mapApiSuppliers(row.map_suggestion.suppliers || []).length,
+              // Every confirmed seller the server vouches for — no cut here (the owner: «أي أحد يطابق اقترحه»).
+              supplierCount: mapApiSuppliers(row.map_suggestion.suppliers || [], Number.POSITIVE_INFINITY).length,
               zeroReason: row.map_suggestion.zero_reason,
-              suppliers: mapApiSuppliers(row.map_suggestion.suppliers || []),
+              suppliers: mapApiSuppliers(row.map_suggestion.suppliers || [], Number.POSITIVE_INFINITY),
             }
           : undefined,
         familySuggestion: row.family_suggestion?.family
@@ -690,6 +740,9 @@ async function matchViaFarqBoqApi(
           : undefined,
         learnedSuggestion: row.learned_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
+          : undefined,
+        outcomeSuggestion: row.outcome_suggestion?.suppliers?.length
+          ? { suppliers: mapApiSuppliers(row.outcome_suggestion.suppliers, 24) }
           : undefined,
         // A model-named material rides alongside, never in place of, the match.
         aiSuggestion: row.ai_suggestion
@@ -764,15 +817,19 @@ export async function matchSuppliersForItems(
       suppliers,
       farqSpecId: api?.farqSpecId || undefined,
       lineKey: lineKeyFor(line),
+      ...(api?.exposureId ? { exposureId: api.exposureId } : {}),
       aiSuggestion: api?.aiSuggestion,
       learnedSuggestion: api?.learnedSuggestion,
+      outcomeSuggestion: api?.outcomeSuggestion,
       familySuggestion: api?.familySuggestion,
       mapSuggestion: api?.mapSuggestion,
       workOnly:
-        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.familySuggestion
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.outcomeSuggestion && !api?.familySuggestion
           ? true
           : undefined,
       itemCode: line.itemCode,
+      ...(line.marketName ? { marketName: line.marketName } : {}),
+      ...(line.marketName && line.marketNameSource ? { marketNameSource: line.marketNameSource } : {}),
     })
 
     if (items.length % lineChunk === 0 || items.length === cleanLines.length) {
@@ -1204,6 +1261,10 @@ const QTY_ALIASES = ['الكمية', 'quantity', 'qty'] as const
 const UOM_ALIASES = ['الوحدة', 'unit', 'uom'] as const
 const SPEC_ALIASES = ['المواصفة الفنية', 'specification', 'spec'] as const
 const NOTES_ALIASES = ['ملاحظات', 'notes'] as const
+/** The optional seventh column the server's AI/vision readers add. */
+const MARKET_NAME_HEADER = 'الاسم الدارج بالسوق'
+/** The optional eighth column: MEMORY when the seventh came from the name memory. */
+const MARKET_SOURCE_HEADER = 'مصدر الاسم الدارج'
 const ID_ALIASES = ['البند', 'item no', 'item #', 'no', '#'] as const
 
 const HEADER_NAME_RE =
@@ -1381,6 +1442,14 @@ function serverReadFacts(notes: string): Pick<ParsedLine, 'itemCode' | 'codeVeri
   return { itemCode: code || undefined, codeVerified: true, workOnly: /عمل بلا توريد/.test(text) || undefined }
 }
 
+/** A market-name cell worth showing: text, not a header, not the booklet name again. */
+export function marketNameFor(raw: unknown, bookletName: string): string | undefined {
+  const text = String(raw ?? '').replace(/\s+/g, ' ').trim()
+  if (!text || isHeaderLabel(text) || foldHeader(text) === foldHeader(MARKET_NAME_HEADER)) return undefined
+  if (foldHeader(text) === foldHeader(bookletName)) return undefined
+  return text.slice(0, 240)
+}
+
 export function rowsToLines(rows: unknown[]): ParsedLine[] {
   if (!Array.isArray(rows) || rows.length === 0) return []
 
@@ -1403,6 +1472,9 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
   const specCol = farqShaped ? 3 : headers.length ? columnIndex(headers, SPEC_ALIASES) : -1
   const notesCol = farqShaped ? 5 : headers.length ? columnIndex(headers, NOTES_ALIASES) : -1
   const idCol = farqShaped ? -1 : headers.length ? columnIndex(headers, ID_ALIASES) : -1
+  // Exact header only: a fuzzy alias must never turn another column into a name.
+  const marketCol = headers.length ? headers.indexOf(normalizeHeaderCell(MARKET_NAME_HEADER)) : -1
+  const marketSourceCol = headers.length ? headers.indexOf(normalizeHeaderCell(MARKET_SOURCE_HEADER)) : -1
 
   const dataStart = headerIndex >= 0 ? headerIndex + 1 : 0
   const out: ParsedLine[] = []
@@ -1419,6 +1491,8 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     let spec: string | undefined
     let idHint: number | null = null
     let notesText = ''
+    let marketRaw = ''
+    let marketSource = ''
 
     if (nameCol >= 0) {
       name = cellAt(row, nameCol)
@@ -1428,6 +1502,8 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       if (specVal && !isHeaderLabel(specVal)) spec = specVal
       const notes = cellAt(row, notesCol)
       notesText = notes
+      marketRaw = cellAt(row, marketCol)
+      marketSource = cellAt(row, marketSourceCol)
       idHint = extractBoqItemNumber(notes)
       if (idCol >= 0) {
         const rawId = Number(cellAt(row, idCol))
@@ -1470,6 +1546,7 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
     }
     usedIds.add(id)
 
+    const marketName = marketNameFor(marketRaw, cleanedName)
     out.push({
       id,
       name: cleanedName,
@@ -1477,6 +1554,8 @@ export function rowsToLines(rows: unknown[]): ParsedLine[] {
       unit: normalizeUnit(String(unitRaw || 'عدد')),
       spec,
       ...facts,
+      ...(marketName ? { marketName } : {}),
+      ...(marketName && marketSource.trim().toUpperCase() === 'MEMORY' ? { marketNameSource: 'memory' as const } : {}),
     })
   }
   return sanitizeBoqLines(out)
@@ -1499,6 +1578,49 @@ export type BoqReadFacts = {
   descriptionColumnDetail?: string
   codedItemsSuspect?: boolean
   codedItemsDetail?: string
+}
+
+const NAME_MEMORY_TIMEOUT_MS = 4_000
+const NAME_MEMORY_MAX_LINES = 3_000
+
+type NameMemoryLookup = (
+  lines: Array<{ name: string; spec?: string }>,
+  options: { timeoutMs?: number },
+) => Promise<Array<{ market_name_ar: string } | null>>
+
+/**
+ * «الاسم الدارج بالسوق» from the market-name memory for lines that have none.
+ * A line the server already named (reader or memory) is not asked again, and
+ * pure-work lines have nothing to buy. Any failure returns the lines as they
+ * were.
+ */
+export async function applyNameMemory<T extends ParsedLine>(
+  lines: T[],
+  lookup?: NameMemoryLookup,
+): Promise<T[]> {
+  const ask = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => !line.marketName && !line.workOnly && String(line.name || '').trim())
+    .slice(0, NAME_MEMORY_MAX_LINES)
+  if (!ask.length) return lines
+  try {
+    const call: NameMemoryLookup =
+      lookup || (await import('../api/constructionClient')).lookupNameSynonyms
+    const hits = await Promise.race([
+      call(ask.map(({ line }) => ({ name: line.name, spec: line.spec || '' })), { timeoutMs: NAME_MEMORY_TIMEOUT_MS }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), NAME_MEMORY_TIMEOUT_MS + 500)),
+    ])
+    if (!Array.isArray(hits) || !hits.some(Boolean)) return lines
+    const out = [...lines]
+    ask.forEach(({ line, index }, i) => {
+      const name = marketNameFor(hits[i]?.market_name_ar, line.name)
+      if (name) out[index] = { ...line, marketName: name, marketNameSource: 'memory' as const }
+    })
+    return out
+  } catch (err) {
+    console.warn('Market-name memory unavailable; lines kept as read', err)
+    return lines
+  }
 }
 
 export async function parseBoqFile(
@@ -1653,7 +1775,12 @@ async function parseBoqFileInner(
     table,
     fileName: file.name,
   })
-  const { lines, source, projectName, specsFromApi } = resolved
+  const { source, projectName, specsFromApi } = resolved
+  // Lines read here in the browser (text, CSV, the local column reader) never
+  // met the server's name memory: ask it — memory only, never a model — for
+  // the ones without a name. Capped and silent: without an answer the lines
+  // read exactly as before.
+  const lines = await applyNameMemory(resolved.lines)
   work({ kind: 'end', leg: 'resolve' })
 
   // What the booklet says it contains versus what we produced. Reported on every
@@ -1791,7 +1918,8 @@ async function parseBoqFileInner(
       (item.aiSuggestion?.suppliers.length ?? 0) > 0 ||
       (item.mapSuggestion?.suppliers.length ?? 0) > 0 ||
       (item.familySuggestion?.suppliers.length ?? 0) > 0 ||
-      (item.learnedSuggestion?.suppliers.length ?? 0) > 0
+      (item.learnedSuggestion?.suppliers.length ?? 0) > 0 ||
+      (item.outcomeSuggestion?.suppliers.length ?? 0) > 0
     const ready = matched.items.filter(lineHasSuppliers).length
     return {
       items: matched.items,
@@ -1834,6 +1962,8 @@ async function parseBoqFileInner(
         supplierCount: 0,
         suppliers: [],
         lineKey: `line-${line.id}`,
+        ...(line.marketName ? { marketName: line.marketName } : {}),
+        ...(line.marketName && line.marketNameSource ? { marketNameSource: line.marketNameSource } : {}),
       })),
       projectName,
       documentId,

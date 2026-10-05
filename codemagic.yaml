@@ -24,13 +24,15 @@ workflows:
       events:
         - push
       branch_patterns:
-        - pattern: main
+        - pattern: ios-app
           include: true
       cancel_previous_builds: true
     when:
       changeset:
         includes:
           - src/mobile
+          - src/components
+          - public
           - src/api
           - src/lib
           - mobile

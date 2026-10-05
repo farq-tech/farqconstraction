@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { autoPickFor, buildPickContext } from './autoPick'
+import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter } from './autoPick'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -90,5 +90,87 @@ describe('autoPickFor with a context', () => {
 
   it('behaves exactly as before without a context', () => {
     expect(autoPickFor(booklet[0]).map((s) => s.id)).toEqual(['عام', 'حديد-أ', 'حديد-ب'])
+  })
+})
+
+describe('autoPickFor — «مقدّم عروض سابقاً»', () => {
+  const quoted = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({ ...sup(id, evidence), priorQuotes: 3 })
+
+  it('takes a supplier who priced this material before, from any lane of the line, right after his own choices', () => {
+    const familyQuoter = quoted('دهانات-قديم', 'على مستوى النشاط')
+    const item = line(9, 'paints', [general, paint], {
+      familySuggestion: { family: 'paints', suppliers: [familyQuoter] },
+      learnedSuggestion: { suppliers: [steelA] },
+    })
+    const context = buildPickContext([...booklet, item])
+    expect(autoPickFor(item, 3, context).map((s) => s.id)).toEqual(['حديد-أ', 'دهانات-قديم', 'دهانات'])
+    expect(isPriorQuoter(familyQuoter)).toBe(true)
+    expect(isPriorQuoter(paint)).toBe(false)
+  })
+
+  it('never brings in a prior quoter the line does not list', () => {
+    const item = line(9, 'paints', [paint])
+    expect(autoPickFor(item, 5).map((s) => s.id)).toEqual(['دهانات'])
+  })
+
+  it('a rejected prior quoter stays out', () => {
+    const item = line(9, 'paints', [paint, quoted('قديم')], { rejectedSupplierIds: ['قديم'] })
+    expect(autoPickFor(item, 5).map((s) => s.id)).toEqual(['دهانات'])
+  })
+})
+
+describe('autoPickFor — «نتائج الجولات»', () => {
+  it('takes who priced this material in an earlier round right after the buyer’s own choices, rejected ones excepted', () => {
+    const priced = (id: string): Supplier => ({ ...sup(id, 'نتائج الجولات'), roundOutcome: { grade: 'PRICED', pricedLines: 3 } })
+    const item = line(9, 'cable_accessories', [sup('مصنع'), sup('متجر')], {
+      learnedSuggestion: { suppliers: [sup('اختياره', 'اختيارك')] },
+      outcomeSuggestion: { suppliers: [priced('الرطبة'), priced('بيت الكهرباء'), priced('مرفوض')] },
+      rejectedSupplierIds: ['مرفوض'],
+    })
+    expect(autoPickFor(item, 4).map((s) => s.id)).toEqual(['اختياره', 'الرطبة', 'بيت الكهرباء', 'مصنع'])
+  })
+})
+
+describe('autoPickConfident — all sure and near-certain matches on every channel', () => {
+  const wa = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'واتساب', ...extra })
+  const mail = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'بريد', ...extra })
+  it('takes every near-certain channel match, never unrelated family suggestions', () => {
+    const item = line(1, 'masonry_blocks', [
+      wa('wa-name', { why: 'الاسم: «للبلوك»' }),
+      wa('wa-activity', { why: 'النشاط المسجّل: «بلوك اسمنتي»' }),
+      wa('wa-lineword', { why: 'كلمة البند: «بلوك»' }),
+      wa('wa-haraj', { why: 'وسوم حراج: «بلوك»' }),
+      wa('wa-other-city', { why: 'الاسم: «بلوك» — خارج مدينة الطلب', outOfCity: true }),
+      mail('mail-lineword', { why: 'كلمة البند: «بلوك»' }),
+      mail('mail-maybe', { evidence: 'على مستوى النشاط', why: 'نشاط العائلة: «مواد بناء»' }),
+      wa('wa-maybe', { evidence: 'على مستوى النشاط' }),
+    ], {
+      outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar'), roundOutcome: { grade: 'SIMILAR' } }] },
+    })
+    const ids = autoPickConfident(item).map((s) => s.id)
+    expect(ids).toEqual(['wa-priced', 'wa-similar', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'mail-lineword'])
+  })
+  it('a rejected supplier stays out even when sure', () => {
+    const item = line(2, 'masonry_blocks', [wa('a', { why: 'الاسم: «بلوك»' })], { rejectedSupplierIds: ['a'] })
+    expect(autoPickConfident(item)).toEqual([])
+  })
+  // The owner, 4 Oct 2026: «إذا المصادر الأخرى لا يوجد مورد اختر عادي 100–200، وإذا فيه مليان اختر أفضل 30 لكل بند».
+  it('takes every near-certain WhatsApp seller without the old per-channel caps', () => {
+    const many = (n: number, mk: (id: string) => Supplier) => Array.from({ length: n }, (_, i) => mk(`${i}`))
+    const full = line(3, 'cement', [...many(40, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(500, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
+    const fullIds = autoPickConfident(full).map((s) => s.id)
+    expect(fullIds.filter((id) => id.startsWith('m')).length).toBe(40)
+    expect(fullIds.filter((id) => id.startsWith('w')).length).toBe(500)
+    // Evidence order is preserved even when every matching seller is selected.
+    expect(fullIds.filter((id) => id.startsWith('w')).slice(0, 3)).toEqual(['w0', 'w1', 'w2'])
+
+    const thin = line(4, 'cement', [...many(5, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(500, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
+    const thinIds = autoPickConfident(thin).map((s) => s.id)
+    expect(thinIds.filter((id) => id.startsWith('w')).length).toBe(500)
+    expect(thinIds.filter((id) => id.startsWith('m')).length).toBe(5)
+
+    // Exactly at the threshold counts as full.
+    const edge = line(5, 'cement', [...many(30, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(100, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
+    expect(autoPickConfident(edge).filter((s) => s.channel === 'واتساب').length).toBe(100)
   })
 })

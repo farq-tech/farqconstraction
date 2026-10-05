@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ConstructionInboxThread } from '../api/constructionClient'
 import {
+  applyThreadReadState,
   attachmentKind,
   avatarTone,
   chatDayLabel,
@@ -10,7 +11,10 @@ import {
   sortThreadsNewestFirst,
   supplierInitials,
   threadSnippet,
+  whatsappReplyWindow,
+  windowRemainingAr,
 } from './inboxChat'
+import { sortThreadsNewestFirst as newestFirst } from './inboxChat'
 
 const thread = (over: Partial<ConstructionInboxThread>): ConstructionInboxThread => ({ ...over })
 
@@ -182,5 +186,72 @@ describe('attachmentKind', () => {
     expect(attachmentKind({ filename: 'scan', content_type: 'image/png' })).toBe('PNG')
     expect(attachmentKind({ content_type: 'application/pdf' })).toBe('PDF')
     expect(attachmentKind({})).toBe('')
+  })
+})
+
+describe('applyThreadReadState', () => {
+  const rows = [
+    thread({ invite_id: 'a', unread_count: 0 }),
+    thread({ invite_id: 'b', unread_count: 3 }),
+    thread({ invite_id: 'c', unread_count: 0 }),
+  ]
+
+  it('shows the selected conversations unread at once, the rest untouched', () => {
+    const next = applyThreadReadState(rows, ['a', 'c'], false)
+    expect(next.map((row) => row.unread_count)).toEqual([1, 3, 1])
+  })
+
+  it('keeps a known unread count instead of shrinking it to one', () => {
+    expect(applyThreadReadState(rows, ['b'], false)[1].unread_count).toBe(3)
+  })
+
+  it('clears the badge of the selected conversations when marked read', () => {
+    expect(applyThreadReadState(rows, ['b'], true).map((row) => row.unread_count)).toEqual([0, 0, 0])
+  })
+
+  it("'all' covers every row", () => {
+    expect(applyThreadReadState(rows, 'all', false).map((row) => row.unread_count)).toEqual([1, 3, 1])
+  })
+
+  it('returns the same array when nothing changes, so React skips the render', () => {
+    expect(applyThreadReadState(rows, ['zzz'], false)).toBe(rows)
+  })
+})
+
+
+describe('sortThreadsNewestFirst', () => {
+  it('lists the newest activity first; undated rows go last', () => {
+    const rows = [{ id: 'b', last_received_at: '2026-09-28T09:00:00Z' }, { id: 'x', last_received_at: null }, { id: 'a', last_received_at: '2026-09-27T09:00:00Z' }, { id: 'c', last_received_at: '2026-09-28T10:00:00Z' }]
+    expect(newestFirst(rows).map((r) => r.id)).toEqual(['c', 'b', 'a', 'x'])
+  })
+})
+
+describe('whatsappReplyWindow', () => {
+  const now = Date.parse('2026-09-28T10:00:00Z')
+  it('is open with the time left when the server says so', () => {
+    const w = whatsappReplyWindow({ whatsapp_window_open: true, whatsapp_window_until: '2026-09-28T15:12:30Z' }, now)
+    expect(w.open).toBe(true)
+    expect(w.until).toBe(Date.parse('2026-09-28T15:12:30Z'))
+    expect(w.remainingAr).toBe('يتبقى 5 س 12 د')
+  })
+  it('closes once the deadline passes while the pane stays open', () => {
+    const w = whatsappReplyWindow({ whatsapp_window_open: true, whatsapp_window_until: '2026-09-28T09:59:00Z' }, now)
+    expect(w).toEqual({ open: false, until: Date.parse('2026-09-28T09:59:00Z'), remainingAr: '' })
+  })
+  it('follows the server flag: closed, missing or absent thread is closed', () => {
+    expect(whatsappReplyWindow({ whatsapp_window_open: false, whatsapp_window_until: '2026-09-28T20:00:00Z' }, now).open).toBe(false)
+    expect(whatsappReplyWindow({}, now).open).toBe(false)
+    expect(whatsappReplyWindow(null, now).open).toBe(false)
+  })
+})
+
+describe('windowRemainingAr', () => {
+  it('rounds down to minutes and hours', () => {
+    expect(windowRemainingAr(0)).toBe('')
+    expect(windowRemainingAr(-5)).toBe('')
+    expect(windowRemainingAr(30000)).toBe('أقل من دقيقة')
+    expect(windowRemainingAr(40 * 60000 + 59000)).toBe('40 د')
+    expect(windowRemainingAr(3 * 3600000)).toBe('3 س')
+    expect(windowRemainingAr(23 * 3600000 + 59 * 60000)).toBe('23 س 59 د')
   })
 })

@@ -6,9 +6,12 @@ import { LoginView } from './views/LoginView'
 import { InviteView } from './views/InviteView'
 import { HomeView } from './views/HomeView'
 import { MaterialPricesView } from './views/MaterialPricesView'
+import { TendersView } from './views/TendersView'
 import { UploadView } from './views/UploadView'
 import { ProposalsView } from './views/ProposalsView'
 import { RFQListView } from './views/RFQListView'
+import { BookletsView } from './views/BookletsView'
+import { BookletView } from './views/BookletView'
 import { RequestFileView } from './views/RequestFileView'
 import { OffersView } from './views/OffersView'
 import { OfferDetailView } from './views/OfferDetailView'
@@ -21,12 +24,26 @@ import { SupplierDetailView } from './views/SupplierDetailView'
 import { SettingsView } from './views/SettingsView'
 import { AccessDeniedView } from './views/AccessDeniedView'
 import { SupplierPortalView } from './views/SupplierPortalView'
+import { SupplierJoinView } from './views/SupplierJoinView'
+import { SupplierJoinsAdminView } from './views/SupplierJoinsAdminView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
 import { useEffect, useRef } from 'react'
 import { useFarqSession } from './api/useFarqSession'
 import { restoreSession } from './store/session'
 import { LearningReviewView } from './views/LearningReviewView'
+import { ServicesAdminView, ServiceOffView } from './views/ServicesAdminView'
+import { useServices } from './api/useServices'
+import { serviceForView, viewAllowed } from './lib/services'
+import AhmadAssistant from './components/AhmadAssistant'
+import { askAhmadAgent } from './lib/ahmadAgent'
+
+function ProcurementAssistant() {
+  const { navigate, selectedRfqId, selectedBookletId, view } = useProcurement()
+  const session = useFarqSession()
+  if (view === 'supplier' || view === 'join') return null
+  return <AhmadAssistant key={session.user?.id || 'guest'} signedIn={session.isAuthenticated} ask={(message, history) => askAhmadAgent(message, history, { rfqId: selectedRfqId, bookletId: selectedBookletId })} onAction={action => navigate(action === 'upload' ? 'create-upload' : action === 'offers' && selectedRfqId ? 'offers' : 'rfq-list')} />
+}
 
 function AppRoutes() {
   const {
@@ -36,6 +53,7 @@ function AppRoutes() {
     setSelectedSupplierId,
   } = useProcurement()
   const session = useFarqSession()
+  const services = useServices()
   const restored = useRef(false)
 
   /*
@@ -56,6 +74,7 @@ function AppRoutes() {
   }, [session.isAuthenticated])
 
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
+  if (view === 'join') return <SupplierJoinView navigate={navigate} />
   // An invited colleague arrives signed out; the page creates the session.
   if (view === 'invite') return <InviteView navigate={navigate} />
   // A production build has no demo identity, so without a session every screen
@@ -78,14 +97,27 @@ function AppRoutes() {
     return <LoginView navigate={navigate} />
   }
 
+  // A screen whose add-on service is off for this account («الخدمات»). With
+  // gating off or no answer from the server, nothing is ever hidden here.
+  if (!viewAllowed(view, services)) {
+    return (
+      <Shell view={view} navigate={navigate}>
+        <ServiceOffView navigate={navigate} serviceName={serviceForView(view) === 'rfq' ? 'طلبات عروض الأسعار' : serviceForView(view) === 'etimad' ? 'منافسات المقاولات' : String(serviceForView(view))} />
+      </Shell>
+    )
+  }
+
   return (
     <Shell view={view} navigate={navigate}>
       <ErrorBoundary resetKey={view}>
       {view === 'home' && <HomeView navigate={navigate} />}
       {view === 'material-prices' && <MaterialPricesView navigate={navigate} />}
+      {view === 'tenders' && <TendersView navigate={navigate} />}
       {view === 'create-upload' && <UploadView navigate={navigate} />}
       {view === 'create-proposals' && <ProposalsView navigate={navigate} />}
       {view === 'rfq-list' && <RFQListView navigate={navigate} />}
+      {view === 'booklets' && <BookletsView navigate={navigate} />}
+      {view === 'booklet-detail' && <BookletView navigate={navigate} />}
       {/* One page per request — the whole deal file (overview, items, quotes, suppliers, messages, history). */}
       {(view === 'rfq-detail' || view === 'rfq-closed') && <RequestFileView key={view} navigate={navigate} />}
       {view === 'offers' && <RequestFileView key="offers" navigate={navigate} initialTab="quotes" />}
@@ -113,6 +145,8 @@ function AppRoutes() {
       {view === 'inbox' && <InboxView navigate={navigate} />}
       {view === 'inbox-thread' && <InboxThreadView navigate={navigate} />}
       {view === 'access-denied' && <AccessDeniedView navigate={navigate} />}
+      {view === 'services' && <ServicesAdminView navigate={navigate} />}
+      {view === 'supplier-joins' && <SupplierJoinsAdminView navigate={navigate} />}
       </ErrorBoundary>
     </Shell>
   )
@@ -136,6 +170,7 @@ export default function App() {
     <ProcurementProvider>
       <ReadOnlyBanner />
       <AppRoutes />
+      <ProcurementAssistant />
     </ProcurementProvider>
   )
 }

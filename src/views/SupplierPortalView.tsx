@@ -1,287 +1,604 @@
-import { useEffect, useMemo, useState } from 'react'
+/**
+ * THE SUPPLIER PORTAL (Figma «Supplier / المورد (Prototype)», frames 0–4 + F).
+ *
+ * The supplier arrives with the invitation link (lib/supplierLink lifts the
+ * token out of the address bar). The link is traded for a 12-hour session
+ * (api/supplierPortalClient); with a session the supplier gets:
+ *   • a first-open banner «جهّزنا لك حساباً…» with «ليس حسابي»;
+ *   • «طلباتك» across companies, each with a deadline countdown;
+ *   • inside a request: العرض (the quote form) / المحادثة / حالة العرض;
+ *   • «حسابي» with an optional password (email code, then password).
+ *
+ * When the session routes are not on the API yet, the portal runs exactly as
+ * before on the token routes: the quote form and a status path that only says
+ * what the token route knows.
+ */
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { NavProps } from '../types'
 import {
+  ConstructionApiError,
   getPublicSupplierInvite,
-  submitPublicSupplierQuote,
   type PublicSupplierInvite,
 } from '../api/constructionClient'
+import {
+  supplierPortalClient,
+  type SupplierAccount,
+  type SupplierRequest,
+  type SupplierSession,
+} from '../api/supplierPortalClient'
+import { captureSupplierLink } from '../lib/supplierLink'
+import {
+  currentVersionHref,
+  legacyDeadline,
+  requestFromLegacyInvite,
+  shortCompany,
+  supersededNotice,
+  type LineRef,
+  type SupersededNotice,
+} from '../lib/supplierPortal'
+import {
+  BottomSheet,
+  Card,
+  LockIcon,
+  PortalHeader,
+  PrimaryButton,
+  RequestTabs,
+  SecondaryButton,
+  type RequestTab,
+} from '../components/supplier/PortalChrome'
+import { AccountIcon } from '../icons'
+import { QuoteForm } from '../components/supplier/QuoteForm'
+import { StatusPanel } from '../components/supplier/StatusPanel'
+import { RequestsList } from '../components/supplier/RequestsList'
+import { SupplierChat } from '../components/supplier/SupplierChat'
+import { AccountView } from '../components/supplier/AccountView'
+import PhoneLogin from '../components/supplier/PhoneLogin'
 
-type LineDraft = {
-  unitPrice: string
-  available: boolean
-  notes: string
+type Phase = 'no-token' | 'loading' | 'expired' | 'error' | 'ready'
+type Screen = 'list' | 'request' | 'account'
+
+/** Lets the header and the composer sit clear of the notch and the home bar. */
+function useCoverViewport() {
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]')
+    if (!meta) return
+    const before = meta.getAttribute('content') || ''
+    if (!before.includes('viewport-fit')) meta.setAttribute('content', `${before}, viewport-fit=cover`)
+    return () => meta.setAttribute('content', before)
+  }, [])
 }
 
-export function SupplierPortalView({ navigate }: NavProps) {
-  const token = useMemo(() => {
-    try {
-      return new URLSearchParams(window.location.search).get('token') || ''
-    } catch {
-      return ''
-    }
-  }, [])
-  const [invite, setInvite] = useState<PublicSupplierInvite | null>(null)
-  const [loading, setLoading] = useState(Boolean(token))
-  const [error, setError] = useState<string | null>(null)
-  const [drafts, setDrafts] = useState<Record<string, LineDraft>>({})
-  const [personName, setPersonName] = useState('')
-  const [personEmail, setPersonEmail] = useState('')
-  // Both were sent as `true` on the supplier's behalf with nothing on screen:
-  // a quote went in as tax-inclusive under a declaration nobody had seen.
-  const [pricesIncludeTax, setPricesIncludeTax] = useState<boolean | null>(null)
-  const [declarationAccepted, setDeclarationAccepted] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
-
+/** The part of the screen the keyboard leaves free (iOS does not shrink 100dvh for it). */
+function useVisualViewport(active: boolean): { height: number; top: number } | null {
+  const [box, setBox] = useState<{ height: number; top: number } | null>(null)
   useEffect(() => {
+    if (!active) return
+    const vv = window.visualViewport
+    const update = () => setBox({ height: vv ? vv.height : window.innerHeight, top: vv ? vv.offsetTop : 0 })
+    update()
+    vv?.addEventListener('resize', update)
+    vv?.addEventListener('scroll', update)
+    window.addEventListener('resize', update)
+    return () => {
+      vv?.removeEventListener('resize', update)
+      vv?.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [active])
+  return active ? box : null
+}
+
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return now
+}
+
+function inviteErrorIsExpired(err: unknown): boolean {
+  return err instanceof ConstructionApiError && (err.status === 404 || err.status === 410)
+}
+
+export function SupplierPortalView(_props: NavProps) {
+  useCoverViewport()
+  const link = useMemo(() => captureSupplierLink(), [])
+  const token = link?.token || ''
+  const client = useMemo(() => supplierPortalClient(), [])
+  const now = useNow()
+
+  // A supplier signed in with phone + password («انضم لفرق كمورد») holds a session and no link.
+  const [phase, setPhase] = useState<Phase>(token || client.currentSession() ? 'loading' : 'no-token')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [mode, setMode] = useState<'session' | 'legacy'>('legacy')
+  const [session, setSession] = useState<SupplierSession | null>(null)
+  const [account, setAccount] = useState<SupplierAccount | null>(null)
+  const [invite, setInvite] = useState<PublicSupplierInvite | null>(null)
+  const [requests, setRequests] = useState<SupplierRequest[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [screen, setScreen] = useState<Screen>('request')
+  const [tab, setTab] = useState<RequestTab>('quote')
+  const [lineRef, setLineRef] = useState<LineRef | null>(null)
+  const [declineOpen, setDeclineOpen] = useState(false)
+  const [declining, setDeclining] = useState(false)
+  const [declineError, setDeclineError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
     if (!token) {
-      setLoading(false)
+      const held = client.currentSession()
+      if (!held) {
+        setPhase('no-token')
+        return
+      }
+      setPhase('loading')
+      setSession(held)
+      setAccount(held.account)
+      setMode('session')
+      let list: SupplierRequest[] = []
+      try {
+        list = await client.listRequests()
+      } catch {
+        list = []
+      }
+      setRequests(list)
+      setSelectedId(null)
+      setScreen('list')
+      setTab('status')
+      setPhase(client.currentSession() ? 'ready' : 'no-token')
       return
     }
-    let cancelled = false
-    setLoading(true)
-    getPublicSupplierInvite(token)
-      .then((data) => {
-        if (cancelled) return
-        setInvite(data)
-        const next: Record<string, LineDraft> = {}
-        for (const line of data.lines || []) {
-          // Opt-in: unchecked until the supplier says they can supply it.
-          next[line.id] = { unitPrice: '', available: false, notes: '' }
-        }
-        setDrafts(next)
-        setPersonName(data.supplier.contact_name || '')
-        setPersonEmail(data.supplier.email || '')
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message || 'رابط الدعوة غير صالح أو منتهٍ')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [token])
+    setPhase('loading')
+    setLoadError(null)
+    const [opened, portal] = await Promise.allSettled([client.openSession(token), getPublicSupplierInvite(token)])
+    const legacyInvite = portal.status === 'fulfilled' ? portal.value : null
+    setInvite(legacyInvite)
 
-  const submit = async () => {
-    if (!token || !invite) return
-    setSubmitting(true)
-    setError(null)
+    if (opened.status === 'fulfilled' && opened.value.mode === 'expired') {
+      setPhase('expired')
+      return
+    }
+    if (opened.status === 'fulfilled' && opened.value.mode === 'session') {
+      const held = opened.value.session
+      setSession(held)
+      setAccount(held.account)
+      setMode('session')
+      let list: SupplierRequest[] = []
+      try {
+        list = await client.listRequests()
+      } catch {
+        list = legacyInvite ? [requestFromLegacyInvite(legacyInvite)] : []
+      }
+      if (legacyInvite && !list.some((r) => r.invite_id === legacyInvite.invite_id)) {
+        list = [requestFromLegacyInvite(legacyInvite), ...list]
+      }
+      setRequests(list)
+      const first = legacyInvite?.invite_id || list[0]?.invite_id || null
+      setSelectedId(first)
+      setScreen(first ? 'request' : 'list')
+      // «رسالة جديدة» email: `&tab=chat` opens the conversation of the linked request.
+      const openChat = link?.tab === 'chat' && Boolean(legacyInvite) && held.account.status !== 'DECLINED'
+      setTab(openChat ? 'chat' : legacyInvite ? 'quote' : 'status')
+      if (link?.intent === 'decline' && held.account.status !== 'DECLINED') setDeclineOpen(true)
+      setPhase('ready')
+      return
+    }
+
+    // The token routes, as the portal has always worked.
+    setMode('legacy')
+    if (!legacyInvite) {
+      if (portal.status === 'rejected' && inviteErrorIsExpired(portal.reason)) {
+        setPhase('expired')
+        return
+      }
+      const reason = portal.status === 'rejected' ? portal.reason : null
+      setLoadError(reason instanceof Error ? reason.message : 'تعذّر فتح الدعوة.')
+      setPhase('error')
+      return
+    }
+    setRequests([requestFromLegacyInvite(legacyInvite)])
+    setSelectedId(legacyInvite.invite_id)
+    setScreen('request')
+    setTab('quote')
+    setPhase('ready')
+  }, [client, token, link])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const selected = requests.find((r) => r.invite_id === selectedId) || null
+  const declined = account?.status === 'DECLINED'
+  const chatEnabled = mode === 'session' && !declined
+  const supplierName =
+    session?.supplier.name_ar || invite?.supplier.name_ar || invite?.supplier.name_en || 'المورد'
+  const selectedIsLinked = Boolean(invite && selected && invite.invite_id === selected.invite_id)
+  const multi = requests.length > 1
+
+  const openRequest = (id: string) => {
+    setSelectedId(id)
+    setScreen('request')
+    setLineRef(null)
+    setTab(invite?.invite_id === id ? 'quote' : 'status')
+  }
+
+  const markRead = useCallback(() => {
+    setRequests((prev) =>
+      prev.map((r) => (r.invite_id === selectedId && r.unread_count ? { ...r, unread_count: 0 } : r)),
+    )
+  }, [selectedId])
+
+  const refreshRequests = useCallback(async () => {
+    if (mode !== 'session') return
     try {
-      await submitPublicSupplierQuote(token, {
-        declaration_accepted: declarationAccepted,
-        authorized_person: { name: personName.trim(), email: personEmail.trim() },
-        currency: 'SAR',
-        prices_include_tax: pricesIncludeTax === true,
-        tax_rate: 0.15,
-        lines: (invite.lines || []).map((line) => ({
-          line_id: line.id,
-          quantity: line.quantity,
-          available: drafts[line.id]?.available === true,
-          unit_price: drafts[line.id]?.unitPrice || '',
-          base_price: drafts[line.id]?.unitPrice || null,
-          notes: drafts[line.id]?.notes || '',
-        })),
+      const list = await client.listRequests()
+      setRequests((prev) => {
+        const linked = prev.find((r) => r.invite_id === invite?.invite_id)
+        return linked && !list.some((r) => r.invite_id === linked.invite_id) ? [linked, ...list] : list
       })
-      setDone(true)
+    } catch {
+      /* the list on screen stays */
+    }
+  }, [client, mode, invite])
+
+  const decline = async () => {
+    setDeclining(true)
+    setDeclineError(null)
+    try {
+      const next = await client.declineAccount()
+      setAccount((prev) => next || (prev ? { ...prev, status: 'DECLINED' } : prev))
+      setDeclineOpen(false)
+      setSelectedId(invite?.invite_id || selectedId)
+      setScreen('request')
+      setTab('quote')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'فشل إرسال العرض')
+      setDeclineError(err instanceof Error ? err.message : 'تعذّر إلغاء الحساب — أعد المحاولة.')
     } finally {
-      setSubmitting(false)
+      setDeclining(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-[#FAFAF8]" dir="rtl">
-      <header className="bg-[#123F3A] px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[#CFF5DC] flex items-center justify-center">
-            <span className="text-[#123F3A] font-black text-sm">ف</span>
-          </div>
-          <div>
-            <div className="text-white font-bold">بوابة المورد</div>
-            <div className="text-white/40 text-xs">فرق بناء</div>
-          </div>
-        </div>
-        <button onClick={() => navigate('home')} className="text-white/60 text-xs hover:text-white">
-          واجهة المشتري
-        </button>
-      </header>
+  const chatActive = phase === 'ready' && screen === 'request' && tab === 'chat' && chatEnabled && Boolean(selected)
+  const viewport = useVisualViewport(chatActive)
 
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        {!token && (
-          <div className="bg-white border border-neutral-100 rounded-2xl p-6 text-center">
-            <h1 className="text-2xl font-black text-[#0D1F1D] mb-2">بوابة الموردين</h1>
-            <p className="text-sm text-neutral-500 leading-relaxed mb-4">
-              تحتاج رابط دعوة صالح من Farq: افتح
-              <code className="mx-1 text-xs bg-neutral-100 px-1.5 py-0.5 rounded">/?view=supplier&token=…</code>
-              أو نفس المسار مع معلمة <code className="text-xs">token</code>.
+  // ─── Screens that are not a request ────────────────────────────────────
+
+  if (phase === 'no-token') {
+    return (
+      <Frame>
+        <PortalHeader kind="home" title="بوابة المورد" subtitle="فرق للبناء" />
+        <Centered>
+          <Card className="text-center p-6">
+            <h1 className="text-xl font-black text-[#0D1F1D] mb-2">افتح رابط الدعوة</h1>
+            <p className="text-sm text-neutral-500 leading-relaxed">
+              تدخل البوابة من الرابط اللي وصلك من الشركة بالإيميل أو الواتساب.
             </p>
-            <p className="text-xs text-neutral-400 mb-6">
-              الرمز يُنشأ عند إرسال دعوة RFQ ولا يُخزَّن كنص واضح في قاعدة البيانات (hash فقط).
-            </p>
-            <button
-              onClick={() => navigate('home')}
-              className="px-5 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm"
-            >
-              العودة
-            </button>
+          </Card>
+          <div className="mt-4">
+            <PhoneLogin onDone={() => void load()} />
           </div>
-        )}
+        </Centered>
+      </Frame>
+    )
+  }
 
-        {token && loading && (
-          <div className="text-center py-16 text-neutral-400 font-semibold">جاري تحميل الدعوة…</div>
-        )}
+  if (phase === 'loading') {
+    return (
+      <Frame>
+        <PortalHeader kind="home" title="بوابة المورد" subtitle="فرق للبناء" />
+        <div className="text-center py-16 text-neutral-400 font-semibold">جاري تحميل الدعوة…</div>
+      </Frame>
+    )
+  }
 
-        {token && error && !invite && (
+  if (phase === 'expired') {
+    return (
+      <Frame>
+        <PortalHeader kind="home" title="بوابة المورد" subtitle="فرق للبناء" />
+        <Centered>
+          <ExpiredLink token={token} />
+        </Centered>
+      </Frame>
+    )
+  }
+
+  if (phase === 'error') {
+    return (
+      <Frame>
+        <PortalHeader kind="home" title="بوابة المورد" subtitle="فرق للبناء" />
+        <Centered>
           <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
             <div className="font-bold text-red-700 mb-2">تعذر فتح الدعوة</div>
-            <div className="text-sm text-red-600 mb-4">{error}</div>
-            <button onClick={() => navigate('home')} className="text-sm font-semibold text-[#123F3A]">
-              العودة
+            <div className="text-sm text-red-600 mb-4">{loadError || 'حاول مرة ثانية.'}</div>
+            <button type="button" onClick={() => void load()} className="text-sm font-bold text-[#123F3A]">
+              أعد المحاولة
             </button>
           </div>
-        )}
+        </Centered>
+      </Frame>
+    )
+  }
 
-        {invite && done && (
-          <div className="bg-white border border-neutral-100 rounded-2xl p-8 text-center">
-            <div className="text-2xl font-black text-[#0D1F1D] mb-2">تم إرسال العرض</div>
-            <p className="text-sm text-neutral-500">سُجّل العرض في construction.supplier_quotes عبر Farq API.</p>
-          </div>
-        )}
+  if (screen === 'account' && account) {
+    return (
+      <AccountView
+        client={client}
+        account={account}
+        supplierName={supplierName}
+        onAccountChange={setAccount}
+        onClose={() => setScreen(selected ? 'request' : 'list')}
+      />
+    )
+  }
 
-        {invite && !done && (
-          <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-black text-[#0D1F1D] mb-1">
-                {invite.supplier.name_ar || invite.supplier.name_en}
-              </h1>
-              <p className="text-sm text-neutral-500">
-                طلب من {String(invite.buyer?.company_name || 'المشتري')} ·{' '}
-                {invite.lines.length} بند · الحالة {invite.response_status}
-              </p>
-              {invite.submission_closed_at && (
-                <div className="mt-3 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-                  أُغلق استلام العروض — العرض للقراءة فقط.
-                </div>
-              )}
+  const onAccount = mode === 'session' && account && !declined ? () => setScreen('account') : null
+
+  if (screen === 'list' || !selected) {
+    return (
+      <Frame>
+        <PortalHeader kind="home" title="بوابة المورد" subtitle={supplierName} onAccount={onAccount} />
+        <main className="max-w-2xl mx-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+          <RequestsList requests={requests} onOpen={openRequest} now={now} />
+        </main>
+      </Frame>
+    )
+  }
+
+  // ─── One request ───────────────────────────────────────────────────────
+
+  const hiddenTabs: RequestTab[] = declined ? ['chat', 'status'] : chatEnabled ? [] : ['chat']
+  const header = multi ? (
+    <PortalHeader
+      kind="back"
+      title={selected.buyer_company || 'المشتري'}
+      subtitle={selected.reference || null}
+      onBack={() => {
+        setScreen('list')
+        void refreshRequests()
+      }}
+      onAccount={onAccount}
+    />
+  ) : (
+    <PortalHeader kind="home" title="بوابة المورد" subtitle={supplierName} onAccount={onAccount} />
+  )
+  const tabs = declined ? null : (
+    <RequestTabs active={tab} onChange={setTab} unread={selected.unread_count} hidden={hiddenTabs} />
+  )
+
+  const superseded = selectedIsLinked ? supersededNotice(invite) : null
+  const accountBanner =
+    mode === 'session' && account?.status === 'PROVISIONED' ? (
+      <AccountReadyBanner
+        supplierName={supplierName}
+        company={shortCompany(selected.buyer_company || 'المشتري')}
+        onDecline={() => {
+          setDeclineError(null)
+          setDeclineOpen(true)
+        }}
+      />
+    ) : declined ? (
+      <div className="bg-neutral-100 border border-neutral-200 rounded-2xl px-4 py-3 text-[13px] font-semibold text-neutral-700 leading-relaxed">
+        ألغينا الحساب. الرابط يبقى صالحاً لتقديم عرضك فقط — ولن تصلك تحديثات أو رسائل هنا.
+      </div>
+    ) : null
+  const banner =
+    superseded ? (
+      <div className="flex flex-col gap-3">
+        <SupersededBanner notice={superseded} token={token} client={client} />
+        {accountBanner}
+      </div>
+    ) : (
+      accountBanner
+    )
+
+  const sheet = (
+    <BottomSheet open={declineOpen} onClose={() => setDeclineOpen(false)} label="ليس حسابي">
+      <h2 className="text-[18px] font-extrabold text-[#0D1F1D]">هذا الحساب مو لكم؟</h2>
+      <p className="text-[14px] text-neutral-600 leading-[1.7]">
+        إذا وصلكم الرابط بالغلط أو ما تمثّلون {supplierName}، نلغي الحساب ولا نرسل لكم تحديثات.
+      </p>
+      <p className="text-[13px] font-semibold text-neutral-500">الرابط يبقى صالحاً لتقديم العرض فقط.</p>
+      {declineError && <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{declineError}</div>}
+      <PrimaryButton disabled={declining} onClick={() => void decline()}>
+        {declining ? 'جارٍ الإلغاء…' : 'نعم، ليس حسابي'}
+      </PrimaryButton>
+      <SecondaryButton onClick={() => setDeclineOpen(false)}>رجوع</SecondaryButton>
+    </BottomSheet>
+  )
+
+  if (chatActive) {
+    return (
+      <div
+        dir="rtl"
+        className="fixed inset-x-0 top-0 flex flex-col bg-[#FAFAF8] overflow-hidden"
+        style={viewport ? { height: viewport.height, transform: `translateY(${viewport.top}px)` } : { height: '100dvh' }}
+      >
+        {header}
+        {tabs}
+        <SupplierChat
+          key={selected.invite_id}
+          client={client}
+          inviteId={selected.invite_id}
+          company={selected.buyer_company || 'المشتري'}
+          lineRef={lineRef}
+          onClearLineRef={() => setLineRef(null)}
+          onRead={markRead}
+          now={now}
+        />
+        {sheet}
+      </div>
+    )
+  }
+
+  const effectiveTab: RequestTab = declined ? 'quote' : tab
+
+  return (
+    <Frame>
+      {header}
+      {tabs}
+      <main className="max-w-2xl mx-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+32px)]">
+        {effectiveTab === 'quote' &&
+          (selectedIsLinked && invite ? (
+            <QuoteForm
+              key={invite.invite_id}
+              token={token}
+              invite={invite}
+              deadline={selected.deadline || legacyDeadline(invite)}
+              now={now}
+              banner={banner}
+              onSubmitted={() => void refreshRequests()}
+              superseded={Boolean(superseded)}
+              onInquire={
+                chatEnabled
+                  ? (ref) => {
+                      setLineRef(ref)
+                      setTab('chat')
+                    }
+                  : null
+              }
+            />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {banner}
+              <Card className="text-center p-6">
+                <div className="text-[15px] font-bold text-[#0D1F1D] mb-1">{selected.buyer_company || 'المشتري'}</div>
+                <p className="text-[13px] text-neutral-500 leading-relaxed">
+                  لتقديم عرضك على هذا الطلب أو تعديله، افتح الرابط اللي وصلكم من {shortCompany(selected.buyer_company || 'الشركة')} لهذا الطلب.
+                </p>
+              </Card>
             </div>
-
-            <div className="space-y-3 mb-6">
-              {invite.lines.map((line) => (
-                <div key={line.id} className="bg-white border border-neutral-100 rounded-2xl p-4">
-                  <div className="font-bold text-[#0D1F1D] text-sm mb-1">
-                    {/* The real item first: `name_ar` is a catalog label and is
-                        null for a line the catalog never matched. */}
-                    {line.original_name || line.name_ar || line.name_en || line.line_key}
-                  </div>
-                  <div className="text-xs text-neutral-500 mb-3">
-                    {line.quantity} {line.uom}
-                    {line.item_note ? ` · ${line.item_note}` : ''}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-end col-span-2 sm:col-span-1">
-                      <label className="flex items-center gap-2 text-sm text-neutral-600">
-                        <input
-                          type="checkbox"
-                          disabled={Boolean(invite.submission_closed_at)}
-                          checked={drafts[line.id]?.available === true}
-                          onChange={(e) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [line.id]: {
-                                ...(prev[line.id] || { unitPrice: '', notes: '' }),
-                                available: e.target.checked,
-                              },
-                            }))
-                          }
-                        />
-                        متوفر — سأورّده
-                      </label>
-                    </div>
-                    <div>
-                      <label className="text-[11px] text-neutral-500 mb-1 block">سعر الوحدة</label>
-                      <input
-                        disabled={
-                          Boolean(invite.submission_closed_at) ||
-                          drafts[line.id]?.available !== true
-                        }
-                        value={drafts[line.id]?.unitPrice || ''}
-                        onChange={(e) =>
-                          setDrafts((prev) => ({
-                            ...prev,
-                            [line.id]: {
-                              ...(prev[line.id] || { available: false, notes: '' }),
-                              unitPrice: e.target.value,
-                            },
-                          }))
-                        }
-                        className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#123F3A] disabled:bg-neutral-50 disabled:text-neutral-400"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-white border border-neutral-100 rounded-2xl p-4 mb-4 space-y-3">
-              <div className="text-sm font-bold text-[#0D1F1D]">المفوّض بالتسعير</div>
-              <input
-                value={personName}
-                onChange={(e) => setPersonName(e.target.value)}
-                placeholder="الاسم"
-                className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
-              />
-              <input
-                value={personEmail}
-                onChange={(e) => setPersonEmail(e.target.value)}
-                placeholder="البريد"
-                className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
-              />
-            </div>
-
-            {error && (
-              <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-                {error}
-              </div>
-            )}
-
-            {!invite.submission_closed_at && (
-              <div className="mb-4 space-y-3 rounded-xl border border-neutral-200 bg-white px-4 py-3">
-                <div>
-                  <div className="text-xs font-bold text-[#0D1F1D] mb-1.5">الأسعار التي أدخلتها</div>
-                  <div className="flex gap-4 text-sm">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="tax-basis" className="accent-[#123F3A]" checked={pricesIncludeTax === true} onChange={() => setPricesIncludeTax(true)} />
-                      شاملة ضريبة القيمة المضافة 15%
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="tax-basis" className="accent-[#123F3A]" checked={pricesIncludeTax === false} onChange={() => setPricesIncludeTax(false)} />
-                      غير شاملة الضريبة
-                    </label>
-                  </div>
-                </div>
-                <label className="flex items-start gap-2 text-xs text-neutral-700 leading-relaxed cursor-pointer">
-                  <input type="checkbox" className="mt-0.5 accent-[#123F3A]" checked={declarationAccepted} onChange={(e) => setDeclarationAccepted(e.target.checked)} />
-                  أقرّ بأنني مخوّل بتقديم هذا العرض عن المنشأة، وأن الأسعار والتوفّر المذكورة صحيحة وملزمة خلال مدة صلاحية العرض.
-                </label>
-              </div>
-            )}
-
-            {!invite.submission_closed_at && (
-              <button
-                disabled={submitting || !personName.trim() || !personEmail.trim() || pricesIncludeTax === null || !declarationAccepted}
-                onClick={submit}
-                className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40"
-              >
-                {submitting ? 'جارٍ الإرسال…' : 'إرسال العرض'}
-              </button>
-            )}
-          </>
+          ))}
+        {effectiveTab === 'status' && (
+          <StatusPanel request={selected} now={now} onMessage={chatEnabled ? () => setTab('chat') : null} />
         )}
+      </main>
+      {sheet}
+    </Frame>
+  )
+}
+
+function Frame({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-[100dvh] bg-[#FAFAF8]" dir="rtl">
+      {children}
+    </div>
+  )
+}
+
+function Centered({ children }: { children: ReactNode }) {
+  return <div className="max-w-md mx-auto px-4 py-8">{children}</div>
+}
+
+function AccountReadyBanner({
+  supplierName,
+  company,
+  onDecline,
+}: {
+  supplierName: string
+  company: string
+  onDecline: () => void
+}) {
+  return (
+    <div className="bg-[#F1FBF5] border border-[#CFF5DC] rounded-2xl p-3.5 flex flex-col gap-2.5">
+      <div className="flex items-start gap-2.5">
+        <span className="w-8 h-8 flex-shrink-0 rounded-full bg-white text-[#1a7a45] flex items-center justify-center">
+          <AccountIcon className="w-[18px] h-[18px]" />
+        </span>
+        <p className="flex-1 min-w-0 text-[13px] font-bold leading-[1.65] text-[#123F3A]">
+          جهّزنا لك حساباً باسم {supplierName} — تابع عرضك وراسل {company} هنا
+        </p>
+      </div>
+      <div>
+        <SecondaryButton small onClick={onDecline}>
+          ليس حسابي
+        </SecondaryButton>
       </div>
     </div>
+  )
+}
+
+/** «تم تحديث الطلب» — a link of an older version: read-only, with the way to the current one when invited to it. */
+function SupersededBanner({
+  notice,
+  token,
+  client,
+}: {
+  notice: SupersededNotice
+  token: string
+  client: ReturnType<typeof supplierPortalClient>
+}) {
+  const [state, setState] = useState<'idle' | 'opening' | 'failed'>('idle')
+  const openCurrent = async () => {
+    setState('opening')
+    try {
+      const out = await client.requestCurrentLink(token)
+      if (!out.supplier_token) throw new Error('no token')
+      window.location.assign(currentVersionHref(window.location.pathname, out.supplier_token))
+    } catch {
+      setState('failed')
+    }
+  }
+  return (
+    <div role="status" className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col gap-2">
+      <div className="text-[15px] font-black text-amber-900">{notice.title}</div>
+      <p className="text-[13px] font-semibold text-amber-900 leading-relaxed">{notice.text}</p>
+      {notice.note && (
+        <p className="text-[13px] text-amber-900 leading-relaxed">
+          <span className="font-bold">ملاحظة التعديل: </span>
+          {notice.note}
+        </p>
+      )}
+      {notice.canOpenCurrent ? (
+        <div className="flex flex-col gap-1.5">
+          <PrimaryButton disabled={state === 'opening'} onClick={() => void openCurrent()}>
+            {state === 'opening' ? 'جارٍ الفتح…' : 'افتح النسخة الجديدة'}
+          </PrimaryButton>
+          {state === 'failed' && (
+            <div className="text-[12px] text-red-700">تعذّر فتح النسخة الجديدة — استخدم آخر رابط وصلك من الشركة.</div>
+          )}
+        </div>
+      ) : (
+        <div className="text-[13px] font-bold text-neutral-700">{notice.notInvitedText}</div>
+      )}
+    </div>
+  )
+}
+
+function ExpiredLink({ token }: { token: string }) {
+  const client = useMemo(() => supplierPortalClient(), [])
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'unavailable'>('idle')
+  const [sentTo, setSentTo] = useState<string | null>(null)
+  const ask = async () => {
+    setState('sending')
+    try {
+      const out = await client.requestNewLink(token)
+      setSentTo(out.sent_to)
+      setState('sent')
+    } catch {
+      setState('unavailable')
+    }
+  }
+  return (
+    <Card className="text-center p-6">
+      <span className="mx-auto mb-4 w-12 h-12 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center">
+        <LockIcon className="w-5 h-5" />
+      </span>
+      <h1 className="text-[20px] font-black text-[#0D1F1D] mb-2">تعذّر فتح هذا الرابط</h1>
+      <p className="text-[13px] text-neutral-600 leading-relaxed mb-5">
+        قد يكون الرابط ناقصاً أو أُلغي. روابط الدعوة لا تنتهي صلاحيتها، وحسابكم وعروضكم محفوظة.
+      </p>
+      {state === 'sent' ? (
+        <div className="text-[13px] font-bold text-[#1a7a45]">
+          أرسلنا لكم رابطاً جديداً{sentTo ? <> على <bdi dir="ltr">{sentTo}</bdi></> : null}.
+        </div>
+      ) : state === 'unavailable' ? (
+        <div className="text-[13px] text-neutral-600">اطلب من الشركة اللي أرسلت لكم الطلب رابطاً جديداً.</div>
+      ) : (
+        <PrimaryButton disabled={state === 'sending'} onClick={() => void ask()}>
+          {state === 'sending' ? 'جارٍ الإرسال…' : 'أرسل لي رابط جديد'}
+        </PrimaryButton>
+      )}
+    </Card>
   )
 }
 

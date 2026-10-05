@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { NavProps } from '../types'
 import { apiUnreachableAdvice } from '../api/apiBase'
 import {
@@ -6,19 +6,92 @@ import {
   constructionRateLimitSec,
   getConstructionGmailStatus,
   getConstructionInboxStatus,
-  isOutboundInviteSnapshot,
-  listConstructionInboxThreads,
+  getConstructionMe,
+  getConstructionRfqBooklet,
   startConstructionGmailConnect,
   type ConstructionGmailStatus,
   type ConstructionInboxStatus,
   type ConstructionInboxThread,
-  type ConstructionInboxThreadsResult,
+  type ConstructionInboxThreadDetail,
   markConstructionInboxThreads,
+  setConstructionInboxThreadsVisibility,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
 import { useFillViewport } from '../components/inbox/useFillViewport'
+import { applyThreadReadState } from '../lib/inboxChat'
+import { appendThreads, loadInboxTab, loadTabFacets, type InboxTabCounts } from '../lib/inboxTabs'
+import { ChannelBadge, ReplyMeaningChip } from '../components/inbox/Badges'
+import {
+  FilterPanel,
+  FilterToolbar,
+  NoFilterResults,
+  type BookletOption,
+  type RequestOption,
+} from '../components/inbox/InboxFilterControls'
+import {
+  activeChips,
+  activeFilterCount,
+  applyFilters,
+  deleteSavedView,
+  emptyFilters,
+  hasAccountData,
+  loadSavedViews,
+  noResultSuggestion,
+  removeCriterion,
+  saveView,
+  serverChips,
+  serverFilterQuery,
+  suggestViewName,
+  threadFacts,
+  unknownFacts,
+  type BookletLink,
+  type ServerFacets,
+  type FilterContext,
+  type InboxFilters,
+  type Labels,
+  type SavedView,
+  type ThreadInsight,
+} from '../lib/inboxFilters'
+
+/** What an opened conversation tells the filters that its list row does not. */
+export function insightFromDetail(detail: ConstructionInboxThreadDetail): ThreadInsight {
+  const inbound = (detail.messages || []).filter((m) => m.direction === 'INBOUND')
+  const last = inbound[inbound.length - 1]
+  return {
+    channel: last?.channel ?? null,
+    replyKind: last?.reply_kind ?? null,
+    // Only a complete thread can say «no attachment»; a partial one only «yes».
+    hasFiles: inbound.some((m) => (m.files || []).length > 0) ? true : detail.older_than ? undefined : false,
+  }
+}
+
+/** Booklet links are read once per request for the whole session. */
+const bookletLinkCache = new Map<string, Promise<BookletLink | null>>()
+function bookletLinkFor(rfqId: string): Promise<BookletLink | null> {
+  const hit = bookletLinkCache.get(rfqId)
+  if (hit) return hit
+  const promise = getConstructionRfqBooklet(rfqId)
+    .then((link) =>
+      link
+        ? {
+            bookletId: link.booklet_id,
+            reference: link.reference,
+            waveNumber: link.wave_number,
+            waves: Array.isArray(link.waves) ? link.waves.length : typeof link.waves === 'number' ? link.waves : null,
+          }
+        : null,
+    )
+    .catch(() => {
+      bookletLinkCache.delete(rfqId)
+      return null
+    })
+  bookletLinkCache.set(rfqId, promise)
+  return promise
+}
+/** At most this many booklet lookups per panel opening — the API limiter is shared. */
+const BOOKLET_LOOKUPS = 12
 
 function readGmailReturnQuery(): { status: string | null; error: string | null } {
   try {
@@ -59,35 +132,6 @@ function gmailFlagAr(value: boolean | undefined): string {
   if (value === true) return 'نعم'
   if (value === false) return 'لا'
   return 'غير معروف'
-}
-
-function applyInboxTab(
-  tab: InboxTab,
-  rows: ConstructionInboxThread[],
-): ConstructionInboxThread[] {
-  if (tab === 'needs_reply') return rows.filter((t) => Boolean(t.needs_reply))
-  if (tab === 'sent') return rows.filter((t) => isOutboundInviteSnapshot(t))
-  // وارد: supplier replies / conversations — never outbound invite snapshots
-  return rows.filter((t) => !isOutboundInviteSnapshot(t))
-}
-
-function displayTotal(
-  tab: InboxTab,
-  visible: ConstructionInboxThread[],
-  result: ConstructionInboxThreadsResult | null,
-): number {
-  const counts = result?.follow_up_counts
-  if (tab === 'needs_reply') {
-    return counts?.action ?? result?.total_count ?? visible.length
-  }
-  if (tab === 'sent') {
-    return counts?.unanswered ?? visible.length
-  }
-  // وارد ≈ الكل − دعوات مرسلة بلا وارد
-  if (counts?.all != null && counts?.unanswered != null) {
-    return Math.max(0, counts.all - counts.unanswered)
-  }
-  return visible.length
 }
 
 export type InboxViewProps = NavProps & {
@@ -143,12 +187,40 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     detail?: string
   } | null>(null)
   const [threads, setThreads] = useState<ConstructionInboxThread[]>([])
-  const [threadMeta, setThreadMeta] = useState<ConstructionInboxThreadsResult | null>(null)
+  /** Where «تحميل المزيد» continues; null = the tab is fully loaded. */
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  /** Bumped on every fresh list read, so a late «تحميل المزيد» for an old tab is dropped. */
+  const listGeneration = useRef(0)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   /** Default وارد — not «الكل» which mixes DISPATCH invite spam from the API. */
   const [tab, setTab] = useState<InboxTab>('inbound')
+  /**
+   * Chip per tab from the last list the server returned (`tab_counts`, the
+   * same for every tab). Kept across tab changes; a tab the server does not
+   * report has no chip.
+   */
+  const [counts, setCounts] = useState<InboxTabCounts>({})
+  /**
+   * Applied filters. A server with facets filters and counts all of them
+   * (`facets` below); against an older API only `rfqId` reaches the server
+   * and the rest filter the loaded rows, as before.
+   */
+  const [filters, setFilters] = useState<InboxFilters>(() => emptyFilters())
+  /** The server's counts for the applied filters; null = older API (client-side filters). */
+  const [facets, setFacets] = useState<ServerFacets | null>(null)
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
+  const [savedViews, setSavedViews] = useState<SavedView[]>(() => loadSavedViews())
+  /** Facts learnt from conversations opened in this session, keyed by invite. */
+  const [insights, setInsights] = useState<Record<string, ThreadInsight>>({})
+  const [meId, setMeId] = useState<string | null>(null)
+  const [bookletByRfq, setBookletByRfq] = useState<Record<string, BookletLink | null>>({})
+  /** Every request seen in this session's lists, so its pill survives a server-side filter. */
+  const [knownRequests, setKnownRequests] = useState<Record<string, { reference: string; count: number }>>({})
+  /** A fresh server read whenever what the server filters on changes. */
+  const serverFiltersKey = JSON.stringify([filters.rfqId, serverFilterQuery(filters, { tz: null })])
 
   const applyGmailStatus = (g: ConstructionGmailStatus) => {
     setGmail(g)
@@ -226,35 +298,46 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
 
   useEffect(() => {
     let cancelled = false
+    listGeneration.current += 1
     setLoading(true)
     setError(null)
-    // API accepts only needs_reply | all. «all» unions dispatch_attempts as threads
-    // (preview «دعوة طلب عرض مرسلة», kind_hint=DISPATCH). We always fetch `all`
-    // (except needs_reply tab uses server filter) then separate وارد / مرسل client-side.
-    const apiFilter = tab === 'needs_reply' ? 'needs_reply' : 'all'
-    // Deliberately not part of the Promise.all below: the Gmail panel must keep
-    // its own result even when the thread list fails, otherwise one unrelated
-    // error blanks the connection state and the panel starts guessing.
-    getConstructionGmailStatus()
-      .then((g) => {
-        if (!cancelled) applyGmailStatus(g)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) applyGmailFailure(err)
-      })
-
+    // Each tab is filtered by the server (lib/inboxTabs.ts), which also falls
+    // back to the old «all + split here» read against an older API. Every
+    // filter goes along; a server with facets applies them and counts them.
+    const rfqFilter = filters.rfqId
     Promise.all([
       getConstructionInboxStatus(),
-      listConstructionInboxThreads({ filter: apiFilter }),
+      loadInboxTab(tab, { rfqId: rfqFilter, filters, counts: true }),
     ])
-      .then(([inboxStatus, threadResult]) => {
+      .then(([inboxStatus, page]) => {
         if (cancelled) return
         setStatus(inboxStatus)
-        setThreadMeta(threadResult)
-        const raw = threadResult.threads || []
-        const visible = applyInboxTab(tab, raw)
+        setFacets(page.facets)
+        setCounts((prev) => (page.server ? page.counts : { ...prev, ...page.counts }))
+        const visible = page.threads
         setThreads(visible)
-        setTotal(displayTotal(tab, visible, threadResult))
+        setNextCursor(page.nextCursor)
+        setTotal(page.total)
+        setKnownRequests((prev) => {
+          // A filtered page is not the reference for every request: keep what we knew.
+          const partial = Boolean(rfqFilter) || activeFilterCount(filters) > 0
+          const next = partial ? { ...prev } : {}
+          const counts: Record<string, { reference: string; count: number }> = {}
+          for (const row of visible) {
+            const id = row.request_context?.rfq_id
+            if (!id) continue
+            const entry = counts[id] || { reference: row.request_context?.reference || id.slice(0, 8), count: 0 }
+            entry.count += 1
+            counts[id] = entry
+          }
+          // Without a request filter the loaded page is the reference; with one,
+          // only that request's count is refreshed and the others are kept.
+          if (!partial) {
+            for (const [id, known] of Object.entries(prev)) next[id] = { ...known, count: 0 }
+          }
+          for (const [id, entry] of Object.entries(counts)) next[id] = entry
+          return next
+        })
       })
       .catch((err: Error) => {
         if (cancelled) return
@@ -268,8 +351,9 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         }
         setRateLimitSec(null)
         setStatus(null)
+        setFacets(null)
         setThreads([])
-        setThreadMeta(null)
+        setNextCursor(null)
         setTotal(0)
       })
       .finally(() => {
@@ -278,7 +362,8 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     return () => {
       cancelled = true
     }
-  }, [tab, reloadKey])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, reloadKey, serverFiltersKey])
 
   const handleGmailConnect = async () => {
     if (connectInFlight.current) return
@@ -446,8 +531,26 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     }
   })()
 
-  const needsReplyCount = threadMeta?.follow_up_counts?.action
-  const sentCount = threadMeta?.follow_up_counts?.unanswered
+  /** «تحميل المزيد»: the next page of the same tab, after the loaded rows. */
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return
+    const generation = listGeneration.current
+    setLoadingMore(true)
+    try {
+      const page = await loadInboxTab(tab, { rfqId: filters.rfqId, cursor: nextCursor, filters: facets ? filters : null })
+      if (generation !== listGeneration.current) return
+      setThreads((rows) => appendThreads(rows, page.threads))
+      setNextCursor(page.nextCursor)
+      setTotal(page.total)
+      if (page.server) setCounts(page.counts)
+    } catch (err) {
+      const wait = constructionRateLimitSec(err)
+      if (wait != null) setRateLimitSec(wait)
+      setError(err instanceof Error ? err.message : 'تعذّر تحميل المزيد')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   // A deep link / notification can change the requested thread while mounted.
   useEffect(() => {
@@ -484,6 +587,103 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         : rows,
     )
   }, [])
+
+  const handleDetail = useCallback((inviteId: string, detail: ConstructionInboxThreadDetail) => {
+    setInsights((prev) => ({ ...prev, [inviteId]: { ...prev[inviteId], ...insightFromDetail(detail) } }))
+  }, [])
+
+  const handleQuoteVersion = useCallback((inviteId: string, version: number | null) => {
+    setInsights((prev) =>
+      prev[inviteId]?.quoteVersion === version ? prev : { ...prev, [inviteId]: { ...prev[inviteId], quoteVersion: version } },
+    )
+  }, [])
+
+  // The panel needs who «me» is (for «محادثاتي») and which booklet each loaded
+  // request belongs to. Both are read only when the panel opens, and cached.
+  useEffect(() => {
+    if (!filterPanelOpen) return
+    let cancelled = false
+    if (meId == null) {
+      getConstructionMe()
+        .then((me) => {
+          if (!cancelled && me?.user_id) setMeId(String(me.user_id))
+        })
+        .catch(() => {})
+    }
+    const pending = Object.keys(knownRequests)
+      .filter((id) => !(id in bookletByRfq))
+      .slice(0, BOOKLET_LOOKUPS)
+    ;(async () => {
+      for (const id of pending) {
+        const link = await bookletLinkFor(id)
+        if (cancelled) return
+        setBookletByRfq((prev) => ({ ...prev, [id]: link }))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterPanelOpen])
+
+  const filterCtx = useMemo<FilterContext>(
+    () => ({ now: Date.now(), meId, insights, bookletByRfq }),
+    [meId, insights, bookletByRfq],
+  )
+  const labels = useMemo<Labels>(
+    () => ({
+      request: (id) => knownRequests[id]?.reference,
+      booklet: (id) => {
+        const link = Object.values(bookletByRfq).find((l) => l?.bookletId === id)
+        return link?.reference || null
+      },
+    }),
+    [knownRequests, bookletByRfq],
+  )
+  // With server facets the rows are already the filtered tab; otherwise filter the loaded rows here.
+  const filteredThreads = useMemo(
+    () => (facets ? threads : applyFilters(threads, filters, filterCtx)),
+    [facets, threads, filters, filterCtx],
+  )
+  const chips = useMemo(
+    () => (facets ? serverChips(filters, facets, labels) : activeChips(threads, filters, filterCtx, labels)),
+    [facets, threads, filters, filterCtx, labels],
+  )
+  const fetchDraftFacets = useCallback((draft: InboxFilters) => loadTabFacets(tab, draft), [tab])
+  const filtersActive = activeFilterCount(filters) > 0
+  const requestOptions = useMemo<RequestOption[]>(
+    () =>
+      Object.entries(knownRequests)
+        .sort((a, b) => b[1].count - a[1].count || a[1].reference.localeCompare(b[1].reference))
+        .map(([rfqId, known]) => {
+          const link = bookletByRfq[rfqId]
+          const wave = link?.waveNumber && link.waves && link.waves > 1 ? ` · دفعة ${link.waveNumber} من ${link.waves}` : ''
+          return { rfqId, label: `${known.reference}${wave}`, count: known.count || null }
+        }),
+    [knownRequests, bookletByRfq],
+  )
+  const bookletOptions = useMemo<BookletOption[]>(() => {
+    const byBooklet = new Map<string, { label: string; rfqs: Set<string> }>()
+    for (const [rfqId, link] of Object.entries(bookletByRfq)) {
+      if (!link) continue
+      const entry = byBooklet.get(link.bookletId) || { label: `كراسة ${link.reference || link.bookletId.slice(0, 8)}`, rfqs: new Set<string>() }
+      entry.rfqs.add(rfqId)
+      byBooklet.set(link.bookletId, entry)
+    }
+    return [...byBooklet.entries()]
+      .map(([bookletId, entry]) => ({
+        bookletId,
+        label: entry.label,
+        count: threads.filter((t) => entry.rfqs.has(String(t.request_context?.rfq_id || ''))).length,
+      }))
+      // A booklet is worth its own pill only when it spans more than one loaded request.
+      .filter((b) => byBooklet.get(b.bookletId)!.rfqs.size > 1 || filters.bookletId === b.bookletId)
+  }, [bookletByRfq, threads, filters.bookletId])
+
+  const applyFilterSet = (next: InboxFilters) => {
+    setFilters(next)
+    setFilterPanelOpen(false)
+  }
 
   const closeDetail = () => {
     setActiveId(null)
@@ -673,9 +873,16 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   )
 
   const emptyState =
-    tab === 'sent' ? (
+    tab === 'hidden' ? (
       <>
-        <p className="text-sm text-neutral-500 mb-1">لا دعوات مرسلة ظاهرة في هذه الصفحة.</p>
+        <p className="text-sm text-neutral-500 mb-1">لا محادثات مخفية.</p>
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          تُخفى المحادثة تلقائيًا عندما يرد المورد بأنه لا يوفّر المطلوب، أو يدويًا بـ«إخفاء». لا يُحذف شيء، وتعود إلى الوارد إذا كتب المورد من جديد.
+        </p>
+      </>
+    ) : tab === 'sent' ? (
+      <>
+        <p className="text-sm text-neutral-500 mb-1">لا دعوات مرسلة تنتظر ردًا أول.</p>
         <p className="text-xs text-neutral-400 leading-relaxed">
           سجلات الإرسال تظهر أيضًا داخل تفاصيل كل RFQ وقائمة العروض والمراسلات.
         </p>
@@ -713,30 +920,71 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           ? { height: viewport.height, marginBottom: viewport.marginBottom }
           : { height: 'calc(100dvh - 8rem)' }
       }
-      className="flex overflow-hidden bg-white lg:border-s border-neutral-200"
+      className="relative flex overflow-hidden bg-white lg:border-s border-neutral-200"
     >
+      {filterPanelOpen && (
+        <>
+          <div className="absolute inset-0 z-30 bg-[#0D1F1D]/5" aria-hidden="true" onClick={() => setFilterPanelOpen(false)} />
+          <div className="absolute z-40 inset-2 lg:inset-auto lg:top-3 lg:bottom-3 lg:start-[372px] xl:start-[412px] lg:w-[min(720px,calc(100%-392px))] xl:w-[min(720px,calc(100%-432px))] flex flex-col">
+            <FilterPanel
+              initial={filters}
+              threads={threads}
+              ctx={filterCtx}
+              labels={labels}
+              requests={requestOptions}
+              booklets={bookletOptions}
+              showAccount={hasAccountData(threads)}
+              unknown={facets ? null : unknownFacts(threads, filterCtx)}
+              facets={facets}
+              fetchFacets={fetchDraftFacets}
+              onApply={applyFilterSet}
+              onSave={(name, next) => {
+                setSavedViews(saveView(name, next))
+                applyFilterSet(next)
+              }}
+              onClose={() => setFilterPanelOpen(false)}
+            />
+          </div>
+        </>
+      )}
       {/* First child = the right-hand pane in RTL, where Arabic WhatsApp keeps its list. */}
       <section
         aria-label="قائمة المحادثات"
         className={`${detailOpen ? 'hidden lg:flex' : 'flex'} flex-col min-h-0 w-full lg:w-[360px] xl:w-[400px] lg:flex-shrink-0 lg:border-e border-neutral-200`}
       >
         <ConversationList
-          threads={threads}
+          threads={filteredThreads}
           loading={loading}
           error={error}
           rateLimitSec={rateLimitSec}
           onRetry={() => setReloadKey((n) => n + 1)}
           tab={tab}
           onTabChange={setTab}
-          needsReplyCount={needsReplyCount ?? null}
-          sentCount={sentCount ?? null}
+          counts={counts}
+          onVisibility={async (inviteIds, hidden) => {
+            const result = await setConstructionInboxThreadsVisibility(inviteIds, hidden)
+            const picked = new Set(inviteIds)
+            // Out of this tab at once; the refetch below confirms it from the server.
+            setThreads((rows) => rows.filter((row) => !picked.has(String(row.invite_id))))
+            if (activeId && picked.has(activeId)) setActiveId(null)
+            setReloadKey((n) => n + 1)
+            return result
+          }}
           total={error ? null : total}
-          hasMore={Boolean(threadMeta?.next_cursor)}
+          hasMore={Boolean(nextCursor)}
+          loadingMore={loadingMore}
+          onLoadMore={() => void loadMore()}
           activeKey={activeId}
           onSelect={handleSelect}
           onMarkThreads={async (target, read) => {
-            await markConstructionInboxThreads(target, read)
+            const result = await markConstructionInboxThreads(target, read)
+            // Show the new state at once; the refetch below then confirms it from
+            // the server. Unread with no supplier message behind it cannot show.
+            if (read || Number(result?.messages || 0) > 0) {
+              setThreads((rows) => applyThreadReadState(rows, target, read))
+            }
             setReloadKey((n) => n + 1)
+            return result
           }}
           actions={
             <>
@@ -797,7 +1045,51 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               </p>
             ) : null
           }
-          emptyState={emptyState}
+          emptyState={
+            filtersActive && (facets != null || threads.length > 0) ? (
+              <NoFilterResults
+                serverSide={facets != null}
+                suggestion={facets ? null : noResultSuggestion(threads, filters, filterCtx, labels)}
+                onClearAll={() => setFilters(emptyFilters())}
+                onRemove={(chip) => setFilters((f) => removeCriterion(f, chip.criterion))}
+              />
+            ) : (
+              emptyState
+            )
+          }
+          filterBar={
+            <FilterToolbar
+              activeCount={activeFilterCount(filters)}
+              panelOpen={filterPanelOpen}
+              onTogglePanel={() => setFilterPanelOpen((open) => !open)}
+              chips={chips}
+              onRemoveChip={(chip) => setFilters((f) => removeCriterion(f, chip.criterion))}
+              onClearAll={() => setFilters(emptyFilters())}
+              savedViews={savedViews}
+              viewCount={(view) => (facets ? null : applyFilters(threads, view.filters, filterCtx).length)}
+              onApplyView={(view) => applyFilterSet(view.filters)}
+              onDeleteView={(view) => setSavedViews(deleteSavedView(view.id))}
+              onSaveCurrent={(name) => setSavedViews(saveView(name, filters))}
+              suggestedName={suggestViewName(filters, labels)}
+              summary={
+                filtersActive && !loading && !error
+                  ? facets
+                    ? `${total} محادثة`
+                    : `${filteredThreads.length} من ${threads.length}`
+                  : null
+              }
+            />
+          }
+          rowBadges={(thread) => {
+            const facts = threadFacts(thread, filterCtx)
+            if (!facts.channel && !facts.meaning) return null
+            return (
+              <>
+                {facts.channel && <ChannelBadge channel={facts.channel} short={facts.channel === 'email'} />}
+                {facts.meaning && <ReplyMeaningChip meaning={facts.meaning} />}
+              </>
+            )
+          }}
         />
       </section>
 
@@ -813,7 +1105,14 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
             inviteId={activeId}
             onBack={closeDetail}
             onOpenRfq={(rfqId) => openRfq(rfqId, 'rfq-detail')}
+            onOpenQuote={(rfqId, inviteId) => {
+              setSelectedOfferId(inviteId)
+              openRfq(rfqId, 'offer-detail')
+            }}
             onUnreadKnown={handleUnreadKnown}
+            onDetail={handleDetail}
+            onVisibilityChange={() => setReloadKey((n) => n + 1)}
+            onQuoteVersion={handleQuoteVersion}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#F7F6F2]">

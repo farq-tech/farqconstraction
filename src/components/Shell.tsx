@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
+import FarqWordmark from './FarqWordmark'
 import type { AppView } from '../types'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon, PriceIcon } from '../icons'
 import { MaterialPriceTicker } from './MaterialPriceTicker'
 import { NotificationsDrawer } from './NotificationsDrawer'
-import { getConstructionMe, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
+import { getConstructionMe, inboxUnreadConversations, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
+import { useServices } from '../api/useServices'
+import { serviceForView } from '../lib/services'
 
 interface ShellProps {
   view: AppView
@@ -13,8 +16,14 @@ interface ShellProps {
   children: React.ReactNode
 }
 
-function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: string | null = null) {
-  return [
+function buildNav(
+  offerBadge: string | null,
+  isScopeOwner = false,
+  inboxBadge: string | null = null,
+  canManageServices = false,
+  hasService: (key: string) => boolean = () => true,
+) {
+  const items = [
     {
       id: 'home' as AppView,
       label: 'الرئيسية',
@@ -39,6 +48,21 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
           'rfq-list', 'create-upload', 'create-proposals', 'rfq-detail', 'rfq-closed', 'sent', 'sent-failure',
           'offers', 'offer-detail', 'comparison', 'award', 'award-success',
         ].includes(v),
+    },
+    {
+      // One purchase request sent as several RFQs («دفعات»), compared as one.
+      id: 'booklets' as AppView,
+      label: 'الكراسات',
+      Icon: FileIcon,
+      active: (v: AppView) => v === 'booklets' || v === 'booklet-detail',
+    },
+    {
+      // Public Etimad tenders for contracting companies — the 'etimad' add-on
+      // (hidden by the service filter below unless the server enables it).
+      id: 'tenders' as AppView,
+      label: 'منافسات المقاولات',
+      Icon: FileIcon,
+      active: (v: AppView) => v === 'tenders',
     },
     {
       id: 'inbox' as AppView,
@@ -71,6 +95,24 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
       Icon: FileIcon,
       active: (v: AppView) => v === 'reports',
     },
+    // «الخدمات»: Farq staff turn add-on services on or off per account.
+    ...(canManageServices
+      ? [
+          {
+            id: 'services' as AppView,
+            label: 'الخدمات',
+            Icon: SettingsIcon,
+            active: (v: AppView) => v === 'services',
+          },
+          // «انضمام الموردين»: who was invited to join Farq as a supplier, who joined, who declined.
+          {
+            id: 'supplier-joins' as AppView,
+            label: 'انضمام الموردين',
+            Icon: SettingsIcon,
+            active: (v: AppView) => v === 'supplier-joins',
+          },
+        ]
+      : []),
     {
       id: 'settings' as AppView,
       label: 'الإعدادات',
@@ -78,6 +120,11 @@ function buildNav(offerBadge: string | null, isScopeOwner = false, inboxBadge: s
       active: (v: AppView) => v === 'settings' || v === 'access-denied',
     },
   ]
+  // A section whose add-on service is off for this account is not offered.
+  return items.filter((item) => {
+    const key = serviceForView(item.id)
+    return key == null || hasService(key)
+  })
 }
 
 const CREATE_STEPS = [
@@ -88,31 +135,6 @@ const CREATE_STEPS = [
 
 const isCreateFlow = (v: AppView) => v === 'create-upload' || v === 'create-proposals'
 const getStep = (v: AppView) => (v === 'create-upload' ? 1 : v === 'create-proposals' ? 2 : 3)
-
-/**
- * The Farq wordmark as the brand file draws it, tinted by `bg-*`: the artwork is
- * a mask, so one file serves a light header and a dark one without a second
- * export and without ever re-drawing the letters.
- */
-function FarqWordmark({ className = '' }: { className?: string }) {
-  return (
-    <span
-      role="img"
-      aria-label="فرق"
-      className={`inline-block aspect-[1564/648] ${className}`}
-      style={{
-        WebkitMaskImage: 'url(/brand/farq-wordmark.png)',
-        maskImage: 'url(/brand/farq-wordmark.png)',
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
-        WebkitMaskSize: 'contain',
-        maskSize: 'contain',
-        WebkitMaskPosition: 'center',
-        maskPosition: 'center',
-      }}
-    />
-  )
-}
 
 export function Shell({ view, navigate, children }: ShellProps) {
   const { selectedRfqId, openRfq } = useProcurement()
@@ -146,10 +168,13 @@ export function Shell({ view, navigate, children }: ShellProps) {
       cancelled = true
     }
   }, [session.isAuthenticated, session.user?.id])
+  const services = useServices()
   const NAV = buildNav(
     offerCount != null && offerCount > 0 ? String(offerCount) : null,
     isScopeOwner,
     inboxUnread != null && inboxUnread > 0 ? String(inboxUnread) : null,
+    services.canManage,
+    services.has,
   )
   const onInboxUnreadChange = useCallback((count: number) => {
     setInboxUnread(count)
@@ -171,7 +196,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
     listBuyerRfqs()
       .then((overview) => {
         if (cancelled) return
-        setOfferCount(overview.summary?.response_count ?? 0)
+        setOfferCount(overview.rfqs?.length ?? 0)
         setLatestRfqId(overview.rfqs?.[0]?.id || null)
       })
       .catch(() => {
@@ -182,7 +207,8 @@ export function Shell({ view, navigate, children }: ShellProps) {
       })
     listConstructionInboxMessages()
       .then((page) => {
-        if (!cancelled) setInboxUnread(page.unread_count ?? 0)
+        // Unread conversations (not hidden, not closed); messages from an older API.
+        if (!cancelled) setInboxUnread(inboxUnreadConversations(page).count)
       })
       .catch(() => {
         if (!cancelled) setInboxUnread(null)
@@ -300,6 +326,15 @@ export function Shell({ view, navigate, children }: ShellProps) {
             <span className="text-white/90 font-bold text-base leading-none">بناء</span>
           </button>
           <div className="flex items-center gap-2">
+            {/* The sidebar's «طلب تسعير جديد» on a phone: opens «كيف تبي تبدأ طلب التسعير؟». */}
+            <button
+              onClick={() => navigate('create-upload')}
+              aria-label="طلب تسعير جديد"
+              className="flex items-center gap-1 rounded-lg bg-[#CFF5DC] text-[#123F3A] font-bold text-xs px-3 min-h-9"
+            >
+              <span className="text-base leading-none">+</span>
+              طلب جديد
+            </button>
             <button onClick={() => setShowNotifs(true)} className="text-white/60 p-1 relative">
               <BellIcon className="w-5 h-5" />
               {inboxUnread != null && inboxUnread > 0 && (
@@ -315,7 +350,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
+          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services' && item.id !== 'supplier-joins' && item.id !== 'tenders').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button

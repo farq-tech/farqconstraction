@@ -1,0 +1,3285 @@
+{
+ "ontology_version": "cpo-v14",
+ "note": "Owner-approved widening, 3 Oct 2026. Each line is a realistic booklet phrasing; expect_* says where it must (or must not) resolve. Positive and collision probes written trade by trade and run together.",
+ "probes": [
+  {
+   "line": "مونة أسمنت ورمل للمباني",
+   "expect_intent": "mortar_screed",
+   "expect_not_intent": "sand_fill"
+  },
+  {
+   "line": "توريد مونة اسمنت ورمل بنسبة 1:3 للبلوك",
+   "expect_intent": "mortar_screed"
+  },
+  {
+   "line": "مونه من الاسمنت والرمل لتثبيت البلاط",
+   "expect_not_intent": "sand_fill"
+  },
+  {
+   "line": "رمل مغسول للخرسانة",
+   "expect_intent": "sand_fill"
+  },
+  {
+   "line": "توريد بيتومين 60/70 لأعمال الطرق",
+   "expect_intent": "paving_bitumen",
+   "expect_not_family": "waterproofing"
+  },
+  {
+   "line": "طبقة عازلة للرطوبة أفقية ورأسية من البيتومين الساخن",
+   "expect_intent": "damp_proofing"
+  },
+  {
+   "line": "حاجز خرساني نيوجيرسي على الطريق",
+   "expect_intent": "road_safety_barrier"
+  },
+  {
+   "line": "توريد كراسي حديد للتسليح",
+   "expect_intent": "rebar_spacer",
+   "expect_not_intent": "seating"
+  },
+  {
+   "line": "كراسي حديد للحديقة",
+   "expect_not_intent": "rebar_spacer"
+  },
+  {
+   "line": "Curing compound for concrete",
+   "expect_intent": "curing_compound",
+   "expect_not_intent": "concrete_repair"
+  },
+  {
+   "line": "Butterfly Valve DN150 EPDM seat",
+   "expect_not_family": "waterproofing"
+  },
+  {
+   "line": "Interlocking crowd barrier",
+   "expect_not_intent": "paving_block"
+  },
+  {
+   "line": "Gravel filter for borehole",
+   "expect_not_intent": "concrete_aggregate"
+  },
+  {
+   "line": "رفوف ميزانين للمستودع",
+   "expect_not_intent": "steel_platform_mezzanine"
+  },
+  {
+   "line": "قوالب مكعبات خرسانة للاختبار",
+   "expect_not_family": "formwork"
+  },
+  {
+   "line": "شدة معدنية للأسقف ايجار شهري",
+   "expect_intent": "formwork_system"
+  },
+  {
+   "line": "Aluminium formwork system for slabs",
+   "expect_intent": "formwork_system"
+  },
+  {
+   "line": "خشب طوبار 2x4 انش",
+   "expect_intent": "formwork_timber"
+  },
+  {
+   "line": "لتزانات خشب للشدة",
+   "expect_intent": "formwork_timber"
+  },
+  {
+   "line": "بلاكاش طوبار 18 مم",
+   "expect_intent": "formwork_plywood"
+  },
+  {
+   "line": "Film faced plywood 18mm",
+   "expect_intent": "formwork_plywood"
+  },
+  {
+   "line": "تاي رود مع صامولة للشدة",
+   "expect_intent": "formwork_accessory"
+  },
+  {
+   "line": "Form tie with wing nut",
+   "expect_intent": "formwork_accessory"
+  },
+  {
+   "line": "خلطة اسفلتية ساخنة طبقة سطحية سماكة 5 سم",
+   "expect_intent": "hot_mix_asphalt"
+  },
+  {
+   "line": "Hot mix asphalt wearing course 50mm",
+   "expect_intent": "hot_mix_asphalt"
+  },
+  {
+   "line": "سفلتة مواقف المشروع",
+   "expect_family": "asphalt_paving"
+  },
+  {
+   "line": "Penetration grade bitumen 60/70",
+   "expect_intent": "paving_bitumen"
+  },
+  {
+   "line": "طبقة تشريب MC-70",
+   "expect_intent": "prime_tack_coat"
+  },
+  {
+   "line": "Tack coat SS-1h emulsion",
+   "expect_intent": "prime_tack_coat"
+  },
+  {
+   "line": "اسفلت بارد لترقيع الحفر",
+   "expect_intent": "cold_mix_asphalt"
+  },
+  {
+   "line": "Cold mix asphalt bags 25kg",
+   "expect_intent": "cold_mix_asphalt"
+  },
+  {
+   "line": "دهان اسفلتي للاساسات",
+   "expect_not_family": "asphalt_paving"
+  },
+  {
+   "line": "رولات عزل بيتومين 4 مم",
+   "expect_intent": "bituminous_membrane"
+  },
+  {
+   "line": "سياج شبك مجلفن ارتفاع 2 م",
+   "expect_intent": "chain_link_fence"
+  },
+  {
+   "line": "Chain link fence PVC coated 2m high",
+   "expect_intent": "chain_link_fence"
+  },
+  {
+   "line": "سياج حديد بانل ملحوم حول الموقع",
+   "expect_intent": "welded_panel_fence"
+  },
+  {
+   "line": "358 anti climb welded mesh fence panel",
+   "expect_family": "fencing"
+  },
+  {
+   "line": "سلك شائك مجلفن لفة",
+   "expect_intent": "barbed_razor_wire"
+  },
+  {
+   "line": "Razor wire concertina 450mm",
+   "expect_intent": "barbed_razor_wire"
+  },
+  {
+   "line": "سواتر صاج للموقع ارتفاع 2.4 م",
+   "expect_intent": "site_hoarding"
+  },
+  {
+   "line": "Temporary fencing panels for site",
+   "expect_intent": "site_hoarding"
+  },
+  {
+   "line": "بسكوت خرساني 5 سم للغطاء",
+   "expect_intent": "rebar_spacer"
+  },
+  {
+   "line": "Plastic rebar spacer 40mm cover",
+   "expect_intent": "rebar_spacer"
+  },
+  {
+   "line": "سلك رباط حديد اسود محروق",
+   "expect_intent": "tie_wire"
+  },
+  {
+   "line": "Binding wire 1.6mm for rebar",
+   "expect_intent": "tie_wire"
+  },
+  {
+   "line": "كوبلر حديد تسليح 25 مم",
+   "expect_intent": "rebar_coupler"
+  },
+  {
+   "line": "Rebar coupler 32mm threaded",
+   "expect_intent": "rebar_coupler"
+  },
+  {
+   "line": "شبك حديد ملحوم للأرضيات 6 مم",
+   "expect_intent": "welded_mesh"
+  },
+  {
+   "line": "Steel reinforcement Grade 60",
+   "expect_intent": "rebar"
+  },
+  {
+   "line": "جراتنج مجلفن 30x3 للممرات",
+   "expect_intent": "steel_grating"
+  },
+  {
+   "line": "Galvanized steel bar grating",
+   "expect_intent": "steel_grating"
+  },
+  {
+   "line": "ميزانين حديد للمستودع",
+   "expect_intent": "steel_platform_mezzanine"
+  },
+  {
+   "line": "Steel mezzanine floor with stairs",
+   "expect_intent": "steel_platform_mezzanine"
+  },
+  {
+   "line": "هنجر حديد 30x60 م",
+   "expect_intent": "steel_structure_building"
+  },
+  {
+   "line": "Pre-engineered building warehouse",
+   "expect_intent": "steel_structure_building"
+  },
+  {
+   "line": "شيلمان 300 مم",
+   "expect_intent": "structural_steel_section"
+  },
+  {
+   "line": "H beam 200x200",
+   "expect_intent": "structural_steel_section"
+  },
+  {
+   "line": "ماده معالجة الخرسانة رش",
+   "expect_intent": "curing_compound"
+  },
+  {
+   "line": "انتيسول لمعالجة الخرسانة",
+   "expect_intent": "curing_compound"
+  },
+  {
+   "line": "جراوت غير منكمش تحت قواعد المكائن",
+   "expect_intent": "non_shrink_grout"
+  },
+  {
+   "line": "Non-shrink cementitious grout for base plates",
+   "expect_intent": "non_shrink_grout"
+  },
+  {
+   "line": "ايبوكسي زراعة حديد",
+   "expect_intent": "anchoring_epoxy"
+  },
+  {
+   "line": "Rebar anchoring epoxy injection",
+   "expect_intent": "anchoring_epoxy"
+  },
+  {
+   "line": "زيت شدة لفك القوالب",
+   "expect_intent": "form_release_agent"
+  },
+  {
+   "line": "Form release agent for plywood",
+   "expect_intent": "form_release_agent"
+  },
+  {
+   "line": "سيكامنت ملدن للخرسانة",
+   "expect_intent": "concrete_admixture"
+  },
+  {
+   "line": "حقن ايبوكسي للشروخ",
+   "expect_intent": "concrete_repair"
+  },
+  {
+   "line": "عزل اسمنتي سيكا 107 للخزانات",
+   "expect_intent": "cementitious_waterproofing"
+  },
+  {
+   "line": "Cementitious waterproofing coating 2 coats",
+   "expect_intent": "cementitious_waterproofing"
+  },
+  {
+   "line": "لوح حماية للعزل 3 مم",
+   "expect_intent": "waterproofing_protection_board"
+  },
+  {
+   "line": "Drainage board for basement walls",
+   "expect_intent": "waterproofing_protection_board"
+  },
+  {
+   "line": "عزل بولي يوريا للاسطح",
+   "expect_intent": "liquid_waterproofing"
+  },
+  {
+   "line": "ممبرين ذاتي اللصق",
+   "expect_intent": "bituminous_membrane"
+  },
+  {
+   "line": "Bitumen paint for foundations",
+   "expect_intent": "damp_proofing"
+  },
+  {
+   "line": "عزل فوم رش للاسطح سماكة 5 سم",
+   "expect_intent": "spray_foam_insulation"
+  },
+  {
+   "line": "Spray polyurethane foam insulation 40 kg/m3",
+   "expect_intent": "spray_foam_insulation"
+  },
+  {
+   "line": "عزل عاكس رقائق المنيوم للاسقف",
+   "expect_intent": "reflective_insulation"
+  },
+  {
+   "line": "Reflective foil insulation roll",
+   "expect_intent": "reflective_insulation"
+  },
+  {
+   "line": "فلين ابيض 5 سم للجدران",
+   "expect_intent": "rigid_board_insulation"
+  },
+  {
+   "line": "ستايروفوم 50 مم",
+   "expect_intent": "rigid_board_insulation"
+  },
+  {
+   "line": "صوف حجري 100 كجم/م3",
+   "expect_intent": "mineral_wool_insulation"
+  },
+  {
+   "line": "بلوك اسمنتي معزول 20 سم",
+   "expect_intent": "insulated_block"
+  },
+  {
+   "line": "Insulated concrete block 200mm",
+   "expect_intent": "insulated_block"
+  },
+  {
+   "line": "بلوك حراري 20x40",
+   "expect_intent": "insulated_block"
+  },
+  {
+   "line": "لينتل خرساني فوق الفتحات",
+   "expect_intent": "precast_lintel"
+  },
+  {
+   "line": "Precast lintel 150mm",
+   "expect_intent": "precast_lintel"
+  },
+  {
+   "line": "طابوق احمر مفرغ",
+   "expect_intent": "clay_brick"
+  },
+  {
+   "line": "بلوك عادي 15 سم",
+   "expect_intent": "concrete_block"
+  },
+  {
+   "line": "كنكري مغسول 3/4",
+   "expect_intent": "concrete_aggregate"
+  },
+  {
+   "line": "صبيز للطرق",
+   "expect_intent": "sand_fill"
+  },
+  {
+   "line": "توريد دفان تراب ردم نظيف للموقع",
+   "expect_intent": "sand_fill"
+  },
+  {
+   "line": "دبش لحماية الميول",
+   "expect_intent": "rubble_stone"
+  },
+  {
+   "line": "Rip rap stone 300mm",
+   "expect_intent": "rubble_stone"
+  },
+  {
+   "line": "اسمنت عادي اكياس 50 كجم",
+   "expect_intent": "cement"
+  },
+  {
+   "line": "Ordinary Portland Cement Type I",
+   "expect_intent": "cement"
+  },
+  {
+   "line": "اسمنت مقاوم للاملاح",
+   "expect_intent": "cement"
+  },
+  {
+   "line": "سكريد ارضيات سماكة 5 سم",
+   "expect_intent": "mortar_screed"
+  },
+  {
+   "line": "Dry mortar for blockwork",
+   "expect_intent": "mortar_screed"
+  },
+  {
+   "line": "لياسة اسمنتية خارجية",
+   "expect_intent": "cement_render"
+  },
+  {
+   "line": "جبس بلدي لياسة داخلية",
+   "expect_intent": "gypsum_plaster"
+  },
+  {
+   "line": "ريدي مكس C30",
+   "expect_intent": "structural_ready_mix"
+  },
+  {
+   "line": "خرسانة غير مسلحة تحت القواعد",
+   "expect_intent": "blinding_lean_concrete"
+  },
+  {
+   "line": "بلاطات هولوكور 20 سم",
+   "expect_intent": "precast_hollow_core"
+  },
+  {
+   "line": "Hollow core slab 200mm precast",
+   "expect_intent": "precast_hollow_core"
+  },
+  {
+   "line": "سور خرساني جاهز مسبق الصب",
+   "expect_intent": "precast_structural_element"
+  },
+  {
+   "line": "Precast concrete wall panels",
+   "expect_intent": "precast_structural_element"
+  },
+  {
+   "line": "عبارة صندوقية 2x2 م",
+   "expect_intent": "precast_culvert_pipe"
+  },
+  {
+   "line": "Reinforced concrete pipe 600mm",
+   "expect_intent": "precast_culvert_pipe"
+  },
+  {
+   "line": "Reinforced concrete manhole 1200mm",
+   "expect_intent": "precast_chamber"
+  },
+  {
+   "line": "غطاء منهول حديد زهر D400",
+   "expect_intent": "manhole_cover"
+  },
+  {
+   "line": "بلاط انترلوك 8 سم ملون",
+   "expect_intent": "paving_block"
+  },
+  {
+   "line": "بلدورات خرسانية",
+   "expect_intent": "kerbstone"
+  },
+  {
+   "line": "Curb stone precast 15x30",
+   "expect_intent": "kerbstone"
+  },
+  {
+   "line": "دهان خطوط طرق ثيرموبلاستك",
+   "expect_intent": "road_marking"
+  },
+  {
+   "line": "Thermoplastic road marking paint white",
+   "expect_intent": "road_marking"
+  },
+  {
+   "line": "Guard rail W-beam galvanized",
+   "expect_intent": "road_safety_barrier"
+  },
+  {
+   "line": "حاجز بلاستيكي مملوء بالماء",
+   "expect_intent": "water_filled_barrier"
+  },
+  {
+   "line": "لوحة مرورية عاكسة",
+   "expect_intent": "traffic_sign"
+  },
+  {
+   "line": "سلال حجرية جابيون 2x1x1",
+   "expect_intent": "gabion"
+  },
+  {
+   "line": "Gabion box galvanized PVC coated",
+   "expect_intent": "gabion"
+  },
+  {
+   "line": "جيو تكستايل غير منسوج",
+   "expect_intent": "geotextile"
+  },
+  {
+   "line": "GCL geosynthetic clay liner",
+   "expect_intent": "geomembrane"
+  },
+  {
+   "line": "سلك ربط ارضي نحاسي 16 مم",
+   "expect_not_intent": "tie_wire"
+  },
+  {
+   "line": "Advertising hoarding sign board",
+   "expect_not_intent": "site_hoarding"
+  },
+  {
+   "line": "سلك ربط حديد التسليح",
+   "expect_intent": "tie_wire"
+  },
+  {
+   "line": "توريد وتركيب بلاط بورسلين مقاس 60x60 درجة أولى",
+   "expect_intent": "porcelain_tile"
+  },
+  {
+   "line": "بورسلان ارضيات مطفي 120x60",
+   "expect_intent": "porcelain_tile"
+  },
+  {
+   "line": "Supply and install porcelain floor tiles 600x600 mm",
+   "expect_intent": "porcelain_tile"
+  },
+  {
+   "line": "بلاط بورسلان مقاوم للانزلاق للحمامات",
+   "expect_intent": "porcelain_tile"
+  },
+  {
+   "line": "مغسلة بورسلين معلقة مع خلاط",
+   "expect_not_intent": "porcelain_tile"
+  },
+  {
+   "line": "توريد لاصق بورسلان C2TE",
+   "expect_intent": "tile_grout_adhesive"
+  },
+  {
+   "line": "سيراميك حوائط للحمامات 30x60",
+   "expect_intent": "ceramic_tile"
+  },
+  {
+   "line": "توريد وتركيب سراميك ارضيات درجة اولى",
+   "expect_intent": "ceramic_tile"
+  },
+  {
+   "line": "Ceramic wall tiles 250x400 for kitchens",
+   "expect_intent": "ceramic_tile"
+  },
+  {
+   "line": "كاشي جدران مطبخ",
+   "expect_intent": "ceramic_tile"
+  },
+  {
+   "line": "خرطوشة سيراميك لخلاط المغسلة",
+   "expect_not_intent": "ceramic_tile"
+  },
+  {
+   "line": "جراوت سيراميك ابيض",
+   "expect_intent": "tile_grout_adhesive"
+  },
+  {
+   "line": "وزرة بورسلان ارتفاع 10 سم",
+   "expect_intent": "tile_skirting"
+  },
+  {
+   "line": "وزرة سيراميك",
+   "expect_intent": "tile_skirting"
+  },
+  {
+   "line": "Porcelain skirting 100 mm high",
+   "expect_intent": "tile_skirting"
+  },
+  {
+   "line": "وزرة رخام كرارة 10 سم",
+   "expect_intent": "tile_skirting"
+  },
+  {
+   "line": "وزرة خشبية MDF ارتفاع 10 سم",
+   "expect_not_intent": "tile_skirting"
+  },
+  {
+   "line": "وزرة خشبية MDF ارتفاع 10 سم",
+   "expect_intent": "wood_skirting"
+  },
+  {
+   "line": "بلاط تيرازو",
+   "expect_intent": "terrazzo_tile"
+  },
+  {
+   "line": "Precast terrazzo tiles 40x40 for corridors",
+   "expect_intent": "terrazzo_tile"
+  },
+  {
+   "line": "موزاييك زجاجي للمسبح",
+   "expect_intent": "mosaic_tile"
+  },
+  {
+   "line": "Glass mosaic tiles 25x25 mm swimming pool",
+   "expect_intent": "mosaic_tile"
+  },
+  {
+   "line": "توريد وتركيب باركيه خشب طبيعي سماكة 14 مم",
+   "expect_intent": "wood_flooring"
+  },
+  {
+   "line": "Laminate flooring 8 mm AC4 with underlay",
+   "expect_intent": "wood_flooring"
+  },
+  {
+   "line": "ارضيات خشبية للغرف",
+   "expect_intent": "wood_flooring"
+  },
+  {
+   "line": "ارضيات SPC سماكة 5 مم",
+   "expect_not_intent": "wood_flooring"
+  },
+  {
+   "line": "ارضيات SPC سماكة 5 مم",
+   "expect_intent": "resilient_flooring"
+  },
+  {
+   "line": "توريد وتركيب أرضيات رخام درجة أولى",
+   "expect_intent": "stone_slab"
+  },
+  {
+   "line": "جرانيت للدرج",
+   "expect_intent": "stone_slab"
+  },
+  {
+   "line": "Marble tiles 60x60 polished",
+   "expect_intent": "stone_slab"
+  },
+  {
+   "line": "عتبات رخام للأبواب",
+   "expect_intent": "stone_slab"
+  },
+  {
+   "line": "لاصق رخام",
+   "expect_not_intent": "stone_slab"
+  },
+  {
+   "line": "تكسية واجهات حجر رياض",
+   "expect_intent": "stone_cladding"
+  },
+  {
+   "line": "Natural stone cladding for external facade",
+   "expect_intent": "stone_cladding"
+  },
+  {
+   "line": "حجر واجهات طبيعي سماكة 3 سم مع مثبتات ستانلس",
+   "expect_intent": "stone_cladding"
+  },
+  {
+   "line": "رخام واجهات المبنى تكسية",
+   "expect_not_intent": "stone_slab"
+  },
+  {
+   "line": "توريد وتركيب نعلات خشبية درجة أولى",
+   "expect_intent": "wood_skirting"
+  },
+  {
+   "line": "Wooden skirting board 80 mm MDF painted",
+   "expect_intent": "wood_skirting"
+  },
+  {
+   "line": "خزائن مطابخ خشب علوية وسفلية",
+   "expect_intent": "kitchen_cabinet"
+  },
+  {
+   "line": "Kitchen cabinets with HPL finish and soft-close hinges",
+   "expect_intent": "kitchen_cabinet"
+  },
+  {
+   "line": "دولاب مطبخ سفلي",
+   "expect_intent": "kitchen_cabinet"
+  },
+  {
+   "line": "دولاب مطبخ سفلي",
+   "expect_not_intent": "storage_units"
+  },
+  {
+   "line": "تجليد خشب للجدران بانوهات",
+   "expect_intent": "wood_wall_panel"
+  },
+  {
+   "line": "WPC wall panel fluted 16 cm",
+   "expect_intent": "wood_wall_panel"
+  },
+  {
+   "line": "الواح بديل الرخام PVC",
+   "expect_intent": "decorative_wall_panel"
+  },
+  {
+   "line": "UV marble sheet 3 mm for walls",
+   "expect_intent": "decorative_wall_panel"
+  },
+  {
+   "line": "توريد وتركيب أبواب خشبية سماكة 4 ملم",
+   "expect_intent": "wooden_door"
+  },
+  {
+   "line": "Wooden doors solid core 45 mm with frame",
+   "expect_intent": "wooden_door"
+  },
+  {
+   "line": "باب خشب",
+   "expect_intent": "wooden_door"
+  },
+  {
+   "line": "توريد وتركيب أسقف جبسية درجة أولى",
+   "expect_intent": "gypsum_ceiling"
+  },
+  {
+   "line": "Gypsum board false ceiling 12.5 mm",
+   "expect_intent": "gypsum_ceiling"
+  },
+  {
+   "line": "سقف جبس بورد مزخرف للمجلس",
+   "expect_intent": "gypsum_ceiling"
+  },
+  {
+   "line": "قواطع جبسية مزدوجة الوجه",
+   "expect_intent": "gypsum_partition"
+  },
+  {
+   "line": "Drywall partition 100 mm with rock wool",
+   "expect_intent": "gypsum_partition"
+  },
+  {
+   "line": "توريد وتركيب قواطع جيبسوم بورد مقاس 60x60",
+   "expect_intent": "gypsum_partition"
+  },
+  {
+   "line": "كرانيش جبس للصالات",
+   "expect_intent": "gypsum_cornice"
+  },
+  {
+   "line": "Gypsum cornice 10 cm",
+   "expect_intent": "gypsum_cornice"
+  },
+  {
+   "line": "ألواح جبسوم بورد",
+   "expect_intent": "gypsum_board"
+  },
+  {
+   "line": "جبس بورد اخضر مقاوم للرطوبة 12.5 مم",
+   "expect_intent": "gypsum_board"
+  },
+  {
+   "line": "بلاطات أسقف معلقة 60x60",
+   "expect_intent": "acoustic_ceiling_tile"
+  },
+  {
+   "line": "Mineral fiber ceiling tiles 600x600 tegular",
+   "expect_intent": "acoustic_ceiling_tile"
+  },
+  {
+   "line": "بلاطات اسقف معلقة 60x60 المنيوم",
+   "expect_not_intent": "acoustic_ceiling_tile"
+  },
+  {
+   "line": "هيكل لألواح الجبس",
+   "expect_intent": "drywall_framing"
+  },
+  {
+   "line": "دهان خارجي اكريليك للواجهات",
+   "expect_intent": "exterior_paint"
+  },
+  {
+   "line": "Exterior emulsion paint weather resistant two coats",
+   "expect_intent": "exterior_paint"
+  },
+  {
+   "line": "بويه واجهات",
+   "expect_intent": "exterior_paint"
+  },
+  {
+   "line": "دهان زيتي للأبواب الحديد",
+   "expect_intent": "enamel_paint"
+  },
+  {
+   "line": "Synthetic enamel paint gloss for steel",
+   "expect_intent": "enamel_paint"
+  },
+  {
+   "line": "بوية زيت لامعة",
+   "expect_intent": "enamel_paint"
+  },
+  {
+   "line": "دهان مانع صدا رد اوكسايد",
+   "expect_intent": "enamel_paint"
+  },
+  {
+   "line": "بويه جرافيات",
+   "expect_intent": "texture_paint"
+  },
+  {
+   "line": "دهان رشة خارجية",
+   "expect_intent": "texture_paint"
+  },
+  {
+   "line": "Texture paint for external walls",
+   "expect_intent": "texture_paint"
+  },
+  {
+   "line": "معجون جدران اكريليك",
+   "expect_intent": "wall_putty"
+  },
+  {
+   "line": "Wall putty two coats sanding",
+   "expect_intent": "wall_putty"
+  },
+  {
+   "line": "معجون لحام قصدير",
+   "expect_not_intent": "wall_putty"
+  },
+  {
+   "line": "ورنيش خشب شفاف لامع",
+   "expect_intent": "wood_varnish"
+  },
+  {
+   "line": "Wood varnish PU clear",
+   "expect_intent": "wood_varnish"
+  },
+  {
+   "line": "دهان اخشاب للأبواب",
+   "expect_intent": "wood_varnish"
+  },
+  {
+   "line": "دهان بلاستيك",
+   "expect_intent": "interior_wall_paint"
+  },
+  {
+   "line": "أعمال الدهان الداخلي درجة أولى",
+   "expect_intent": "interior_wall_paint"
+  },
+  {
+   "line": "دهان ايبوكسي ارضيات مواقف",
+   "expect_intent": "epoxy_floor_coating"
+  },
+  {
+   "line": "Epoxy floor paint for parking 2 coats",
+   "expect_intent": "epoxy_floor_coating"
+  },
+  {
+   "line": "توريد برايمر إيبوكسي رطوبة 2 K moisture barrier",
+   "expect_intent": "primer_coating"
+  },
+  {
+   "line": "باب معدني",
+   "expect_intent": "metal_door"
+  },
+  {
+   "line": "ابواب حديد مجلفن لغرف الكهرباء",
+   "expect_intent": "metal_door"
+  },
+  {
+   "line": "Hollow metal door 900x2100 with frame",
+   "expect_intent": "metal_door"
+  },
+  {
+   "line": "باب حديد مقاوم للحريق 90 دقيقة",
+   "expect_intent": "fire_rated_door"
+  },
+  {
+   "line": "Fire rated door 2 hours with panic bar",
+   "expect_intent": "fire_rated_door"
+  },
+  {
+   "line": "باب حديد مقاوم للحريق",
+   "expect_not_intent": "metal_door"
+  },
+  {
+   "line": "توريد Industrial Roller Shutter Door 4 4 × m , Motorized galvanized",
+   "expect_intent": "roller_shutter"
+  },
+  {
+   "line": "ابواب رول شتر كهربائي للمحلات",
+   "expect_intent": "roller_shutter"
+  },
+  {
+   "line": "شتر حديد للمحل",
+   "expect_intent": "roller_shutter"
+  },
+  {
+   "line": "موتور شتر",
+   "expect_intent": "roller_shutter"
+  },
+  {
+   "line": "Sectional overhead door 4x4.5 m insulated",
+   "expect_intent": "overhead_sectional_door"
+  },
+  {
+   "line": "باب سريع للمستودع",
+   "expect_intent": "overhead_sectional_door"
+  },
+  {
+   "line": "بوابة المدخل الرئيسي",
+   "expect_intent": "entrance_gate"
+  },
+  {
+   "line": "بوابة حديد سحاب للسور مع موتور",
+   "expect_intent": "entrance_gate"
+  },
+  {
+   "line": "Motorized sliding gate 6 m",
+   "expect_intent": "entrance_gate"
+  },
+  {
+   "line": "بوابة دوران Turnstile Tripod",
+   "expect_not_intent": "entrance_gate"
+  },
+  {
+   "line": "توريد بوابة Turnstile Tripod , Bidirectional stainless",
+   "expect_intent": "turnstile_gate"
+  },
+  {
+   "line": "باب اوتوماتيك زجاج سحاب",
+   "expect_intent": "automatic_door"
+  },
+  {
+   "line": "Automatic sliding door operator with sensor",
+   "expect_intent": "automatic_door"
+  },
+  {
+   "line": "باب زجاجي سحاب (منزلق)",
+   "expect_intent": "glass_door"
+  },
+  {
+   "line": "باب سيكوريت",
+   "expect_intent": "glass_door"
+  },
+  {
+   "line": "Frameless glass door 12 mm tempered with patch fittings",
+   "expect_intent": "glass_door"
+  },
+  {
+   "line": "خزانة شبكة باب زجاج 42U",
+   "expect_not_intent": "glass_door"
+  },
+  {
+   "line": "زجاج شفاف 6 مم",
+   "expect_intent": "float_glass"
+  },
+  {
+   "line": "Clear float glass 6 mm",
+   "expect_intent": "float_glass"
+  },
+  {
+   "line": "قواطع زجاج سيكوريت",
+   "expect_intent": "tempered_glass"
+  },
+  {
+   "line": "زجاج مزدوج 6+12+6",
+   "expect_intent": "insulated_glass_unit"
+  },
+  {
+   "line": "نوافذ ألمنيوم",
+   "expect_intent": "aluminium_window_door"
+  },
+  {
+   "line": "شبابيك الومنيوم سحاب",
+   "expect_intent": "aluminium_window_door"
+  },
+  {
+   "line": "نوافذ يو بي في سي مزدوجة الزجاج",
+   "expect_intent": "upvc_window"
+  },
+  {
+   "line": "UPVC windows tilt and turn",
+   "expect_intent": "upvc_window"
+  },
+  {
+   "line": "ماسورة UPVC 110 مم",
+   "expect_not_intent": "upvc_window"
+  },
+  {
+   "line": "واجهات زجاجية ستركشر جليزنج",
+   "expect_intent": "curtain_wall_profile"
+  },
+  {
+   "line": "منور سقفي",
+   "expect_intent": "skylight"
+  },
+  {
+   "line": "Dome skylight 1200x1200 polycarbonate",
+   "expect_intent": "skylight"
+  },
+  {
+   "line": "لوح بولي كربونيت 10 مم",
+   "expect_intent": "polycarbonate_sheet"
+  },
+  {
+   "line": "لوحة منورة",
+   "expect_not_intent": "skylight"
+  },
+  {
+   "line": "عناصر GRC للواجهات",
+   "expect_intent": "grc_decorative"
+  },
+  {
+   "line": "Glass reinforced concrete panels for facade",
+   "expect_intent": "grc_decorative"
+  },
+  {
+   "line": "خزان GRP سعة 50 م3",
+   "expect_not_intent": "grc_decorative"
+  },
+  {
+   "line": "ورق جدران فينيل",
+   "expect_intent": "wallpaper"
+  },
+  {
+   "line": "Vinyl wallpaper 10 m roll",
+   "expect_intent": "wallpaper"
+  },
+  {
+   "line": "كبائن حمامات HPL",
+   "expect_intent": "toilet_partition"
+  },
+  {
+   "line": "HPL toilet cubicles 12 mm",
+   "expect_intent": "toilet_partition"
+  },
+  {
+   "line": "الواح كلادينج ACP",
+   "expect_intent": "aluminium_cladding_panel"
+  },
+  {
+   "line": "مفصلات باب ستانلس",
+   "expect_intent": "hinges_handles"
+  },
+  {
+   "line": "Ball bearing hinge stainless 4 inch",
+   "expect_intent": "hinges_handles"
+  },
+  {
+   "line": "door closer",
+   "expect_intent": "closers_exit_devices"
+  },
+  {
+   "line": "ذراع اغلاق باب هيدروليك",
+   "expect_intent": "closers_exit_devices"
+  },
+  {
+   "line": "قفل باب خشب مع اسطوانة",
+   "expect_intent": "locks_cylinders"
+  },
+  {
+   "line": "Mortise lock with euro profile cylinder",
+   "expect_intent": "locks_cylinders"
+  },
+  {
+   "line": "قفل كهرومغناطيسي",
+   "expect_intent": "electromagnetic_lock"
+  },
+  {
+   "line": "توريد قفل مغناطيسي 1200 lb With monitoring",
+   "expect_intent": "electromagnetic_lock"
+  },
+  {
+   "line": "اكسسوارات أبواب",
+   "expect_intent": "door_accessories"
+  },
+  {
+   "line": "Kick plate stainless 900 mm",
+   "expect_intent": "door_accessories"
+  },
+  {
+   "line": "Intumescent seal for fire doors",
+   "expect_intent": "door_hardware"
+  },
+  {
+   "line": "صامولة Nylon Lock Nut",
+   "expect_not_intent": "locks_cylinders"
+  },
+  {
+   "line": "Aluminium cladding ACP 4mm",
+   "expect_intent": "aluminium_cladding_panel"
+  },
+  {
+   "line": "تكسية الواجهات بالحجر الطبيعي",
+   "expect_intent": "stone_cladding"
+  },
+  {
+   "line": "كسوة جدران بورق جدران",
+   "expect_intent": "wallpaper"
+  },
+  {
+   "line": "تجليد اعمدة",
+   "expect_intent": "column_cladding"
+  },
+  {
+   "line": "تكسية جدران خارجية",
+   "expect_intent": "surface_cladding"
+  },
+  {
+   "line": "Intumescent door seal شريط انتفاخي",
+   "expect_intent": "door_hardware"
+  },
+  {
+   "line": "توريد إيبوكسي Self- 3 Leveling mm Chemical resistant",
+   "expect_intent": "epoxy_floor_coating"
+  },
+  {
+   "line": "توريد هاردنر أرضيات Dry Shake Natural grey ، 25 kg bag",
+   "expect_intent": "floor_hardener"
+  },
+  {
+   "line": "جراوت ايبوكسي للبلاط",
+   "expect_intent": "tile_grout_adhesive"
+  },
+  {
+   "line": "توريد برايمر إيبوكسي رطوبة 2 K moisture barrier",
+   "expect_not_intent": "epoxy_floor_coating"
+  },
+  {
+   "line": "حقن ايبوكسي للشروخ",
+   "expect_not_intent": "epoxy_floor_coating"
+  },
+  {
+   "line": "ورنيش عازل للمحركات",
+   "expect_not_intent": "wood_varnish"
+  },
+  {
+   "line": "معجون سيليكون",
+   "expect_not_intent": "wall_putty"
+  },
+  {
+   "line": "Floor tiles 60x60 porcelain",
+   "expect_intent": "porcelain_tile"
+  },
+  {
+   "line": "Boom barrier for parking",
+   "expect_not_intent": "entrance_gate"
+  },
+  {
+   "line": "عازل بورسلين للخطوط الهوائية",
+   "expect_not_intent": "porcelain_tile"
+  },
+  {
+   "line": "سخان سيراميك",
+   "expect_not_intent": "ceramic_tile"
+  },
+  {
+   "line": "ثلاجة عرض باب زجاج",
+   "expect_not_intent": "glass_door"
+  },
+  {
+   "line": "توريد وتركيب مواسير UPVC قطر 4 بوصة ضغط 10 بار",
+   "expect_intent": "upvc_pressure_pipe"
+  },
+  {
+   "line": "مواسير UPVC",
+   "expect_intent": "upvc_pressure_pipe"
+  },
+  {
+   "line": "UPVC pressure pipe 110mm PN10",
+   "expect_intent": "upvc_pressure_pipe"
+  },
+  {
+   "line": "ماسوره بي في سي 2 انش",
+   "expect_intent": "upvc_pressure_pipe"
+  },
+  {
+   "line": "مواسير PVC للتمديدات الكهربائية قطر 20 مم",
+   "expect_not_intent": "upvc_pressure_pipe"
+  },
+  {
+   "line": "أنابيب صرف صحي",
+   "expect_intent": "drainage_pipe"
+  },
+  {
+   "line": "توريد وتركيب مواسير صرف صحي UPVC قطر 4 بوصة",
+   "expect_intent": "drainage_pipe"
+  },
+  {
+   "line": "uPVC soil and waste pipe 110mm",
+   "expect_intent": "drainage_pipe"
+  },
+  {
+   "line": "أنابيب مياه الأمطار",
+   "expect_intent": "rainwater_pipe"
+  },
+  {
+   "line": "rainwater downpipe UPVC 4 inch",
+   "expect_intent": "rainwater_pipe"
+  },
+  {
+   "line": "أنابيب المياه الباردة والحارة",
+   "expect_intent": "water_supply_pipe"
+  },
+  {
+   "line": "أنابيب الباردة والحارة المياه",
+   "expect_intent": "water_supply_pipe"
+  },
+  {
+   "line": "مواسير HDPE PE100 قطر 110 مم PN16",
+   "expect_intent": "hdpe_pipe"
+  },
+  {
+   "line": "توريد مواسير بولي ايثيلين للمياه",
+   "expect_intent": "hdpe_pipe"
+  },
+  {
+   "line": "GRP pipe DN600 for storm water",
+   "expect_intent": "grp_pipe"
+  },
+  {
+   "line": "مواسير فايبر جلاس قطر 600 مم",
+   "expect_intent": "grp_pipe"
+  },
+  {
+   "line": "Ductile iron pipe DN300 K9",
+   "expect_intent": "ductile_iron_pipe"
+  },
+  {
+   "line": "مواسير دكتايل قطر 200 مم",
+   "expect_intent": "ductile_iron_pipe"
+  },
+  {
+   "line": "مواسير حديد مجلفن 2 بوصة",
+   "expect_intent": "steel_pipe"
+  },
+  {
+   "line": "Galvanized steel pipe 1 inch BS1387 medium",
+   "expect_intent": "steel_pipe"
+  },
+  {
+   "line": "مواسير نحاس 15 مم",
+   "expect_intent": "copper_pipe"
+  },
+  {
+   "line": "Copper pipe type L 22mm",
+   "expect_intent": "copper_pipe"
+  },
+  {
+   "line": "medical copper pipe 15mm",
+   "expect_intent": "medical_gas_pipework"
+  },
+  {
+   "line": "مواسير PEX قطر 16 مم",
+   "expect_intent": "pex_pipe"
+  },
+  {
+   "line": "PEX-AL-PEX multilayer pipe 20mm",
+   "expect_intent": "pex_pipe"
+  },
+  {
+   "line": "stainless steel pipe 316 schedule 10",
+   "expect_intent": "stainless_steel_pipe"
+  },
+  {
+   "line": "مواسير CPVC للرشاشات",
+   "expect_intent": "cpvc_pipe"
+  },
+  {
+   "line": "توريد وتركيب مواسير PPR قطر 110 ملم",
+   "expect_intent": "ppr_pipe"
+  },
+  {
+   "line": "كوع 90 PPR قطر 25 مم",
+   "expect_family": "pipes_fittings"
+  },
+  {
+   "line": "جلبة UPVC 4 بوصة",
+   "expect_intent": "pipe_fitting"
+  },
+  {
+   "line": "مسلوب 2 × 1 بوصة مجلفن",
+   "expect_intent": "pipe_fitting"
+  },
+  {
+   "line": "فلنجات حديد DN150 PN16",
+   "expect_intent": "pipe_fitting"
+  },
+  {
+   "line": "كوع دكت مجلفن 90 درجة",
+   "expect_not_intent": "pipe_fitting"
+  },
+  {
+   "line": "توريد Butterfly Valve 150 16 DN PN , Wafer type EPDM seat",
+   "expect_intent": "butterfly_valve"
+  },
+  {
+   "line": "محبس فراشة 6 بوصة",
+   "expect_intent": "butterfly_valve"
+  },
+  {
+   "line": "توريد Check Valve 100 16 DN PN Dual plate",
+   "expect_intent": "check_valve"
+  },
+  {
+   "line": "محبس رداد 2 بوصة نحاس",
+   "expect_intent": "check_valve"
+  },
+  {
+   "line": "double check valve 1 inch",
+   "expect_intent": "backflow_preventer"
+  },
+  {
+   "line": "توريد Globe Valve 50 16 DN PN Bronze trim",
+   "expect_intent": "globe_valve"
+  },
+  {
+   "line": "توريد Pressure Reducing Valve 80 DN Adjustable outlet pressure",
+   "expect_intent": "pressure_reducing_valve"
+  },
+  {
+   "line": "صمام تخفيض ضغط قطر 2 بوصة",
+   "expect_intent": "pressure_reducing_valve"
+  },
+  {
+   "line": "توريد Y-Strainer 100 DN , Flanged SS screen",
+   "expect_intent": "strainer"
+  },
+  {
+   "line": "مصفاة Y قطر 2 بوصة",
+   "expect_intent": "strainer"
+  },
+  {
+   "line": "توريد Air Release 50 Valve DN Double orifice",
+   "expect_intent": "air_release_valve"
+  },
+  {
+   "line": "صمام تنفيس هواء أوتوماتيك 1 بوصة",
+   "expect_intent": "air_release_valve"
+  },
+  {
+   "line": "عوامة خزان 1 بوصة نحاس",
+   "expect_intent": "float_valve"
+  },
+  {
+   "line": "float valve 2 inch brass",
+   "expect_intent": "float_valve"
+  },
+  {
+   "line": "عوامة كهربائية للمضخة",
+   "expect_not_intent": "float_valve"
+  },
+  {
+   "line": "توريد Flexible Joint 150 DN , 16 EPDM PN",
+   "expect_intent": "flexible_joint"
+  },
+  {
+   "line": "وصلة مرنة مطاطية 4 بوصة",
+   "expect_intent": "flexible_joint"
+  },
+  {
+   "line": "توريد Dismantling 200 Joint DN Ductile iron",
+   "expect_intent": "dismantling_joint"
+  },
+  {
+   "line": "وصلة فك DN300 حديد دكتايل",
+   "expect_intent": "dismantling_joint"
+  },
+  {
+   "line": "توريد Gate Valve 100 16 DN PN , Ductile iron flanged",
+   "expect_intent": "gate_valve"
+  },
+  {
+   "line": "توريد Pressure 3 Booster Set Pumps , 10 VFD controlled bar",
+   "expect_intent": "booster_pump_set"
+  },
+  {
+   "line": "مضخة تقوية مياه للفيلا 1 حصان",
+   "expect_intent": "booster_pump_set"
+  },
+  {
+   "line": "توريد مضخة Submersible Sewage 15 kW Non-clog impeller",
+   "expect_intent": "submersible_pump"
+  },
+  {
+   "line": "مضخة غطاسة للبيارة 2 حصان",
+   "expect_intent": "submersible_pump"
+  },
+  {
+   "line": "توريد مضخة Sump 5.5 kW With float switch",
+   "expect_intent": "submersible_pump"
+  },
+  {
+   "line": "توريد VRF Outdoor 40 Unit HP Heat pump",
+   "expect_not_intent": "industrial_pump"
+  },
+  {
+   "line": "توريد وتركيب مضخة مياه مقاس 60x60",
+   "expect_intent": "industrial_pump"
+  },
+  {
+   "line": "مضخة تحويل مياه 30 م3/ساعة",
+   "expect_intent": "industrial_pump"
+  },
+  {
+   "line": "خزان مياه",
+   "expect_family": "water_tanks",
+   "expect_not_intent": "polyethylene_tank"
+  },
+  {
+   "line": "خزان مياه علوي فايبر جلاس سعة 5 م3",
+   "expect_intent": "grp_water_tank"
+  },
+  {
+   "line": "خزان مياه أرضي خرساني سعة 100 م3",
+   "expect_intent": "concrete_water_tank"
+  },
+  {
+   "line": "خزان مياه بولي ايثيلين 2000 لتر",
+   "expect_intent": "polyethylene_tank"
+  },
+  {
+   "line": "خزان مياه ستانلس ستيل 10 م3",
+   "expect_intent": "stainless_water_tank"
+  },
+  {
+   "line": "galvanized steel tank 50 m3 sectional",
+   "expect_intent": "galvanized_steel_tank"
+  },
+  {
+   "line": "خزان حديد مجلفن 20 م3",
+   "expect_intent": "galvanized_steel_tank"
+  },
+  {
+   "line": "خزان GRP سعة 50 م 3 , Sectional panel insulated",
+   "expect_intent": "grp_water_tank"
+  },
+  {
+   "line": "بيارة صرف صحي فايبر جلاس 10 م3",
+   "expect_intent": "septic_tank"
+  },
+  {
+   "line": "septic tank GRP 20 m3",
+   "expect_intent": "septic_tank"
+  },
+  {
+   "line": "سخان مياه كهربائي 80 لتر",
+   "expect_intent": "water_heater"
+  },
+  {
+   "line": "سخانات 50 لتر",
+   "expect_intent": "water_heater"
+  },
+  {
+   "line": "سخان هواء كهربائي",
+   "expect_not_intent": "water_heater"
+  },
+  {
+   "line": "كرسي افرنجي معلق مع خزان مخفي",
+   "expect_intent": "wc_sanitaryware"
+  },
+  {
+   "line": "كرسي عربي بورسلين",
+   "expect_intent": "wc_sanitaryware"
+  },
+  {
+   "line": "خزان مياه أرضي سعة 200 م3",
+   "expect_family": "water_tanks",
+   "expect_not_intent": "polyethylene_tank"
+  },
+  {
+   "line": "Network TAP 4 port",
+   "expect_not_intent": "mixer_tap"
+  },
+  {
+   "line": "ماسورة PVC 4 بوصة صرف",
+   "expect_intent": "drainage_pipe"
+  },
+  {
+   "line": "وصلات صرف UPVC 4 بوصة",
+   "expect_intent": "pipe_fitting"
+  },
+  {
+   "line": "ماسورة UPVC 3 بوصة لتصريف مياه الأمطار",
+   "expect_intent": "rainwater_pipe"
+  },
+  {
+   "line": "خزان حديد للديزل 1000 لتر",
+   "expect_not_intent": "galvanized_steel_tank"
+  },
+  {
+   "line": "ورق تواليت",
+   "expect_not_intent": "wc_sanitaryware"
+  },
+  {
+   "line": "عوامة كهربائية للخزان",
+   "expect_not_intent": "float_valve"
+  },
+  {
+   "line": "مصفاة مطبخ",
+   "expect_not_intent": "strainer"
+  },
+  {
+   "line": "Air valve for VRF",
+   "expect_not_intent": "air_release_valve"
+  },
+  {
+   "line": "مغسلة يد بورسلين مع عمود",
+   "expect_intent": "wc_sanitaryware"
+  },
+  {
+   "line": "بانيو أكريليك 170 سم",
+   "expect_intent": "wc_sanitaryware"
+  },
+  {
+   "line": "حوض مطبخ ستانلس ستيل دبل",
+   "expect_intent": "kitchen_sink"
+  },
+  {
+   "line": "stainless steel kitchen sink single bowl",
+   "expect_intent": "kitchen_sink"
+  },
+  {
+   "line": "دش مطري ستانلس 30 سم",
+   "expect_intent": "shower_set"
+  },
+  {
+   "line": "rain shower head 300mm",
+   "expect_intent": "shower_set"
+  },
+  {
+   "line": "خلاط مغسلة كروم",
+   "expect_intent": "mixer_tap"
+  },
+  {
+   "line": "شطاف حمام كروم",
+   "expect_intent": "wc_sanitaryware"
+  },
+  {
+   "line": "حامل ورق تواليت ستانلس",
+   "expect_intent": "washroom_accessories"
+  },
+  {
+   "line": "صفاية أرضية ستانلس 4 بوصة",
+   "expect_intent": "floor_drain"
+  },
+  {
+   "line": "floor drain 100mm stainless grating",
+   "expect_intent": "floor_drain"
+  },
+  {
+   "line": "مصيدة شحوم ستانلس للمطبخ 50 لتر",
+   "expect_intent": "grease_trap"
+  },
+  {
+   "line": "grease interceptor 1000 L precast",
+   "expect_intent": "grease_trap"
+  },
+  {
+   "line": "عدادات مياه 3/4 بوصة",
+   "expect_intent": "flow_meter"
+  },
+  {
+   "line": "توريد خرطوشة 5 PP 40 Micron inch High flow compatible",
+   "expect_intent": "water_filtration_unit"
+  },
+  {
+   "line": "فلتر ار او 5 مراحل",
+   "expect_intent": "ro_desalination"
+  },
+  {
+   "line": "خرطوشة حبر طابعة",
+   "expect_not_intent": "water_filtration_unit"
+  },
+  {
+   "line": "شبكة ري بالتنقيط للحدائق",
+   "expect_intent": "irrigation_emitter"
+  },
+  {
+   "line": "رشاش ري منبثق للمسطحات",
+   "expect_intent": "irrigation_emitter"
+  },
+  {
+   "line": "Irrigation sprinkler head pop-up 4 inch",
+   "expect_not_intent": "fire_sprinkler"
+  },
+  {
+   "line": "سبرنكلر حريق معلق 68 درجة",
+   "expect_intent": "fire_sprinkler"
+  },
+  {
+   "line": "تايمر ري 6 محطات",
+   "expect_intent": "irrigation_control"
+  },
+  {
+   "line": "طفاية بودرة 6 كجم",
+   "expect_intent": "fire_extinguisher"
+  },
+  {
+   "line": "طفاية CO2 5 كجم",
+   "expect_intent": "fire_extinguisher"
+  },
+  {
+   "line": "Dry powder fire extinguisher 12 kg ABC",
+   "expect_intent": "fire_extinguisher"
+  },
+  {
+   "line": "صندوق حريق",
+   "expect_intent": "fire_hose_reel_cabinet"
+  },
+  {
+   "line": "fire hose reel cabinet 30m with landing valve",
+   "expect_intent": "fire_hose_reel_cabinet"
+  },
+  {
+   "line": "كابينة خراطيم حريق مزدوجة",
+   "expect_intent": "fire_hose_reel_cabinet"
+  },
+  {
+   "line": "Landing valve 2.5 inch UL/FM",
+   "expect_intent": "fire_hydrant"
+  },
+  {
+   "line": "حنفية حريق خارجية",
+   "expect_intent": "fire_hydrant"
+  },
+  {
+   "line": "توريد Zone Control 4 Valve Assembly inch Complete as supply package",
+   "expect_intent": "fire_alarm_valve"
+  },
+  {
+   "line": "alarm check valve 6 inch UL/FM",
+   "expect_intent": "fire_alarm_valve"
+  },
+  {
+   "line": "صمام غمر deluge valve 4 بوصة",
+   "expect_intent": "fire_alarm_valve"
+  },
+  {
+   "line": "نظام إطفاء FM200 لغرفة الخوادم",
+   "expect_intent": "clean_agent_suppression"
+  },
+  {
+   "line": "Novec 1230 clean agent system complete",
+   "expect_intent": "clean_agent_suppression"
+  },
+  {
+   "line": "بطانية حريق 1.2×1.8 م",
+   "expect_intent": "fire_blanket"
+  },
+  {
+   "line": "fire blanket 1.2 x 1.2 m",
+   "expect_intent": "fire_blanket"
+  },
+  {
+   "line": "أنابيب مياه الحريق",
+   "expect_intent": "fire_main_pipe"
+  },
+  {
+   "line": "مواسير حريق حديد أسود 4 بوصة",
+   "expect_intent": "fire_main_pipe"
+  },
+  {
+   "line": "توريد 2 Flow Switch inch UL/FM",
+   "expect_intent": "fire_flow_tamper_switch"
+  },
+  {
+   "line": "توريد Tamper Switch OS&Y Supervisory",
+   "expect_intent": "fire_flow_tamper_switch"
+  },
+  {
+   "line": "Flow switch for chilled water line DN100",
+   "expect_not_intent": "fire_flow_tamper_switch"
+  },
+  {
+   "line": "مضخة حريق ديزل 750 جالون",
+   "expect_intent": "fire_pump_set"
+  },
+  {
+   "line": "بطانية لحام",
+   "expect_intent": "welding_accessories"
+  },
+  {
+   "line": "توريد وتركيب مكيفات سبليت 2 طن انفرتر",
+   "expect_intent": "split_ac"
+  },
+  {
+   "line": "Supply and install wall mounted split AC 18000 BTU",
+   "expect_intent": "split_ac"
+  },
+  {
+   "line": "مكيف اسبليت جداري 24 الف وحدة",
+   "expect_intent": "split_ac"
+  },
+  {
+   "line": "توريد مكيف شباك 18000 وحدة",
+   "expect_intent": "window_ac"
+  },
+  {
+   "line": "Window type air conditioner 1.5 TR",
+   "expect_intent": "window_ac"
+  },
+  {
+   "line": "توريد وتركيب مكيف كاسيت 3 طن",
+   "expect_intent": "cassette_ac"
+  },
+  {
+   "line": "Ceiling cassette split unit 4 way 36000 BTU",
+   "expect_intent": "cassette_ac"
+  },
+  {
+   "line": "توريد MPO Cassette 12 LC للألياف",
+   "expect_not_intent": "cassette_ac"
+  },
+  {
+   "line": "توريد وتركيب مكيفات مخفية دكت سبليت 5 طن",
+   "expect_intent": "concealed_ducted_ac"
+  },
+  {
+   "line": "Ducted split unit 4 TR with plenum",
+   "expect_intent": "concealed_ducted_ac"
+  },
+  {
+   "line": "مكيف سبليت مخفي 3 طن",
+   "expect_intent": "concealed_ducted_ac"
+  },
+  {
+   "line": "توريد مكيف دولابي 4 طن",
+   "expect_intent": "floor_standing_ac"
+  },
+  {
+   "line": "Floor standing split AC 48000 BTU",
+   "expect_intent": "floor_standing_ac"
+  },
+  {
+   "line": "توريد Package AC 20 Unit TR , 410 32, Air cooled R A/R 3 T",
+   "expect_intent": "package_unit"
+  },
+  {
+   "line": "توريد وتركيب وحدات باكدج 15 طن سطحية",
+   "expect_intent": "package_unit"
+  },
+  {
+   "line": "Rooftop package unit 25 TR R410A",
+   "expect_intent": "package_unit"
+  },
+  {
+   "line": "توريد VRF Indoor 5 Cassette HP 4 - way cassette",
+   "expect_intent": "vrf_system"
+  },
+  {
+   "line": "توريد VRF Outdoor 40 Unit HP Heat pump",
+   "expect_intent": "vrf_system"
+  },
+  {
+   "line": "توريد وتركيب وحدة خارجية VRF قدرة 20 حصان",
+   "expect_intent": "vrf_system"
+  },
+  {
+   "line": "Air cooled screw chiller 300 TR",
+   "expect_intent": "chiller"
+  },
+  {
+   "line": "توريد وتركيب تشيلر 200 طن تبريد بالهواء",
+   "expect_intent": "chiller"
+  },
+  {
+   "line": "Blast chiller 10 trays stainless",
+   "expect_not_intent": "chiller"
+  },
+  {
+   "line": "توريد 15000 AHU CFM 50 , Double skin mm EC fans",
+   "expect_intent": "air_handling_unit"
+  },
+  {
+   "line": "وحدة مناولة هواء 10000 قدم مكعب/دقيقة",
+   "expect_intent": "air_handling_unit"
+  },
+  {
+   "line": "توريد 1200 FCU CFM 4 - , pipe EC motor",
+   "expect_intent": "fan_coil_unit"
+  },
+  {
+   "line": "توريد وتركيب وحدات فان كويل مخفية",
+   "expect_intent": "fan_coil_unit"
+  },
+  {
+   "line": "توريد Fresh Air Unit 8000 CFM Heat recovery optional",
+   "expect_intent": "fresh_air_unit"
+  },
+  {
+   "line": "وحدة هواء نقي مع استرجاع حرارة ERV",
+   "expect_intent": "fresh_air_unit"
+  },
+  {
+   "line": "توريد وتركيب دكت صاج مجلفن سماكة 0.8 مم",
+   "expect_intent": "galvanized_ductwork"
+  },
+  {
+   "line": "Galvanized sheet metal ductwork as per SMACNA",
+   "expect_intent": "galvanized_ductwork"
+  },
+  {
+   "line": "قنوات التبريد والتكييف والتهوية",
+   "expect_intent": "galvanized_ductwork"
+  },
+  {
+   "line": "توريد وتركيب مجاري هواء مرنة مقاس 60x60",
+   "expect_intent": "flexible_duct"
+  },
+  {
+   "line": "Insulated flexible duct 8 inch",
+   "expect_intent": "flexible_duct"
+  },
+  {
+   "line": "دكت فلكس معزول قطر 10 انش",
+   "expect_intent": "flexible_duct"
+  },
+  {
+   "line": "Flexible duct connector canvas 100 mm",
+   "expect_intent": "duct_accessories"
+  },
+  {
+   "line": "توريد دكت معزول مسبقا فينوليك 20 مم",
+   "expect_intent": "pre_insulated_duct"
+  },
+  {
+   "line": "Pre-insulated phenolic duct panels 20mm",
+   "expect_intent": "pre_insulated_duct"
+  },
+  {
+   "line": "عزل حرارى لمجاري التكييف",
+   "expect_intent": "pipe_duct_insulation"
+  },
+  {
+   "line": "عزل مجاري الهواء صوف زجاجي 25 مم",
+   "expect_intent": "pipe_duct_insulation"
+  },
+  {
+   "line": "عزل ارمافلكس 19 مم لمواسير النحاس",
+   "expect_intent": "pipe_duct_insulation"
+  },
+  {
+   "line": "توريد مواسير نحاس تكييف 5/8 مع العزل",
+   "expect_intent": "refrigerant_copper_pipe"
+  },
+  {
+   "line": "ACR copper pipe 3/8 inch soft drawn",
+   "expect_intent": "refrigerant_copper_pipe"
+  },
+  {
+   "line": "لفة نحاس تكييف 1/4 × 15 متر",
+   "expect_intent": "refrigerant_copper_pipe"
+  },
+  {
+   "line": "توريد مواسير نحاس 22 مم لشبكة المياه",
+   "expect_not_intent": "refrigerant_copper_pipe"
+  },
+  {
+   "line": "توريد غاز فريون R410A اسطوانة 11.3 كجم",
+   "expect_intent": "refrigerant_gas"
+  },
+  {
+   "line": "Refrigerant gas R32 cylinder",
+   "expect_intent": "refrigerant_gas"
+  },
+  {
+   "line": "توريد ثرموستات تكييف ديجيتال",
+   "expect_intent": "hvac_thermostat"
+  },
+  {
+   "line": "Digital room thermostat for FCU",
+   "expect_intent": "hvac_thermostat"
+  },
+  {
+   "line": "Cooling tower 500 TR open type",
+   "expect_intent": "cooling_tower"
+  },
+  {
+   "line": "توريد وتركيب برج تبريد",
+   "expect_intent": "cooling_tower"
+  },
+  {
+   "line": "توريد ستارة هوائية 120 سم للمدخل",
+   "expect_intent": "air_curtain"
+  },
+  {
+   "line": "Air curtain 1.5 m for entrance door",
+   "expect_intent": "air_curtain"
+  },
+  {
+   "line": "توريد جهاز إزالة رطوبة Industrial Dehumidifier ملحقات التشغيل الأساسية مشمولة، مع دليل استخدام عربي أو إنجليزي",
+   "expect_intent": "dehumidifier"
+  },
+  {
+   "line": "جهاز سحب الرطوبة 50 لتر يوميا",
+   "expect_intent": "dehumidifier"
+  },
+  {
+   "line": "توريد مكيف صحراوي 5000 م3/س",
+   "expect_intent": "evaporative_cooler"
+  },
+  {
+   "line": "Evaporative air cooler 18000 m3/h",
+   "expect_intent": "evaporative_cooler"
+  },
+  {
+   "line": "توريد برادة مياه ستانلس 3 حنفيات",
+   "expect_intent": "drinking_water_cooler"
+  },
+  {
+   "line": "توريد مبرد مياه Drinking Water Cooler صناعي مطابقة لمواصفات الشركة المصنعة ومعايير السلامة المختبرية ذات الصلة",
+   "expect_intent": "drinking_water_cooler"
+  },
+  {
+   "line": "برادة حديد",
+   "expect_not_intent": "drinking_water_cooler"
+  },
+  {
+   "line": "توريد دفاية صناعية Electric Space Heater ملائم لأعمال ضبط الجودة ا والفحص الروتيني، مع ضمان ل يقل عن سنتين",
+   "expect_intent": "space_heater"
+  },
+  {
+   "line": "دفاية زيت كهربائية 11 ريشة",
+   "expect_intent": "space_heater"
+  },
+  {
+   "line": "Electric storage water heater 80 L",
+   "expect_intent": "water_heater"
+  },
+  {
+   "line": "توريد مروحة أرضية Industrial Drum Fan دقة مناسبة للاستخدام المهني، ف تسلسلي وتتبع معايرة",
+   "expect_intent": "portable_fan"
+  },
+  {
+   "line": "مروحة رذاذ للجلسات الخارجية",
+   "expect_intent": "portable_fan"
+  },
+  {
+   "line": "توريد وتركيب شفاطات حمامات 6 انش",
+   "expect_intent": "fan_unit"
+  },
+  {
+   "line": "توريد Roof Extract 5000 Fan CFM , Upblast weatherproof",
+   "expect_intent": "fan_unit"
+  },
+  {
+   "line": "Inline duct fan 250 mm",
+   "expect_intent": "fan_unit"
+  },
+  {
+   "line": "توريد وتركيب مراوح شفط مقاس 30x30",
+   "expect_intent": "fan_unit"
+  },
+  {
+   "line": "توريد شفاط أبخرة لحام متنقل نسخة مختبرية مع شهادة معايرة أو فحص مصنع عند الاستلام",
+   "expect_not_intent": "fan_unit",
+   "expect_not_family": "hvac_equipment"
+  },
+  {
+   "line": "شفاط مطبخ مطعم ستانلس مع فلاتر دهون",
+   "expect_intent": "kitchen_ventilation"
+  },
+  {
+   "line": "هود مطبخ تجاري 3 متر",
+   "expect_intent": "kitchen_ventilation"
+  },
+  {
+   "line": "توريد وتركيب جريلات تكييف ريترن 60x60",
+   "expect_intent": "air_terminal_device"
+  },
+  {
+   "line": "Linear slot diffuser 2 slot 1200 mm",
+   "expect_intent": "air_terminal_device"
+  },
+  {
+   "line": "فتحات تكييف سقفية دفيوزر 4 اتجاه",
+   "expect_intent": "air_terminal_device"
+  },
+  {
+   "line": "مخارج التهوية",
+   "expect_family": "hvac_equipment"
+  },
+  {
+   "line": "دامبر يدوي لتنظيم الهواء 300x200",
+   "expect_intent": "volume_control_damper"
+  },
+  {
+   "line": "Submersible pump 5 HP dewatering",
+   "expect_intent": "submersible_pump"
+  },
+  {
+   "line": "Booster pump set 2 duty 1 standby",
+   "expect_family": "pumps"
+  },
+  {
+   "line": "عزل مواسير نحاس التكييف ارمافلكس 3/4",
+   "expect_intent": "pipe_duct_insulation"
+  },
+  {
+   "line": "مواسير نحاس 15 مم للمياه",
+   "expect_not_intent": "refrigerant_copper_pipe"
+  },
+  {
+   "line": "Copper pipe type L 22mm",
+   "expect_not_intent": "refrigerant_copper_pipe"
+  },
+  {
+   "line": "مواسير نحاس طبي للغازات الطبية",
+   "expect_intent": "medical_gas_pipework"
+  },
+  {
+   "line": "قاطع مكيف 32 امبير",
+   "expect_not_family": "hvac_equipment"
+  },
+  {
+   "line": "مخرج مكيف 20 امبير",
+   "expect_intent": "socket_outlet"
+  },
+  {
+   "line": "دكت اسلاك 40x40",
+   "expect_intent": "cable_trunking"
+  },
+  {
+   "line": "تكييف دقيق CRAC unit 30 kW",
+   "expect_family": "dc_cooling"
+  },
+  {
+   "line": "Walk in chiller room",
+   "expect_intent": "cold_room"
+  },
+  {
+   "line": "Package AC with R410A refrigerant",
+   "expect_intent": "package_unit"
+  },
+  {
+   "line": "Air cooled chiller with R134a",
+   "expect_intent": "chiller"
+  },
+  {
+   "line": "Heat pump water heater 300L",
+   "expect_intent": "water_heater"
+  },
+  {
+   "line": "شفاط غبار صناعي",
+   "expect_intent": "industrial_vacuum"
+  },
+  {
+   "line": "عزل دكت صوف زجاجي",
+   "expect_intent": "pipe_duct_insulation"
+  },
+  {
+   "line": "مروحة سقف 56 انش",
+   "expect_intent": "fan_unit"
+  },
+  {
+   "line": "Fiber cassette MPO 24 core",
+   "expect_not_intent": "cassette_ac"
+  },
+  {
+   "line": "تمديدات نحاس للمكيفات",
+   "expect_intent": "refrigerant_copper_pipe"
+  },
+  {
+   "line": "صاج مجلفن 1 مم",
+   "expect_intent": "gi_sheet_coil"
+  },
+  {
+   "line": "توريد وتركيب لوحة كهرباء رئيسية 1600 امبير",
+   "expect_intent": "main_distribution_board"
+  },
+  {
+   "line": "Supply of LV main distribution board MDB 2500A form 4b",
+   "expect_intent": "main_distribution_board"
+  },
+  {
+   "line": "توريد لوحة SMDB للدور الارضي 400 امبير",
+   "expect_intent": "main_distribution_board"
+  },
+  {
+   "line": "توريد وتركيب لوحة توزيع فرعية 12 خط",
+   "expect_intent": "distribution_board"
+  },
+  {
+   "line": "لوحة رئيسية لنظام انذار الحريق",
+   "expect_not_intent": "main_distribution_board"
+  },
+  {
+   "line": "توريد وحدة حلقية رئيسية RMU 13.8 ك.ف",
+   "expect_intent": "ring_main_unit"
+  },
+  {
+   "line": "Ring main unit 3 way SF6 11kV",
+   "expect_intent": "ring_main_unit"
+  },
+  {
+   "line": "توريد وتركيب بس دكت 1600 امبير نحاس",
+   "expect_intent": "busduct"
+  },
+  {
+   "line": "Busbar trunking system 2000A aluminium",
+   "expect_intent": "busduct"
+  },
+  {
+   "line": "توريد فلتر توافقيات نشط 200 امبير",
+   "expect_intent": "harmonic_filter"
+  },
+  {
+   "line": "Active harmonic filter 100A wall mounted",
+   "expect_intent": "harmonic_filter"
+  },
+  {
+   "line": "توريد لوحة جهد متوسط 13.8 ك.ف مع قواطع فراغية",
+   "expect_intent": "mv_switchgear"
+  },
+  {
+   "line": "Medium voltage switchgear 33kV AIS",
+   "expect_intent": "mv_switchgear"
+  },
+  {
+   "line": "توريد فيوزات HRC 100 امبير",
+   "expect_intent": "electrical_fuse"
+  },
+  {
+   "line": "NH fuse link size 1 250A",
+   "expect_intent": "electrical_fuse"
+  },
+  {
+   "line": "قاطع MCB 32 امبير 1 قطب",
+   "expect_intent": "mcb"
+  },
+  {
+   "line": "توريد قواطع صغيرة 16 امبير",
+   "expect_intent": "mcb"
+  },
+  {
+   "line": "قاطع مصبوب 400 امبير 3 اقطاب",
+   "expect_intent": "mccb"
+  },
+  {
+   "line": "قاطع تسريب ارضي 30 مللي امبير",
+   "expect_intent": "residual_current_device"
+  },
+  {
+   "line": "توريد وتركيب قواطع جيبسوم بورد درجة أولى",
+   "expect_not_family": "switchgear_panels"
+  },
+  {
+   "line": "قاطع جبس بورد مزدوج مع عزل صوتي",
+   "expect_not_family": "switchgear_panels"
+  },
+  {
+   "line": "Static transfer switch 250A 3 pole",
+   "expect_intent": "static_transfer_switch"
+  },
+  {
+   "line": "توريد مفتاح تحويل ثابت STS 100 امبير",
+   "expect_intent": "static_transfer_switch"
+  },
+  {
+   "line": "توريد DC charger 110V للمحطة",
+   "expect_intent": "dc_power_rectifier"
+  },
+  {
+   "line": "توريد وتركيب أفياش 13 امبير مزدوجة",
+   "expect_intent": "socket_outlet"
+  },
+  {
+   "line": "توريد بريزة مزدوجة مع ارضي",
+   "expect_intent": "socket_outlet"
+  },
+  {
+   "line": "Twin switched socket outlet 13A",
+   "expect_intent": "socket_outlet"
+  },
+  {
+   "line": "فيش ارضي 13 امبير لون ابيض",
+   "expect_intent": "socket_outlet"
+  },
+  {
+   "line": "توريد وتركيب مفاتيح إنارة خط واحد",
+   "expect_intent": "light_switch"
+  },
+  {
+   "line": "مفتاح خطين ابيض فانتي",
+   "expect_intent": "light_switch"
+  },
+  {
+   "line": "2 gang 2 way light switch 10A",
+   "expect_intent": "light_switch"
+  },
+  {
+   "line": "توريد سويتشات اناره دبل",
+   "expect_intent": "light_switch"
+  },
+  {
+   "line": "توريد مفتاح فصل للمكيف 32 امبير مقاوم للماء",
+   "expect_intent": "isolator_switch"
+  },
+  {
+   "line": "Weatherproof rotary isolator 63A 4 pole",
+   "expect_intent": "isolator_switch"
+  },
+  {
+   "line": "توريد فلور بوكس 3 مخارج مع مخرج بيانات",
+   "expect_intent": "floor_box"
+  },
+  {
+   "line": "Floor box 3 compartment with 4 sockets",
+   "expect_intent": "floor_box"
+  },
+  {
+   "line": "توريد فيش صناعي 32 امبير 3 فاز",
+   "expect_intent": "industrial_socket"
+  },
+  {
+   "line": "Industrial socket CEE 16A 5 pin IP67",
+   "expect_intent": "industrial_socket"
+  },
+  {
+   "line": "توريد وتركيب شاحن سيارات كهربائية 22 كيلو وات",
+   "expect_intent": "ev_charger"
+  },
+  {
+   "line": "EV charger 7.4kW wall mounted type 2",
+   "expect_intent": "ev_charger"
+  },
+  {
+   "line": "توريد مشترك كهرباء 4 فيش مع مفتاح",
+   "expect_intent": "extension_lead"
+  },
+  {
+   "line": "Extension reel 25m 4 sockets",
+   "expect_intent": "extension_lead"
+  },
+  {
+   "line": "سويتش شبكة 24 منفذ PoE",
+   "expect_not_family": "wiring_devices"
+  },
+  {
+   "line": "توريد كيابل نحاس 4x16 مم2",
+   "expect_intent": "lv_power_cable"
+  },
+  {
+   "line": "Copper cable 4C x 95 sqmm XLPE/SWA/PVC",
+   "expect_intent": "lv_power_cable"
+  },
+  {
+   "line": "كابل الومنيوم 4x240 مم2",
+   "expect_intent": "lv_power_cable"
+  },
+  {
+   "line": "توريد اسلاك كهرباء 2.5 مم نحاس",
+   "expect_intent": "building_wire"
+  },
+  {
+   "line": "سلك نحاس 4 مم ملفوف 100 متر",
+   "expect_intent": "building_wire"
+  },
+  {
+   "line": "Single core wire 6mm2 PVC 450/750V",
+   "expect_intent": "building_wire"
+  },
+  {
+   "line": "توريد كابل مرن 3x2.5 مم",
+   "expect_intent": "flexible_cable"
+  },
+  {
+   "line": "Flexible cable H07RN-F 3G2.5",
+   "expect_intent": "flexible_cable"
+  },
+  {
+   "line": "كابل مقاوم للحريق 2x1.5 مم",
+   "expect_intent": "fire_resistant_cable"
+  },
+  {
+   "line": "كابل تحكم 12x1.5 مم",
+   "expect_intent": "control_cable"
+  },
+  {
+   "line": "سلك ارضي اخضر اصفر 16 مم",
+   "expect_not_intent": "building_wire"
+  },
+  {
+   "line": "كابل الياف ضوئية 12 شعرة",
+   "expect_not_intent": "lv_power_cable"
+  },
+  {
+   "line": "توريد ترمنال بلوك 4 مم على دين ريل",
+   "expect_intent": "terminal_block"
+  },
+  {
+   "line": "DIN rail terminal blocks 6mm2",
+   "expect_intent": "terminal_block"
+  },
+  {
+   "line": "توريد مواسير كهرباء PVC 25 مم",
+   "expect_intent": "electrical_conduit"
+  },
+  {
+   "line": "توريد تراي كيابل مجلفن 300 مم",
+   "expect_intent": "cable_tray"
+  },
+  {
+   "line": "كوسات نحاس 95 مم",
+   "expect_intent": "cable_termination"
+  },
+  {
+   "line": "توريد لمبات ليد 12 وات E27",
+   "expect_intent": "led_lamp"
+  },
+  {
+   "line": "LED tube T8 18W 1200mm",
+   "expect_intent": "led_lamp"
+  },
+  {
+   "line": "توريد وتركيب وحدات إضاءة ليد درجة أولى",
+   "expect_intent": "led_luminaire"
+  },
+  {
+   "line": "LED luminaire 40W IP65 for corridors",
+   "expect_intent": "led_luminaire"
+  },
+  {
+   "line": "وحدات انارة داون لايت 15 وات",
+   "expect_intent": "downlight"
+  },
+  {
+   "line": "وحدة اضاءة ليد بانل 60x60 40 وات",
+   "expect_intent": "led_panel_light"
+  },
+  {
+   "line": "وحدة انارة طوارئ مع بطارية 3 ساعات",
+   "expect_intent": "emergency_light"
+  },
+  {
+   "line": "توريد كشاف طوارئ ليد 2x3 وات",
+   "expect_intent": "emergency_light"
+  },
+  {
+   "line": "Exit sign LED maintained 3 hours",
+   "expect_intent": "emergency_light"
+  },
+  {
+   "line": "توريد وتركيب انارة حدائق ارتفاع 1 متر",
+   "expect_intent": "landscape_light"
+  },
+  {
+   "line": "Bollard light 25W IP65 1m height",
+   "expect_intent": "landscape_light"
+  },
+  {
+   "line": "توريد نجفة كريستال للبهو",
+   "expect_intent": "decorative_light"
+  },
+  {
+   "line": "Pendant light for reception decorative",
+   "expect_intent": "decorative_light"
+  },
+  {
+   "line": "Aviation obstruction light low intensity",
+   "expect_intent": "obstruction_light"
+  },
+  {
+   "line": "توريد انارة تحذير الطيران للبرج",
+   "expect_intent": "obstruction_light"
+  },
+  {
+   "line": "انارة شوارع شمسية 60 وات",
+   "expect_intent": "street_light"
+  },
+  {
+   "line": "عمود انارة مجلفن 10 متر",
+   "expect_intent": "lighting_pole"
+  },
+  {
+   "line": "كشاف ليد 200 وات للملعب",
+   "expect_intent": "floodlight"
+  },
+  {
+   "line": "مصباح تحذير LED كهرماني شمسي",
+   "expect_not_intent": "led_lamp"
+  },
+  {
+   "line": "توريد مانع زيادة جهد SPD نوع 2 للوحة",
+   "expect_intent": "surge_protection_device"
+  },
+  {
+   "line": "Surge protection device type 1+2 40kA",
+   "expect_intent": "surge_protection_device"
+  },
+  {
+   "line": "توريد مانعة صواعق مع موصل هبوط نحاس",
+   "expect_intent": "lightning_protection"
+  },
+  {
+   "line": "توريد عدة تأريض مؤقت Portable Grounding Kit",
+   "expect_intent": "portable_earthing_kit"
+  },
+  {
+   "line": "نظام تأريض للمبنى",
+   "expect_intent": "earthing_accessories"
+  },
+  {
+   "line": "سيخ تاريض نحاسي 2.4 متر",
+   "expect_intent": "earth_rod"
+  },
+  {
+   "line": "توريد مولد بنزين 5 كيلو وات محمول",
+   "expect_intent": "portable_generator"
+  },
+  {
+   "line": "Portable inverter generator 3kVA low noise",
+   "expect_intent": "portable_generator"
+  },
+  {
+   "line": "مولد ديزل 500 ك.ف.ا احتياطي",
+   "expect_intent": "diesel_genset"
+  },
+  {
+   "line": "توريد محطة تحويل مدمجة 1000 ك.ف.ا",
+   "expect_intent": "package_substation"
+  },
+  {
+   "line": "Package substation 1500kVA 13.8/0.4kV",
+   "expect_intent": "package_substation"
+  },
+  {
+   "line": "محطة تحويل نفايات",
+   "expect_not_family": "transformers"
+  },
+  {
+   "line": "محول توزيع 1000 ك.ف.ا زيتي",
+   "expect_intent": "distribution_transformer"
+  },
+  {
+   "line": "توريد جهاز يو بي اس 10 ك.ف.ا",
+   "expect_intent": "ups_system"
+  },
+  {
+   "line": "توريد الواح شمسية 550 وات",
+   "expect_intent": "pv_module"
+  },
+  {
+   "line": "توريد بطاريات طاقة شمسية ليثيوم 10 كيلو وات ساعة",
+   "expect_intent": "solar_battery_storage"
+  },
+  {
+   "line": "Battery energy storage system 500kWh BESS",
+   "expect_intent": "solar_battery_storage"
+  },
+  {
+   "line": "منظم شحن شمسي MPPT 60 امبير",
+   "expect_intent": "solar_charge_controller"
+  },
+  {
+   "line": "Solar charge controller PWM 30A",
+   "expect_intent": "solar_charge_controller"
+  },
+  {
+   "line": "كابل شمسي 6 مم احمر واسود",
+   "expect_intent": "pv_cable_connector"
+  },
+  {
+   "line": "PV cable 4mm2 H1Z2Z2-K with MC4 connectors",
+   "expect_intent": "pv_cable_connector"
+  },
+  {
+   "line": "انفرتر شمسي 10 كيلو وات هجين",
+   "expect_intent": "solar_inverter"
+  },
+  {
+   "line": "سخان شمسي 300 لتر",
+   "expect_intent": "water_heater"
+  },
+  {
+   "line": "توريد وتركيب شبكة إنذار حريق درجة أولى",
+   "expect_intent": "fire_alarm_system"
+  },
+  {
+   "line": "Addressable fire alarm system complete for building",
+   "expect_intent": "fire_alarm_system"
+  },
+  {
+   "line": "توريد وتركيب نظام انذار حريق معنون",
+   "expect_intent": "fire_alarm_system"
+  },
+  {
+   "line": "لوحة انذار حريق معنونة 2 لوب",
+   "expect_intent": "fire_alarm_panel"
+  },
+  {
+   "line": "كاشف دخان بصري معنون",
+   "expect_intent": "smoke_heat_detector"
+  },
+  {
+   "line": "توريد كاسر زجاج معنون احمر",
+   "expect_intent": "manual_call_point"
+  },
+  {
+   "line": "Manual call point addressable red",
+   "expect_intent": "manual_call_point"
+  },
+  {
+   "line": "توريد جرس انذار حريق 6 بوصة",
+   "expect_intent": "alarm_sounder"
+  },
+  {
+   "line": "Sounder strobe addressable wall mounted",
+   "expect_intent": "alarm_sounder"
+  },
+  {
+   "line": "توريد نظام اخلاء صوتي للمبنى",
+   "expect_intent": "voice_evacuation_system"
+  },
+  {
+   "line": "Voice evacuation system EN 54-16 with amplifiers",
+   "expect_intent": "voice_evacuation_system"
+  },
+  {
+   "line": "شبكة انذار سرقة للمستودع",
+   "expect_not_intent": "fire_alarm_system"
+  },
+  {
+   "line": "توريد وتركيب نظام النداء العام للمدرسة",
+   "expect_intent": "pa_system"
+  },
+  {
+   "line": "Public address system with background music",
+   "expect_intent": "pa_system"
+  },
+  {
+   "line": "توريد سماعات سقفية 6 وات 100 فولت",
+   "expect_intent": "pa_speaker"
+  },
+  {
+   "line": "Ceiling speaker 6W 100V",
+   "expect_intent": "pa_speaker"
+  },
+  {
+   "line": "مكبرات صوت بوق خارجية 30 وات",
+   "expect_intent": "pa_speaker"
+  },
+  {
+   "line": "توريد امبليفاير 240 وات للنداء",
+   "expect_intent": "pa_amplifier"
+  },
+  {
+   "line": "Mixer amplifier 120W 100V line",
+   "expect_intent": "pa_amplifier"
+  },
+  {
+   "line": "توريد ميكروفون نداء مكتبي 8 مناطق",
+   "expect_intent": "paging_microphone"
+  },
+  {
+   "line": "Paging microphone desk 4 zone",
+   "expect_intent": "paging_microphone"
+  },
+  {
+   "line": "توريد مصفوفة ميكروفونات سقفية للاجتماعات",
+   "expect_intent": "conference_system"
+  },
+  {
+   "line": "Conference system delegate unit with microphone",
+   "expect_intent": "conference_system"
+  },
+  {
+   "line": "معالج صوت DSP للمؤتمرات",
+   "expect_intent": "audio_processor"
+  },
+  {
+   "line": "Audio mixer 16 channel",
+   "expect_intent": "audio_processor"
+  },
+  {
+   "line": "توريد نظام نداء الممرضات للمستشفى",
+   "expect_intent": "nurse_call_system"
+  },
+  {
+   "line": "Nurse call system with pull cord and corridor lamp",
+   "expect_intent": "nurse_call_system"
+  },
+  {
+   "line": "نظام نداء الممرضات",
+   "expect_not_intent": "pa_system"
+  },
+  {
+   "line": "توريد انتركم فيديو للفلل",
+   "expect_intent": "intercom_system"
+  },
+  {
+   "line": "Intercom IP Video Station SIP compatible",
+   "expect_intent": "intercom_system"
+  },
+  {
+   "line": "توريد وتركيب دش مركزي للعمارة",
+   "expect_intent": "matv_system"
+  },
+  {
+   "line": "MATV system with multiswitch and LNB",
+   "expect_intent": "matv_system"
+  },
+  {
+   "line": "توريد نظام ساعات مركزي مع ساعات فرعية",
+   "expect_intent": "master_clock_system"
+  },
+  {
+   "line": "Master clock system with slave clocks",
+   "expect_intent": "master_clock_system"
+  },
+  {
+   "line": "توريد وتركيب كاميرات مراقبة درجة أولى",
+   "expect_intent": "cctv_camera"
+  },
+  {
+   "line": "نظام كاميرات مراقبة 16 كاميرا مع مسجل",
+   "expect_intent": "cctv_camera"
+  },
+  {
+   "line": "IP dome camera 4MP indoor",
+   "expect_intent": "cctv_camera"
+  },
+  {
+   "line": "مسجل كاميرات NVR 32 قناة",
+   "expect_intent": "nvr"
+  },
+  {
+   "line": "توريد بوابة مواقف بذراع اوتوماتيكي",
+   "expect_intent": "car_park_barrier"
+  },
+  {
+   "line": "Parking barrier gate 6m arm for car park entry",
+   "expect_intent": "car_park_barrier"
+  },
+  {
+   "line": "قارئ بطاقات للابواب",
+   "expect_intent": "card_reader"
+  },
+  {
+   "line": "توريد وتركيب شبكة بيانات درجة أولى",
+   "expect_intent": "structured_cabling_system"
+  },
+  {
+   "line": "Structured cabling system CAT6 complete",
+   "expect_intent": "structured_cabling_system"
+  },
+  {
+   "line": "توريد كابل cat6 utp 305 متر",
+   "expect_intent": "data_cable"
+  },
+  {
+   "line": "توريد مخرج بيانات مزدوج RJ45",
+   "expect_intent": "data_outlet"
+  },
+  {
+   "line": "توريد كابل محوري RG6 للدش",
+   "expect_intent": "coaxial_cable"
+  },
+  {
+   "line": "Coaxial cable RG11 for MATV",
+   "expect_intent": "coaxial_cable"
+  },
+  {
+   "line": "توريد كابل هاتف 10 ازواج",
+   "expect_intent": "telephone_cable"
+  },
+  {
+   "line": "Telephone cable 50 pair",
+   "expect_intent": "telephone_cable"
+  },
+  {
+   "line": "كابل فايبر 24 شعرة سنجل مود",
+   "expect_intent": "fiber_optic_cable"
+  },
+  {
+   "line": "توريد وتركيب نظام ادارة المباني BMS",
+   "expect_intent": "bms_controller"
+  },
+  {
+   "line": "Building management system DDC controllers",
+   "expect_intent": "bms_controller"
+  },
+  {
+   "line": "توريد نظام انذار ضد السرقة للمستودع",
+   "expect_intent": "intrusion_alarm"
+  },
+  {
+   "line": "Intrusion alarm panel with PIR detectors",
+   "expect_intent": "intrusion_alarm"
+  },
+  {
+   "line": "نظام انذار ضد السرقة",
+   "expect_not_family": "fire_detection_alarm"
+  },
+  {
+   "line": "مكبر صوت يدوي ميجافون",
+   "expect_not_intent": "pa_speaker"
+  },
+  {
+   "line": "كابل لوحة توزيع 4x25 مم",
+   "expect_not_family": "switchgear_panels"
+  },
+  {
+   "line": "مفتاح كهرباء مفرد",
+   "expect_intent": "light_switch"
+  },
+  {
+   "line": "توريد قواطع كهربائية 3 فاز",
+   "expect_family": "switchgear_panels"
+  },
+  {
+   "line": "توريد لمبات 9 وات",
+   "expect_intent": "led_lamp"
+  },
+  {
+   "line": "لمبة بيان للوحة 220 فولت",
+   "expect_not_intent": "led_lamp"
+  },
+  {
+   "line": "بطاريات ليثيوم شمسية 5 كيلو وات ساعة",
+   "expect_intent": "solar_battery_storage"
+  },
+  {
+   "line": "توريد شجيرات ظل مقاس 60x60",
+   "expect_intent": "landscape_trees"
+  },
+  {
+   "line": "Supply of shade trees 3m height with root ball",
+   "expect_intent": "landscape_trees"
+  },
+  {
+   "line": "تقليم الاشجار القائمة بالموقع",
+   "expect_not_intent": "landscape_trees"
+  },
+  {
+   "line": "توريد وزراعة نخيل واشنطونيا ارتفاع 4 م",
+   "expect_intent": "palm_trees"
+  },
+  {
+   "line": "Supply and planting of date palm trees",
+   "expect_intent": "palm_trees"
+  },
+  {
+   "line": "توريد نباتات زينة ومغطيات تربة للحدائق",
+   "expect_intent": "ornamental_plants"
+  },
+  {
+   "line": "Supply of ornamental plants and ground cover plants",
+   "expect_intent": "ornamental_plants"
+  },
+  {
+   "line": "توريد وتركيب نجيل طبيعي لفائف",
+   "expect_intent": "natural_grass"
+  },
+  {
+   "line": "Supply and laying of paspalum grass sod",
+   "expect_intent": "natural_grass"
+  },
+  {
+   "line": "توريد وتركيب عشب صناعي 40 ملم",
+   "expect_intent": "artificial_grass"
+  },
+  {
+   "line": "Artificial turf 35mm pile height for playground",
+   "expect_intent": "artificial_grass"
+  },
+  {
+   "line": "توريد تربة زراعية مخلوطة بالسماد العضوي",
+   "expect_intent": "planting_soil_fertilizer"
+  },
+  {
+   "line": "Supply of topsoil and compost for landscaping",
+   "expect_intent": "planting_soil_fertilizer"
+  },
+  {
+   "line": "توريد وتركيب أحواض زراعة مقاس 60x60",
+   "expect_intent": "planter_box"
+  },
+  {
+   "line": "GRC planter box 1200x600",
+   "expect_intent": "planter_box"
+  },
+  {
+   "line": "Lawn sprinkler pop up 4 inch",
+   "expect_not_intent": "natural_grass"
+  },
+  {
+   "line": "توريد غسالة ملابس صناعية 25 كجم",
+   "expect_intent": "commercial_washer"
+  },
+  {
+   "line": "Washer extractor 30 kg commercial laundry",
+   "expect_intent": "commercial_washer"
+  },
+  {
+   "line": "توريد نشافة ملابس صناعية 30 كجم",
+   "expect_intent": "commercial_dryer"
+  },
+  {
+   "line": "Commercial tumble dryer gas heated 25kg",
+   "expect_intent": "commercial_dryer"
+  },
+  {
+   "line": "توريد مكواة اسطوانية صناعية للمغسلة",
+   "expect_intent": "flatwork_ironer"
+  },
+  {
+   "line": "Flatwork ironer 2.5m roller",
+   "expect_intent": "flatwork_ironer"
+  },
+  {
+   "line": "غسالة صحون صناعية",
+   "expect_not_intent": "commercial_washer"
+  },
+  {
+   "line": "توريد رباط Cable Tie مقاوم للأشعة UV دقة مناسبة للاستخدام المهني",
+   "expect_intent": "cable_ties"
+  },
+  {
+   "line": "رباطات بلاستيك 300 ملم اسود",
+   "expect_intent": "cable_ties"
+  },
+  {
+   "line": "توريد شريط لاصق ورقي ماسكنج 2 انش",
+   "expect_intent": "adhesive_tape"
+  },
+  {
+   "line": "Masking tape 48mm x 50m",
+   "expect_intent": "adhesive_tape"
+  },
+  {
+   "line": "شريط لاصق عازل كهرباء",
+   "expect_not_intent": "adhesive_tape"
+  },
+  {
+   "line": "توريد رول نايلون اسود سماكة 200 ميكرون",
+   "expect_intent": "plastic_sheeting"
+  },
+  {
+   "line": "Polyethylene sheet 1000 gauge for protection",
+   "expect_intent": "plastic_sheeting"
+  },
+  {
+   "line": "توريد اكياس نفايات سوداء كبيرة",
+   "expect_intent": "site_bags_sacks"
+  },
+  {
+   "line": "Sand bags woven polypropylene",
+   "expect_intent": "site_bags_sacks"
+  },
+  {
+   "line": "توريد لاصق Threadlocker عالي القوة مطابقة لمواصفات الشركة المصنعة",
+   "expect_intent": "threadlocker_compound"
+  },
+  {
+   "line": "لاصق لوكتايت مثبت براغي ازرق",
+   "expect_intent": "threadlocker_compound"
+  },
+  {
+   "line": "توريد قرص قطع معدني Abrasive Cutting Disc نسخة مختبرية",
+   "expect_intent": "abrasive_discs"
+  },
+  {
+   "line": "حجر صاروخ قطع حديد 7 انش",
+   "expect_intent": "abrasive_discs"
+  },
+  {
+   "line": "توريد منشار شريطي معدني Band Saw ملحقات التشغيل الأساسية مشمولة",
+   "expect_intent": "grinders_saws"
+  },
+  {
+   "line": "توريد مصعد ركاب 8 أشخاص 4 وقفات",
+   "expect_intent": "passenger_elevator"
+  },
+  {
+   "line": "اسانسير عمارة 6 ادوار",
+   "expect_intent": "passenger_elevator"
+  },
+  {
+   "line": "توريد وتركيب مصعد طعام dumbwaiter 100 كجم",
+   "expect_intent": "freight_elevator"
+  },
+  {
+   "line": "توريد سلم كهربائي للمول",
+   "expect_intent": "escalator_walkway"
+  },
+  {
+   "line": "مصعد ذوي الاحتياجات الخاصة للمدخل",
+   "expect_intent": "accessibility_platform_lift"
+  },
+  {
+   "line": "Vertical platform lift for wheelchair users",
+   "expect_intent": "accessibility_platform_lift"
+  },
+  {
+   "line": "توريد وتركيب غرفة تبريد مقاس 3x3 م",
+   "expect_intent": "cold_room"
+  },
+  {
+   "line": "Walk in freezer -18C complete with condensing unit",
+   "expect_intent": "cold_room"
+  },
+  {
+   "line": "ألواح غرف تبريد سماكة 100 ملم",
+   "expect_intent": "coldroom_panel"
+  },
+  {
+   "line": "توريد ثلاجة عرض حلويات زجاج",
+   "expect_intent": "display_refrigeration"
+  },
+  {
+   "line": "Multideck display chiller 2.5m",
+   "expect_intent": "display_refrigeration"
+  },
+  {
+   "line": "توريد ثلاجة صناعية بابين ستانلس",
+   "expect_intent": "kitchen_refrigeration"
+  },
+  {
+   "line": "توريد عجانة صناعية 20 لتر",
+   "expect_intent": "food_preparation_equipment"
+  },
+  {
+   "line": "Meat slicer 300mm blade",
+   "expect_intent": "food_preparation_equipment"
+  },
+  {
+   "line": "طاولة ستانلس ستيل مع رف سفلي",
+   "expect_intent": "kitchen_stainless_furniture"
+  },
+  {
+   "line": "توريد طباخ صناعي 6 عيون مع فرن",
+   "expect_intent": "cooking_equipment"
+  },
+  {
+   "line": "توريد شفاط أبخرة لحام متنقل نسخة مختبرية مع شهادة معايرة",
+   "expect_intent": "welding_fume_extractor"
+  },
+  {
+   "line": "Portable welding fume extractor with arm",
+   "expect_intent": "welding_fume_extractor"
+  },
+  {
+   "line": "توريد خزانة شفط أبخرة للمختبر",
+   "expect_intent": "fume_containment"
+  },
+  {
+   "line": "Laboratory fume cupboard 1500mm",
+   "expect_intent": "fume_containment"
+  },
+  {
+   "line": "توريد طاولات مختبر جدارية بسطح ايبوكسي",
+   "expect_intent": "lab_bench"
+  },
+  {
+   "line": "توريد مخارج غاز طبي اكسجين وشفط",
+   "expect_intent": "medical_gas_outlet"
+  },
+  {
+   "line": "Oxygen outlet BS standard",
+   "expect_intent": "medical_gas_outlet"
+  },
+  {
+   "line": "توريد وحدة رأس سرير مع مخارج غازات طبية وكهرباء",
+   "expect_intent": "bed_head_unit"
+  },
+  {
+   "line": "Bed head unit horizontal 1.8 m",
+   "expect_intent": "bed_head_unit"
+  },
+  {
+   "line": "توريد وتركيب كاونتر محطة تمريض كوريان",
+   "expect_intent": "nurse_station_counter"
+  },
+  {
+   "line": "Nurse station counter solid surface",
+   "expect_intent": "nurse_station_counter"
+  },
+  {
+   "line": "شاشة محطة تمريض لنظام نداء الممرضات",
+   "expect_not_intent": "nurse_station_counter"
+  },
+  {
+   "line": "توريد خوذ سلامة مقاس 60x60",
+   "expect_intent": "safety_helmet"
+  },
+  {
+   "line": "Safety helmet with chin strap EN397",
+   "expect_intent": "safety_helmet"
+  },
+  {
+   "line": "خوذ لحام اوتوماتيك",
+   "expect_intent": "welding_face_shield"
+  },
+  {
+   "line": "توريد أحذية سلامة سماكة 2 ملم",
+   "expect_intent": "safety_boot"
+  },
+  {
+   "line": "بوت سيفتي مقدمة حديد",
+   "expect_intent": "safety_boot"
+  },
+  {
+   "line": "توريد سترات عاكسة للعمال",
+   "expect_intent": "hi_vis_vest"
+  },
+  {
+   "line": "جوانتي عمل جلد",
+   "expect_intent": "safety_gloves"
+  },
+  {
+   "line": "هارنس حزام امان كامل للجسم",
+   "expect_intent": "safety_harness"
+  },
+  {
+   "line": "توريد حاجز امتصاص سوائل Absorbent Boom دقة مناسبة",
+   "expect_intent": "spill_control"
+  },
+  {
+   "line": "توريد حاجز بلاستيكي مملوء بالماء ملائم لأعمال ضبط الجودة",
+   "expect_intent": "water_filled_barrier"
+  },
+  {
+   "line": "Water filled barrier 2m red/white",
+   "expect_intent": "water_filled_barrier"
+  },
+  {
+   "line": "توريد حاجز جماهير معدني Interlocking Barrier مطابقة لمواصفات",
+   "expect_intent": "crowd_control_barrier"
+  },
+  {
+   "line": "حواجز حديد متنقلة لتنظيم المشاة",
+   "expect_intent": "crowd_control_barrier"
+  },
+  {
+   "line": "ضوء تحذيري وماض للحواجز يعمل بالطاقة الشمسية",
+   "expect_intent": "warning_light"
+  },
+  {
+   "line": "Barricade warning light amber LED",
+   "expect_intent": "warning_light"
+  },
+  {
+   "line": "توريد مخاريط مرورية 75 سم",
+   "expect_intent": "traffic_control_barrier"
+  },
+  {
+   "line": "توريد عربة يدوية Hand Truck ألمنيوم دقة مناسبة",
+   "expect_intent": "hand_truck"
+  },
+  {
+   "line": "عربية رمل حديد عجل هوائي",
+   "expect_intent": "hand_truck"
+  },
+  {
+   "line": "توريد عربة براميل Drum Trolley نسخة مختبرية",
+   "expect_intent": "drum_handling"
+  },
+  {
+   "line": "رافع براميل هيدروليكي 350 كجم",
+   "expect_intent": "drum_handling"
+  },
+  {
+   "line": "توريد طاولة رفع مقصية Scissor Lift Table ملحقات التشغيل",
+   "expect_intent": "scissor_lift_table"
+  },
+  {
+   "line": "طاولة رفع هيدروليكية 1000 كجم",
+   "expect_intent": "scissor_lift_table"
+  },
+  {
+   "line": "توريد Bin Storage 60 Cabinet Bin Steel frame + plastic bins",
+   "expect_intent": "parts_bins_pegboard"
+  },
+  {
+   "line": "لوح تعليق عدد مثقب للورشة",
+   "expect_intent": "parts_bins_pegboard"
+  },
+  {
+   "line": "توريد مروحة أرضية Industrial Drum Fan دقة مناسبة",
+   "expect_intent": "portable_fan"
+  },
+  {
+   "line": "Exhaust fan for toilet 150mm",
+   "expect_not_intent": "portable_fan"
+  },
+  {
+   "line": "توريد عجلة قياس مسافات رقمية",
+   "expect_intent": "measuring_wheel"
+  },
+  {
+   "line": "Measuring wheel 10km counter",
+   "expect_intent": "measuring_wheel"
+  },
+  {
+   "line": "توريد مقياس سماكة طلاء Ferrous/Non-Ferrous مطابقة لمواصفات الشركة",
+   "expect_intent": "coating_thickness_gauge"
+  },
+  {
+   "line": "DFT gauge for paint inspection",
+   "expect_intent": "coating_thickness_gauge"
+  },
+  {
+   "line": "توريد كاشف تسرب Ultrasonic Leak Detector واجهة تشغيل رقمية",
+   "expect_intent": "leak_detector"
+  },
+  {
+   "line": "كاشف تسرب فريون للتكييف",
+   "expect_intent": "leak_detector"
+  },
+  {
+   "line": "توريد حبل كشف تسرب سوائل ذكي مزود بخصائص التكرار",
+   "expect_not_intent": "leak_detector"
+  },
+  {
+   "line": "توريد جهاز GNSS RTK Rover متعدد الترددات ملحقات التشغيل",
+   "expect_intent": "survey_instrument"
+  },
+  {
+   "line": "توريد حامل Survey Tripod كربوني مطابقة لمواصفات الشركة المصنعة",
+   "expect_intent": "survey_instrument"
+  },
+  {
+   "line": "توريد عمود مساحي Telescopic Survey Pole نسخة مختبرية",
+   "expect_intent": "survey_instrument"
+  },
+  {
+   "line": "جهاز قياس مقاومة الأرضي رقمي",
+   "expect_intent": "electrical_tester"
+  },
+  {
+   "line": "Earth resistance tester 4 pole",
+   "expect_intent": "electrical_tester"
+  },
+  {
+   "line": "توريد سبورة بيضاء مغناطيسية 120x240",
+   "expect_intent": "writing_boards"
+  },
+  {
+   "line": "Whiteboard magnetic 1200x1800",
+   "expect_intent": "writing_boards"
+  },
+  {
+   "line": "سبورة ذكية تفاعلية 86 بوصة",
+   "expect_not_intent": "writing_boards"
+  },
+  {
+   "line": "ماصات طلاب مع كراسي",
+   "expect_intent": "school_furniture"
+  },
+  {
+   "line": "توريد مكتب مدير خشب",
+   "expect_intent": "office_desks"
+  },
+  {
+   "line": "توريد وتركيب العاب اطفال للحديقة",
+   "expect_intent": "playground_equipment"
+  },
+  {
+   "line": "Playground equipment multi-play structure with slides",
+   "expect_intent": "playground_equipment"
+  },
+  {
+   "line": "توريد سلة مهملات ستانلس بدواسة",
+   "expect_intent": "small_waste_bin"
+  },
+  {
+   "line": "Recycling bin 3 compartment",
+   "expect_intent": "small_waste_bin"
+  },
+  {
+   "line": "حاوية نفايات 1100 لتر بعجلات",
+   "expect_intent": "waste_skip"
+  },
+  {
+   "line": "توريد وتركيب سواتر حديد للأسطح",
+   "expect_intent": "privacy_screen"
+  },
+  {
+   "line": "مظلات سيارات حديد قماش pvc",
+   "expect_intent": "car_park_shade"
+  },
+  {
+   "line": "لوحات توجيه داخلية Wayfinding signage",
+   "expect_intent": "traffic_sign"
+  },
+  {
+   "line": "توريد مصباح تحذير LED كهرماني شمسي دقة مناسبة للاستخدام المهني",
+   "expect_intent": "warning_light"
+  },
+  {
+   "line": "توريد وسائد امتصاص صناعية Absorbent Pads ملائم لأعمال ضبط الجودة",
+   "expect_intent": "spill_control"
+  },
+  {
+   "line": "توريد ميزان Digital Level عالي الدقة دقة مناسبة للاستخدام المهني",
+   "expect_intent": "level_alignment"
+  },
+  {
+   "line": "ميزان رقمي للمخازن 300 كجم",
+   "expect_not_intent": "level_alignment"
+  },
+  {
+   "line": "توريد مسدس برشام لاسلكي Cordless Riveter دقة مناسبة",
+   "expect_intent": "bench_machines"
+  },
+  {
+   "line": "برشام المنيوم 4 ملم",
+   "expect_not_intent": "bench_machines"
+  },
+  {
+   "line": "Engineering workstation PC dual Xeon",
+   "expect_not_intent": "office_desks"
+  },
+  {
+   "line": "Rubber playground flooring tiles 40mm",
+   "expect_not_intent": "playground_equipment"
+  },
+  {
+   "line": "Lift table 1000 kg electric hydraulic",
+   "expect_intent": "scissor_lift_table"
+  },
+  {
+   "line": "توريد مصعد بضائع 2000 كجم",
+   "expect_intent": "freight_elevator"
+  },
+  {
+   "line": "قطع غيار مصعد ومحركات",
+   "expect_not_intent": "accessibility_platform_lift"
+  },
+  {
+   "line": "نايلون فيشر 8 ملم",
+   "expect_not_intent": "plastic_sheeting"
+  },
+  {
+   "line": "شريط تحذير اصفر واسود",
+   "expect_intent": "traffic_control_barrier"
+  },
+  {
+   "line": "Tarpaulin cover 6x8m waterproof",
+   "expect_intent": "plastic_sheeting"
+  },
+  {
+   "line": "Flap disc 115mm grit 60",
+   "expect_intent": "abrasive_discs"
+  },
+  {
+   "line": "Angle grinder 9 inch 2200W",
+   "expect_intent": "grinders_saws"
+  },
+  {
+   "line": "Bench grinder 8 inch double wheel",
+   "expect_not_intent": "abrasive_discs"
+  },
+  {
+   "line": "Flange Nut M16 Zinc Plated",
+   "expect_family": "fasteners"
+  },
+  {
+   "line": "Blind flange DN100 PN16",
+   "expect_intent": "pipe_fitting"
+  },
+  {
+   "line": "توريد ماسورة HDPE Corrugated قطر 400 مم SN",
+   "expect_family": "precast_drainage"
+  },
+  {
+   "line": "توريد مواسير HDPE PE100 قطر 110 مم PN16",
+   "expect_intent": "hdpe_pipe"
+  },
+  {
+   "line": "توريد جهاز اختبار كابلات شبكة CAT6",
+   "expect_family": "network_test_tools"
+  },
+  {
+   "line": "توريد كابلات شبكة CAT6 305 متر",
+   "expect_intent": "data_cable"
+  },
+  {
+   "line": "خزان مياه ستانلس 5000 لتر",
+   "expect_intent": "stainless_water_tank"
+  },
+  {
+   "line": "طاولة تحضير ستانلس للمطبخ",
+   "expect_not_intent": "stainless_water_tank"
+  },
+  {
+   "line": "Boom barrier for parking",
+   "expect_intent": "car_park_barrier"
+  },
+  {
+   "line": "مواسير نحاس للمياه 22 مم",
+   "expect_intent": "copper_pipe"
+  },
+  {
+   "line": "مواسير نحاس طبي للغازات الطبية",
+   "expect_not_intent": "copper_pipe"
+  }
+ ]
+}

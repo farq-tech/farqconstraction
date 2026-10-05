@@ -179,6 +179,26 @@ export function setParsedBoq(payload: {
   emit()
 }
 
+/**
+ * «طلبك»: replace the cart's lines — booklet, searched, pasted and typed alike.
+ * A request that did not start from a booklet gets a `cart-…` identity so it
+ * is stored, restored and sent exactly like one. A removed line's supplier
+ * choices go with it.
+ */
+export function setCartItems(items: BOQItem[], newDocumentId: () => string) {
+  if (!state.documentId) {
+    state.documentId = newDocumentId()
+    state.fileName = state.fileName || ''
+    state.projectName = state.projectName || 'طلب تسعير'
+  }
+  state.boqItems = sanitizeBoqLines(items)
+  const ids = new Set(state.boqItems.map((i) => i.id))
+  state.selections = Object.fromEntries(
+    Object.entries(state.selections || {}).filter(([id]) => ids.has(Number(id))),
+  )
+  emit()
+}
+
 export function getSelections(): Record<number, string[]> {
   return state.selections || {}
 }

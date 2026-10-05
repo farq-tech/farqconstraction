@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AUTO_PICK, autoPickFor, buildPickContext } from '../lib/autoPick'
+import { autoPickConfident, buildPickContext, isPriorQuoter } from '../lib/autoPick'
+import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
   getBoqItems,
@@ -16,6 +17,9 @@ import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
+import MarketNameField from '../components/MarketNameField'
+import SpecCardEditor from '../components/SpecCardEditor'
+import type { SpecCard } from '../lib/specCard'
 import { useProcurement } from '../procurementContext'
 
 type Filter = 'all' | 'ready' | 'needs'
@@ -58,6 +62,25 @@ interface BOQCardProps {
   onDelete: () => void
   /** «طيّ الكل / فتح الكل»: every card follows the latest request. */
   openAll: { open: boolean; at: number }
+  /** The buyer edited or cleared «الاسم الدارج بالسوق». */
+  onMarketName: (next: string) => void
+  onSpecCard: (next: SpecCard | undefined) => void
+}
+
+/** What each «نتائج الجولات» grade says about the supplier, in a few words. */
+function roundOutcomeTag(o: NonNullable<Supplier['roundOutcome']>): { label: string; title: string } {
+  switch (o.grade) {
+    case 'PRICED':
+      return { label: 'سعّر هذه المادة سابقًا', title: `سعّر ${o.pricedLines ?? 1} ${(o.pricedLines ?? 1) === 1 ? 'بندًا' : 'بنود'} من هذه المادة في جولة سابقة` }
+    case 'ANSWERED':
+      return { label: 'ردّ عنها سابقًا', title: 'ردّ على طلب سابق لهذه المادة (متوفر، سؤال، أو سعر بالرسالة) دون عرض مكتمل' }
+    case 'ALSO_SELLS':
+      return { label: 'يبيعها مع مادة سعّرها', title: 'سعّر مادة يسعّرها معها عادةً موردون آخرون، ولم تُرسل له هذه المادة من قبل' }
+    case 'FAMILY_PRICED':
+      return { label: 'سعّر مادة قريبة', title: 'سعّر مادة من نفس العائلة في جولة سابقة' }
+    default:
+      return { label: 'يشبه من سعّروا', title: o.similarBy ? `نشاطه «${o.similarBy}» مثل موردين سعّروا هذه المادة` : 'يشبه موردين سعّروا هذه المادة' }
+  }
 }
 
 const SUGGESTION_TONE = {
@@ -95,6 +118,10 @@ function SuggestionBox({
 }) {
   const t = SUGGESTION_TONE[tone]
   const picked = suppliers.filter((s) => selectedIds.includes(s.id)).length
+  // A long list (every confirmed seller) folds after twelve; the count stays whole.
+  const FOLD = 12
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? suppliers : suppliers.slice(0, FOLD)
   return (
     <div className={`mb-3 rounded-xl border px-4 py-3 ${t.box}`}>
       <div className="flex items-start justify-between gap-3">
@@ -106,7 +133,7 @@ function SuggestionBox({
       <div className={`text-[11px] mt-1 ${t.note}`}>{note}</div>
       {suppliers.length > 0 ? (
         <div className="mt-2 space-y-1.5">
-          {suppliers.map((s) => {
+          {shown.map((s) => {
             const checked = selectedIds.includes(s.id)
             return (
               <div
@@ -123,6 +150,8 @@ function SuggestionBox({
                         // An activity-level row keeps its own weaker grade: the box
                         // it happens to sit in must not promote it.
                         evidence: s.learned ? 'اختيارك' : s.evidence === 'على مستوى النشاط' ? s.evidence : evidence,
+                        // The grade travels with the pick, so the chip stays.
+                        roundOutcome: s.roundOutcome,
                       })
                     }
                     className="accent-[#123F3A] w-4 h-4 flex-shrink-0"
@@ -132,6 +161,24 @@ function SuggestionBox({
                     <span className="block text-xs text-neutral-400">
                       {s.city}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
+                      {!s.roundOutcome && s.why && (
+                        <span className="text-neutral-500" title="لماذا يقترحه فرق لهذه المادة">
+                          {' '}· {s.why}
+                        </span>
+                      )}
+                      {s.roundOutcome && (
+                        <span className="text-[#1a7a45] font-semibold" title={roundOutcomeTag(s.roundOutcome).title}>
+                          {' '}· {roundOutcomeTag(s.roundOutcome).label}
+                        </span>
+                      )}
+                      {isPriorQuoter(s) && (
+                        <span
+                          className="text-[#1a7a45] font-semibold"
+                          title={`سعّر لشركتك ${s.priorQuotes} ${s.priorQuotes === 1 ? 'طلبًا' : 'طلبات'} من قبل — يُقدَّم في القائمة ويُختار تلقائيًا`}
+                        >
+                          {' '}· {PRIOR_QUOTER_TAG}
+                        </span>
+                      )}
                       {s.evidence === 'على مستوى النشاط' && (
                         <span className="text-neutral-500 font-semibold" title="نشاطه المسجّل أوسع من هذه المادة: يُعرض كاحتمال، لا كترشيح">
                           {' '}· مورد محتمل
@@ -152,6 +199,15 @@ function SuggestionBox({
               </div>
             )
           })}
+          {suppliers.length > FOLD && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full py-2 text-xs font-bold text-[#123F3A] hover:underline"
+            >
+              {expanded ? 'إخفاء الباقي' : `عرض كل الموردين (${suppliers.length})`}
+            </button>
+          )}
         </div>
       ) : (
         <div className="text-[11px] text-neutral-500 mt-2">{emptyText}</div>
@@ -170,6 +226,8 @@ function BOQCard({
   onRejectSupplier,
   onDelete,
   openAll,
+  onMarketName,
+  onSpecCard,
 }: BOQCardProps) {
   const [expanded, setExpanded] = useState(openAll.open)
   useEffect(() => {
@@ -206,12 +264,13 @@ function BOQCard({
       new Set(
         [
           ...(item.learnedSuggestion?.suppliers || []),
+          ...(item.outcomeSuggestion?.suppliers || []),
           ...(item.mapSuggestion?.suppliers || []),
           ...(!item.mapSuggestion ? item.aiSuggestion?.suppliers || [] : []),
           ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.learnedSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
+    [item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
   )
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
@@ -349,6 +408,19 @@ function BOQCard({
         </div>
       </button>
 
+      {/* Only where the reader proposed one: every other card reads as before. */}
+      {item.marketName !== undefined && !item.workOnly && (
+        <MarketNameField
+          value={item.marketName}
+          bookletText={name}
+          onCommit={onMarketName}
+          fromMemory={item.marketNameSource === 'memory'}
+        />
+      )}
+
+      {/* «بطاقة المواصفة»: optional, collapsed; answers what suppliers asked back. */}
+      {!item.workOnly && <SpecCardEditor value={item.specCard} onCommit={onSpecCard} />}
+
       {expanded && (
         <div className="px-5 pb-5 border-t border-neutral-50 pt-4">
           {!isSearching && (
@@ -374,6 +446,19 @@ function BOQCard({
               emptyText=""
               suppliers={item.learnedSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
               evidence="اختيارك"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+            />
+          )}
+          {item.outcomeSuggestion && item.outcomeSuggestion.suppliers.length > 0 && (
+            <SuggestionBox
+              tone="teal"
+              title="من الجولات السابقة: موردون سعّروا هذه المادة أو ردّوا عنها"
+              note="أولًا من سعّرها فعلًا، ثم من ردّ عنها، ومن يبيعها مع مادة سعّرها، ومن يشبههم. من اعتذر عنها لا يظهر هنا ولا في القوائم تحت."
+              emptyText=""
+              suppliers={item.outcomeSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="نتائج الجولات"
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
@@ -555,7 +640,7 @@ function BOQCard({
           {/* Only where nothing at all was found. Under a card that lists map
               suppliers this note said «لم نبحث له عن موردين», and under a
               work-only card it told the buyer to go and find a supplier. */}
-          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && (
+          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.outcomeSuggestion && (
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'
@@ -635,7 +720,7 @@ export function ProposalsView({ navigate }: NavProps) {
       // Marked done only once something was chosen: a line whose suggestions
       // arrive later (a restored session, a retried chunk) is picked then,
       // instead of staying empty for good.
-      const chosen = autoPickFor(item, AUTO_PICK, pickContext)
+      const chosen = autoPickConfident(item, pickContext)
       if (chosen.length) {
         autoDone.current.add(item.id)
         picks[item.id] = chosen
@@ -651,7 +736,10 @@ export function ProposalsView({ navigate }: NavProps) {
           if (!add) return item
           const have = new Set(item.suppliers.map((s) => s.id))
           const suppliers = [...item.suppliers, ...add.filter((s) => !have.has(s.id))]
-          return { ...item, suppliers, supplierCount: suppliers.length, status: 'ready' as const }
+          // Remembered on the line so the request's package can say which ticks
+          // were the screen's own («سجل العرض»: shown → auto-picked → quoted).
+          const autoPickedSupplierIds = [...new Set([...(item.autoPickedSupplierIds || []), ...add.map((s) => s.id)])]
+          return { ...item, suppliers, supplierCount: suppliers.length, status: 'ready' as const, autoPickedSupplierIds }
         }),
       )
       setSelected((prev) => {
@@ -728,6 +816,28 @@ export function ProposalsView({ navigate }: NavProps) {
   // at once, and «تراجع» puts it back where it was with its ticks.
   const [deleted, setDeleted] = useState<{ item: BOQItem; index: number; picks: string[] } | null>(null)
   const deletedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // «الاسم الدارج بالسوق»: '' keeps the field (cleared), and nothing is sent for it.
+  const setMarketName = (itemId: number, next: string) => {
+    // An edited or cleared name is the buyer's own, no longer the remembered one.
+    persistItems(
+      items.map((item) => {
+        if (item.id !== itemId) return item
+        const { marketNameSource: _source, ...rest } = item
+        return { ...rest, marketName: next }
+      }),
+    )
+  }
+
+  const setSpecCard = (itemId: number, next: SpecCard | undefined) => {
+    persistItems(
+      items.map((item) => {
+        if (item.id !== itemId) return item
+        const { specCard: _old, ...rest } = item
+        return next ? { ...rest, specCard: next } : rest
+      }),
+    )
+  }
+
   const deleteItem = (itemId: number) => {
     const index = items.findIndex((i) => i.id === itemId)
     if (index < 0) return
@@ -968,8 +1078,8 @@ export function ProposalsView({ navigate }: NavProps) {
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                 {empty === 0
-                  ? 'كل بند له موردون مختارون. راجعهم قبل الإرسال: من عليه «مورد محتمل» اختير لنشاطه لا لمادته.'
-                  : `${empty} بندًا لم نجد لها موردًا في دليلنا. البقية اخترنا لكل بند حتى ${AUTO_PICK} موردين، ومن عليه «مورد محتمل» اختير لنشاطه لا لمادته.`}
+                  ? 'اختير كل تطابق مؤكد أو شبه مؤكد، بما فيه الموردون الذين اقترحهم النظام، من جميع القنوات. راجع القائمة قبل الإرسال؛ ترشيح المورد ليس تأكيدًا للمخزون.'
+                  : `${empty} بندًا لم نجد لها تطابقًا مؤكدًا أو شبه مؤكد. للبقية اختيرت كل الترشيحات المناسبة، بما فيها اقتراحات النظام. راجع القائمة قبل الإرسال.`}
                 {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
               </div>
             </div>
@@ -1051,6 +1161,8 @@ export function ProposalsView({ navigate }: NavProps) {
                     onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
                     onDelete={() => deleteItem(item.id)}
                     openAll={openAll}
+                    onMarketName={(next) => setMarketName(item.id, next)}
+                    onSpecCard={(next) => setSpecCard(item.id, next)}
                   />
                 ))}
               </div>

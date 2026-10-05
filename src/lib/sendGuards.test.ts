@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanLineName, readQty } from './sendGuards'
+import { cleanLineName, deliveryBeforeDeadline, readQty } from './sendGuards'
 import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, departmentForBoqItem, dominantEngineeringDepartment } from './rfqPackages'
 import type { BOQItem } from '../types'
 
@@ -56,5 +56,20 @@ describe('nothing on an RFQ line is invented', () => {
     const linesFor = (s: string) => packages.filter((p) => p.selected_supplier_ids.includes(s)).flatMap((p) => p.line_keys)
     expect(linesFor('a')).toEqual(['line-1'])
     expect(linesFor('b').sort()).toEqual(['line-1', 'line-2'])
+  })
+})
+
+describe('the delivery date never falls before the quote deadline', () => {
+  it('refuses a delivery day before the deadline, allows the same day and later', () => {
+    expect(deliveryBeforeDeadline('2026-10-05', '2026-10-09')).toBe(true)
+    expect(deliveryBeforeDeadline('2026-10-09', '2026-10-09')).toBe(false)
+    expect(deliveryBeforeDeadline('2026-10-20', '2026-10-09')).toBe(false)
+    expect(deliveryBeforeDeadline('2026-10-05T00:00:00.000Z', '2026-10-09')).toBe(true)
+  })
+
+  it('leaves missing dates to the other checks', () => {
+    expect(deliveryBeforeDeadline('', '2026-10-09')).toBe(false)
+    expect(deliveryBeforeDeadline('2026-10-05', null)).toBe(false)
+    expect(deliveryBeforeDeadline(undefined, undefined)).toBe(false)
   })
 })

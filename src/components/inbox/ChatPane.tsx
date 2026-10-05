@@ -2,11 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   ConstructionApiError,
   claimConstructionInboxRequest,
+  dismissConstructionInboxDraft,
   downloadConstructionInboxFile,
   getConstructionInboxThread,
   inboxThreadSupplierLabel,
   markConstructionInboxMessageRead,
   markConstructionInboxMessageUnread,
+  setConstructionInboxThreadsVisibility,
   readConstructionInboxAttachments,
   replyToConstructionInboxThread,
   retryConstructionInboxReply,
@@ -15,18 +17,88 @@ import {
   type ConstructionInboxThreadMessage,
 } from '../../api/constructionClient'
 import { isReadOnlyBuild, READ_ONLY_MESSAGE } from '../../api/readOnlyMode'
-import { chatDayLabel } from '../../lib/inboxChat'
+import { WHATSAPP_WINDOW_CLOSED_AR, chatDayLabel, whatsappReplyWindow } from '../../lib/inboxChat'
+import { channelKey } from '../../lib/inboxFilters'
+import {
+  DEFAULT_QUICK_REPLIES,
+  QUICK_REPLY_BLANK,
+  addCustomReply,
+  insertQuickReply,
+  loadCustomReplies,
+  removeCustomReply,
+  type QuickReply,
+} from '../../lib/quickReplies'
+import type { QuoteEvent } from '../../lib/supplierPanel'
+import { visibleReplyDraft } from '../../lib/supplierReply'
+import ReplyDraftCard from './ReplyDraftCard'
+import InboxAiPanel from './InboxAiPanel'
+import { LinkIcon, XIcon } from '../../icons'
+import { ChannelBadge } from './Badges'
 import { MessageBubble } from './MessageBubble'
+import { QuoteCard, SupplierPanel } from './SupplierPanel'
 import { SupplierAvatar } from './SupplierAvatar'
+import { useSupplierContext } from './useSupplierContext'
+import { cleanSupplierName } from '../../lib/supplierName'
+import { outboundSenderLabel } from '../../lib/inboxSender'
+
+const PANEL_PREF_KEY = 'farq.inbox.supplierPanel.v1'
+
+// Below xl the panel covers the whole chat, so it never opens by itself there:
+// the remembered choice applies only where the panel sits beside the chat.
+function isWide(): boolean {
+  try {
+    return window.matchMedia('(min-width: 1280px)').matches
+  } catch {
+    return false
+  }
+}
+
+function readPanelPref(): boolean {
+  if (!isWide()) return false
+  try {
+    return window.localStorage.getItem(PANEL_PREF_KEY) === 'open'
+  } catch {
+    return false
+  }
+}
+
+function writePanelPref(open: boolean) {
+  if (!isWide()) return
+  try {
+    window.localStorage.setItem(PANEL_PREF_KEY, open ? 'open' : 'closed')
+  } catch {
+    /* private mode: the choice lasts for this page */
+  }
+}
+
+async function copyText(value: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** A link to this conversation on the platform, when the API hands one over. */
+function conversationLink(thread: ConstructionInboxThreadDetail | null): string | null {
+  const loose = thread as (ConstructionInboxThreadDetail & { conversation_url?: string | null; portal_url?: string | null }) | null
+  const url = String(loose?.conversation_url || loose?.portal_url || '').trim()
+  return /^https:\/\//.test(url) ? url : null
+}
+
+/** Supplier WhatsApp threads whose «use the link» suggestion was dismissed this session. */
+const dismissedLinkHints = new Set<string>()
 
 function messageAuthor(
   message: ConstructionInboxThreadMessage,
   thread: ConstructionInboxThreadDetail,
 ): string {
   if (message.direction === 'INBOUND') {
-    return String(message.employee_name || inboxThreadSupplierLabel(thread) || 'المورد')
+    return cleanSupplierName(message.employee_name) || inboxThreadSupplierLabel(thread) || 'المورد'
   }
-  return String(message.employee_name || 'فريقنا')
+  // A colleague's display name; never a raw e-mail; automated replies speak as «أحمد من فرق».
+  return outboundSenderLabel(message.employee_name)
 }
 
 function saveBlob(blob: Blob, filename: string) {
@@ -73,6 +145,8 @@ export type ChatPaneProps = {
   /** Narrow screens show one pane at a time; this returns to the list. */
   onBack: () => void
   onOpenRfq: (rfqId: string) => void
+  /** Opens this supplier's own quote (the quote card's «عرض التفاصيل»); falls back to onOpenRfq. */
+  onOpenQuote?: (rfqId: string, inviteId: string) => void
   /**
    * Tells the list how many unread inbound messages this thread still has,
    * counted from the thread the server just returned. Only called when the
@@ -85,9 +159,25 @@ export type ChatPaneProps = {
    * «تفاصيل الطلب» link, since the user is already on it.
    */
   requestScoped?: boolean
+  /** The whole thread as the server returned it, for the list's filters. */
+  onDetail?: (inviteId: string, detail: ConstructionInboxThreadDetail) => void
+  /** Latest quote version known for this invite (null = no quote). */
+  onQuoteVersion?: (inviteId: string, version: number | null) => void
+  /** The conversation was shown again («إظهار») — the list should refetch. */
+  onVisibilityChange?: (inviteId: string, hidden: boolean) => void
 }
 
-export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestScoped = false }: ChatPaneProps) {
+export function ChatPane({
+  inviteId,
+  onBack,
+  onOpenRfq,
+  onOpenQuote,
+  onUnreadKnown,
+  requestScoped = false,
+  onDetail,
+  onQuoteVersion,
+  onVisibilityChange,
+}: ChatPaneProps) {
   const readOnly = isReadOnlyBuild()
   const [thread, setThread] = useState<ConstructionInboxThreadDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -96,6 +186,17 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [text, setText] = useState('')
+  /** Suggestions closed here («تجاهل» / sent), so they do not flash back before the refetch. */
+  const [closedDrafts, setClosedDrafts] = useState<Set<string>>(() => new Set())
+  /** «عدّل» put this suggestion in the box: sending it marks the suggestion used (edited or not). */
+  const draftInBox = useRef<{ id: string; original: string } | null>(null)
+  useEffect(() => {
+    draftInBox.current = null
+  }, [inviteId])
+  // An emptied box is no longer the suggestion.
+  useEffect(() => {
+    if (!text.trim()) draftInBox.current = null
+  }, [text])
   const [files, setFiles] = useState<File[]>([])
   const [includeItems, setIncludeItems] = useState(false)
   const [sending, setSending] = useState(false)
@@ -105,12 +206,27 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [marking, setMarking] = useState(false)
+  const [showing, setShowing] = useState(false)
   const fileInput = useRef<HTMLInputElement | null>(null)
   const scroller = useRef<HTMLDivElement | null>(null)
   const markedRef = useRef<Set<string>>(new Set())
   const alive = useRef(true)
   const unreadKnownRef = useRef(onUnreadKnown)
   unreadKnownRef.current = onUnreadKnown
+  const detailRef = useRef(onDetail)
+  detailRef.current = onDetail
+  const textArea = useRef<HTMLTextAreaElement | null>(null)
+  const [panelOpen, setPanelOpen] = useState(readPanelPref)
+  // A new conversation on a phone opens on the chat, never on the panel.
+  useEffect(() => {
+    if (!isWide()) setPanelOpen(false)
+  }, [inviteId])
+  const [customReplies, setCustomReplies] = useState<QuickReply[]>(() => loadCustomReplies())
+  const [linkHintHidden, setLinkHintHidden] = useState(() => dismissedLinkHints.has(inviteId))
+  /** The buyer's pick between the free WhatsApp reply and the portal, when both are open. */
+  const [channelChoice, setChannelChoice] = useState<'WHATSAPP' | 'PORTAL' | null>(null)
+  /** Re-read every 30s so the «يتبقى …» countdown moves and a lapsed window closes. */
+  const [clock, setClock] = useState(() => Date.now())
 
   useEffect(() => {
     alive.current = true
@@ -123,6 +239,7 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
     (detail: ConstructionInboxThreadDetail) => {
       if (!alive.current) return
       setThread(detail)
+      detailRef.current?.(inviteId, detail)
       // `older_than` means the server held older messages back; an unread count
       // taken from a partial thread would be a guess, so the list keeps its own.
       if (!detail.older_than) {
@@ -220,6 +337,30 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
     }
   }
 
+  /** «إظهار»: back in the default inbox list. Nothing was ever deleted. */
+  const showAgain = async () => {
+    if (showing) return
+    setShowing(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await setConstructionInboxThreadsVisibility([inviteId], false)
+      try {
+        publish(await getConstructionInboxThread(inviteId))
+      } catch {
+        /* the notice below still says what was done */
+      }
+      if (!alive.current) return
+      setNotice('أُظهرت المحادثة في الوارد.')
+      onVisibilityChange?.(inviteId, false)
+    } catch (err) {
+      if (alive.current) setError(err instanceof Error ? err.message : 'تعذّر إظهار المحادثة.')
+    } finally {
+      if (alive.current) setShowing(false)
+    }
+  }
+  const latestActivity = thread?.supplier_activity_updates?.find((u) => u && u.activity) ?? null
+
   // Newest message in view on open, like any chat app. The pane's own scroller
   // is moved — `scrollIntoView` would also drag the page, which must not scroll.
   const messageCount = thread?.messages.length ?? 0
@@ -242,13 +383,66 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
    * refuses anything else. With no inbound message yet: email when the thread
    * has an address, otherwise Haraj.
    */
-  const replyChannel = useMemo<'EMAIL' | 'HARAJ' | 'WHATSAPP'>(() => {
-    const lastIn = [...(thread?.messages || [])].reverse().find((m) => m.direction === 'INBOUND' && ['EMAIL', 'HARAJ', 'WHATSAPP'].includes(String(m.channel)))
-    if (lastIn) return String(lastIn.channel) as 'EMAIL' | 'HARAJ' | 'WHATSAPP'
+  const defaultChannel = useMemo<'EMAIL' | 'HARAJ' | 'WHATSAPP' | 'PORTAL'>(() => {
+    // The server names the channel it will accept (PORTAL for a supplier with
+    // a live account): follow it, so a portal message is never answered «by email».
+    const serverChannel = String((thread as { reply_channel?: string } | null)?.reply_channel || '').toUpperCase()
     const available = (thread?.send_channels || []).map((c) => String(c.channel))
+    const lastIn = [...(thread?.messages || [])].reverse().find((m) => m.direction === 'INBOUND' && ['EMAIL', 'HARAJ', 'WHATSAPP', 'PORTAL'].includes(String(m.channel)))
+    if (lastIn && String(lastIn.channel) === 'PORTAL') return 'PORTAL'
+    if (serverChannel === 'PORTAL' && (!lastIn || available.includes('PORTAL'))) return 'PORTAL'
+    if (lastIn) return String(lastIn.channel) as 'EMAIL' | 'HARAJ' | 'WHATSAPP'
+    if (available.includes('PORTAL')) return 'PORTAL'
     return available.includes('EMAIL') || !available.includes('HARAJ') ? 'EMAIL' : 'HARAJ'
   }, [thread])
+  const waWindow = whatsappReplyWindow(thread, clock)
+  useEffect(() => {
+    if (!thread?.whatsapp_window_open) return
+    const timer = window.setInterval(() => setClock(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [thread?.whatsapp_window_open])
+  /**
+   * While WhatsApp's 24-hour window is open the reply can go there as plain
+   * text, free. The portal stays a choice when the supplier has an account.
+   */
+  const replyOptions: Array<'WHATSAPP' | 'PORTAL'> = waWindow.open
+    ? ['WHATSAPP', ...((thread?.send_channels || []).some((c) => c.channel === 'PORTAL') ? (['PORTAL'] as const) : [])]
+    : []
+  const replyChannel: 'EMAIL' | 'HARAJ' | 'WHATSAPP' | 'PORTAL' =
+    channelChoice && replyOptions.includes(channelChoice) ? channelChoice : defaultChannel
+  const whatsappClosed = replyChannel === 'WHATSAPP' && !waWindow.open
   const unreadNow = (thread?.messages || []).filter((m) => m.direction === 'INBOUND' && m.unread).length
+  const supplierContext = useSupplierContext(inviteId, rfqId ? String(rfqId) : null, thread ? Boolean(thread.locked) : null, Boolean(thread))
+  const quoteEvents: QuoteEvent[] = supplierContext.model?.quoteEvents || []
+  const requestedLines = supplierContext.model?.lines.length || null
+  const reportedVersion = supplierContext.model ? supplierContext.model.quoteVersion : undefined
+  const quoteVersionRef = useRef(onQuoteVersion)
+  quoteVersionRef.current = onQuoteVersion
+  useEffect(() => {
+    if (reportedVersion !== undefined) quoteVersionRef.current?.(inviteId, reportedVersion)
+  }, [inviteId, reportedVersion])
+  const replyChannelKey = channelKey(replyChannel)
+  const linkForSupplier = conversationLink(thread)
+
+  const togglePanel = () =>
+    setPanelOpen((open) => {
+      writePanelPref(!open)
+      return !open
+    })
+
+  const applyQuickReply = (reply: QuickReply) => {
+    const next = insertQuickReply(text, reply)
+    setText(next)
+    // Put the caret on the blank the buyer still has to fill («…»).
+    requestAnimationFrame(() => {
+      const el = textArea.current
+      if (!el) return
+      el.focus()
+      const blank = next.lastIndexOf(QUICK_REPLY_BLANK)
+      if (blank >= 0) el.setSelectionRange(blank, blank + QUICK_REPLY_BLANK.length)
+      else el.setSelectionRange(next.length, next.length)
+    })
+  }
   /** One switch for every control that would send: permission AND a build that may write. */
   const canCompose = Boolean(thread?.can_reply) && !readOnly
 
@@ -267,28 +461,44 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
     }
   }
 
-  async function handleSend() {
-    if (!canCompose || !thread?.invite_id || !text.trim() || sending) return
+  async function handleSend(fromDraft?: { id: string; text: string }) {
+    const outgoing = fromDraft ? fromDraft.text : text
+    if (!canCompose || !thread?.invite_id || !outgoing.trim() || sending) return
+    // Sent from a suggestion: straight («أرسل») or after «عدّل».
+    const used = fromDraft
+      ? { draft_id: fromDraft.id, draft_edited: false }
+      : draftInBox.current
+        ? { draft_id: draftInBox.current.id, draft_edited: draftInBox.current.original.trim() !== text.trim() }
+        : null
     setSending(true)
     setError(null)
     setNotice(null)
     try {
-      if (replyChannel === 'WHATSAPP') {
-        setError('آخر رسالة من المورد وصلت على واتساب — الرد عليه يكون من تطبيق واتساب نفسه.')
+      if (replyChannel === 'WHATSAPP' && !waWindow.open) {
+        setError(`${WHATSAPP_WINDOW_CLOSED_AR}.`)
         return
       }
-      if (replyChannel === 'HARAJ' && files.length) {
+      if (replyChannel === 'WHATSAPP' && files.length && !fromDraft) {
+        setError('الرد على واتساب نصي فقط — أزل المرفقات أو أرسلها بالبريد.')
+        return
+      }
+      if (replyChannel === 'PORTAL' && files.length && !fromDraft) {
+        setError('رد المنصة نصي حالياً — أزل المرفقات.')
+        return
+      }
+      if (replyChannel === 'HARAJ' && files.length && !fromDraft) {
         setError('هذه المحادثة تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.')
         return
       }
-      const attachments = files.length ? await readConstructionInboxAttachments(files) : []
+      const attachments = files.length && !fromDraft ? await readConstructionInboxAttachments(files) : []
       const result = await replyToConstructionInboxThread(String(thread.invite_id), {
-        channel: replyChannel === 'HARAJ' ? 'HARAJ' : 'EMAIL',
+        channel: replyChannel === 'EMAIL' ? 'EMAIL' : replyChannel,
         idempotency_key: crypto.randomUUID(),
-        text: text.trim(),
+        text: outgoing.trim(),
         parent_message_id: thread.last_message_id ?? null,
         attachments,
-        include_items: includeItems,
+        include_items: fromDraft ? false : includeItems,
+        ...(used ? used : {}),
       })
       const state = String(result.state || '').toUpperCase()
       setNotice(
@@ -299,10 +509,14 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
             : `نتيجة الإرسال غير مؤكدة (${result.failure_code || state}) — راجع بريد info@ قبل إعادة الإرسال.`,
       )
       if (state === 'SENT') {
-        setText('')
-        setFiles([])
-        setIncludeItems(false)
-        if (fileInput.current) fileInput.current.value = ''
+        if (used) setClosedDrafts((prev) => new Set(prev).add(used.draft_id))
+        draftInBox.current = null
+        if (!fromDraft) {
+          setText('')
+          setFiles([])
+          setIncludeItems(false)
+          if (fileInput.current) fileInput.current.value = ''
+        }
       }
       await load(false)
     } catch (err) {
@@ -311,6 +525,23 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
       )
     } finally {
       if (alive.current) setSending(false)
+    }
+  }
+
+  function handleEditDraft(id: string, suggestion: string) {
+    draftInBox.current = { id, original: suggestion }
+    setText(suggestion)
+    requestAnimationFrame(() => textArea.current?.focus())
+  }
+
+  async function handleDismissDraft(id: string) {
+    if (!thread?.invite_id) return
+    setClosedDrafts((prev) => new Set(prev).add(id))
+    if (draftInBox.current?.id === id) draftInBox.current = null
+    try {
+      await dismissConstructionInboxDraft(String(thread.invite_id), id)
+    } catch {
+      // Closed here either way; the server keeps it open and shows it on the next read.
     }
   }
 
@@ -340,6 +571,14 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
   let lastDay = ''
   let lastSender = ''
   const now = Date.now()
+  // Quote cards sit in the chat at the moment each version arrived. Undated
+  // ones go after the last message rather than at an invented time.
+  let pendingQuotes = thread?.locked
+    ? []
+    : quoteEvents
+        .map((event) => ({ event, ts: event.at ? Date.parse(event.at) : Number.POSITIVE_INFINITY }))
+        .map((q) => (Number.isNaN(q.ts) ? { ...q, ts: Number.POSITIVE_INFINITY } : q))
+        .sort((a, b) => a.ts - b.ts)
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -377,6 +616,11 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
               </span>
             )}
             {thread?.owner_name && <span>المسؤول: {thread.owner_name}</span>}
+            {latestActivity && (
+              <span className="truncate" title={latestActivity.at ? `من رد المورد ${latestActivity.at.slice(0, 10)}` : 'من رد المورد'}>
+                يبيع: <bdi className="font-bold text-[#0D1F1D]">{latestActivity.activity}</bdi>
+              </span>
+            )}
           </div>
         </div>
         {thread && !thread.locked && thread.messages.some((m) => m.direction === 'INBOUND') && (
@@ -393,6 +637,18 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
             {selecting ? 'إنهاء التحديد' : 'تحديد'}
           </button>
         )}
+        {thread && rfqId && (
+          <button
+            type="button"
+            aria-pressed={panelOpen}
+            onClick={togglePanel}
+            className={`flex-shrink-0 text-[11px] font-bold border rounded-xl px-3 py-1.5 ${
+              panelOpen ? 'bg-farq text-white border-farq' : 'text-[#123F3A] border-neutral-200 hover:border-[#123F3A]/40'
+            }`}
+          >
+            ملخص المورد
+          </button>
+        )}
         {rfqId && !requestScoped && (
           <button
             type="button"
@@ -403,6 +659,34 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
           </button>
         )}
       </div>
+
+      {thread?.hidden && (
+        <div className="flex-shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 bg-neutral-50 border-b border-neutral-200 text-xs">
+          <span className="text-neutral-700 leading-relaxed">
+            {thread.hidden_reason === 'SUPPLIER_DECLINED'
+              ? 'هذه المحادثة مخفية من الوارد: رد المورد بأنه لا يوفّر المطلوب. لم يُحذف شيء، وتعود وحدها إذا كتب من جديد.'
+              : 'هذه المحادثة مخفية من الوارد. لم يُحذف شيء، وتعود وحدها إذا كتب المورد من جديد.'}
+          </span>
+          <span className="flex-1" />
+          <button
+            type="button"
+            disabled={showing || readOnly}
+            onClick={() => void showAgain()}
+            className="px-3 py-1.5 rounded-lg bg-white border border-neutral-200 font-bold text-[#123F3A] disabled:opacity-40"
+          >
+            إظهار
+          </button>
+        </div>
+      )}
+
+      {thread && (thread.phone_do_not_contact || (thread.send_skips?.length ?? 0) > 0) && (
+        <div className="flex-shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 sm:px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-900">
+          {thread.phone_do_not_contact && <span className="font-bold">{thread.phone_do_not_contact.label_ar}</span>}
+          {[...new Set((thread.send_skips ?? []).map((skip) => skip.label_ar))].slice(0, 2).map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+        </div>
+      )}
 
       {selecting && thread && (
         <div className="flex-shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 bg-[#f0faf7] border-b border-[#d7efe6] text-xs">
@@ -449,6 +733,24 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
         </div>
       )}
 
+      <div className="flex-1 min-h-0 flex relative">
+      {panelOpen && thread && rfqId && (
+        <div className="absolute inset-0 z-20 xl:static xl:z-auto xl:w-[320px] xl:flex-shrink-0 xl:border-e border-neutral-200 bg-white">
+          <SupplierPanel
+            model={supplierContext.model}
+            loading={supplierContext.loading}
+            partial={supplierContext.partial}
+            rfqId={String(rfqId)}
+            requestedLines={itemPackage?.line_count ?? null}
+            accountStatus={
+              (thread as ConstructionInboxThreadDetail & { supplier_account_status?: string | null }).supplier_account_status ?? null
+            }
+            onClose={togglePanel}
+            onOpenRfq={onOpenRfq}
+          />
+        </div>
+      )}
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
       {/* Messages */}
       <div ref={scroller} style={WALLPAPER} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-6 py-4">
         {loading && !thread && <ChatSkeleton />}
@@ -479,6 +781,19 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
             هذا الطلب بظرف مختوم — الرسائل والمرفقات مخفية حتى فتح المظاريف.
           </div>
         )}
+        {thread?.locked && quoteEvents.length > 0 && (
+          <div className="flex flex-col items-center gap-2 mt-3">
+            {quoteEvents.map((event) => (
+              <QuoteCard
+                key={event.id}
+                event={event}
+                sealed
+                lineCount={requestedLines}
+                onOpen={rfqId ? () => (onOpenQuote ? onOpenQuote(String(rfqId), inviteId) : onOpenRfq(String(rfqId))) : undefined}
+              />
+            ))}
+          </div>
+        )}
 
         {thread && !thread.locked && (
           <div className="flex flex-col max-w-4xl mx-auto">
@@ -496,8 +811,16 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
               const leadsGroup = showDay || sender !== lastSender
               lastSender = sender
               const key = `${message.direction}-${message.id}`
+              const at = message.created_at ? Date.parse(message.created_at) : NaN
+              const cardsBefore = Number.isNaN(at) ? [] : pendingQuotes.filter((q) => q.ts < at)
+              if (cardsBefore.length) pendingQuotes = pendingQuotes.filter((q) => q.ts >= at)
               return (
                 <div key={key} className="flex flex-col">
+                  {cardsBefore.map(({ event }) => (
+                    <div key={`quote-${event.id}`} className="self-start my-2 w-full flex justify-start">
+                      <QuoteCard event={event} sealed={false} lineCount={requestedLines} onOpen={rfqId ? () => (onOpenQuote ? onOpenQuote(String(rfqId), inviteId) : onOpenRfq(String(rfqId))) : undefined} />
+                    </div>
+                  ))}
                   {showDay && (
                     <div className="self-center my-3 rounded-full bg-white/90 shadow-[0_1px_1px_rgba(13,31,29,0.06)] text-neutral-600 text-[10px] font-bold px-3 py-1">
                       {day}
@@ -527,7 +850,12 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
                 </div>
               )
             })}
-            {thread.messages.length === 0 && (
+            {pendingQuotes.map(({ event }) => (
+              <div key={`quote-${event.id}`} className="self-start my-2 w-full flex justify-start">
+                <QuoteCard event={event} sealed={false} lineCount={requestedLines} onOpen={rfqId ? () => (onOpenQuote ? onOpenQuote(String(rfqId), inviteId) : onOpenRfq(String(rfqId))) : undefined} />
+              </div>
+            ))}
+            {thread.messages.length === 0 && quoteEvents.length === 0 && (
               <div className="self-center mt-10 rounded-2xl bg-white/90 px-4 py-3 text-sm text-neutral-500">
                 لا رسائل في هذه المحادثة بعد.
               </div>
@@ -585,12 +913,113 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
             </div>
           )}
 
+          {whatsappClosed && (
+            <div className="rounded-xl bg-amber-50 text-amber-900 text-[11px] px-3 py-2 mb-2">
+              {WHATSAPP_WINDOW_CLOSED_AR}.
+            </div>
+          )}
+
+          {whatsappClosed && !linkHintHidden && (
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-mint bg-[#F1FBF5] px-4 py-3 mb-2">
+              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-white text-mint-700 flex items-center justify-center" aria-hidden="true">
+                <LinkIcon className="w-4 h-4" />
+              </span>
+              <p className="flex-1 min-w-48 text-xs text-mint-700 leading-relaxed">
+                {supplierName} كتب لك على واتساب. أرسل له رابط المحادثة بدل الرد على واتساب — الرد هنا مجاني ويبقى مع الطلب.
+                {!linkForSupplier && (
+                  <span className="block text-[11px] text-neutral-500 mt-0.5">
+                    رابط المحادثة لهذا المورد غير متاح من الخادم بعد — انسخه من ملف الطلب عند توفره.
+                  </span>
+                )}
+              </p>
+              {linkForSupplier && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await copyText(linkForSupplier)
+                    setNotice(ok ? 'نُسخ رابط المحادثة — الصقه للمورد في واتساب.' : null)
+                    if (!ok) setError('تعذّر النسخ تلقائياً — انسخ الرابط يدوياً: ' + linkForSupplier)
+                  }}
+                  className="rounded-xl bg-farq text-white text-xs font-bold px-4 py-2"
+                >
+                  انسخ رابط المحادثة
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  dismissedLinkHints.add(inviteId)
+                  setLinkHintHidden(true)
+                }}
+                className="text-xs font-bold text-[#0D1F1D] hover:underline"
+              >
+                لاحقاً
+              </button>
+            </div>
+          )}
+
+          {/* «فهم الرسالة»: the pipeline's reading and its drafts (server flag; nothing without it). */}
+          <InboxAiPanel inviteId={String(thread.invite_id)} refreshKey={thread.last_message_id} readOnly={!thread.can_reply} />
+
+          {(() => {
+            const draft = visibleReplyDraft(thread, closedDrafts)
+            if (!draft || !thread.can_reply) return null
+            return (
+              <ReplyDraftCard
+                draft={draft}
+                disabled={!canCompose || whatsappClosed}
+                busy={sending}
+                onSend={(suggestion) => void handleSend({ id: draft.id, text: suggestion })}
+                onEdit={(suggestion) => handleEditDraft(draft.id, suggestion)}
+                onDismiss={() => void handleDismissDraft(draft.id)}
+              />
+            )
+          })()}
+
+          {canCompose && (
+            <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-0.5">
+              <span className="flex-shrink-0 text-[11px] text-neutral-500">ردود جاهزة:</span>
+              {[...DEFAULT_QUICK_REPLIES, ...customReplies].map((reply) => (
+                <span key={reply.id} className="flex-shrink-0 inline-flex items-center rounded-full bg-white border border-neutral-200 hover:border-farq/40">
+                  <button
+                    type="button"
+                    disabled={sending}
+                    title={reply.text}
+                    onClick={() => applyQuickReply(reply)}
+                    className="ps-3 pe-3 py-1.5 text-xs font-bold text-[#0D1F1D] disabled:opacity-40"
+                  >
+                    {reply.label}
+                  </button>
+                  {reply.custom && (
+                    <button
+                      type="button"
+                      aria-label={`حذف الرد «${reply.label}»`}
+                      onClick={() => setCustomReplies(removeCustomReply(reply.id))}
+                      className="-ms-1.5 me-1.5 w-4 h-4 rounded-full flex items-center justify-center text-neutral-400 hover:text-red-600"
+                    >
+                      <XIcon className="w-3 h-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+              <button
+                type="button"
+                disabled={!text.trim()}
+                title={text.trim() ? 'احفظ النص المكتوب كرد جاهز' : 'اكتب الرد أولاً ثم احفظه'}
+                onClick={() => setCustomReplies(addCustomReply(text))}
+                className="flex-shrink-0 px-2 py-1.5 text-xs font-bold text-farq disabled:opacity-40 hover:underline"
+              >
+                + أضف رد
+              </button>
+            </div>
+          )}
+
           <div className="flex items-end gap-2">
             <label
               className={`flex-shrink-0 w-10 h-10 rounded-full border border-neutral-200 bg-white flex items-center justify-center text-sm cursor-pointer hover:border-[#123F3A]/40 ${
-                !canCompose || sending ? 'opacity-50 pointer-events-none' : ''
+                !canCompose || sending || replyChannel === 'WHATSAPP' ? 'opacity-50 pointer-events-none' : ''
               }`}
-              title={`إرفاق ملفات (حتى ${INBOX_ATTACHMENT_MAX_FILES})`}
+              title={replyChannel === 'WHATSAPP' ? 'الرد على واتساب نصي فقط' : `إرفاق ملفات (حتى ${INBOX_ATTACHMENT_MAX_FILES})`}
             >
               📎
               <input
@@ -598,13 +1027,14 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
                 type="file"
                 multiple
                 className="hidden"
-                disabled={!canCompose || sending}
+                disabled={!canCompose || sending || replyChannel === 'WHATSAPP'}
                 onChange={(event) =>
                   setFiles(Array.from(event.target.files || []).slice(0, INBOX_ATTACHMENT_MAX_FILES))
                 }
               />
             </label>
             <textarea
+              ref={textArea}
               value={text}
               onChange={(event) => setText(event.target.value)}
               onKeyDown={(event) => {
@@ -618,8 +1048,8 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
             />
             <button
               type="button"
-              disabled={!canCompose || sending || !text.trim()}
-              onClick={handleSend}
+              disabled={!canCompose || sending || !text.trim() || whatsappClosed}
+              onClick={() => void handleSend()}
               className="flex-shrink-0 h-10 rounded-full bg-[#123F3A] text-white text-xs font-bold px-5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {sending ? '…' : 'إرسال'}
@@ -627,6 +1057,39 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+            {replyOptions.length > 1 && canCompose && (
+              <span role="radiogroup" aria-label="قناة الرد" className="inline-flex items-center rounded-full border border-neutral-200 bg-white p-0.5">
+                {replyOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={replyChannel === option}
+                    disabled={sending}
+                    onClick={() => setChannelChoice(option)}
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      replyChannel === option ? 'bg-[#123F3A] text-white' : 'text-[#0D1F1D]'
+                    }`}
+                  >
+                    {option === 'WHATSAPP' ? 'واتساب (مجاني خلال 24 ساعة)' : 'محادثة المنصة'}
+                  </button>
+                ))}
+              </span>
+            )}
+            {replyChannelKey && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] text-neutral-500">
+                <ChannelBadge channel={replyChannelKey} />
+                {replyChannel === 'WHATSAPP'
+                  ? waWindow.open
+                    ? `واتساب (مجاني خلال 24 ساعة)${waWindow.remainingAr ? ` — ${waWindow.remainingAr}` : ''} · نص فقط`
+                    : 'نافذة الرد المجاني على واتساب مغلقة'
+                  : replyChannel === 'HARAJ'
+                    ? 'يصله ردك في نفس المحادثة'
+                    : replyChannel === 'PORTAL'
+                      ? 'يصله ردك في محادثة المنصة — بدون تكلفة'
+                      : 'يصله ردك على إيميله'}
+              </span>
+            )}
             <label className="inline-flex items-center gap-1.5 text-[11px] text-neutral-700">
               <input
                 type="checkbox"
@@ -662,6 +1125,8 @@ export function ChatPane({ inviteId, onBack, onOpenRfq, onUnreadKnown, requestSc
           )}
         </div>
       )}
+      </div>
+      </div>
     </div>
   )
 }

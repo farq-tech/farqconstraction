@@ -5,6 +5,7 @@ import { useProcurement } from '../procurementContext'
 import {
   formatArDate,
   formatRfqReference,
+  inboxUnreadConversations,
   listConstructionInboxMessages,
   markConstructionInboxMessageRead,
   type ConstructionInboxMessage,
@@ -71,6 +72,8 @@ export function NotificationsDrawer({ onClose, navigate, onUnreadChange }: Notif
   const [messages, setMessages] = useState<ConstructionInboxMessage[]>([])
   // null = the server has not told us (loading or failed). Never rendered as a number.
   const [unreadCount, setUnreadCount] = useState<number | null>(null)
+  /** The count is of conversations (current API), not of messages (older API). */
+  const [countsConversations, setCountsConversations] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -85,9 +88,11 @@ export function NotificationsDrawer({ onClose, navigate, onUnreadChange }: Notif
       .then((page) => {
         if (cancelled) return
         setMessages(page.messages || [])
-        setUnreadCount(page.unread_count ?? 0)
+        const unread = inboxUnreadConversations(page)
+        setUnreadCount(unread.count)
+        setCountsConversations(unread.conversations)
         setHasMore(Boolean(page.next_cursor))
-        onUnreadChange?.(page.unread_count ?? 0)
+        onUnreadChange?.(unread.count)
         setNow(Date.now())
         setError(null)
       })
@@ -138,7 +143,12 @@ export function NotificationsDrawer({ onClose, navigate, onUnreadChange }: Notif
       try {
         await markConstructionInboxMessageRead(message.id)
         setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...m, unread: false } : m)))
-        if (unreadCount !== null) {
+        if (countsConversations) {
+          // One message read need not close its conversation: ask the server.
+          void listConstructionInboxMessages()
+            .then((page) => onUnreadChange?.(inboxUnreadConversations(page).count))
+            .catch(() => {})
+        } else if (unreadCount !== null) {
           const nextUnread = Math.max(0, unreadCount - 1)
           setUnreadCount(nextUnread)
           onUnreadChange?.(nextUnread)
@@ -169,7 +179,7 @@ export function NotificationsDrawer({ onClose, navigate, onUnreadChange }: Notif
     : error
       ? 'تعذّر التحميل — العدد غير معروف'
       : unreadCount !== null && unreadCount > 0
-        ? `${unreadCount} غير مقروءة · الأحدث أولًا`
+        ? `${unreadCount} ${countsConversations ? 'محادثة غير مقروءة' : 'غير مقروءة'} · الأحدث أولًا`
         : messages.length > 0
           ? 'كلها مقروءة · الأحدث أولًا'
           : 'لا جديد'

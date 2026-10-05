@@ -403,7 +403,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v11')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v21')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -542,9 +542,9 @@ describe('no field may imply a family the resolution does not have', () => {
   const LINES = [
     'توريد كاميرا مراقبة IP 4 MP', // A
     'توريد لوحة توزيع كهربائية رئيسية 1600A', // B, real family
-    'توريد لوح تنظيم أدوات Pegboard Steel', // B, semantic recovery
-    'توريد منشار شريطي معدني Band Saw', // B, semantic recovery
-    'Pegboard Steel', // C
+    'توريد لوح رسم رقمي احترافي', // B, semantic recovery
+    'توريد ماسح كتب Overhead Scanner', // B, semantic recovery
+    'جهاز فرز مستندات بالباركود', // C
     'أجور تركيب فقط بدون مواد', // C, rejected
   ]
 
@@ -573,18 +573,18 @@ describe('no field may imply a family the resolution does not have', () => {
 
   it('the B value is not named after a field that may be null', () => {
     // Guards the rename: `level: 'family'` was the misleading field.
-    const r = resolve('توريد لوح تنظيم أدوات Pegboard Steel')
+    const r = resolve('توريد لوح رسم رقمي احترافي')
     expect(r.level).toBe('local_resolved')
     expect(r.level).not.toBe('family')
     expect(r.family).toBeNull()
   })
 
   it('a semantic recovery carries no family, no pool key and no archetypes', () => {
-    // «Pegboard Steel» must NOT become translucent_roofing just because the weak
-    // term «لوح» belongs to that family — nor Band Saw become hand_tools.
+    // «لوح رسم رقمي» must NOT become translucent_roofing just because the weak
+    // term «لوح» belongs to that family — nor a bare «ماسح» become a document scanner.
     for (const line of [
-      'توريد لوح تنظيم أدوات Pegboard Steel',
-      'توريد منشار شريطي معدني Band Saw',
+      'توريد لوح رسم رقمي احترافي',
+      'توريد ماسح كتب Overhead Scanner',
     ]) {
       const r = resolve(line)
       expect(r.source).toBe('semantic_recovery')
@@ -605,9 +605,9 @@ describe('no field may imply a family the resolution does not have', () => {
 
   it('recovered lines never share a pool with a confident family', () => {
     const batch = resolveOntologyBatch([
-      'توريد لوح تنظيم أدوات Pegboard Steel',
+      'توريد لوح رسم رقمي احترافي',
       'توريد لوح بولي كربونيت شفاف للسقف',
-      'توريد منشار شريطي معدني Band Saw',
+      'توريد ماسح كتب Overhead Scanner',
     ])
     const [pegboard, polycarbonate, bandsaw] = batch.lines.map((l) => l.resolution)
     expect(polycarbonate!.family).toBe('translucent_roofing')
@@ -630,8 +630,8 @@ describe('no field may imply a family the resolution does not have', () => {
     const batch = resolveOntologyBatch([
       'توريد كاميرا مراقبة IP 4 MP',
       'توريد لوحة توزيع كهربائية رئيسية 1600A',
-      'توريد لوح تنظيم أدوات Pegboard Steel',
-      'Pegboard Steel',
+      'توريد لوح رسم رقمي احترافي',
+      'جهاز فرز مستندات بالباركود',
     ])
     const recoveries = batch.family_by_method.semantic_recovery
     expect(recoveries).toBe(1)
@@ -1387,7 +1387,7 @@ describe('generalization: unseen variants resolve without literal aliases', () =
     ['توريد وتركيب تجليد جدران HPL خارجي', 'surface_cladding'],
     ['توريد كسوة أعمدة ألوكبوند 4 مم', 'column_cladding'],
     ['توريد حنفية حريق تحت الأرض UL/FM', 'fire_hydrant'],
-    ['توريد مضخة غاطسة للنزح 15 kW', 'industrial_pump'],
+    ['توريد مضخة غاطسة للنزح 15 kW', 'submersible_pump'],
     ['توريد متر ليزر مدى 100 م دقة ±1 مم', 'laser_distance_meter'],
   ])('%s -> %s', (line, intent) => {
     expect(resolve(line).intent).toBe(intent)
@@ -1969,7 +1969,7 @@ describe('an opener is not part of the value it introduces', () => {
     ['Rescue Kit Height 30m', 'rescue_kit'],
     ['Digital Thickness Gauge 0-25mm', 'precision_gauge'],
     ['اسمنت مادة رابطة', 'concrete_repair'],
-    ['خرسانة مادة معالجة', 'concrete_repair'],
+    ['خرسانة مادة معالجة', 'curing_compound'],
   ] as const) {
     it(`decides away from position 0: ${line}`, () => {
       expect(resolveOntology(line).intent).toBe(expected)
@@ -2575,4 +2575,116 @@ describe('cpo-v11: sibling intents that share a word never share a pool', () => 
       expect(`${ra.family}/${ra.intent}`).not.toBe(`${rb.family}/${rb.intent}`)
     })
   }
+})
+
+/**
+ * cpo-v12. The owner, 1 Oct 2026, after the first two booklets' round:
+ * «الفيشر، فوم PU، غراء التلامس، وجسر C — أوافق تضيفها للتصنيف». Four of the
+ * six PR-580 / PR-H288 materials without an intent fell to the model lane or
+ * to their own words; every line below is the booklet's own text.
+ */
+describe('cpo-v12: the four materials the first booklets named and the ontology did not', () => {
+  const cases: Array<[string, string]> = [
+    ['PVC Fisher 6mm', 'wall_plug'],
+    ['فيشر بلاستيك PVC مقاس 6 مم', 'wall_plug'],
+    ['Fire-rated PU foam', 'pu_foam'],
+    ['فوم مقاوم للحريق (فاير ريتد)', 'pu_foam'],
+    ['PU spray foam, large can', 'pu_foam'],
+    ['فوم إسبراي (بخاخ) — حجم كبير', 'pu_foam'],
+    ['Abu Jamal contact adhesive', 'contact_adhesive'],
+    ['غراء أبو جمل', 'contact_adhesive'],
+    ['Galvanized steel main channel (C) for suspended ceiling', 'ceiling_suspension_channel'],
+    ['جسر تعليق رئيسي حديد مجلفن / حرف C', 'ceiling_suspension_channel'],
+    // The omega furring channel stays the drywall framing it always was.
+    ['Omega furring channel for gypsum board (W)', 'drywall_framing'],
+    ['جسر تعليق أوميجا للجبس بورد / W', 'drywall_framing'],
+  ]
+  for (const [line, intent] of cases) {
+    it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+  }
+
+  it('their neighbours keep their own intents', () => {
+    expect(resolve('غراء بلاط').intent).toBe('tile_grout_adhesive')
+    expect(resolve('سيليكون شفاف').intent).toBe('construction_sealant')
+    expect(resolve('Fire rated sealant').intent).toBe('construction_sealant')
+    expect(resolve('قطاع C حديد 100 مم').intent).toBe('cold_formed_section')
+    expect(resolve('برغي مقاس 6 مم').intent).toBe('bolt_screw')
+  })
+})
+
+/**
+ * cpo-v13. The owner, 2 Oct 2026, on the evidence-ranking audit: seven
+ * common materials resolved to their family only (PPR, copper cable, LED
+ * floodlight, valves, wall paint, smoke detector, rebar), so their lines were
+ * matched on family terms and the line's own words. Each is now an intent.
+ */
+describe('cpo-v13: seven common materials that were family-only', () => {
+  const cases: Array<[string, string]> = [
+    ['ماسورة PPR PN20 قطر 32 مم', 'ppr_pipe'],
+    ['مواسير بي بي ار 25 مم', 'ppr_pipe'],
+    ['كابل كهرباء نحاس 4x16 مم', 'lv_power_cable'],
+    ['كابل كهرباء مقاوم للحريق 2x2.5', 'fire_resistant_cable'],
+    ['كابل تحكم 12 كور', 'control_cable'],
+    ['كشاف LED 50 واط', 'floodlight'],
+    ['محبس كرة نحاس 1 بوصة', 'ball_valve'],
+    ['محبس بوابة 2 بوصة', 'gate_valve'],
+    ['صمام تحكم كهربائي', 'control_valve'],
+    ['دهان جدران داخلي بلاستيك', 'interior_wall_paint'],
+    ['دهان ايبوكسي للارضيات', 'epoxy_floor_coating'],
+    ['كاشف دخان', 'smoke_heat_detector'],
+    ['لوحة انذار حريق معنونة', 'fire_alarm_panel'],
+    ['حديد تسليح 16 مم', 'rebar'],
+    ['شبك تسليح ملحوم', 'welded_mesh'],
+    ['حديد زاوية 50', 'structural_steel_section'],
+  ]
+  for (const [line, intent] of cases) {
+    it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+  }
+})
+
+/**
+ * cpo-v14 — the widening the owner asked for on 3 Oct 2026: every material a Saudi
+ * booklet commonly buys reaches its own intent under the names buyers write
+ * (formal, colloquial, English, transliterated, misspelled). The probes are the
+ * contract: positive lines per new intent, and the collisions each trade feared.
+ */
+describe('cpo-v14: the wider dictionary keeps its probes', () => {
+  const { probes } = JSON.parse(
+    readFileSync(new URL('../../fixtures/ontology/cpo-v14-probes.json', import.meta.url), 'utf8'),
+  ) as {
+    probes: Array<{
+      line: string
+      expect_intent?: string
+      expect_family?: string
+      expect_not_intent?: string
+      expect_not_family?: string
+    }>
+  }
+  it('has a probe set', () => expect(probes.length).toBeGreaterThan(700))
+  for (const p of probes) {
+    it(p.line, () => {
+      const r = resolveOntology(p.line)
+      if (p.expect_intent) expect(r.intent, p.line).toBe(p.expect_intent)
+      if (p.expect_family) expect(r.family, p.line).toBe(p.expect_family)
+      if (p.expect_not_intent) expect(r.intent, p.line).not.toBe(p.expect_not_intent)
+      if (p.expect_not_family) expect(r.family, p.line).not.toBe(p.expect_not_family)
+    })
+  }
+})
+
+/** cpo-v16. Four misroutes a 60-line random review of cpo-v15 found (7 %). */
+describe('cpo-v16: fuel tanks, indoor signage, parking sensors, and a ceiling that is only a location', () => {
+  const cases: Array<[string, string | null]> = [
+    ['الخزانات الارضية واليومية لتزويد المولدات الوقود', 'fuel_tank'],
+    ['خزان ديزل يومي 1000 لتر للمولد', 'fuel_tank'],
+    ['مولد ديزل 500 كيلو فولت امبير', 'diesel_genset'],
+    ['لوحات ارشادية داخلية حسب مواصفات التصميم الداخلي', 'wayfinding_signage'],
+    ['لوحات مرورية تحذيرية', 'traffic_sign'],
+    ['حساس موقف فوقي', 'parking_guidance_sensor'],
+    ['بلاطة سقف مستعار 60×60 ألياف معدنية', 'acoustic_ceiling_tile'],
+  ]
+  for (const [line, intent] of cases) it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
+  it('a fragment that only locates something above the ceiling does not buy a ceiling', () => {
+    expect(resolve('بكابلات مثبت فوق السقف المستعار').intent).not.toBe('acoustic_ceiling_tile')
+  })
 })

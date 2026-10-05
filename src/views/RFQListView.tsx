@@ -77,13 +77,22 @@ export function RFQListView({ navigate }: NavProps) {
           <h1 className="text-3xl font-black text-[#0D1F1D]">الطلبات</h1>
           <p className="text-neutral-500 text-sm mt-1">{allRfqs.length} طلبات</p>
         </div>
-        <button
-          onClick={() => navigate('create-upload')}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm"
-        >
-          <PlusIcon className="w-4 h-4" />
-          طلب جديد
-        </button>
+        <div className="flex items-center gap-2">
+          {/* The same booklet sent as several requests, compared as one. */}
+          <button
+            onClick={() => navigate('booklets')}
+            className="px-4 py-2.5 border border-neutral-200 text-[#123F3A] font-bold rounded-xl hover:bg-neutral-50 transition-colors text-sm whitespace-nowrap"
+          >
+            الكراسات
+          </button>
+          <button
+            onClick={() => navigate('create-upload')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl hover:bg-[#1a5c54] transition-colors text-sm whitespace-nowrap"
+          >
+            <PlusIcon className="w-4 h-4" />
+            طلب جديد
+          </button>
+        </div>
       </div>
 
       <div className="relative mb-4">

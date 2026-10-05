@@ -2,11 +2,14 @@ export type AppView =
   | 'login'
   | 'home'
   | 'material-prices'
+  | 'tenders'
   | 'create-upload'
   | 'create-proposals'
   | 'sent'
   | 'sent-failure'
   | 'rfq-list'
+  | 'booklets'
+  | 'booklet-detail'
   | 'rfq-detail'
   | 'rfq-closed'
   | 'offers'
@@ -24,12 +27,26 @@ export type AppView =
   | 'inbox'
   | 'inbox-thread'
   | 'invite'
+  | 'services'
+  | 'join'
+  | 'supplier-joins'
 
 /**
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
  * catalog returned the supplier and nothing says how strong the link is.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات'
+
+/**
+ * What the supplier did with this material in earlier rounds (server:
+ * supplier-round-outcomes.js): priced it, answered about it, priced a material
+ * sold with it, priced a sibling, or resembles those who priced it.
+ */
+export type RoundOutcome = {
+  grade: 'PRICED' | 'ANSWERED' | 'ALSO_SELLS' | 'FAMILY_PRICED' | 'SIMILAR'
+  pricedLines?: number
+  similarBy?: string
+}
 export type ChannelType = 'بريد' | 'واتساب' | 'محادثة'
 
 export interface Supplier {
@@ -40,6 +57,17 @@ export interface Supplier {
   channel: ChannelType
   /** The buyer chose this supplier for this material before. */
   learned?: boolean
+  /**
+   * «مقدّم عروض سابقاً»: he priced this material (or its line, or its trade)
+   * for this company before — the number of requests he priced. The API ranks
+   * him first inside the line's own list; the auto-pick takes him by default.
+   */
+  priorQuotes?: number
+  roundOutcome?: RoundOutcome
+  /** Why the map lists him for this material, in the server's words («الاسم: «للبلوك»»). */
+  why?: string
+  /** His city is known and is not the request's city. */
+  outOfCity?: boolean
 }
 
 export interface BOQItem {
@@ -72,10 +100,58 @@ export interface BOQItem {
   familySuggestion?: { family: string; suppliers: Supplier[] }
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
   learnedSuggestion?: { suppliers: Supplier[] }
+  /** «نتائج الجولات»: who priced this material before, then who answered, sells it alongside, or resembles them. Never preselected by the server. */
+  outcomeSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */
   workOnly?: boolean
+  /**
+   * «سجل العرض»: the id of the match call that produced this line's lists. Sent
+   * on the line's package so «shown → chosen → quoted» can be measured.
+   */
+  exposureId?: string
+  /** The suppliers the screen ticked by itself (autoPickConfident), as opposed to the buyer's hand. */
+  autoPickedSupplierIds?: string[]
   /** The item code the booklet prints for this row. */
   itemCode?: string
+  /**
+   * «الاسم الدارج بالسوق (اقتراح)»: the reader's suggestion, which the buyer may
+   * edit or clear before sending. Sent beside the booklet text (`name`), never
+   * instead of it. Undefined: the reader had none. '': the buyer cleared it.
+   */
+  marketName?: string
+  /**
+   * 'memory': `marketName` came from the market-name memory (a name a buyer
+   * sent, or the reader proposed, for the same booklet wording before) — shown
+   * as «محفوظ من طلب سابق». Absent: the reader's own suggestion, or none.
+   */
+  marketNameSource?: 'memory'
+  /**
+   * «بطاقة المواصفة»: brand, size, sale unit, photo link… filled by the buyer
+   * before sending. Sent as the line's `spec_card`; undefined sends nothing.
+   */
+  specCard?: import('./lib/specCard').SpecCard
+  /**
+   * How the line entered the request: read from a booklet (absent means the
+   * same), found with «ابحث عن منتج», pasted as a product link, or typed.
+   * All of them sit in one cart and go through one send.
+   */
+  origin?: 'booklet' | 'search' | 'url' | 'manual'
+  /** Added or edited since the last supplier match; matched on «متابعة لاختيار الموردين». */
+  needsMatch?: boolean
+  /**
+   * What the internet said the product IS — for the buyer's cart only, never
+   * sent and never a price. The line's name, spec and spec card carry what
+   * the supplier reads.
+   */
+  productRef?: {
+    brand?: string
+    model?: string
+    imageUrl?: string
+    sourceName?: string
+    sourceUrl?: string
+    /** «استخدم مواصفاته فقط»: the brand is not required. */
+    genericOnly?: boolean
+  }
   /**
    * The ontology NAMED this material and Farq's intent→supplier map was read
    * for that name. Not a catalogue match: `farqSpecId` stays unset and nothing
@@ -132,6 +208,14 @@ export interface SupplierEntry {
   sourceSystem?: string
   /** The upload that created this row — null for everything the sweeps found. */
   importBatchId?: string | null
+  /** Other directory rows on the same WhatsApp number (a link, never a merge). */
+  phoneDuplicates?: SupplierPhoneDuplicates | null
+}
+
+export interface SupplierPhoneDuplicates {
+  /** This row stands for the number; the others are linked to it. */
+  isCanonical: boolean
+  others: Array<{ id: string; name: string; city: string | null; canonical: boolean }>
 }
 
 export interface NavProps {

@@ -12,6 +12,7 @@ import {
   requestProgress,
   requestState,
   supplierState,
+  providerDeliveryLabel,
   taxLabel,
   leadTimeLabel,
 } from './requestFile'
@@ -22,7 +23,7 @@ const invite = (over: Partial<ConstructionInvitation>): ConstructionInvitation =
 describe('request status', () => {
   it('maps the server status and the award, never the deadline copy', () => {
     expect(requestState({ status: 'SENT', submission_closed_at: null, award: null }).label).toBe('بانتظار العروض')
-    expect(requestState({ status: 'SENT', submission_closed_at: '2026-09-19T10:00:00Z', award: null }).label).toBe('مغلق')
+    expect(requestState({ status: 'SENT', submission_closed_at: '2026-09-19T10:00:00Z', award: null }).label).toBe('أُغلق استلام العروض')
     expect(requestState({ status: 'SENT', submission_closed_at: '2026-09-19T10:00:00Z', award: { id: 'a', status: 'APPROVED' } }).label).toBe('تمت الترسية')
     expect(requestState({ status: 'SENT', submission_closed_at: null, award: { id: 'a', status: 'CANCELLED' } }).key).toBe('OPEN')
   })
@@ -64,16 +65,50 @@ describe('supplier state and progress', () => {
   })
 })
 
+describe('whatsapp delivery receipts', () => {
+  const wa = (state: 'READ' | 'DELIVERED' | 'ACCEPTED' | 'FAILED' | 'UNCONFIRMED', error_code: number | null = null) =>
+    invite({ id: state, dispatch_attempts: [{ channel: 'WHATSAPP', status: 'SENT', sent_at: 't', failure_code: null, provider_delivery: { state, at: 't', error_code } }] })
+
+  it('accepted but undelivered is never sent or reached, and says why', () => {
+    const failed = wa('FAILED', 131042)
+    expect(supplierState(failed).key).toBe('FAILED')
+    expect(supplierState(failed).label).toBe('لم تصله — حساب واتساب للأعمال عليه مستحقات غير مسددة')
+    expect(supplierState(wa('FAILED', 131026)).label).toContain('الرقم لا يستقبل الرسالة')
+    expect(supplierState(wa('FAILED', 999)).label).toContain('رفض واتساب تسليم الرسالة')
+    const rfq = { current_version: { payload: { lines: [{}] } }, invitations: [failed, wa('DELIVERED')] } as unknown as ConstructionRfq
+    expect(requestProgress(rfq).reached).toBe(1)
+  })
+
+  it('«وصلته» only on a delivered/read receipt; no receipt stays «أُرسل»', () => {
+    expect(supplierState(wa('READ')).label).toBe('قرأ الرسالة — بانتظار الرد')
+    expect(supplierState(wa('DELIVERED')).label).toBe('وصلته الرسالة — بانتظار الرد')
+    expect(supplierState(wa('ACCEPTED')).label).toBe('أُرسل — بانتظار الرد')
+    expect(supplierState(wa('UNCONFIRMED')).label).toBe('أُرسل — بانتظار الرد')
+    expect(providerDeliveryLabel({ state: 'UNCONFIRMED', at: null })).toBe('لا تأكيد من واتساب بعد')
+    expect(providerDeliveryLabel(undefined)).toBe('')
+  })
+
+  it('an email that went out still counts when the WhatsApp copy failed', () => {
+    const both = invite({ dispatch_attempts: [
+      { channel: 'WHATSAPP', status: 'SENT', sent_at: 't', failure_code: null, provider_delivery: { state: 'FAILED', at: 't', error_code: 131042 } },
+      { channel: 'EMAIL', status: 'SENT', sent_at: 't', failure_code: null },
+    ] })
+    expect(supplierState(both).key).toBe('SENT')
+    expect(supplierState(both).channel).toBe('البريد')
+  })
+})
+
 describe('quotes', () => {
   it('reads partial coverage against the lines the supplier was asked for', () => {
-    expect(quoteCoverage({ coverage: { requested: 5, priced: 3, complete: false } })!.label).toBe('عرض جزئي — 3 من 5 بنود')
-    expect(quoteCoverage({ coverage: { requested: 2, priced: 2, complete: true } })!.label).toBe('يغطي جميع البنود')
+    expect(quoteCoverage({ coverage: { requested: 5, priced: 3, complete: false } })!.label).toBe('عرض جزئي — 3 من 5 بنود الطلب')
+    expect(quoteCoverage({ coverage: { requested: 2, priced: 2, complete: true } })!.label).toBe('يغطي كامل الطلب — 2 بنود')
   })
 
   it('states tax and lead time without assuming either', () => {
     expect(taxLabel(true)).toBe('شامل الضريبة')
     expect(taxLabel(false)).toBe('غير شامل الضريبة')
-    expect(taxLabel(null)).toBe('الضريبة غير محددة')
+    expect(taxLabel(null)).toBe('الضريبة غير مذكورة')
+    expect(taxLabel(undefined)).not.toContain('غير شامل')
     expect(leadTimeLabel({})).toBe('لم يحدد مدة التوريد')
     expect(leadTimeLabel({ lead_time_days: 0 })).toBe('لم يحدد مدة التوريد')
     expect(leadTimeLabel({ lead_time_days: 7 })).toBe('7 أيام')
@@ -204,12 +239,12 @@ describe('timeline', () => {
       (id) => (id === 's1' ? 'مؤسسة ABC' : 'شركة XYZ'),
     )
     expect(events.map((e) => e.title)).toEqual([
-      'تم إنشاء الطلب',
-      'تم إرسال الطلب إلى مؤسسة ABC عبر البريد',
       'تم استلام عرض من مؤسسة ABC',
+      'تم إرسال الطلب إلى مؤسسة ABC عبر البريد',
+      'تم إنشاء الطلب',
       'شركة XYZ فتح الطلب',
     ])
-    expect(events[2]!.at).toBe('2026-09-19T07:12:00Z')
+    expect(events[0]!.at).toBe('2026-09-19T07:12:00Z')
     expect(events[3]!.at).toBeNull()
     expect(events.filter((e) => e.at === rfq.created_at)).toHaveLength(1)
   })

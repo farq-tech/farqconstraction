@@ -12,6 +12,17 @@
   --color-mint: #CFF5DC;
   --color-mint-700: #1a7a45;
   --color-warm: #FAFAF8;
+  /* Olive («زيتي») — the reports palette. 900/700 carry text and filled
+     buttons (white on 600 is 5.9:1); 500→200 are chart series, dark to light. */
+  --color-olive-900: #2E3614;
+  --color-olive-700: #4A5726;
+  --color-olive-600: #5B6B2F;
+  --color-olive-500: #6B7B3A;
+  --color-olive-400: #8A9A55;
+  --color-olive-300: #AEBA80;
+  --color-olive-200: #CDD5AE;
+  --color-olive-100: #E6EBD6;
+  --color-olive-50: #F4F6EC;
 }
 
 html, body {
@@ -59,6 +70,22 @@ html, body {
 }
 .animate-scan {
   animation: scan 1.4s ease-in-out infinite;
+}
+
+@keyframes boq-live-scan {
+  0%, 100% { top: 0; }
+  50% { top: 100%; }
+}
+.boq-live-scan-beam {
+  animation: boq-live-scan 3s ease-in-out infinite;
+}
+.m-safe-top { padding-top: env(safe-area-inset-top); }
+.m-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.m-scroll-x { scrollbar-width: none; }
+.m-scan-line { animation: boq-live-scan 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .boq-live-scan-beam, .m-scan-line { animation: none; top: 50%; }
+  .boq-live-scanner .animate-fade-up { animation: none; }
 }
 
 @keyframes price-ticker {

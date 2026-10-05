@@ -6,12 +6,17 @@ import {
   countHarajSupplierIds,
   createConstructionRfq,
   getConstructionRfq,
+  getConstructionMe,
   invitePreferredChannel,
   isHarajSellerExternalKey,
   matchConstructionBoqCatalog,
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
+  fetchConstructionEntitlement,
   fetchConstructionWhatsAppPricing,
+  type ConstructionEntitlement,
+  type ConstructionWhatsAppPricing,
+  inboxReplyErrorMessageAr,
   formatArDate,
   startConstructionDispatch,
   getConstructionDispatch,
@@ -27,9 +32,12 @@ import {
 } from '../lib/rfqPackages'
 import { useProcurement } from '../procurementContext'
 import { farqSession } from '../api/farqSession'
+import { companyBrand } from '../lib/companyBranding'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
-import { cleanLineName, parseQty, readQty } from '../lib/sendGuards'
+import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty } from '../lib/sendGuards'
+import SiteSupplySection from '../components/SiteSupplySection'
+import { EMPTY_SITE_SUPPLY, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
 
 interface SendModalProps {
   items: BOQItem[]
@@ -168,6 +176,15 @@ export function SendModal({
     d.setDate(d.getDate() + loadCompanyProfile().defaultDeadlineDays)
     return d.toISOString().slice(0, 10)
   })
+  const [senderCompany, setSenderCompany] = useState(() => loadCompanyProfile().name)
+  useEffect(() => {
+    let alive = true
+    getConstructionMe().then((me) => {
+      const brand = companyBrand(me.scope_owner_user_id)
+      if (alive && brand) setSenderCompany((name) => name || brand.nameAr)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
   const [site, setSite] = useState(() => loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
   // Suppliers asked when quotes close and whether installation is included.
   const [quoteDeadline, setQuoteDeadline] = useState(() => {
@@ -175,11 +192,25 @@ export function SendModal({
   })
   const [quoteDeadlineTime, setQuoteDeadlineTime] = useState('17:00')
   const [requestType, setRequestType] = useState<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>('SUPPLY_ONLY')
+  // «الموقع والتوريد»: district, map pin, delivery vs pickup, payment — what
+  // suppliers asked back before they would price.
+  const [siteSupply, setSiteSupply] = useState<SiteSupply>(EMPTY_SITE_SUPPLY)
   /** Fast path: EMAIL+WA first; defer Haraj (20s pacing) unless user opts in. */
   // Haraj goes out in the same batch by default (owner, 2026-09-18).
   const [fastEmailFirst, setFastEmailFirst] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [showRecipients, setShowRecipients] = useState(false)
+  // What this send will cost, known BEFORE anything leaves (the owner's rule,
+  // 3 Oct 2026): WhatsApp is paid per message, email and Haraj chat are free,
+  // and every distinct supplier of the request spends one supplier credit.
+  const [waPricing, setWaPricing] = useState<ConstructionWhatsAppPricing | null>(null)
+  const [entitlement, setEntitlement] = useState<ConstructionEntitlement | null>(null)
+  useEffect(() => {
+    let alive = true
+    void fetchConstructionWhatsAppPricing().then((p) => { if (alive) setWaPricing(p) })
+    void fetchConstructionEntitlement().then((e) => { if (alive) setEntitlement(e) })
+    return () => { alive = false }
+  }, [])
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'form' | 'sending' | 'done'>('form')
   const [error, setError] = useState<string | null>(null)
@@ -232,6 +263,7 @@ export function SendModal({
   })()
 
   const sendBlockers: string[] = []
+  if (!senderCompany.trim()) sendBlockers.push('حدّد اسم الشركة المرسلة كما سيظهر للموردين.')
   if (readIssue?.kind === 'invalid') sendBlockers.push(`قراءة هذه الكراسة غير صالحة للإرسال: ${readIssue.detail}`)
   if (badQtyItems.length)
     sendBlockers.push(
@@ -240,9 +272,18 @@ export function SendModal({
   if (badNameItems.length) sendBlockers.push(`اسم غير مقروء في ${badNameItems.length} بندًا (رقم ${badNameItems.slice(0, 5).map((i) => i.id).join('، ')}).`)
   if (!department) sendBlockers.push('اختر القسم الهندسي لهذا الطلب: لم نستطع تحديده من البنود.')
   if (!quoteDeadline) sendBlockers.push('حدّد آخر موعد لاستلام العروض.')
-  else if (deadline && quoteDeadline >= deadline) sendBlockers.push('آخر موعد لاستلام العروض يجب أن يسبق موعد التوريد.')
+  else if (deliveryBeforeDeadline(deadline, quoteDeadline)) sendBlockers.push(DELIVERY_BEFORE_DEADLINE_AR)
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
+  sendBlockers.push(...siteSupplyProblems(siteSupply))
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
+  const byChannel = recipients.reduce(
+    (acc, r) => { if (r.channel === 'واتساب') acc.wa += 1; else if (r.channel === 'محادثة') acc.haraj += 1; else acc.email += 1; return acc },
+    { email: 0, wa: 0, haraj: 0 },
+  )
+  const waUnit = waPricing?.enabled && waPricing.price_sar ? waPricing.price_sar : null
+  const waTotal = waUnit != null ? byChannel.wa * waUnit : null
+  const creditsLeft = entitlement && !entitlement.unlimited_credits && entitlement.credits_remaining != null ? entitlement.credits_remaining : null
+  const creditsShort = creditsLeft != null && recipients.length > creditsLeft
 
   useEffect(() => {
     if (phase !== 'sending') return
@@ -455,6 +496,11 @@ export function SendModal({
       if (code === 'CONSTRUCTION_EMAIL_PREFERRED') {
         const emailResult = await sendOneEmail(createdId, invite, index, total)
         return emailResult === 'sent' ? 'sent' : emailResult
+      }
+      // Held back by the per-phone rules: a skip with its reason, not a failure.
+      if (code && code.startsWith('SKIPPED_')) {
+        updateRow(invite.id, { status: 'skipped', detail: inboxReplyErrorMessageAr(code), code, finishedAt: Date.now() })
+        return 'failed'
       }
       updateRow(invite.id, {
         status: 'failed',
@@ -987,6 +1033,7 @@ export function SendModal({
 
       const company = loadCompanyProfile()
       const buyerUser = farqSession.getUser()
+      const siteExtras = siteSupplyPayload(siteSupply)
       const createBody: Record<string, unknown> = {
         // Which booklet this request came from, so the reports can measure the
         // time from upload to the first quote. Older requests never recorded it.
@@ -1001,15 +1048,16 @@ export function SendModal({
           required_date: deadline,
           unloading_requirement: 'SUPPLIER_UNLOAD',
           delivery_required: true,
+          ...siteExtras.delivery,
         },
-        commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER' },
+        commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER', ...siteExtras.commercial_terms },
         quote_deadline: quoteDeadline,
         quote_deadline_time: quoteDeadlineTime,
         request_type: requestType,
         // The person sending is the person signed in. This block used to carry
         // «عميل تجريبي» on every real request.
         buyer: {
-          company_name: company.name,
+          company_name: senderCompany.trim(),
           contact_name: buyerUser?.displayName?.trim() || buyerUser?.email?.trim() || company.name,
           email: buyerUser?.email?.trim() || company.email,
           phone: company.phone,
@@ -1108,6 +1156,8 @@ export function SendModal({
       setPhase('done')
       if (isAbortError(err) || cancelRef.current) {
         setError('أُلغي الطلب أو انتهت المهلة أثناء التحضير.')
+      } else if (err instanceof ConstructionApiError && err.code === DELIVERY_BEFORE_DEADLINE_CODE) {
+        setError(DELIVERY_BEFORE_DEADLINE_AR)
       } else if (err instanceof ConstructionApiError && err.code === 'CONSTRUCTION_SUPPLIER_INVALID') {
         setError('مورد أو أكثر غير صالح للإرسال.')
       } else if (
@@ -1176,6 +1226,52 @@ export function SendModal({
                 )}
               </div>
 
+              {recipients.length > 0 && (
+                <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${creditsShort ? 'border-amber-200 bg-amber-50' : 'border-neutral-100 bg-white'}`} aria-live="polite">
+                  <div className="text-xs font-bold text-[#0D1F1D] mb-2">التكلفة قبل الإرسال</div>
+                  <div className="space-y-1 text-xs text-neutral-700">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>بريد إلكتروني · {byChannel.email}</span>
+                      <span className="font-semibold text-[#123F3A]">بدون تكلفة</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>محادثة · {byChannel.haraj}</span>
+                      <span className="font-semibold text-[#123F3A]">بدون تكلفة</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>واتساب من رقم فرق · {byChannel.wa}</span>
+                      <span className="font-semibold text-[#0D1F1D]">
+                        {byChannel.wa === 0
+                          ? '—'
+                          : waTotal != null
+                            ? `${waTotal.toFixed(2)} ريال (${byChannel.wa} × ${waUnit!.toFixed(2)})`
+                            : waPricing && !waPricing.enabled
+                              ? 'الإرسال من رقم فرق متوقف — روابط واتساب ويب'
+                              : 'جارٍ قراءة السعر…'}
+                      </span>
+                    </div>
+                    {byChannel.wa > 0 && waTotal != null && (
+                      <div className="text-[11px] text-neutral-500 leading-relaxed">
+                        واتساب يُرسل فقط للموردين الذين ليس لهم بريد، وبعد موافقتك الصريحة على المبلغ أثناء الإرسال. السعر من Meta وقد يتغير.
+                      </div>
+                    )}
+                    {entitlement && (
+                      <div className="flex items-center justify-between gap-3 pt-1 border-t border-neutral-100 mt-1">
+                        <span>رصيد الموردين · يحتاج {recipients.length}</span>
+                        <span className={`font-semibold ${creditsShort ? 'text-amber-800' : 'text-[#0D1F1D]'}`}>
+                          {entitlement.unlimited_credits ? 'غير محدود' : creditsLeft != null ? `المتبقي ${creditsLeft}` : '—'}
+                        </span>
+                      </div>
+                    )}
+                    {creditsShort && (
+                      <div className="text-[11px] text-amber-900 leading-relaxed">
+                        الرصيد لا يكفي لكل الموردين: يتوقف الإرسال عند انتهائه. قلّل الموردين أو أضف رصيدًا قبل الإرسال.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="mb-4 rounded-2xl border border-neutral-100 bg-white divide-y divide-neutral-100 text-sm">
                 <div className="flex items-center justify-between gap-3 px-4 py-2.5">
                   <span className="text-neutral-500">التسليم</span>
@@ -1201,7 +1297,19 @@ export function SendModal({
                 </button>
               </div>
 
-              {(showDetails || !department || !quoteDeadline) && (
+              <label className="block mb-4 text-xs text-neutral-600">اسم الشركة المرسلة — يظهر للموردين
+                <input value={senderCompany} onChange={(e) => setSenderCompany(e.target.value)} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm" placeholder="اسم شركتك" />
+              </label>
+
+              <SiteSupplySection
+                city={site}
+                value={siteSupply}
+                onChange={setSiteSupply}
+                requestType={requestType}
+                onRequestType={setRequestType}
+              />
+
+              {(showDetails || !department || !quoteDeadline || deliveryBeforeDeadline(deadline, quoteDeadline)) && (
                 <div className="mb-4 rounded-2xl border border-neutral-100 bg-white px-4 pt-4">
               <div className="space-y-3 mb-4">
                 <div>
@@ -1218,10 +1326,15 @@ export function SendModal({
                     type="date"
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
+                    aria-invalid={deliveryBeforeDeadline(deadline, quoteDeadline) || undefined}
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] ${deliveryBeforeDeadline(deadline, quoteDeadline) ? 'border-red-300' : 'border-neutral-200'}`}
                   />
+                  {deliveryBeforeDeadline(deadline, quoteDeadline) && (
+                    <div className="text-[11px] text-red-700 mt-1">{DELIVERY_BEFORE_DEADLINE_AR}</div>
+                  )}
                 </div>
               </div>
+
 
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>

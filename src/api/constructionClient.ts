@@ -22,12 +22,45 @@ import {
 } from './constructionAuth'
 import { CONSTRUCTION_READ_ONLY, isBlockedWrite, READ_ONLY_MESSAGE } from './readOnlyMode'
 import { farqSession } from './farqSession'
+import { cleanSupplierName } from '../lib/supplierName'
 
 export { constructionHeaders }
+
+export async function askAhmad(message: string, history: { role: string; text: string }[], rfqId?: string | null, context?: Record<string, unknown>): Promise<string> {
+  const result = await request<{ reply: string }>('/api/construction/assistant/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, history, rfq_id: rfqId || undefined, context }), timeoutMs: 30000,
+  })
+  if (!result.reply?.trim()) throw new Error('وصل رد فارغ من المساعد. أعد المحاولة.')
+  return result.reply
+}
+
+/** Unlike the legacy screen fallback, absence of this API is not a zero count. */
+export function getAhmadBooklets() {
+  return request<{ booklets: ConstructionBookletSummary[] }>('/api/construction/booklets')
+}
+
+export type ScannedRequest = {
+  is_purchase_request: boolean; project: string | null; request_number: string | null;
+  request_date: string | null; requester: string | null;
+  items: Array<{ description: string; quantity: number | null; unit: string | null; specification: string | null }>;
+  pages_read: number; pages_failed: number;
+}
+export function scanPurchaseRequest(pages: Array<{ mime: string; base64: string }>, signal?: AbortSignal) {
+  return request<{ request: ScannedRequest }>('/api/construction/purchase-requests/scan', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ images: pages.map(p => ({ mime: p.mime, image_base64: p.base64 })) }), timeoutMs: 120000, signal,
+  })
+}
+
+/** The colleague responsible for a request or a booklet. Absent on older APIs. */
+/** `label` is the display text; `email` may be stripped by the server's contact scrubber. */
+export type ConstructionOwner = { user_id: string; label?: string | null; email?: string | null; role?: string | null }
 
 export type ConstructionRfqSummary = {
   id: string
   status: string
+  assigned_user_id?: string | null
+  owner?: ConstructionOwner | null
   created_at: string
   updated_at?: string
   submission_closed_at?: string | null
@@ -98,12 +131,27 @@ export type ConstructionInvitation = {
     status: string
     sent_at: string | null
     failure_code: string | null
+    /**
+     * WhatsApp only: what Meta's delivery receipts say about a SENT (= accepted)
+     * attempt. Absent when receipts are not tracked yet.
+     */
+    provider_delivery?: ProviderDelivery
   }>
+}
+
+export type ProviderDelivery = {
+  state: 'READ' | 'DELIVERED' | 'ACCEPTED' | 'FAILED' | 'UNCONFIRMED'
+  at: string | null
+  error_code?: number | null
+  error_title?: string | null
 }
 
 export type ConstructionRfq = {
   id: string
   status: string
+  assigned_user_id?: string | null
+  created_by_user_id?: string | null
+  owner?: ConstructionOwner | null
   created_at: string
   submission_closed_at?: string | null
   envelopes_opened_at?: string | null
@@ -145,6 +193,8 @@ export type ConstructionRfq = {
   supplier_count: number
   response_count: number
   invitations: ConstructionInvitation[]
+  /** Every version of the request, oldest first (newer APIs; absent otherwise). */
+  versions?: ConstructionRfqVersion[]
   sender?: {
     name: string
     email: string
@@ -152,6 +202,53 @@ export type ConstructionRfq = {
     client_name?: string
   }
 }
+
+/**
+ * A unit price the server held back as suspicious (a line total typed as the
+ * unit price, a per-thousand or per-pack price, or far off its peers). A held
+ * price is never PRICED: it is not compared, not the lowest, not in a total
+ * until an admin confirms it or applies the suggestion. Absent on older APIs.
+ */
+export type PriceReviewCode =
+  | 'TOTAL_AS_UNIT'
+  | 'PER_THOUSAND'
+  | 'PER_PACK'
+  | 'OUTLIER_HIGH'
+  | 'OUTLIER_LOW'
+  /** Held by hand until the supplier confirms the price («تحتاج تأكيد»). */
+  | 'NEEDS_CONFIRMATION'
+
+export type PriceReview = {
+  code: PriceReviewCode | string
+  reason_ar: string
+  reference_unit_price: number | null
+  reference_basis: 'PEERS' | 'CATEGORY' | 'OTHER_TOTAL' | null
+  ratio: number | null
+  suggested_unit_price: number | null
+  suggestion_ar: string | null
+  quote_version_id: string
+  line_id: string
+}
+
+/** How a supplier's offer scores out of 100 (newer APIs; absent otherwise). */
+export type SupplierScore = {
+  total: number
+  responsiveness: { points: number; max: number; followups: number | null }
+  completeness: { points: number; max: number; priced: number; requested: number }
+  competitiveness: { points: number; max: number; lines_compared: number; all_flagged: boolean }
+  clarity: {
+    points: number
+    max: number
+    vat_stated: boolean
+    delivery_or_lead_time_stated: boolean
+    document: 'FILE' | 'LINK' | 'CHAT' | string
+    document_points: number
+    unit_clean: boolean
+  }
+}
+
+/** A total under both VAT readings, when the supplier did not state which. */
+export type TaxAssumptionTotals = { subtotal: number; tax: number; total: number }
 
 export type ConstructionComparison = {
   rfq: ConstructionRfq
@@ -175,6 +272,8 @@ export type ConstructionComparison = {
     eligibility?: { eligible?: boolean; reason_codes?: string[] }
   }>
   awaiting_supplier_ids: string[]
+  /** Quotes given on an earlier version of the request (after «تعديل الطلب»). Never compared with the current ones. */
+  previous_version_responses?: PreviousVersionResponse[]
   quote_matrix?: {
     basis: string
     requested_line_count: number
@@ -182,8 +281,11 @@ export type ConstructionComparison = {
     complete_quote_count: number
     lines: Array<{
       id: string
+      /** The booklet's own text (Arabic when the booklet had it). */
       name_ar: string
       name_en?: string
+      /** «الاسم الدارج بالسوق», when the request carried one. */
+      market_name_ar?: string
       quantity: number
       uom: string
       offers: Array<{
@@ -193,11 +295,29 @@ export type ConstructionComparison = {
         line_total: number | null
         quantity: number | null
         currency: string
+        /** true = includes VAT, false = excludes it, null = the supplier did not say. */
         prices_include_tax: boolean | null
+        quote_version_id?: string
+        /** Non-null when this price is held for review (status PRICE_REVIEW). */
+        price_review?: PriceReview | null
+        /** «الماركة والمنشأ» the supplier stated for this line (newer APIs). */
+        brand?: import('../lib/brandEquivalence').QuoteLineBrand | null
+        /** True when this offer is a substitute for the requested brand. */
+        alternative?: boolean
       }>
+      /** The brand the request named for this line, and whether equivalents are accepted. */
+      requested_brand?: string | null
+      allows_equivalent?: boolean | null
+      /** The cheapest equivalent against the requested brand, when both were priced. */
+      equivalent_saving?: import('../lib/brandEquivalence').EquivalentSaving | null
     }>
+    /** Quotes with at least one price held for review. */
+    held_quote_count?: number
     supplier_summaries?: Array<{
       supplier_id: string
+      quote_version_id?: string
+      price_review?: { held: boolean; lines: number }
+      score?: SupplierScore | null
       coverage: {
         requested: number
         priced: number
@@ -206,7 +326,16 @@ export type ConstructionComparison = {
         needs_review: number
         complete: boolean
       }
-      totals?: { total?: number | null; goods_total?: number; tax?: number; complete?: boolean } | null
+      totals?: {
+        total?: number | null
+        goods_total?: number
+        tax?: number
+        complete?: boolean
+        /** VAT basis not stated: `total` is null and both readings are given. */
+        tax_unknown?: boolean
+        if_tax_excluded?: TaxAssumptionTotals | null
+        if_tax_included?: TaxAssumptionTotals | null
+      } | null
     }>
   }
   serving_decision?: {
@@ -231,6 +360,39 @@ export type PublicSupplierInvite = {
   expires_at?: string
   response_status: string
   submission_closed_at?: string | null
+  /**
+   * Present when this link belongs to an older version of the request: the
+   * invite is read-only and a quote on it is refused. Absent (or
+   * `superseded: false`) for the current version.
+   */
+  revision?: PublicInviteRevision | null
+  /**
+   * The supplier's own current quote, read-only (newer APIs). A link never
+   * expires, so he always sees what he quoted — after the request closed too.
+   */
+  my_quote?: {
+    quote_version: number
+    submitted_at: string | null
+    currency: string | null
+    prices_include_tax: boolean | null
+    valid_until?: string | null
+    lines: Array<{
+      line_id: string | null
+      unit_price: number | string | null
+      available: boolean | null
+      notes: string | null
+      /** Priced per the unit the shop sells in (newer APIs). */
+      sale_unit?: string | null
+      pack_size?: number | null
+      sale_unit_price?: number | null
+      /** «الماركة والمنشأ» he stated (newer APIs). */
+      offered_brand?: string | null
+      origin_country?: string | null
+      is_equivalent?: boolean | null
+      certification?: string | null
+      datasheet_file?: string | null
+    }>
+  } | null
   supplier: {
     name_ar?: string
     name_en?: string
@@ -241,8 +403,26 @@ export type PublicSupplierInvite = {
   buyer?: Record<string, unknown>
   delivery?: Record<string, unknown>
   commercial_terms?: Record<string, unknown>
+  request_type?: string
+  /** «الموقع والتوريد», resolved to Arabic by the API (newer APIs; nulls when not filled). */
+  site_supply?: {
+    city?: string | null
+    district?: string | null
+    map_url?: string | null
+    delivery_mode_ar?: string | null
+    shipping_ar?: string | null
+    payment_ar?: string | null
+    request_type_ar?: string | null
+  }
+  /** «نقبل السعر بالوحدة اللي تبيع فيها…» */
+  sale_unit_note?: string
   lines: Array<{
     id: string
+    /** The line's name without internal codes: market name, else the booklet text. */
+    supplier_name_ar?: string | null
+    /** «بطاقة المواصفة» as the buyer filled it, and its one-line Arabic text. */
+    spec_card?: import('../lib/specCard').SpecCard
+    spec_text_ar?: string | null
     line_number?: number
     line_key?: string
     quantity: number
@@ -256,8 +436,15 @@ export type PublicSupplierInvite = {
     original_name?: string
     name_ar?: string
     name_en?: string
+    /** The booklet's own text for this line, as the buyer sent it. */
+    booklet_name_ar?: string | null
+    /** «الاسم الدارج بالسوق», when the buyer kept one. */
+    market_name_ar?: string
     item_note?: string | null
     technical_specification?: Record<string, unknown>
+    /** The brand the buyer named, and whether an equivalent is accepted (newer APIs). */
+    requested_brand?: string | null
+    allows_equivalent?: boolean | null
   }>
 }
 
@@ -286,6 +473,8 @@ export type BoqCatalogMatchRow = {
     evidence?: string
     channel?: string
     rfq_eligible?: boolean
+    /** Requests he priced for this company before (supplier-quote-history.js). */
+    prior_quotes?: number
   }>
   /** Ontology-named material whose suppliers were read from Farq's intent map (review required, never a match). */
   map_suggestion?: {
@@ -302,16 +491,22 @@ export type BoqCatalogMatchRow = {
       evidence?: string
       channel?: string
       rfq_eligible?: boolean
+      /** Requests he priced for this company before (supplier-quote-history.js). */
+      prior_quotes?: number
     }>
   }
   /** Trade known, material not in the list: that family's suppliers, at family grade. */
   family_suggestion?: {
     family: string
-    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
   }
   /** Suppliers the buyer chose for this same line before and that no list above contains. */
   learned_suggestion?: {
-    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean }>
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
+  }
+  /** «نتائج الجولات»: what suppliers did with this material in earlier rounds. */
+  outcome_suggestion?: {
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }; why_ar?: string; out_of_city?: boolean }>
   }
   /** Model-named material (review required). Present only when the API's AI-miss step ran and placed the line. */
   ai_suggestion?: {
@@ -327,6 +522,8 @@ export type BoqCatalogMatchRow = {
       evidence?: string
       channel?: string
       rfq_eligible?: boolean
+      /** Requests he priced for this company before (supplier-quote-history.js). */
+      prior_quotes?: number
     }>
   }
 }
@@ -670,6 +867,17 @@ function unwrap<T>(
         String(code),
       )
     }
+    // Ownership transfer names its own two refusals; the generic 403 below
+    // talks about supplier roles, which is not what happened here.
+    if (code === 'CONSTRUCTION_ADMIN_REQUIRED') {
+      throw new ConstructionApiError('نقل الملكية متاح للمدير (ADMIN) فقط.', response.status, String(code))
+    }
+    if (code === 'CONSTRUCTION_PRICE_REVIEW_FORBIDDEN') {
+      throw new ConstructionApiError('مراجعة الأسعار المعلّقة متاحة للمدير (ADMIN) فقط.', response.status, String(code))
+    }
+    if (code === 'CONSTRUCTION_TRANSFER_TARGET_INVALID') {
+      throw new ConstructionApiError('لا يمكن النقل إلى هذا الزميل: ليس عضوًا نشطًا في الشركة.', response.status, String(code))
+    }
     // A role refusal is not a misconfiguration. Suppliers, RFQs and the inbox
     // are gated to ADMIN / PROCUREMENT / ENGINEER, and reporting that as a
     // missing server flag sends the reader to change env vars that are already
@@ -709,9 +917,134 @@ export async function getConstructionStatus() {
 }
 
 export async function getConstructionMe() {
-  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string }>(
+  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string; request_scope?: ConstructionRequestScope }>(
     '/api/construction/me',
   )
+}
+
+/*
+ * ADD-ON SERVICES («الخدمات»).
+ *
+ * Each account enables the services it wants: `rfq` (طلبات عروض الأسعار) and
+ * `etimad` (منافسات اعتماد). The server's gates are what refuse; the app only
+ * hides what the account does not have (see src/lib/services.ts).
+ */
+export type ConstructionServiceKey = 'rfq' | 'etimad' | 'equivalents' | 'internet_alternative_discovery' | (string & {})
+
+export type ConstructionService = {
+  key: ConstructionServiceKey
+  name_ar: string
+  description_ar?: string
+  active?: boolean
+  enabled: boolean
+}
+
+export type ConstructionMyServices = {
+  account_id?: string
+  gating: 'off' | 'log' | 'enforce'
+  can_manage: boolean
+  default_enabled?: string[]
+  services: ConstructionService[]
+}
+
+export type ConstructionServiceAccount = {
+  owner_user_id: string
+  email: string | null
+  members: number
+  services: Record<string, boolean>
+}
+
+export async function getMyServices(): Promise<ConstructionMyServices> {
+  return request<ConstructionMyServices>('/api/construction/me/services')
+}
+
+export async function listServiceAccounts(): Promise<{ services: ConstructionService[]; accounts: ConstructionServiceAccount[] }> {
+  const result = await request<{ services?: ConstructionService[]; accounts?: ConstructionServiceAccount[] } | null>(
+    '/api/construction/admin/services/accounts',
+  )
+  return {
+    services: Array.isArray(result?.services) ? result!.services : [],
+    accounts: Array.isArray(result?.accounts) ? result!.accounts : [],
+  }
+}
+
+export async function setAccountService(ownerUserId: string, key: string, enabled: boolean, reason?: string) {
+  return request<{ service: { owner_user_id: string; service_key: string; enabled: boolean } }>(
+    `/api/construction/admin/services/accounts/${encodeURIComponent(ownerUserId)}/${encodeURIComponent(key)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reason && reason.trim() ? { enabled, reason: reason.trim() } : { enabled }),
+    },
+  )
+}
+
+/*
+ * REQUEST OWNERSHIP.
+ *
+ * Every request and booklet has a responsible colleague. Only an ADMIN can move
+ * it to another colleague (`can_transfer`); moving an RFQ that is a wave of a
+ * booklet moves the whole booklet.
+ */
+export type ConstructionRequestScope = 'ALL' | 'OWN_REQUESTS'
+
+export type ConstructionCompanyMember = {
+  user_id: string
+  /** Display text (currently the email); always prefer it over `email`. */
+  label?: string | null
+  email?: string | null
+  role: string
+  request_scope?: ConstructionRequestScope
+}
+
+export type ConstructionCompanyMembers = {
+  members: ConstructionCompanyMember[]
+  department_rules: Array<{ department: string; user_id: string }>
+  can_transfer: boolean
+}
+
+export type ConstructionRfqOwnerTransfer = {
+  rfq_id: string
+  booklet_id: string | null
+  rfq_ids: string[]
+  from_user_id: string | null
+  to_user_id: string
+}
+
+export type ConstructionBookletOwnerTransfer = {
+  booklet_id: string
+  rfq_ids: string[]
+  from_user_id: string | null
+  to_user_id: string
+}
+
+export async function listCompanyMembers(): Promise<ConstructionCompanyMembers> {
+  const result = await request<Partial<ConstructionCompanyMembers> | null>('/api/construction/members')
+  return {
+    members: Array.isArray(result?.members) ? result!.members : [],
+    department_rules: Array.isArray(result?.department_rules) ? result!.department_rules : [],
+    can_transfer: result?.can_transfer === true,
+  }
+}
+
+function ownerBody(userId: string, note?: string): string {
+  return JSON.stringify(note && note.trim() ? { user_id: userId, note: note.trim() } : { user_id: userId })
+}
+
+export async function transferRfqOwner(rfqId: string, userId: string, note?: string): Promise<ConstructionRfqOwnerTransfer> {
+  return request<ConstructionRfqOwnerTransfer>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/owner`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: ownerBody(userId, note),
+  })
+}
+
+export async function transferBookletOwner(bookletId: string, userId: string, note?: string): Promise<ConstructionBookletOwnerTransfer> {
+  return request<ConstructionBookletOwnerTransfer>(`/api/construction/booklets/${encodeURIComponent(bookletId)}/owner`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: ownerBody(userId, note),
+  })
 }
 
 export async function listBuyerRfqs(): Promise<ConstructionManagementOverview> {
@@ -739,6 +1072,539 @@ export async function getConstructionComparison(id: string): Promise<Constructio
   return request<ConstructionComparison>(
     `/api/construction/rfqs/${encodeURIComponent(id)}/comparison`,
   )
+}
+
+// ─── «تعديل الطلب»: a new version of a sent request, re-sent to chosen suppliers ───
+
+export type ConstructionRfqVersion = {
+  id: string
+  version_number: number
+  created_at: string
+  change_note: string | null
+}
+
+export type PreviousVersionResponse = {
+  supplier: { id: string; name_ar?: string | null }
+  version_number: number
+  rfq_version_id: string
+  submitted_at: string | null
+  total: number | null
+  currency: string
+  label_ar: string
+  lines: Array<{
+    line_key: string
+    name_ar: string
+    quantity: number
+    uom: string
+    unit_price: number | null
+    available: boolean | null
+  }>
+}
+
+export type PublicInviteRevision = {
+  superseded: boolean
+  current_version_number?: number
+  invited_to_current?: boolean
+  change_note?: string | null
+}
+
+/** How one supplier would receive the revised request. HELD = refused for a reason (`held_reason_ar`). */
+export type RevisionChannel = 'WHATSAPP_WINDOW' | 'WHATSAPP_TEMPLATE' | 'EMAIL' | 'HARAJ' | 'NONE' | 'HELD'
+
+export type RevisionSpecCard = {
+  material?: string
+  finish?: string
+  dimensions?: string
+  thickness?: string
+  [key: string]: unknown
+}
+
+export type RevisionLine = {
+  line_key?: string
+  name_ar: string
+  quantity: number
+  uom: string
+  spec_card?: RevisionSpecCard | null
+  original_description?: string | null
+  market_name_ar?: string | null
+}
+
+export type RevisionCandidate = {
+  /** The supplier's external key — what `supplier_ids` carries. */
+  supplier_id: string
+  name_ar: string
+  invite_id: string | null
+  quoted: boolean
+  open_conversation: boolean
+  window_open: boolean
+  window_until: string | null
+  channel: RevisionChannel
+  paid: boolean
+  held_reason_ar: string | null
+  preselected: boolean
+}
+
+export type RevisionCandidates = {
+  rfq_id: string
+  current_version_number: number
+  lines: Array<RevisionLine & { line_key: string }>
+  candidates: RevisionCandidate[]
+  pricing: { unit_price_sar: number; currency: 'SAR'; category: string }
+}
+
+export type RevisionSource = 'INVITED' | 'QUOTED' | 'OPEN_CONVERSATION' | 'SEARCH'
+
+export type RevisionRecipient = {
+  supplier_id: string
+  name_ar: string
+  sources: RevisionSource[]
+  channel: RevisionChannel
+  paid: boolean
+  window_until: string | null
+  held_reason_ar: string | null
+  message_preview: string | null
+}
+
+export type RevisionCost = {
+  paid_count: number
+  free_count: number
+  held_count: number
+  unit_price_sar: number
+  total_sar: number
+  currency: 'SAR'
+}
+
+export type RevisionPreview = {
+  revision_id: string
+  state: 'PREPARED' | 'SENT' | 'CANCELLED'
+  rfq_id: string
+  from_version_number: number
+  to_version_number: number
+  change_note: string
+  template: 'REMINDER' | 'INVITE' | null
+  lines: RevisionLine[]
+  recipients: RevisionRecipient[]
+  cost: RevisionCost
+}
+
+export type RevisionBody = {
+  lines: RevisionLine[]
+  change_note: string
+  supplier_ids: string[]
+  template?: 'REMINDER' | 'INVITE'
+}
+
+export type RevisionConfirmResult = {
+  revision_id: string
+  state: 'SENT'
+  rfq_version_id: string
+  version_number: number
+  results: Array<{ supplier_id: string; channel: RevisionChannel | string; status: string; error_code: string | null }>
+}
+
+/** The channels or the cost changed since the preview the buyer confirmed: re-read it and ask again. */
+export const CONSTRUCTION_REVISION_PREVIEW_CHANGED = 'CONSTRUCTION_REVISION_PREVIEW_CHANGED'
+
+export function isRevisionPreviewChanged(err: unknown): boolean {
+  return err instanceof ConstructionApiError && err.code === CONSTRUCTION_REVISION_PREVIEW_CHANGED
+}
+
+function revisionPath(rfqId: string, rest = ''): string {
+  return `/api/construction/rfqs/${encodeURIComponent(rfqId)}${rest}`
+}
+
+/** Lines of the current version and who could receive the revision, with each one's channel today. */
+export async function getRfqRevisionCandidates(rfqId: string): Promise<RevisionCandidates> {
+  return request<RevisionCandidates>(revisionPath(rfqId, '/revision-candidates'))
+}
+
+/** Prepare a revision: nothing is sent. Answers the preview (recipients, channels, cost). */
+export async function prepareRfqRevision(rfqId: string, body: RevisionBody): Promise<RevisionPreview> {
+  return request<RevisionPreview>(revisionPath(rfqId, '/revisions'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+/** The same preview, recomputed now (a free WhatsApp window may have closed). */
+export async function getRfqRevision(rfqId: string, revisionId: string): Promise<RevisionPreview> {
+  return request<RevisionPreview>(revisionPath(rfqId, `/revisions/${encodeURIComponent(revisionId)}`))
+}
+
+/**
+ * Send the prepared revision. `expected_*` are the figures of the preview the
+ * buyer saw; a 409 CONSTRUCTION_REVISION_PREVIEW_CHANGED means they no longer hold.
+ */
+export async function confirmRfqRevision(
+  rfqId: string,
+  revisionId: string,
+  expected: { expected_paid_count: number; expected_total_sar: number },
+): Promise<RevisionConfirmResult> {
+  return request<RevisionConfirmResult>(revisionPath(rfqId, `/revisions/${encodeURIComponent(revisionId)}/confirm`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true, ...expected }),
+    timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
+  })
+}
+
+export async function cancelRfqRevision(rfqId: string, revisionId: string): Promise<RevisionPreview> {
+  return request<RevisionPreview>(revisionPath(rfqId, `/revisions/${encodeURIComponent(revisionId)}/cancel`), {
+    method: 'POST',
+  })
+}
+
+/**
+ * «بدائل مكافئة» — Farq's equivalence engine for each line of a request.
+ * An add-on: call only when `services.has('equivalents')`. A 403 with
+ * CONSTRUCTION_SERVICE_DISABLED means the account does not have it.
+ */
+/** «مطابقة الموردين على مستوى الطلب» for an existing request (opt-in `supplier_match_v2`). */
+export async function getRfqSupplierPlan(id: string): Promise<import('../lib/supplierPlan').SupplierPlan> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/supplier-plan`)
+}
+
+/** The same plan for booklet lines before a request exists. */
+export async function planBoqSuppliers(
+  rows: Array<{ key: string; name: string }>,
+  options: { city?: string; district?: string } = {},
+): Promise<import('../lib/supplierPlan').SupplierPlan> {
+  return request('/api/construction/boq/supplier-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows, ...options }),
+  })
+}
+
+export async function getRfqEquivalents(
+  id: string,
+): Promise<{ service: 'equivalents'; lines: import('../lib/brandEquivalence').EquivalenceLine[] }> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/equivalents`)
+}
+
+export async function getRfqLineEquivalents(
+  id: string,
+  lineId: string,
+): Promise<{ line: import('../lib/brandEquivalence').EquivalenceLine }> {
+  return request(
+    `/api/construction/rfqs/${encodeURIComponent(id)}/lines/${encodeURIComponent(lineId)}/equivalents`,
+  )
+}
+
+/**
+ * «بدائل من الإنترنت» (service `internet_alternative_discovery`). GET reads
+ * what is already verified and cached; POST searches the web for the given
+ * lines (only those whose internal coverage is insufficient are searched).
+ */
+export async function getRfqWebAlternatives(id: string): Promise<import('../lib/webAlternatives').WebAlternativesResponse> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/equivalents/web`)
+}
+
+export async function discoverRfqWebAlternatives(
+  id: string,
+  lineIds: string[],
+): Promise<import('../lib/webAlternatives').WebAlternativesResponse> {
+  return request(`/api/construction/rfqs/${encodeURIComponent(id)}/equivalents/web`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ line_ids: lineIds }),
+  })
+}
+
+export type PriceReviewAction = 'CONFIRM' | 'APPLY_SUGGESTION'
+
+export type PriceReviewResult = {
+  status: 'CONFIRMED' | 'CORRECTED'
+  quote_version_id: string
+  line_id: string
+  unit_price: number
+}
+
+/**
+ * An admin releases a held price: «اعتمد كما هو» (CONFIRM) or «طبّق التصحيح
+ * المقترح» (APPLY_SUGGESTION). ADMIN only (403 CONSTRUCTION_PRICE_REVIEW_FORBIDDEN).
+ */
+export async function resolvePriceReview(
+  rfqId: string,
+  quoteVersionId: string,
+  body: { line_id: string; action: PriceReviewAction; unit_price?: number },
+): Promise<PriceReviewResult> {
+  return request<PriceReviewResult>(
+    `/api/construction/rfqs/${encodeURIComponent(rfqId)}/quote-versions/${encodeURIComponent(quoteVersionId)}/price-review`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+}
+
+/*
+ * BOOKLETS (الكراسات).
+ *
+ * One purchase request / BOQ document sent as several RFQs («دفعات»). The
+ * booklet is a read-only layer over those RFQs: one deadline, one comparison
+ * across every wave. The RFQ endpoints above are untouched by it.
+ */
+export type ConstructionBookletSummary = {
+  id: string
+  reference: string | null
+  title: string | null
+  quote_deadline: string | null
+  created_at: string | null
+  /** Number of waves; tolerated as an array of waves too. */
+  waves: number | unknown[] | null
+  lines_total: number | null
+  lines_with_quotes: number | null
+  unique_suppliers_invited: number | null
+  quotes_count: number | null
+  assigned_user_id?: string | null
+  owner?: ConstructionOwner | null
+} & ConstructionBookletState
+
+/**
+ * «مفتوحة / مغلقة». Supplier quotes never expire; a booklet stays open until
+ * the account admin closes it («إغلاق الكراسة»). Older APIs send none of these
+ * fields — the booklet then reads as open.
+ */
+export type ConstructionBookletState = {
+  state?: 'OPEN' | 'CLOSED' | string | null
+  closed_at?: string | null
+  closure_note?: string | null
+}
+
+export type ConstructionBookletWave = {
+  wave_number: number
+  rfq_id: string
+  status: string
+  invites: number | null
+  created_at: string | null
+}
+
+export type ConstructionBookletLine = {
+  line_key: string
+  position: number | null
+  name_ar: string | null
+  /** «الاسم الدارج بالسوق», as the latest wave that carried one sent it. */
+  market_name_ar?: string
+  quantity: number | null
+  uom: string | null
+}
+
+export type ConstructionBookletSupplier = {
+  supplier_id: string
+  name: string | null
+  waves: number[]
+  quoted: boolean
+  quote_submitted_at: string | null
+  quote_total: number | null
+  currency: string | null
+  rfq_id: string | null
+  /** At least one of this supplier's prices is held for review. */
+  price_review_held?: boolean
+  score?: SupplierScore | null
+  /** The supplier did not state whether his prices include VAT. */
+  tax_unknown?: boolean
+}
+
+export type ConstructionBookletOffer = {
+  supplier_id: string
+  unit_price: number | null
+  total: number | null
+  currency: string | null
+  uom: string | null
+  rfq_id: string | null
+  quote_version_id: string | null
+  notes: string | null
+  /** PRICED when the cell carries a comparable price; PRICE_REVIEW when it is held. */
+  status?: string | null
+  /** Non-null when this price is held for review. */
+  price_review?: PriceReview | null
+  /** true = the price includes VAT, false = excludes it, null/absent = not stated. */
+  prices_include_tax?: boolean | null
+  wave_number?: number | null
+  /** When this quote version was recorded (newer APIs). */
+  submitted_at?: string | null
+  /** `FARQ_FROM_CHAT` when Farq recorded the price from the supplier's chat. */
+  entered_by?: string | null
+  /**
+   * The validity the supplier stated, as information only: a quote never
+   * expires on it (only closing the booklet ends quoting). Absent when none.
+   */
+  valid_until?: string | null
+  /**
+   * When a newer version of this supplier's quote lowered this line: the
+   * previous priced version's unit price (as it stated it), its VAT basis and
+   * time, and the cut — per unit in this offer's basis, and in percent net of
+   * VAT. All null / absent otherwise.
+   */
+  previous_unit_price?: number | null
+  previous_prices_include_tax?: boolean | null
+  previous_submitted_at?: string | null
+  previous_quote_version_id?: string | null
+  price_cut_per_unit?: number | null
+  price_cut_percent?: number | null
+  /** The supplier's delivery terms in his words, e.g. «بدون شحن — المورد في جدة» (newer APIs). */
+  delivery_note?: string | null
+  /** Delivery charge he stated; 0 = included, null/absent = not stated (newer APIs). */
+  delivery?: number | null
+}
+
+export type ConstructionBookletDetail = {
+  booklet: {
+    id: string
+    reference: string | null
+    title: string | null
+    quote_deadline: string | null
+    created_at: string | null
+    assigned_user_id?: string | null
+    owner?: ConstructionOwner | null
+  } & ConstructionBookletState
+  waves: ConstructionBookletWave[]
+  lines: ConstructionBookletLine[]
+  suppliers: ConstructionBookletSupplier[]
+  matrix: Array<{
+    line_key: string
+    offers: ConstructionBookletOffer[]
+    best_supplier_id: string | null
+  }>
+  summary: {
+    unique_suppliers_invited: number | null
+    replies: number | null
+    quotes: number | null
+    lines_with_quotes: number | null
+    lines_total: number | null
+    best_full_booklet: { supplier_id: string; total: number | null; currency: string | null } | null
+  }
+}
+
+export type ConstructionRfqBookletLink = {
+  booklet_id: string
+  reference: string | null
+  wave_number: number | null
+  /** Number of waves in the booklet; tolerated as an array of waves too. */
+  waves: number | unknown[] | null
+}
+
+function isNotFound(err: unknown): boolean {
+  return err instanceof ConstructionApiError && err.status === 404
+}
+
+/**
+ * Every booklet of the company. A 404 means the booklets surface is not on this
+ * API yet, which reads as «no booklets», never as a broken requests screen.
+ */
+export async function listConstructionBooklets(): Promise<{ booklets: ConstructionBookletSummary[] }> {
+  try {
+    const result = await request<{ booklets?: ConstructionBookletSummary[] } | null>('/api/construction/booklets')
+    return { booklets: Array.isArray(result?.booklets) ? result!.booklets : [] }
+  } catch (err) {
+    if (isNotFound(err)) return { booklets: [] }
+    throw err
+  }
+}
+
+export async function getConstructionBooklet(id: string): Promise<ConstructionBookletDetail> {
+  return request<ConstructionBookletDetail>(`/api/construction/booklets/${encodeURIComponent(id)}`)
+}
+
+/**
+ * «إغلاق الكراسة»: ends supplier quoting on every wave of the booklet — the
+ * only thing that does; quotes never expire otherwise. The quotes stay
+ * viewable, comparable and awardable. Account admin only (403 otherwise).
+ * Returns the booklet as `getConstructionBooklet` does, now closed.
+ */
+export async function closeConstructionBooklet(id: string, note: string): Promise<ConstructionBookletDetail> {
+  return request<ConstructionBookletDetail>(`/api/construction/booklets/${encodeURIComponent(id)}/close`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  })
+}
+
+/**
+ * The home page's overview: every booklet's comparison in one call. `null`
+ * when this API has no such route yet (404 / 501) — the caller then reads the
+ * list and each booklet instead.
+ */
+export async function getConstructionBookletsOverview(): Promise<{ booklets: ConstructionBookletDetail[] } | null> {
+  try {
+    const result = await request<{ booklets?: ConstructionBookletDetail[] } | null>('/api/construction/booklets/overview')
+    return { booklets: Array.isArray(result?.booklets) ? result!.booklets : [] }
+  } catch (err) {
+    if (err instanceof ConstructionApiError && (err.status === 404 || err.status === 501)) return null
+    throw err
+  }
+}
+
+/**
+ * The booklet an RFQ belongs to, or `null` when it belongs to none
+ * (404 `BOOKLET_NOT_FOUND`, or the route is not deployed yet). Other failures
+ * still throw; the caller decides to stay silent.
+ */
+export async function getConstructionRfqBooklet(rfqId: string): Promise<ConstructionRfqBookletLink | null> {
+  try {
+    const result = await request<ConstructionRfqBookletLink | null>(
+      `/api/construction/rfqs/${encodeURIComponent(rfqId)}/booklet`,
+    )
+    return result && result.booklet_id ? result : null
+  } catch (err) {
+    if (isNotFound(err)) return null
+    throw err
+  }
+}
+
+/**
+ * «الاسم الدارج بالسوق» remembered from earlier requests (the API's market-name
+ * memory). Both calls are memory only: nothing here asks a model, and a server
+ * without the memory (404/501) reads as «nothing remembered».
+ */
+export type NameSynonymSuggestion = {
+  market_name_ar: string
+  booklet_text: string | null
+  source: 'MODEL' | 'BUYER' | 'SEED'
+  confirmed: boolean
+  uses: number
+}
+
+export type NameSynonymHit = { market_name_ar: string; source: 'MODEL' | 'BUYER' | 'SEED'; confirmed: boolean }
+
+function memoryUnavailable(err: unknown): boolean {
+  return err instanceof ConstructionApiError && (err.status === 404 || err.status === 501)
+}
+
+export async function searchNameSynonyms(q: string, options: { signal?: AbortSignal } = {}): Promise<NameSynonymSuggestion[]> {
+  const text = String(q || '').replace(/\s+/g, ' ').trim()
+  if (text.length < 2) return []
+  try {
+    const result = await request<{ suggestions?: NameSynonymSuggestion[] } | null>(
+      `/api/construction/name-synonyms?q=${encodeURIComponent(text.slice(0, 120))}`,
+      { signal: options.signal },
+    )
+    return Array.isArray(result?.suggestions) ? result!.suggestions : []
+  } catch (err) {
+    if (memoryUnavailable(err)) return []
+    throw err
+  }
+}
+
+/** One answer per line, in order: the remembered name, or null. */
+export async function lookupNameSynonyms(
+  lines: Array<{ name: string; spec?: string }>,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<Array<NameSynonymHit | null>> {
+  if (!lines.length) return []
+  try {
+    const result = await request<{ lines?: Array<NameSynonymHit | null> } | null>('/api/construction/name-synonyms/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lines: lines.map((line) => ({ name: line.name, spec: line.spec || '' })) }),
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
+    })
+    const out = Array.isArray(result?.lines) ? result!.lines : []
+    return lines.map((_, index) => out[index] ?? null)
+  } catch (err) {
+    if (memoryUnavailable(err)) return lines.map(() => null)
+    throw err
+  }
 }
 
 export async function getConstructionProjects(): Promise<{ projects: ConstructionProject[] }> {
@@ -867,6 +1733,24 @@ export type ConstructionWhatsAppPricing = {
   currency?: string
 }
 
+export type ConstructionEntitlement = {
+  unlimited_credits?: boolean
+  supplier_credits?: number | null
+  credits_used?: number
+  credits_remaining?: number | null
+  has_package?: boolean
+  low?: boolean
+}
+
+/** This buyer's allowances as the server counts them (GET /entitlement); null when billing is off. */
+export async function fetchConstructionEntitlement(): Promise<ConstructionEntitlement | null> {
+  try {
+    return (await request<ConstructionEntitlement>('/api/construction/entitlement')) || null
+  } catch {
+    return null
+  }
+}
+
 /** Price per WhatsApp message from Farq's number, read from the template's category on Meta. */
 export async function fetchConstructionWhatsAppPricing(): Promise<ConstructionWhatsAppPricing> {
   try {
@@ -962,20 +1846,63 @@ export type ConstructionInboxThread = {
     reference?: string
     supplier_name_ar?: string
     supplier_name?: string
+    /** First three lines of the supplier's scope, as the list API returns them. */
+    items?: Array<{ name_ar?: string | null; name_en?: string | null; quantity?: string | null; uom?: string | null }>
+    item_count?: number
+    response_status?: string | null
+    request_status?: string | null
+    version_number?: string | number | null
   }
+  /** Who answers this request's correspondence; null = nobody took it yet. */
+  owner_user_id?: string | null
+  owner_name?: string | null
+  can_reply?: boolean
+  can_claim?: boolean
+  can_take_over?: boolean
   /**
    * Latest activity kind from correspondence.listThreads.
    * `DISPATCH` = outbound RFQ invite SENT snapshot («دعوة طلب عرض مرسلة»),
    * not a supplier reply — must not flood the default inbox.
    */
   kind_hint?: string | null
+  /**
+   * What the server filtered on (servers with facets, asked with facets=1 or
+   * any filter): channel of the supplier's latest message (else ours),
+   * stored meaning of that message, any supplier file, quote state, portal
+   * account. Absent from older APIs.
+   */
+  channel?: string | null
+  reply_kind?: string | null
+  has_files?: boolean | null
+  quote_submitted?: boolean
+  quote_new_version?: boolean
+  supplier_account_status?: string | null
 }
 
 export type ConstructionInboxThreadsResult = {
   threads: ConstructionInboxThread[]
   total_count?: number
+  /** Which list this is: the default one, or «مخفية» (hidden after a decline or by hand). */
+  visibility?: 'visible' | 'hidden'
+  /** Conversations under «مخفية» — sent by servers that know hidden conversations. */
+  hidden_count?: number
   next_cursor?: string | null
   haraj_sync?: { state?: string }
+  /** The tab this list is (servers that filter tabs themselves). */
+  filter?: 'inbound' | 'sent' | 'needs_reply' | 'hidden' | 'all'
+  /**
+   * Conversations per tab, from the same grouped rows and rules as the lists:
+   * each equals `total_count` of that tab, whichever tab is open. Absent from
+   * older APIs. `unread_threads`: unread conversations, not hidden, not closed.
+   */
+  tab_counts?: {
+    all?: number
+    inbound?: number
+    sent?: number
+    needs_reply?: number
+    hidden?: number
+    unread_threads?: number
+  }
   follow_up_counts?: {
     all?: number
     action?: number
@@ -986,6 +1913,31 @@ export type ConstructionInboxThreadsResult = {
     unanswered?: number
     [key: string]: number | undefined
   }
+  /**
+   * Real totals for «فلترة المحادثات» (asked with facets=1). Each facet's
+   * counts apply the tab and every OTHER facet, not its own selection. Absent
+   * from older APIs; `meaning` / `account` null when the server cannot tell.
+   */
+  facets?: ConstructionInboxFacets
+}
+
+export type ConstructionInboxFacets = {
+  version?: number
+  /** Conversations matching every applied facet (= total_count). */
+  total?: number
+  channel?: Partial<Record<'platform' | 'whatsapp' | 'email' | 'chat', number>>
+  meaning?: Partial<Record<string, number>> | null
+  state?: Partial<Record<'needs_reply' | 'waiting_supplier' | 'unread' | 'read', number>>
+  quote?: Partial<Record<'submitted' | 'not_submitted' | 'new_version', number>>
+  attachment?: { yes?: number }
+  owner?: Partial<Record<'mine' | 'unassigned' | 'colleague', number>>
+  account?: Partial<Record<'active' | 'not_opened' | 'declined', number>> | null
+  date?: { today?: number; '7d'?: number; custom?: number }
+  item?: number | null
+  unknown?: { channel?: number; meaning?: number }
+  requests?: Array<{ rfq_id: string; reference?: string | null; count: number }>
+  booklets?: Array<{ booklet_id: string; reference?: string | null; count: number; requests?: number }>
+  tz?: string
 }
 
 /** Outbound invite dispatch row — not an inbound supplier conversation. */
@@ -1001,8 +1953,8 @@ export function inboxThreadSupplierLabel(thread: ConstructionInboxThread): strin
     thread.request_context?.supplier_name_ar,
     thread.request_context?.supplier_name,
   ]
-    .map((v) => String(v || '').trim())
-    .find((v) => v.length > 0 && v !== 'مورد')
+    .map((v) => cleanSupplierName(v))
+    .find((v): v is string => Boolean(v))
   if (raw) return raw
   const id = String(thread.supplier_id || '').trim()
   if (id) return `مورد ${id.slice(0, 8)}`
@@ -1030,8 +1982,23 @@ export type ConstructionInboxMessage = {
 
 export type ConstructionInboxMessagesPage = {
   messages: ConstructionInboxMessage[]
+  /** Unread supplier messages (every one of them, hidden and closed included). */
   unread_count: number
+  /** Unread conversations, not hidden and not closed/declined. Absent from older APIs. */
+  unread_threads?: number
   next_cursor?: string | null
+}
+
+/**
+ * The sidebar / bell / home number: unread conversations when the API says so,
+ * otherwise (older API) unread messages as before.
+ */
+export function inboxUnreadConversations(page: ConstructionInboxMessagesPage): {
+  count: number
+  conversations: boolean
+} {
+  if (typeof page.unread_threads === 'number') return { count: page.unread_threads, conversations: true }
+  return { count: page.unread_count ?? 0, conversations: false }
 }
 
 /** Buyer-visible inbound supplier emails (Resend alias + Gmail-linked captures). */
@@ -1108,6 +2075,20 @@ export async function markConstructionInboxThreads(target: string[] | 'all', rea
   })
 }
 
+/**
+ * «إخفاء» / «إظهار» whole conversations. A row of the list stands for the
+ * supplier's conversation within the company, so the server changes every
+ * request of that supplier. Nothing is deleted; a new supplier message shows
+ * a hidden conversation again by itself.
+ */
+export async function setConstructionInboxThreadsVisibility(inviteIds: string[], hidden: boolean) {
+  return request<{ hidden: boolean; threads: number }>('/api/construction/inbox/threads/visibility', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invite_ids: inviteIds, hidden }),
+  })
+}
+
 export async function markConstructionInboxMessageUnread(messageId: string) {
   return request<{ read: boolean }>(
     `/api/construction/inbox/messages/${encodeURIComponent(messageId)}/unread`,
@@ -1116,13 +2097,30 @@ export async function markConstructionInboxMessageUnread(messageId: string) {
 }
 
 export async function listConstructionInboxThreads(query: {
-  /** API only accepts needs_reply | all. Use client helpers for inbound vs مرسل. */
-  filter?: 'needs_reply' | 'all'
+  /**
+   * The tab, filtered by the server. Older APIs accept only needs_reply | all
+   * (and 400 the rest); `lib/inboxTabs.ts` falls back for them.
+   */
+  filter?: 'inbound' | 'sent' | 'needs_reply' | 'hidden' | 'all'
   cursor?: string
+  /** One request only — applied by the server before it groups rows per supplier. */
+  rfq_id?: string | null
+  /** «مخفية»: only conversations hidden after a supplier's «ما عندنا» or by hand. */
+  visibility?: 'hidden'
+  /**
+   * «فلترة المحادثات» sent to the server (channel, meaning, state, quote,
+   * attachment, owner, account, date, date_from, date_to, tz, item,
+   * booklet_id, facets=1) — built by `serverFilterQuery` in lib/inboxFilters.
+   * An older API ignores them and sends no `facets`.
+   */
+  extra?: Record<string, string>
 } = {}) {
   const params = new URLSearchParams()
   if (query.filter) params.set('filter', query.filter)
+  if (query.visibility) params.set('visibility', query.visibility)
   if (query.cursor) params.set('cursor', query.cursor)
+  if (query.rfq_id) params.set('rfq_id', query.rfq_id)
+  for (const [key, value] of Object.entries(query.extra || {})) if (value) params.set(key, value)
   const qs = params.toString()
   return request<ConstructionInboxThreadsResult>(
     `/api/construction/inbox/threads${qs ? `?${qs}` : ''}`,
@@ -1160,6 +2158,27 @@ export type ConstructionInboxThreadMessage = {
   reply_contacts?: ConstructionReplyContact[] | null
   /** INBOUND only: one short Arabic line summarising the reply. */
   reply_summary_ar?: string | null
+  /** INBOUND only: the playbook intent (GREETING, BOT, BUTTON, NEGOTIATION …). */
+  reply_intent?: string | null
+  /** INBOUND only: the supplier's own automatic reply — «رد آلي من المورد». */
+  reply_bot?: boolean
+  /** INBOUND only: only a person should answer — «يحتاج رد منك». */
+  reply_needs_human?: boolean
+}
+
+/**
+ * A suggested answer to the supplier's latest message. Never sent by the
+ * server: «أرسل» goes through the normal reply with `draft_id`; «تجاهل»
+ * closes it. `text` is null when only a person should answer (needs_human).
+ */
+export type ConstructionReplyDraft = {
+  id: string
+  message_id: string
+  intent: string
+  text: string | null
+  needs_human: boolean
+  bot: boolean
+  state: 'SUGGESTED' | 'SENT' | 'EDITED_SENT' | 'DISMISSED' | string
 }
 
 export type ConstructionReplyKind =
@@ -1169,12 +2188,25 @@ export type ConstructionReplyKind =
   | 'INTERESTED'
   | 'QUOTE_FILE'
   | 'PRICE_IN_TEXT'
+  | 'CLARIFICATION_NEEDED'
   | 'QUESTION'
   | 'OTHER'
+  | 'BUTTON'
+  | 'NON_TEXT_ACK'
 
 export type ConstructionReplyContact = { type: 'phone' | 'email'; value: string }
 
 export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
+  /** Hidden from the default list (after «ما عندنا», or by hand) — never deleted. */
+  hidden?: boolean
+  hidden_at?: string | null
+  hidden_reason?: 'SUPPLIER_DECLINED' | 'MANUAL' | string | null
+  /** What the supplier said it sells, newest first («ما عندنا X، عندنا Y»). */
+  supplier_activity_updates?: Array<{ activity: string; at?: string | null; channel?: string | null }>
+  /** Sends the per-phone rules held back, newest first («لم يُرسل: …»). */
+  send_skips?: Array<{ id: string; kind: string; reason: string; at: string; label_ar: string }>
+  /** The supplier's number is do-not-contact («رقم خاطئ — لا نراسله»). */
+  phone_do_not_contact?: { reason: string; label_ar: string } | null
   rfq_id?: string
   version_number?: string | number | null
   owner_user_id?: string | null
@@ -1183,11 +2215,20 @@ export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
   can_claim?: boolean
   can_take_over?: boolean
   messages: ConstructionInboxThreadMessage[]
+  /** Suggested answer to the supplier's latest message (never sent automatically). */
+  reply_draft?: ConstructionReplyDraft | null
   older_than?: string | null
   /** Parent id the server requires on a reply; stale value = INBOX_NEW_MESSAGE. */
   last_message_id?: string | null
   reply_channel?: string | null
   reply_recipient?: string | null
+  /**
+   * WhatsApp's free 24-hour reply window, measured from the supplier's own last
+   * WhatsApp message (less a minute of margin). Open → the composer sends a
+   * plain-text WhatsApp reply; closed → the server refuses WHATSAPP_WINDOW_CLOSED.
+   */
+  whatsapp_window_open?: boolean
+  whatsapp_window_until?: string | null
   send_channels?: Array<{
     channel: string
     reason?: string | null
@@ -1248,7 +2289,10 @@ export async function replyToConstructionInboxThread(
     parent_message_id?: string | null
     attachments?: ConstructionInboxOutboundAttachment[]
     include_items?: boolean
-    channel?: 'EMAIL' | 'HARAJ'
+    channel?: 'EMAIL' | 'HARAJ' | 'PORTAL' | 'WHATSAPP'
+    /** Sent from a suggested reply: the click is the approval; the server closes the suggestion. */
+    draft_id?: string | null
+    draft_edited?: boolean
   },
 ) {
   return request<ConstructionInboxReplyResult>(
@@ -1263,7 +2307,104 @@ export async function replyToConstructionInboxThread(
         ...(body.attachments?.length ? { attachments: body.attachments } : {}),
         ...(body.include_items ? { include_items: true } : {}),
         ...(body.channel && body.channel !== 'EMAIL' ? { channel: body.channel } : {}),
+        ...(body.draft_id ? { draft_id: body.draft_id, draft_edited: Boolean(body.draft_edited) } : {}),
       }),
+    },
+  )
+}
+
+// ── «فهم الرسالة»: the inbox pipeline's reading and its drafts (API inbox-ai-pipeline.js) ──
+
+export type ConstructionAiQuoteLine = {
+  line_key: string
+  name?: string | null
+  unit_price: number
+  raw_price?: number | null
+  unit?: string | null
+  includes_vat: boolean | null
+  vat_inferred?: boolean
+  sale_unit?: string | null
+  pack_size?: number | null
+  sale_unit_price?: number | null
+  confidence?: number | null
+}
+
+export type ConstructionAiProfileUpdate = {
+  type: string
+  normalized_value: string
+  raw_evidence?: string | null
+  confidence?: number | null
+  persistence?: 'PERMANENT' | 'TEMPORARY'
+  relationship?: string | null
+  merge?: 'ADD' | 'ADD_SPECIFIC' | 'KEEP_BOTH' | 'DUPLICATE' | 'CONFLICT'
+}
+
+export type ConstructionAiDraft = {
+  id: string
+  message_id: string
+  type: 'REPLY_DRAFT' | 'QUOTE_DRAFT' | 'DECLINE_DRAFT' | 'SUPPLIER_PROFILE_DRAFT'
+  state: 'PENDING' | 'APPROVED' | 'EDITED' | 'REJECTED' | 'FAILED'
+  origin?: string
+  confidence: number | null
+  payload: {
+    lines?: ConstructionAiQuoteLine[]
+    prices_include_tax?: boolean | null
+    delivery_included?: boolean | null
+    lead_time_days?: number | null
+    sanity?: Array<{ line_key: string; code: string; reason_ar: string; suggestion_ar?: string | null }>
+    scope?: 'request' | 'trade' | 'temporary' | 'lines'
+    actions?: { status: boolean; hide: boolean; suppress: boolean; activity: boolean }
+    summary_ar?: string | null
+    updates?: ConstructionAiProfileUpdate[]
+    conflict?: boolean
+    text?: string | null
+  }
+}
+
+export type ConstructionAiAnalysis = {
+  mode: 'OFF' | 'SHADOW' | 'DRAFTS' | 'ACTIONS'
+  drafts_enabled: boolean
+  actions_enabled: boolean
+  analysis: null | {
+    message_id: string
+    reply_kind: string
+    final_intent: string
+    confidence: number
+    source: 'RULES' | 'LLM' | 'RULES+LLM'
+    human_required: boolean
+    human_reasons: string[]
+    quote: { items: ConstructionAiQuoteLine[]; method?: string } | null
+    terms: { delivery_included: boolean | null; lead_time_days: number | null } | null
+    decline: { decline: boolean; scope: string } | null
+  }
+  drafts: ConstructionAiDraft[]
+}
+
+/** The latest reading of this conversation and its pending drafts (nothing when drafts are off). */
+export async function fetchConstructionInboxAi(inviteId: string) {
+  return request<ConstructionAiAnalysis>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/ai`)
+}
+
+/** اعتماد / تعديل / رفض. Approval runs the existing action on the server; nothing is sent to the supplier. */
+export async function decideConstructionInboxAiDraft(
+  inviteId: string,
+  draftId: string,
+  body: { action: 'APPROVE' | 'EDIT' | 'REJECT'; edit?: Record<string, unknown>; choices?: string[] },
+) {
+  return request<ConstructionAiDraft & { execution?: Record<string, unknown> }>(
+    `/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/ai/drafts/${encodeURIComponent(draftId)}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+}
+
+/** «تجاهل» on a suggested reply. Nothing is sent. */
+export async function dismissConstructionInboxDraft(inviteId: string, draftId: string) {
+  return request<{ id: string; state: string }>(
+    `/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/draft/dismiss`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ draft_id: draftId }),
     },
   )
 }
@@ -1382,6 +2523,18 @@ export function inboxReplyErrorMessageAr(code: string): string {
       return 'الطلب بظرف مختوم — لا مراسلات قبل فتح المظاريف.'
     case 'INBOX_REPLY_CHANNEL_MISMATCH':
       return 'آخر رسالة وصلت على قناة أخرى — الرد يجب أن يكون على نفس القناة.'
+    case 'SKIPPED_DO_NOT_CONTACT':
+      return 'رقم خاطئ — لا نراسله. صاحب الرقم قال إنه ليس المورد.'
+    case 'SKIPPED_PHONE_CAP':
+      return 'لم يُرسل: وصلت هذا الرقم رسائل كافية على هذا الطلب.'
+    case 'SKIPPED_DUPLICATE_PHONE':
+      return 'لم يُرسل: الرقم نفسه وصله الطلب من مورد آخر.'
+    case 'SKIPPED_DECLINED':
+      return 'لم يُرسل: اعتذر صاحب الرقم عن هذا الطلب.'
+    case 'WHATSAPP_WINDOW_CLOSED':
+      return 'مرّت 24 ساعة على آخر رسالة من المورد — الرد المجاني غير متاح؛ استخدم رابط المحادثة أو انتظر رده.'
+    case 'INBOX_ATTACHMENTS_EMAIL_ONLY':
+      return 'هذه القناة تقبل النص فقط — أزل المرفقات أو أرسلها بالبريد.'
     case 'INBOX_SEND_IN_PROGRESS':
       return 'هناك إرسال جارٍ لنفس الرسالة — انتظر النتيجة قبل إعادة المحاولة.'
     case 'INBOX_RECONCILIATION_REQUIRED':
@@ -1611,6 +2764,114 @@ export async function listSupplierImportBatches() {
   return request<{ batches: SupplierImportBatch[] }>('/api/construction/suppliers/import-batches')
 }
 
+/** One line a supplier priced for this company (GET /suppliers/:id/quote-history). */
+export type SupplierQuoteHistoryRow = {
+  quote_id: string
+  quote_version_id: string
+  quote_version: number
+  versions_count: number
+  quoted_at: string | null
+  first_quoted_at: string | null
+  line: {
+    line_id: string
+    line_key: string | null
+    line_number: number | null
+    booklet_text: string | null
+    market_name: string | null
+    item_name: string | null
+    quantity: number | null
+    uom: string | null
+  }
+  available: boolean
+  declined: boolean
+  unit_price: number | null
+  unit_price_ex_vat: number | null
+  prices_include_tax: boolean | null
+  tax_rate: number | null
+  vat_basis: 'INCLUDES_VAT' | 'EXCLUDES_VAT' | 'UNKNOWN'
+  currency: string
+  line_total_ex_vat: number | null
+  source: 'SUPPLIER' | 'CHAT'
+  chat_sourced: boolean
+  lead_time_days: number | null
+  price_trail: Array<{
+    quote_version: number
+    at: string | null
+    available: boolean
+    unit_price: number | null
+    unit_price_ex_vat: number | null
+    prices_include_tax: boolean | null
+    source: 'SUPPLIER' | 'CHAT'
+    change_percent: number | null
+  }>
+  price_changes: number
+  price_cuts: number
+  total_change_percent: number | null
+  cheapest_now: boolean | null
+  rank_now: number | null
+  offers_now: number | null
+  pct_above_cheapest_now: number | null
+  cheapest_at_time: boolean | null
+  rank_at_time: number | null
+  offers_at_time: number | null
+  awarded: boolean
+  request: {
+    rfq_id: string | null
+    department: { code?: string; key?: string; label_ar?: string } | string | null
+    project: string | null
+    city: string | null
+    created_at: string | null
+    booklet: { id: string; reference: string; wave_number: number } | null
+  }
+  invited_at: string | null
+  response_hours: number | null
+}
+
+export type SupplierQuoteHistorySummary = {
+  invites_received: number
+  replies: number
+  reply_rate: number | null
+  quotes: number
+  lines_quoted: number
+  lines_declined: number
+  wins: number
+  lines_won: number
+  cheapest_lines_now: number
+  compared_lines: number
+  avg_pct_above_cheapest: number | null
+  avg_rank: number | null
+  price_cuts: number
+  chat_sourced_lines: number
+  median_response_hours: number | null
+  last_quote_at: string | null
+}
+
+export type SupplierQuoteHistory = {
+  supplier: { id: string; name_ar?: string | null; name_en?: string | null }
+  summary: SupplierQuoteHistorySummary
+  quotes: SupplierQuoteHistoryRow[]
+}
+
+/** «سجل العروض»: every price this supplier gave the signed-in company. */
+export async function getSupplierQuoteHistory(supplierId: string) {
+  return request<SupplierQuoteHistory>(
+    `/api/construction/suppliers/${encodeURIComponent(supplierId)}/quote-history`,
+  )
+}
+
+export type QuotedSupplierCount = {
+  supplier_id: string
+  quotes: number
+  lines_quoted: number
+  last_quote_at: string | null
+  has_chat_prices?: boolean
+}
+
+/** Suppliers who priced at least one line for this company — the list badge. */
+export async function listQuotedSuppliers() {
+  return request<{ suppliers: QuotedSupplierCount[] }>('/api/construction/suppliers/quote-summary')
+}
+
 export async function revertSupplierImportBatch(batchId: string) {
   return request<{ batch: SupplierImportBatch; deactivated_count: number }>(
     `/api/construction/suppliers/import-batches/${encodeURIComponent(batchId)}/revert`,
@@ -1660,10 +2921,20 @@ export async function matchConstructionSuppliers(payload: {
 }
 
 /**
+ * «مقدّم عروض سابقاً»: how many of this company's requests the supplier priced,
+ * when the API ranked him first for having quoted this material before.
+ */
+function priorQuotesOf(s: Record<string, unknown>): number | undefined {
+  const prior = s.prior_quoter as { quotes?: unknown } | undefined
+  const n = Number(prior?.quotes)
+  return prior && Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+/**
  * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
  * product match, so `rfq_eligible` is false and the badge names the source.
  */
-function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string) {
+function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string, limit = 12) {
   // One business listed twice (two directory rows, same name) is one choice,
   // not two. The server returns at most 12; all of them are listed so the
   // count on the card is the count the buyer can actually see.
@@ -1679,10 +2950,11 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
       if (name) seenNames.add(name)
       return true
     })
-    .slice(0, 12)
+    .slice(0, limit)
     .map((s) => {
       const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
       const id = String(s.id || '')
+      const outcome = s.round_outcome as { grade?: string; priced_lines?: number; similar_by?: string } | undefined
       const isHaraj =
         isHarajSellerExternalKey(id) ||
         String(s.source_system || s.source || '') === 'HARAJ' ||
@@ -1694,6 +2966,10 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         city: (s.city as string | undefined) || undefined,
         evidence,
         learned: s.learned_choice === true,
+        prior_quotes: priorQuotesOf(s),
+        ...(outcome?.grade ? { round_outcome: { grade: outcome.grade, priced_lines: outcome.priced_lines, similar_by: outcome.similar_by } } : {}),
+        ...(typeof s.why_ar === 'string' && s.why_ar ? { why_ar: s.why_ar } : {}),
+        ...(s.out_of_city === true ? { out_of_city: true } : {}),
         channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
         rfq_eligible: false,
       }
@@ -1725,7 +3001,10 @@ export type ConstructionReportProject = {
   invited: number
   reached: number
   opened: number
+  /** Invites that answered the request — an automatic greeting is not an answer. */
   replied: number
+  /** Invites whose only messages were automatic (greeting / away) replies. */
+  auto_only?: number
   quoted: number
   complete_quotes: number
   sent_at?: string | null
@@ -1749,6 +3028,7 @@ export type ConstructionReportSupplier = {
   complete_quotes: number
   partial_quotes: number
   silent: number
+  auto_only?: number
   projects: number
   median_reply_hours?: string | number | null
   avg_reply_hours?: string | number | null
@@ -1761,7 +3041,7 @@ export type ConstructionReports = {
   filters: { days: number | null; rfq_id: string | null }
   totals: {
     projects: number; lines: number; priced_lines: number; single_offer_lines: number; strong_lines: number
-    line_offers_total: number; invited: number; reached: number; opened: number; replied: number; quoted: number
+    line_offers_total: number; invited: number; reached: number; opened: number; replied: number; auto_only?: number; quoted: number
     complete_quotes: number; coverage_percent: number | null; avg_offers_per_line: number | null
     suppliers_participating: number; reply_rate: number | null; quote_rate: number | null
     spread_value: number; lowest_value: number
@@ -1799,10 +3079,47 @@ export async function getConstructionReports(options: { days?: number | null; rf
 }
 
 /** The rows behind a report number. */
-export async function getConstructionReportLines(filter: 'no_offer' | 'single_offer' | 'priced', rfqId?: string | null) {
+export async function getConstructionReportLines(filter: 'no_offer' | 'single_offer' | 'priced', rfqId?: string | null, days?: number | null) {
   const qs = new URLSearchParams({ filter })
   if (rfqId) qs.set('rfq_id', rfqId)
+  if (days) qs.set('days', String(days))
   return request<{ filter: string; rfq_id: string | null; lines: ConstructionReportLine[] }>(`/api/construction/reports/lines?${qs}`)
+}
+
+/**
+ * «ابحث عن منتج»: product cards (name, brand, model, image, specs, source) for
+ * a name, model, SKU or product link. Never a price. A limit or a slow search
+ * comes back as a status with an Arabic message, not as an error.
+ */
+export async function searchConstructionProducts(
+  q: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<import('../lib/rfqCart').ProductSearchResult> {
+  const result = await request<import('../lib/rfqCart').ProductSearchResult | null>('/api/construction/product-search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q: String(q || '').slice(0, 1000) }),
+    signal: options.signal,
+    timeoutMs: 60_000,
+  })
+  return {
+    status: result?.status || 'UNAVAILABLE',
+    query: result?.query || q,
+    mode: result?.mode,
+    cards: Array.isArray(result?.cards) ? result!.cards : [],
+    cached: result?.cached,
+    message_ar: result?.message_ar,
+    quota: result?.quota,
+  }
+}
+
+/** «عمليات البحث اليوم»: the company-wide daily allowance (1,500). Null when the server has no counter yet. */
+export async function getConstructionProductSearchQuota(): Promise<import('../lib/rfqCart').ProductSearchQuota | null> {
+  try {
+    return await request<import('../lib/rfqCart').ProductSearchQuota | null>('/api/construction/product-search/quota', { timeoutMs: 10_000 })
+  } catch {
+    return null
+  }
 }
 
 export async function matchConstructionBoqCatalog(payload: {
@@ -1827,7 +3144,7 @@ export async function matchConstructionBoqCatalog(payload: {
     category?: string
     brand?: string
   }>
-}): Promise<{ rows: BoqCatalogMatchRow[]; matches?: BoqCatalogMatchRow[] }> {
+}): Promise<{ rows: BoqCatalogMatchRow[]; matches?: BoqCatalogMatchRow[]; /** «سجل العرض»: this match call's id, sent back on each package. */ exposure_id?: string }> {
   const baseRows =
     payload.rows?.length
       ? payload.rows.slice(0, 200)
@@ -1883,6 +3200,8 @@ export async function matchConstructionBoqCatalog(payload: {
   })
 
   const data = await request<{
+    /** «سجل العرض»: the id of this match call, sent back on each package the request creates. */
+    exposure?: { id?: string; status?: string } | null
     rows?: Array<{
       key?: string
       kind?: string
@@ -1903,6 +3222,7 @@ export async function matchConstructionBoqCatalog(payload: {
         suppliers?: Array<Record<string, unknown>>
       }>
       learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      outcome_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
       ai_suggestion?: {
         intent?: string
@@ -1991,6 +3311,7 @@ export async function matchConstructionBoqCatalog(payload: {
               ? 'دليل منتج'
               : 'من الكتالوج',
           learned: s.learned_choice === true,
+          prior_quotes: priorQuotesOf(s),
           channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
@@ -2004,7 +3325,7 @@ export async function matchConstructionBoqCatalog(payload: {
               supplier_count: Number(row.map_suggestion.supplier_count) || 0,
               zero_reason: row.map_suggestion.zero_reason ?? null,
               // The ontology named the material; the map supplied the seller.
-              suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق'),
+              suppliers: suggestionSuppliers(row.map_suggestion.suppliers, 'خريطة فرق', Number.POSITIVE_INFINITY),
             },
           }
         : {}),
@@ -2013,6 +3334,9 @@ export async function matchConstructionBoqCatalog(payload: {
         : {}),
       ...(row.learned_suggestion?.suppliers?.length
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }
+        : {}),
+      ...(row.outcome_suggestion?.suppliers?.length
+        ? { outcome_suggestion: { suppliers: suggestionSuppliers(row.outcome_suggestion.suppliers, 'نتائج الجولات', 24) } }
         : {}),
       ...(row.ai_suggestion && row.ai_suggestion.intent
         ? {
@@ -2029,7 +3353,7 @@ export async function matchConstructionBoqCatalog(payload: {
     }
   })
 
-  return { rows: mapped, matches: mapped }
+  return { rows: mapped, matches: mapped, exposure_id: data.exposure?.id || undefined }
 }
 
 /** A row the read refused to serve as an item, with the reason it refused. */
@@ -2226,7 +3550,8 @@ export function formatInviteResponseStatus(status: string): string {
   if (key === 'AWAITING_QUOTE' || key === 'PENDING') return 'بانتظار الرد'
   if (key === 'QUOTED' || key === 'RESPONDED') return 'وصل عرض'
   if (key === 'DECLINED') return 'رفض'
-  if (key === 'EXPIRED') return 'منتهٍ'
+  // Invitations no longer expire; a legacy EXPIRED row is still waiting.
+  if (key === 'EXPIRED') return 'بانتظار الرد'
   return status || '—'
 }
 
@@ -2361,9 +3686,104 @@ export function formatArDate(value?: string | null): string {
   if (Number.isNaN(ts)) return value
   // Isolated left-to-right: inside Arabic text «19 September 2026» otherwise
   // renders as «September 2026 19».
-  return `\u2066${new Date(ts).toLocaleDateString('en-GB', {
+  return `\u2066${new Date(ts).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   })}\u2069`
+}
+
+/*
+ * «منافسات المقاولات» — public Etimad tenders for contracting companies.
+ *
+ * The API proxies a separate tenders service and always asks it for the
+ * contracting vertical; the key to that service never reaches the browser.
+ */
+export type ContractingTender = {
+  id: string
+  reference_number: string | null
+  title: string | null
+  agency: string | null
+  agency_branch: string | null
+  tender_type: string | null
+  status: string | null
+  classification: string | null
+  execution_location: string | null
+  booklet_price: number | null
+  currency: string | null
+  publication_date: string | null
+  questions_deadline: string | null
+  submission_deadline: string | null
+  opening_date: string | null
+  source_url: string | null
+  description?: string | null
+}
+
+export type ContractingTenderSort = 'latest' | 'closing'
+
+export type ContractingTenderPage = {
+  total: number
+  page: number
+  page_size: number
+  sort: ContractingTenderSort
+  items: ContractingTender[]
+}
+
+export async function listContractingTenders(
+  opts: { q?: string; sort?: ContractingTenderSort; page?: number; pageSize?: number } = {},
+  signal?: AbortSignal,
+): Promise<ContractingTenderPage> {
+  const params = new URLSearchParams()
+  const q = (opts.q || '').trim()
+  if (q) params.set('q', q)
+  params.set('sort', opts.sort === 'closing' ? 'closing' : 'latest')
+  params.set('page', String(Math.max(1, opts.page || 1)))
+  params.set('page_size', String(opts.pageSize || 20))
+  return request<ContractingTenderPage>(`/api/construction/tenders?${params.toString()}`, { signal })
+}
+
+// ─── «انضم لفرق كمورد» — the owner's list (api: lib/construction/supplier-join-http.js) ───
+
+export type SupplierJoinStatus = 'INVITED' | 'JOINED' | 'DECLINED'
+
+export type SupplierJoinRow = {
+  supplier_id: string
+  name: string | null
+  city: string | null
+  phone_masked: string | null
+  status: SupplierJoinStatus
+  invited_at: string | null
+  joined_at: string | null
+  declined_at: string | null
+  ahmad_invited_at: string | null
+  live_link_expires_at: string | null
+}
+
+export async function listSupplierJoins(): Promise<{ counts: Record<SupplierJoinStatus, number>; suppliers: SupplierJoinRow[] }> {
+  const result = await request<{ counts?: Record<SupplierJoinStatus, number>; suppliers?: SupplierJoinRow[] } | null>('/api/construction/supplier-joins')
+  return {
+    counts: { INVITED: 0, JOINED: 0, DECLINED: 0, ...(result?.counts || {}) },
+    suppliers: Array.isArray(result?.suppliers) ? result!.suppliers : [],
+  }
+}
+
+/** A one-time join link for one supplier; the address is returned once, here only. */
+export async function createSupplierJoinLink(supplierId: string): Promise<{ url: string; expires_at: string }> {
+  return request<{ url: string; expires_at: string }>(`/api/construction/supplier-joins/${encodeURIComponent(supplierId)}/link`, { method: 'POST' })
+}
+
+// Durable, quote-specific discount requests; dispatch uses the existing inbox outbox.
+export type QuoteDiscountRequest = {
+  id: string; quote_version_id: string; text: string; send_at: string;
+  state: 'SCHEDULED' | 'PROCESSING' | 'SENT' | 'FAILED' | 'UNKNOWN' | 'SKIPPED' | 'CANCELLED';
+  failure_code?: string | null;
+}
+export function getQuoteDiscountRequests(inviteId: string) {
+  return request<{ requests: QuoteDiscountRequest[]; can_schedule: boolean }>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests`)
+}
+export function createQuoteDiscountRequest(inviteId: string, body: { idempotency_key: string; quote_version_id: string; delay_minutes: 0 | 60; text: string }) {
+  return request<QuoteDiscountRequest>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+export function cancelQuoteDiscountRequest(inviteId: string, id: string) {
+  return request<QuoteDiscountRequest>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
 }

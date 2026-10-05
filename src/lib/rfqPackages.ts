@@ -4,6 +4,7 @@
  * supplierPayload scopes each invite to only that supplier's lines.
  */
 import type { BOQItem } from '../types'
+import { cleanSpecCard, type SpecCard } from './specCard'
 
 export type RfqPackageDraft = {
   id: string
@@ -11,6 +12,10 @@ export type RfqPackageDraft = {
   category_keys: string[]
   line_keys: string[]
   selected_supplier_ids: string[]
+  /** «سجل العرض»: the match call whose lists these suppliers were chosen from. */
+  exposure_id?: string
+  /** Those of selected_supplier_ids the screen ticked by itself. */
+  auto_picked_supplier_ids?: string[]
 }
 
 export type RfqLineDraft = {
@@ -23,6 +28,15 @@ export type RfqLineDraft = {
   name_ar: string
   original_name: string
   original_description: string
+  /** «الاسم الدارج بالسوق», when the buyer kept one. Absent otherwise. */
+  market_name_ar?: string
+  /**
+   * The buyer cleared the suggested name: the API's name memory stops serving
+   * it for this wording. Absent otherwise; never stored on the request line.
+   */
+  market_name_cleared?: true
+  /** «بطاقة المواصفة», when the buyer filled one. Absent otherwise. */
+  spec_card?: SpecCard
 }
 
 /**
@@ -44,6 +58,8 @@ export function buildRfqLinesFromItems(
   const parseQty = input.parseQty || ((qty: string) => Number(String(qty).replace(/,/g, '')) || 1)
   return items.map((item) => {
     const lineKey = String(item.lineKey || `line-${item.id}`)
+    const market = marketNameToSend(item)
+    const card = cleanSpecCard(item.specCard)
     return {
       line_key: lineKey,
       farq_spec_id: item.farqSpecId || input.specIdForLine?.(lineKey) || null,
@@ -56,8 +72,26 @@ export function buildRfqLinesFromItems(
       name_ar: item.name,
       original_name: item.name,
       original_description: item.spec || '',
+      // Beside the booklet text, never instead of it; a line without one is
+      // sent exactly as before.
+      ...(market ? { market_name_ar: market } : {}),
+      ...(!market && marketNameCleared(item) ? { market_name_cleared: true as const } : {}),
+      ...(card ? { spec_card: card } : {}),
     }
   })
+}
+
+/** The reader or the memory proposed a name and the buyer emptied the field. */
+export function marketNameCleared(item: Pick<BOQItem, 'marketName'>): boolean {
+  return item.marketName !== undefined && String(item.marketName).trim() === ''
+}
+
+/** The market name the buyer kept for a line, or null (none, cleared, or a copy of the name). */
+export function marketNameToSend(item: Pick<BOQItem, 'name' | 'marketName'>): string | null {
+  const market = String(item.marketName || '').replace(/\s+/g, ' ').trim()
+  if (!market) return null
+  if (market === String(item.name || '').replace(/\s+/g, ' ').trim()) return null
+  return market.slice(0, 240)
 }
 
 export function departmentForBoqItem(item: Pick<BOQItem, 'name' | 'spec'>): string | null {
@@ -123,12 +157,16 @@ export function buildRfqPackagesFromSelection(input: {
     const lineKey = String(item.lineKey || `${item.id}:${item.farqSpecId || item.name}`)
     lineKeys.add(lineKey)
     const specId = item.farqSpecId || `item:${item.id}`
+    const auto = new Set((item.autoPickedSupplierIds || []).map(resolve))
+    const autoPicked = supplierIds.filter((id) => auto.has(id))
     packages.push({
       id: `material:${specId}:${item.id}`,
       name: item.name || specId,
       category_keys: [departmentForBoqItem(item) || input.fallbackDepartment || ''].filter(Boolean),
       line_keys: [lineKey],
       selected_supplier_ids: supplierIds,
+      ...(item.exposureId ? { exposure_id: item.exposureId } : {}),
+      ...(autoPicked.length ? { auto_picked_supplier_ids: autoPicked } : {}),
     })
   }
 
