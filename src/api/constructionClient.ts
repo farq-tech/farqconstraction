@@ -3745,3 +3745,19 @@ export async function listSupplierJoins(): Promise<{ counts: Record<SupplierJoin
 export async function createSupplierJoinLink(supplierId: string): Promise<{ url: string; expires_at: string }> {
   return request<{ url: string; expires_at: string }>(`/api/construction/supplier-joins/${encodeURIComponent(supplierId)}/link`, { method: 'POST' })
 }
+
+// Durable, quote-specific discount requests; dispatch uses the existing inbox outbox.
+export type QuoteDiscountRequest = {
+  id: string; quote_version_id: string; text: string; send_at: string;
+  state: 'SCHEDULED' | 'PROCESSING' | 'SENT' | 'FAILED' | 'UNKNOWN' | 'SKIPPED' | 'CANCELLED';
+  failure_code?: string | null;
+}
+export function getQuoteDiscountRequests(inviteId: string) {
+  return request<{ requests: QuoteDiscountRequest[]; can_schedule: boolean }>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests`)
+}
+export function createQuoteDiscountRequest(inviteId: string, body: { idempotency_key: string; quote_version_id: string; delay_minutes: 0 | 60; text: string }) {
+  return request<QuoteDiscountRequest>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+export function cancelQuoteDiscountRequest(inviteId: string, id: string) {
+  return request<QuoteDiscountRequest>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+}
