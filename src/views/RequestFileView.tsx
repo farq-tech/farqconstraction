@@ -1,3 +1,7 @@
+import SupplierPriceValidity from '../components/procurement/SupplierPriceValidity'
+import SupplierPriceMemory from '../components/procurement/SupplierPriceMemory'
+import PrewarmRelease from '../components/procurement/PrewarmRelease'
+import PrewarmIntelligence from '../components/procurement/PrewarmIntelligence'
 import { requestCreatorLabel } from "../lib/rfqIdentity"
 import AwardDialog from '../components/procurement/AwardDialog'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -625,6 +629,9 @@ export function RequestFileView({
         ))}
       </div>
 
+      <PrewarmRelease rfqId={rfq.id} />
+      <PrewarmIntelligence rfqId={rfq.id} />
+      <SupplierPriceMemory rfqId={rfq.id} />
       {tab === "overview" && (
         <div className="space-y-4">
           {rfq.award && awardedInviteId && (
@@ -1401,7 +1408,9 @@ function QuoteCard({
       ? formatMoney(total ?? null, String(offer.currency || "SAR"))
       : null
   const held = heldSummaryLabel(summary?.price_review)
-  const submitted = formatEventTime(offer.submittedAt || null)
+  const reusedPrice = offer.entered_by === "REUSED_VERIFIED"
+  const pricingDate = reusedPrice ? offer.price_provenance?.map(p => p.quoted_at).sort()[0] : offer.submittedAt
+  const submitted = formatEventTime(pricingDate || null)
   return (
     <div
       className={`bg-white rounded-2xl border p-4 ${
@@ -1468,9 +1477,10 @@ function QuoteCard({
       </div>
       {submitted && (
         <div className="mt-2 text-[11px] text-neutral-400">
-          وصل: {submitted}
+          {reusedPrice ? "أكد المورد السعر:" : "وصل:"} {submitted}
         </div>
       )}
+      {reusedPrice && <SupplierPriceValidity validUntil={offer.price_valid_until} />}
       {typeof offer.notes === "string" && offer.notes.trim() && (
         <div className="mt-2 text-xs text-neutral-600 line-clamp-2">
           ملاحظات: {offer.notes}

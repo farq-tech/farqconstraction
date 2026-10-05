@@ -270,6 +270,9 @@ export type ConstructionComparison = {
       quoteVersion?: number
       /** supplier_quote_versions.created_at — when this version was submitted. */
       submittedAt?: string
+      entered_by?: string
+      price_valid_until?: string
+      price_provenance?: Array<{line_id:string;price_observation_id:string;quoted_at:string;valid_until:string}>
       prices_include_tax?: boolean | null
       tax_rate?: number | null
       notes?: string | null
@@ -1833,6 +1836,8 @@ export type ConstructionInboxStatus = {
 }
 
 export type ConstructionInboxThread = {
+  historical?:boolean
+  history_label?:string
   invite_id?: string
   supplier_id?: string
   /** Present on API thread rows (not nested under request_context). */
@@ -2124,7 +2129,7 @@ export async function listConstructionInboxThreads(query: {
   if (query.filter) params.set('filter', query.filter)
   if (query.visibility) params.set('visibility', query.visibility)
   if (query.cursor) params.set('cursor', query.cursor)
-  if (query.rfq_id) params.set('rfq_id', query.rfq_id)
+  if (query.rfq_id) { params.set('rfq_id', query.rfq_id); params.set('prewarm_history','1') }
   for (const [key, value] of Object.entries(query.extra || {})) if (value) params.set(key, value)
   const qs = params.toString()
   return request<ConstructionInboxThreadsResult>(
@@ -2141,6 +2146,9 @@ export type ConstructionInboxThreadFile = {
 }
 
 export type ConstructionInboxThreadMessage = {
+  historical?: boolean
+  origin_label?: string
+  evidence_id?: string
   id: string
   invite_id?: string
   direction: 'INBOUND' | 'OUTBOUND'
@@ -2219,6 +2227,7 @@ export type ConstructionInboxThreadDetail = ConstructionInboxThread & {
   can_reply?: boolean
   can_claim?: boolean
   can_take_over?: boolean
+  historical_messages?: ConstructionInboxThreadMessage[]
   messages: ConstructionInboxThreadMessage[]
   /** Suggested answer to the supplier's latest message (never sent automatically). */
   reply_draft?: ConstructionReplyDraft | null
@@ -3798,4 +3807,22 @@ export async function updateConstructionRfqDraft(rfqId: string, expectedVersionI
   return request<ConstructionRfq>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/draft`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected_version_id: expectedVersionId, lines }),
   })
+}
+
+export type ConstructionPrewarmIntelligence = { rfq_id: string; lines: Array<{ line_id: string; line_name?: string; intelligence: Array<{ evidence_id: string; supplier_id: string; supplier_name: string; tier: "A" | "B" | "C"; kind: string; message?: ConstructionInboxThreadMessage | null }> }> }
+export function getConstructionPrewarm(rfqId: string) { return request<ConstructionPrewarmIntelligence>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/prewarm`) }
+export type ConstructionPrewarmReview = { releases?:Array<{id:string;source_line_id:string;message_id:string;recipient_scope_id:string}>; quotes?: Array<{id:string; invite_id:string; lines:Array<{line_id:string; unit_price?:number; available?:boolean}>}>; lines: Array<{ id: string; name: string }>; messages: Array<{ id: string; invite_id:string; sender: string; body_text: string; received_at: string; channel: string; attachment_count: number }> }
+export function getPrewarmCapabilities() { return request<{ enabled: boolean; can_release: boolean; price_memory_enabled?:boolean }>('/api/construction/prewarm/capabilities') }
+export function getPrewarmRecipients() { return request<{ recipients: Array<{ id: string; name: string; reference?:string }> }>('/api/construction/prewarm/recipients') }
+export function getPrewarmReview(id: string) { return request<ConstructionPrewarmReview>(`/api/construction/rfqs/${encodeURIComponent(id)}/prewarm/review`) }
+export function releasePrewarmKnowledge(body: { source_line_id: string; message_id: string; recipient_scope_id: string; quote_version_id?:string; review_confirmation: string }) { return request<{ id: string }>('/api/construction/prewarm/releases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) }
+
+export function revokePrewarmKnowledge(id:string) { return request<{revoked:boolean}>(`/api/construction/prewarm/releases/${encodeURIComponent(id)}/revoke`, {method:'POST'}) }
+
+export type SupplierPriceMemoryResult = {
+  enabled:boolean
+  lines:Array<{line_id:string;name:string;uom:string;prices:Array<{supplier_id:string;supplier_name:string;unit_price:number;currency:string;quoted_at:string;valid_until:string;prices_include_tax:boolean|null;delivery_basis:string;auto_offer_eligible:boolean}>}>
+}
+export async function getSupplierPriceMemory(id:string):Promise<SupplierPriceMemoryResult> {
+  return request<SupplierPriceMemoryResult>(`/api/construction/rfqs/${encodeURIComponent(id)}/price-memory`)
 }

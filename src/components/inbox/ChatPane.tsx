@@ -1,3 +1,4 @@
+import { prewarmTimeline } from '../../lib/prewarmInbox'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ConstructionApiError,
@@ -95,6 +96,7 @@ function messageAuthor(
   thread: ConstructionInboxThreadDetail,
 ): string {
   if (message.direction === 'INBOUND') {
+    if (message.historical) return message.employee_name || 'المورد'
     return cleanSupplierName(message.employee_name) || inboxThreadSupplierLabel(thread) || 'المورد'
   }
   // A colleague's display name; never a raw e-mail; automated replies speak as «أحمد من فرق».
@@ -802,7 +804,7 @@ export function ChatPane({
                 أعاد الخادم أحدث الرسائل فقط — توجد رسائل أقدم غير معروضة هنا.
               </div>
             )}
-            {(requestScoped ? thread.messages.filter((m) => !m.invite_id || m.invite_id === inviteId) : thread.messages).map((message) => {
+            {prewarmTimeline(requestScoped ? thread.messages.filter((m) => !m.invite_id || m.invite_id === inviteId) : thread.messages, thread.historical_messages).map((message) => {
               const day = chatDayLabel(message.created_at, now)
               const showDay = Boolean(day) && day !== lastDay
               if (showDay) lastDay = day
@@ -826,7 +828,8 @@ export function ChatPane({
                       {day}
                     </div>
                   )}
-                  {selecting && message.direction === 'INBOUND' && (
+                  {message.historical && <div className="self-start rounded-full bg-amber-50 text-amber-900 text-[11px] px-3 py-1 my-2">{message.origin_label || 'محادثة سابقة — ليست ردًا على هذا الطلب'}</div>}
+                  {selecting && !message.historical && message.direction === 'INBOUND' && (
                     <label className="self-start flex items-center gap-2 mt-2 mb-0.5 text-[11px] text-neutral-600 cursor-pointer">
                       <input
                         type="checkbox"
@@ -855,7 +858,7 @@ export function ChatPane({
                 <QuoteCard event={event} sealed={false} lineCount={requestedLines} onOpen={rfqId ? () => (onOpenQuote ? onOpenQuote(String(rfqId), inviteId) : onOpenRfq(String(rfqId))) : undefined} />
               </div>
             ))}
-            {thread.messages.length === 0 && quoteEvents.length === 0 && (
+            {thread.messages.length === 0 && !thread.historical_messages?.length && quoteEvents.length === 0 && (
               <div className="self-center mt-10 rounded-2xl bg-white/90 px-4 py-3 text-sm text-neutral-500">
                 لا رسائل في هذه المحادثة بعد.
               </div>

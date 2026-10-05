@@ -339,8 +339,9 @@ export function ConversationList({
                           </span>
                         )}
                       </div>
-                      {(reference || thread.needs_reply || badges || tab === 'hidden') && (
+                      {(reference || thread.historical || thread.needs_reply || badges || tab === 'hidden') && (
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {thread.historical && <span className="bg-amber-50 text-amber-900 text-[10px] rounded-full px-2 py-0.5">{thread.history_label || 'محادثة سابقة عن المادة'}</span>}
                           {reference && (
                             <bdi className="truncate text-[10px] text-neutral-500 bg-neutral-100 rounded-md px-1.5 py-0.5">
                               {reference}
