@@ -42,6 +42,7 @@ const READ_ONLY_POST_PATHS = [
   '/api/construction/suppliers/match',
   '/api/construction/boq/match',
   '/api/construction/boq/parse-pdf',
+  '/api/construction/purchase-requests/scan',
   // «ابحث عن منتج»: reads product identity; changes nothing and sends nothing.
   '/api/construction/product-search',
 ]

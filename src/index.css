@@ -72,6 +72,22 @@ html, body {
   animation: scan 1.4s ease-in-out infinite;
 }
 
+@keyframes boq-live-scan {
+  0%, 100% { top: 0; }
+  50% { top: 100%; }
+}
+.boq-live-scan-beam {
+  animation: boq-live-scan 3s ease-in-out infinite;
+}
+.m-safe-top { padding-top: env(safe-area-inset-top); }
+.m-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.m-scroll-x { scrollbar-width: none; }
+.m-scan-line { animation: boq-live-scan 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .boq-live-scan-beam, .m-scan-line { animation: none; top: 50%; }
+  .boq-live-scanner .animate-fade-up { animation: none; }
+}
+
 @keyframes price-ticker {
   from { transform: translate3d(0, 0, 0); }
   to { transform: translate3d(50%, 0, 0); }

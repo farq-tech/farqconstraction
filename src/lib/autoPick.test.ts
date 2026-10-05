@@ -131,10 +131,10 @@ describe('autoPickFor — «نتائج الجولات»', () => {
   })
 })
 
-describe('autoPickConfident — every confident match, WhatsApp only when sure', () => {
+describe('autoPickConfident — all sure and near-certain matches on every channel', () => {
   const wa = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'واتساب', ...extra })
   const mail = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'بريد', ...extra })
-  it('takes all free-channel matches, WhatsApp only on name/activity/outcome evidence, never «مورد محتمل»', () => {
+  it('takes every near-certain channel match, never unrelated family suggestions', () => {
     const item = line(1, 'masonry_blocks', [
       wa('wa-name', { why: 'الاسم: «للبلوك»' }),
       wa('wa-activity', { why: 'النشاط المسجّل: «بلوك اسمنتي»' }),
@@ -148,29 +148,29 @@ describe('autoPickConfident — every confident match, WhatsApp only when sure',
       outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar'), roundOutcome: { grade: 'SIMILAR' } }] },
     })
     const ids = autoPickConfident(item).map((s) => s.id)
-    expect(ids).toEqual(['wa-priced', 'wa-name', 'wa-activity', 'mail-lineword'])
+    expect(ids).toEqual(['wa-priced', 'wa-similar', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'mail-lineword'])
   })
   it('a rejected supplier stays out even when sure', () => {
     const item = line(2, 'masonry_blocks', [wa('a', { why: 'الاسم: «بلوك»' })], { rejectedSupplierIds: ['a'] })
     expect(autoPickConfident(item)).toEqual([])
   })
   // The owner, 4 Oct 2026: «إذا المصادر الأخرى لا يوجد مورد اختر عادي 100–200، وإذا فيه مليان اختر أفضل 30 لكل بند».
-  it('a line the free channels fill takes only the best 30 WhatsApp sellers; a thin line takes up to 200', () => {
+  it('takes every near-certain WhatsApp seller without the old per-channel caps', () => {
     const many = (n: number, mk: (id: string) => Supplier) => Array.from({ length: n }, (_, i) => mk(`${i}`))
     const full = line(3, 'cement', [...many(40, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(500, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
     const fullIds = autoPickConfident(full).map((s) => s.id)
     expect(fullIds.filter((id) => id.startsWith('m')).length).toBe(40)
-    expect(fullIds.filter((id) => id.startsWith('w')).length).toBe(30)
-    // Evidence order is kept: the first thirty WhatsApp sellers in the lane order are the ones taken.
+    expect(fullIds.filter((id) => id.startsWith('w')).length).toBe(500)
+    // Evidence order is preserved even when every matching seller is selected.
     expect(fullIds.filter((id) => id.startsWith('w')).slice(0, 3)).toEqual(['w0', 'w1', 'w2'])
 
     const thin = line(4, 'cement', [...many(5, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(500, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
     const thinIds = autoPickConfident(thin).map((s) => s.id)
-    expect(thinIds.filter((id) => id.startsWith('w')).length).toBe(200)
+    expect(thinIds.filter((id) => id.startsWith('w')).length).toBe(500)
     expect(thinIds.filter((id) => id.startsWith('m')).length).toBe(5)
 
     // Exactly at the threshold counts as full.
     const edge = line(5, 'cement', [...many(30, (i) => mail(`m${i}`, { why: 'الاسم: «اسمنت»' })), ...many(100, (i) => wa(`w${i}`, { why: 'الاسم: «اسمنت»' }))])
-    expect(autoPickConfident(edge).filter((s) => s.channel === 'واتساب').length).toBe(30)
+    expect(autoPickConfident(edge).filter((s) => s.channel === 'واتساب').length).toBe(100)
   })
 })

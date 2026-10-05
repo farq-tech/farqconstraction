@@ -42,6 +42,7 @@ import StartChooser, { type StartPath } from '../components/rfqCart/StartChooser
 import ProductSearchPanel from '../components/rfqCart/ProductSearchPanel'
 import ManualLinesPanel from '../components/rfqCart/ManualLinesPanel'
 import CartPanel from '../components/rfqCart/CartPanel'
+import PurchaseScanReader from '../components/PurchaseScanReader'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -355,6 +356,7 @@ export function UploadView({ navigate }: NavProps) {
   const runIdRef = useRef(0)
   /** «كيف تبي تبدأ طلب التسعير؟» — which way in is open. All three fill one cart. */
   const [startPath, setStartPath] = useState<StartPath | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
   /** «طلبك»: every line of the request, whatever it came from (the session's lines). */
   const [cart, setCart] = useState<BOQItem[]>(() => getBoqItems())
   const [continuing, setContinuing] = useState(false)
@@ -749,6 +751,14 @@ export function UploadView({ navigate }: NavProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 lg:px-8 py-10">
+      {cameraOpen && <PurchaseScanReader onClose={() => setCameraOpen(false)} onDraft={draft => {
+        const lines = draft.lines.map(line => ({ name: line.name, qty: line.qty, unit: line.unit, spec: line.spec, status: 'searching' as const, supplierCount: 0, suppliers: [], origin: 'manual' as const, needsMatch: true }))
+        addToCart(lines)
+        setProjectName(draft.project)
+        setCameraOpen(false)
+        setStartPath('manual')
+      }} />}
+      {phase === 'idle' && <button type="button" onClick={() => setCameraOpen(true)} className="mb-4 w-full rounded-2xl bg-[#123F3A] px-4 py-4 text-white font-bold">قراءة طلب شراء بالكاميرا</button>}
       {phase === 'idle' ? (
         <StartChooser
           active={startPath}
@@ -1156,11 +1166,9 @@ export function UploadView({ navigate }: NavProps) {
  */
 export function LiveActivity({ events, reading }: { events: BoqActivity[]; reading: boolean }) {
   const [shown, setShown] = useState<Array<{ key: number; text: string; count?: number }>>([])
-  const [readCount, setReadCount] = useState(0)
   const [matched, setMatched] = useState(0)
   const [candidates, setCandidates] = useState(0)
   const [total, setTotal] = useState(0)
-  const [samples, setSamples] = useState(1)
   const [pages, setPages] = useState<{ done: number; count: number | null } | null>(null)
   const [serverItems, setServerItems] = useState(0)
   const sawLiveNames = useRef(false)
@@ -1193,19 +1201,18 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
       if (e.kind === 'read') {
         setTotal(e.names.length)
         const step = Math.max(1, Math.floor(e.names.length / 60))
-        let n = 0
         e.names.forEach((name, i) => {
           if (i % step === 0 || i === e.names.length - 1) {
             queue.current.push({ text: name, read: true })
-            n++
           }
         })
-        setSamples(Math.max(1, n))
       } else {
         for (const row of e.rows) {
           const key = row.key || row.name
           if (matchedKeys.current.has(key)) continue
           matchedKeys.current.add(key)
+          setMatched((n) => n + 1)
+          setCandidates((n) => n + row.suppliers)
           queue.current.push({ text: row.name, count: row.suppliers })
         }
       }
@@ -1218,11 +1225,6 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
       for (let i = 0; i < burst; i++) {
         const next = queue.current.shift()
         if (!next) break
-        if (next.read) setReadCount((n) => n + 1)
-        else {
-          setMatched((n) => n + 1)
-          setCandidates((n) => n + (next.count || 0))
-        }
         const key = ++seq.current
         setShown((prev) => [{ key, text: next.text, count: next.read ? undefined : next.count }, ...prev].slice(0, 6))
       }
@@ -1232,7 +1234,11 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
 
   const readingLines = (total > 0 || serverItems > 0) && matched === 0
   return (
-    <div className="mt-4 rounded-xl border border-[#CFF5DC] bg-[#F3FBF6] px-4 py-3 text-right" dir="rtl">
+    <section aria-label="قارئ بنود طلب الشراء المباشر" className="mt-4 rounded-2xl border border-[#CFF5DC] bg-[#F3FBF6] px-4 py-4 text-right" dir="rtl">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h2 className="text-sm font-bold text-[#123F3A]">قارئ بنود طلب الشراء</h2>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#123F3A] px-2.5 py-1 text-[10px] font-bold text-white"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#CFF5DC] animate-pulse" />مباشر · LIVE</span>
+      </div>
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs font-bold text-[#123F3A] flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#1a7a45] animate-pulse" />
@@ -1247,7 +1253,7 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
       </div>
       <div className="grid grid-cols-3 gap-2 text-center mb-3">
         <div>
-          <div className="text-lg font-black text-[#123F3A] tabular-nums">{(sawLiveNames.current || serverItems ? serverItems : Math.min(total, Math.round((readCount / samples) * total))).toLocaleString('en-US')}</div>
+          <div className="text-lg font-black text-[#123F3A] tabular-nums">{Math.max(total, serverItems).toLocaleString('en-US')}</div>
           <div className="text-[10px] text-neutral-500">بندًا مقروءًا</div>
         </div>
         <div>
@@ -1259,19 +1265,28 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
           <div className="text-[10px] text-neutral-500">ترشيح مورد</div>
         </div>
       </div>
-      <div className="space-y-1 min-h-[132px] overflow-hidden">
-        {reading && total === 0 && !shown.length && (
-          <div className="h-1 rounded-full bg-[#CFF5DC] overflow-hidden">
-            <div className="h-full w-1/3 bg-[#1a7a45] animate-scan" />
+      <div className="boq-live-scanner relative rounded-xl bg-white/80 border border-[#CFF5DC] min-h-[220px] overflow-hidden px-5 py-5">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-2">
+          <span className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-[#1a7a45] rounded-tr-md" />
+          <span className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-[#1a7a45] rounded-tl-md" />
+          <span className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-[#1a7a45] rounded-br-md" />
+          <span className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-[#1a7a45] rounded-bl-md" />
+          {reading && <span className="boq-live-scan-beam absolute inset-x-0 top-0 h-px bg-[#1a7a45] shadow-[0_0_12px_2px_#1a7a4540]" />}
+        </div>
+        {!shown.length && (
+          <div className="min-h-[178px] flex flex-col items-center justify-center gap-3 text-center">
+            <svg aria-hidden="true" className="w-9 h-9 text-[#1a7a45]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m8 0h3a1 1 0 0 0 1-1v-3M3 12h18M8 8h8M8 16h8" /></svg>
+            <p className="text-xs text-[#123F3A]">{reading ? 'بانتظار البنود المقروءة من الكراسة…' : 'بانتظار نتائج مطابقة الموردين…'}</p>
+            <p className="text-[10px] text-neutral-500">تظهر البنود هنا فور وصول نتائج القراءة</p>
           </div>
         )}
         {shown.map((row, i) => (
           <div
             key={row.key}
-            className="flex items-center justify-between gap-2 text-xs animate-fade-up"
+            className="relative flex items-start justify-between gap-2 border-b border-[#CFF5DC]/50 py-2 text-xs animate-fade-up last:border-0"
             style={{ opacity: 1 - i * 0.14 }}
           >
-            <span className="truncate text-[#0D1F1D]">{row.text}</span>
+            <span className="min-w-0 line-clamp-2 break-words leading-5 text-[#0D1F1D]">{row.text}</span>
             {row.count === undefined ? (
               <span className="flex-shrink-0 text-neutral-400">قُرئ</span>
             ) : row.count > 0 ? (
@@ -1282,6 +1297,6 @@ export function LiveActivity({ events, reading }: { events: BoqActivity[]; readi
           </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

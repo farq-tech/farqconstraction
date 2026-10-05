@@ -26,11 +26,30 @@ import { cleanSupplierName } from '../lib/supplierName'
 
 export { constructionHeaders }
 
-export async function askAhmad(message: string, history: { role: string; text: string }[], rfqId?: string | null): Promise<string> {
+export async function askAhmad(message: string, history: { role: string; text: string }[], rfqId?: string | null, context?: Record<string, unknown>): Promise<string> {
   const result = await request<{ reply: string }>('/api/construction/assistant/chat', {
-    method: 'POST', body: JSON.stringify({ message, history, rfq_id: rfqId || undefined }), timeoutMs: 30000,
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, history, rfq_id: rfqId || undefined, context }), timeoutMs: 30000,
   })
+  if (!result.reply?.trim()) throw new Error('وصل رد فارغ من المساعد. أعد المحاولة.')
   return result.reply
+}
+
+/** Unlike the legacy screen fallback, absence of this API is not a zero count. */
+export function getAhmadBooklets() {
+  return request<{ booklets: ConstructionBookletSummary[] }>('/api/construction/booklets')
+}
+
+export type ScannedRequest = {
+  is_purchase_request: boolean; project: string | null; request_number: string | null;
+  request_date: string | null; requester: string | null;
+  items: Array<{ description: string; quantity: number | null; unit: string | null; specification: string | null }>;
+  pages_read: number; pages_failed: number;
+}
+export function scanPurchaseRequest(pages: Array<{ mime: string; base64: string }>, signal?: AbortSignal) {
+  return request<{ request: ScannedRequest }>('/api/construction/purchase-requests/scan', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ images: pages.map(p => ({ mime: p.mime, image_base64: p.base64 })) }), timeoutMs: 120000, signal,
+  })
 }
 
 /** The colleague responsible for a request or a booklet. Absent on older APIs. */

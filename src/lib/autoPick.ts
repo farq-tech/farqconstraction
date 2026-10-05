@@ -118,6 +118,8 @@ export function confidenceOf(s: Supplier): Confidence {
   if (s.learned || isPriorQuoter(s)) return 'SURE'
   if (s.roundOutcome && (s.roundOutcome.grade === 'PRICED' || s.roundOutcome.grade === 'ANSWERED')) return 'SURE'
   if (s.outOfCity) return 'MAYBE'
+  if (s.evidence === 'دليل مباشر' || s.evidence === 'دليل منتج') return 'SURE'
+  if (s.evidence === 'من الكتالوج' || s.evidence === 'تسمية آلية' || s.evidence === 'خريطة فرق') return 'LIKELY'
   if (s.evidence === 'نشاط متطابق') {
     const why = s.why || ''
     return why.startsWith('الاسم') || why.startsWith('النشاط المسجّل') || why.startsWith('المادة') ? 'SURE' : 'LIKELY'
@@ -125,41 +127,16 @@ export function confidenceOf(s: Supplier): Confidence {
   return 'MAYBE'
 }
 
-/**
- * Everyone the system is confident about, not a fixed ten.
- *
- * The owner, 3 Oct 2026: «يختار لي كل المطابقين المتوفرين، وإذا كان واتساب
- * يتأكد تأكد كبير جدًا عشان ما تكون تكلفة كبيرة». A message by email or
- * Haraj chat costs nothing, so every LIKELY-or-better match is taken. A
- * WhatsApp template is paid per message, so a WhatsApp-only supplier is taken
- * only when we are SURE. «مورد محتمل» is never taken on his own; the buyer
- * adds him by hand. Rejected suppliers never. Order as autoPickFor.
+/** Select every sure or near-certain supplier, including named system suggestions.
+ * Channel costs are reviewed at send time; there is no selection cap.
+ * Broad family-only suggestions, rejected suppliers and work-only lines stay out.
  */
-/**
- * WhatsApp is paid per message, so how many WhatsApp-only sellers the screen
- * ticks by itself depends on what the free channels already cover. The owner,
- * 4 Oct 2026: «واتساب إذا كانت المصادر الأخرى لا يوجد مورد اختر عادي 100–200
- * مب مشكلة، وإذا فيه مليان اختر أفضل 30 لكل بند». A line the free channels
- * already fill (WA_FULL_FREE_PICKS confirmed sellers by e-mail or chat) takes
- * only the best WA_CAP_FULL WhatsApp sellers, in evidence order; a line they
- * leave thin takes up to WA_CAP_THIN. Every seller stays listed and tickable.
- */
-export const WA_FULL_FREE_PICKS = 30
-export const WA_CAP_FULL = 30
-export const WA_CAP_THIN = 200
-
 export function autoPickConfident(item: BOQItem, context?: PickContext): Supplier[] {
+  if (item.workOnly) return []
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
-  const confident = all.filter((s) => {
-    const c = confidenceOf(s)
-    if (c === 'MAYBE') return false
-    if (s.channel === 'واتساب') return c === 'SURE'
-    return true
-  })
-  const free = confident.filter((s) => s.channel !== 'واتساب').length
-  const waCap = free >= WA_FULL_FREE_PICKS ? WA_CAP_FULL : WA_CAP_THIN
-  let wa = 0
-  return confident.filter((s) => (s.channel !== 'واتساب' ? true : ++wa <= waCap))
+  // 5 Oct 2026: the buyer explicitly wants EVERY sure or near-certain match,
+  // including the system's named suggestions, regardless of channel or count.
+  return all.filter(s => confidenceOf(s) !== 'MAYBE')
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {

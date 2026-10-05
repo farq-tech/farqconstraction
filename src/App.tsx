@@ -36,13 +36,13 @@ import { ServicesAdminView, ServiceOffView } from './views/ServicesAdminView'
 import { useServices } from './api/useServices'
 import { serviceForView, viewAllowed } from './lib/services'
 import AhmadAssistant from './components/AhmadAssistant'
-import { askAhmad } from './api/constructionClient'
+import { askAhmadAgent } from './lib/ahmadAgent'
 
 function ProcurementAssistant() {
-  const { navigate, selectedRfqId, view } = useProcurement()
+  const { navigate, selectedRfqId, selectedBookletId, view } = useProcurement()
   const session = useFarqSession()
   if (view === 'supplier' || view === 'join') return null
-  return <AhmadAssistant key={session.user?.id || 'guest'} signedIn={session.isAuthenticated} ask={(message, history) => askAhmad(message, history, selectedRfqId)} onAction={action => navigate(action === 'upload' ? 'create-upload' : action === 'offers' && selectedRfqId ? 'offers' : 'rfq-list')} />
+  return <AhmadAssistant key={session.user?.id || 'guest'} signedIn={session.isAuthenticated} ask={(message, history) => askAhmadAgent(message, history, { rfqId: selectedRfqId, bookletId: selectedBookletId })} onAction={action => navigate(action === 'upload' ? 'create-upload' : action === 'offers' && selectedRfqId ? 'offers' : 'rfq-list')} />
 }
 
 function AppRoutes() {
