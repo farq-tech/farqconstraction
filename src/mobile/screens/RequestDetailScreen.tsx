@@ -10,11 +10,18 @@ import {
   type ConstructionComparison,
   type ConstructionRfq,
 } from '../../api/constructionClient'
+import RfqDraftEditModal from '../../components/RfqDraftEditModal'
+import RfqRevisionModal from '../../components/RfqRevisionModal'
+import DiscountRequestDialog from '../../components/DiscountRequestDialog'
+import { requestCreatorLabel } from '../../lib/rfqIdentity'
+import { isReadOnlyBuild } from '../../api/readOnlyMode'
 import type { Nav } from '../MobileApp'
 import { Avatar, Card, ErrorNote, Group, Pill, Progress, Row, Screen, SectionTitle, Skeleton, Stat, num, sar, useLoad } from '../ui'
 import { requestState } from './RequestsScreen'
 
 type Offer = {
+  inviteId?: string
+  quoteVersionId?: string
   supplierId: string
   name: string
   total: number | null
@@ -33,6 +40,8 @@ function offersOf(c: ConstructionComparison | null): Offer[] {
       const sum = summaries.get(id)
       const total = sum?.totals?.total ?? r.offer?.totals?.total ?? null
       return {
+        inviteId: r.offer?.inviteId,
+        quoteVersionId: r.offer?.quoteVersionId,
         supplierId: id,
         name: r.supplier?.name_ar || r.supplier?.name_en || 'مورد',
         total: total == null ? null : num(total),
@@ -53,6 +62,9 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
   const rfq = useLoad<ConstructionRfq>(() => getConstructionRfq(id), [id])
   const comparison = useLoad<ConstructionComparison | null>(() => getConstructionComparison(id).catch(() => null), [id])
   const [allLines, setAllLines] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [discount, setDiscount] = useState<Offer | null>(null)
+  const [notice, setNotice] = useState('')
 
   const r = rfq.data
   const offers = offersOf(comparison.data)
@@ -87,12 +99,17 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
               <Stat label="عرض" value={r.response_count} tone={r.response_count ? 'good' : undefined} />
             </div>
             <div className="mt-4 space-y-1.5 text-[13px] text-neutral-500">
+              <div>منشئ الطلب: <span className="text-[#0D1F1D] font-semibold">{requestCreatorLabel(r.creator)}</span></div>
               {delivery?.city && <div>المدينة: <span className="text-[#0D1F1D] font-semibold">{delivery.city}</span></div>}
               {delivery?.required_date && <div>التوريد المطلوب: <span className="text-[#0D1F1D] font-semibold">{formatArDate(delivery.required_date)}</span></div>}
               <div>تاريخ الطلب: <span className="text-[#0D1F1D] font-semibold">{formatArDate(r.created_at)}</span></div>
             </div>
           </Card>
 
+          {notice && <p role="status" className="mt-3 text-sm text-[#1a7a45]">{notice}</p>}
+          {!isReadOnlyBuild && !r.award && !['CANCELLED', 'CLOSED'].includes(r.status) && <button onClick={() => setEditing(true)} className="mt-3 w-full py-3 rounded-xl border border-[#123F3A] font-bold text-[#123F3A]">تعديل الطلب</button>}
+          {editing && (r.status === 'DRAFT_NOT_SENT' ? <RfqDraftEditModal rfq={r} onClose={() => setEditing(false)} onSaved={() => { setNotice('حُفظت التعديلات دون إرسال للموردين.'); void rfq.reload() }} /> : <RfqRevisionModal rfqId={r.id} onClose={() => setEditing(false)} onSent={() => { setEditing(false); void rfq.reload(); void comparison.reload() }} />)}
+          {discount?.inviteId && discount.quoteVersionId && <DiscountRequestDialog inviteId={discount.inviteId} quoteVersionId={discount.quoteVersionId} supplierName={discount.name} onClose={() => setDiscount(null)} />}
           {r.award && (
             <Card className="p-4 mt-3 border border-[#CFF5DC]">
               <div className="text-[13px] font-bold text-[#1a7a45]">تمت الترسية</div>
@@ -123,6 +140,7 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
                         {isBest && <div className="text-[11px] font-bold text-[#1a7a45]">الأقل سعرًا</div>}
                       </div>
                     </div>
+                    {!isReadOnlyBuild && !r.award && o.inviteId && o.quoteVersionId && <button onClick={() => setDiscount(o)} className="mt-3 w-full py-2.5 rounded-xl border border-[#123F3A]/30 font-bold text-[#123F3A]">اطلب تخفيض العرض</button>}
                     {o.requested > 0 && (
                       <div className="mt-3">
                         <div className="text-[12px] text-neutral-500 mb-1">
@@ -163,7 +181,7 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
                 {(allLines ? lines : lines.slice(0, 6)).map((l, i) => (
                   <div key={String(l.id || i)} className="px-4 py-3 flex items-start gap-3">
                     <span className="shrink-0 w-6 text-[12px] text-neutral-400 tabular-nums pt-0.5">{i + 1}</span>
-                    <div className="flex-1 min-w-0 text-[14px] leading-snug">{lineName(l)}</div>
+                    <div className="flex-1 min-w-0 text-[14px] leading-snug">{lineName(l)}{l.item_note ? <p className="mt-1 text-xs text-neutral-500 whitespace-pre-line">{String(l.item_note)}</p> : null}{l.spec_card && typeof l.spec_card === 'object' ? <p className="mt-1 text-xs text-neutral-500">{Object.entries(l.spec_card).filter(([key]) => ['dimensions','thickness','material','finish'].includes(key)).map(([,v]) => String(v)).filter(Boolean).join(' · ')}</p> : null}</div>
                     <span className="shrink-0 text-[13px] font-bold tabular-nums">
                       {num(l.quantity).toLocaleString('en-US')} <span className="text-neutral-400 font-normal">{String(l.uom || '')}</span>
                     </span>

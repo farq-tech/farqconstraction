@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { deleteDraft, listDrafts } from '../purchaseRequests'
 import { formatRfqTitle, listBuyerRfqs, mapRfqUiStatus, type ConstructionRfqSummary } from '../../api/constructionClient'
+import { requestCreatorLabel } from '../../lib/rfqIdentity'
 import type { Nav } from '../MobileApp'
 import { Card, Chips, Empty, ErrorNote, Pill, Screen, Skeleton, ago, sar, useLoad } from '../ui'
 
@@ -110,6 +111,7 @@ export default function RequestsScreen({ nav }: { nav: Nav }) {
                       <div className="font-bold text-[16px] leading-snug line-clamp-2">{formatRfqTitle(r)}</div>
                       <div className="text-[12px] text-neutral-400 mt-1">
                         {r.line_count} بند · {ago(r.created_at)}
+                        <div>منشئ الطلب: {requestCreatorLabel(r.creator)}</div>
                       </div>
                     </div>
                     <Pill tone={st.tone}>{st.label}</Pill>

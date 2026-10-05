@@ -16,6 +16,10 @@ import PurchaseScanScreen from './screens/PurchaseScanScreen'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon } from '../icons'
 import { statusBar } from './native'
 import { enablePush } from './push'
+import AhmadAssistant from '../components/AhmadAssistant'
+import { askAhmadAgent } from '../lib/ahmadAgent'
+import { getBoqItems } from '../store/session'
+import { saveDraft } from './purchaseRequests'
 
 export type Tab = 'home' | 'requests' | 'inbox' | 'suppliers' | 'more'
 
@@ -132,6 +136,13 @@ export default function MobileApp() {
   return (
     <div className="min-h-[100dvh] bg-[#f2f3ef] text-[#0D1F1D]" dir="rtl">
       {screen}
+      <AhmadAssistant key={session.user?.id} ask={(message, history) => askAhmadAgent(message, history, { rfqId: top?.kind === 'request' ? top.id : undefined })} onAction={action => {
+        if (action === 'upload') {
+          const items = getBoqItems()
+          const draft = items.length ? saveDraft({ project: '', reference: null, requester: null, lines: items.map(l => ({ name: l.name, qty: l.qty, unit: l.unit, spec: l.spec })) }) : null
+          switchTab('requests', { kind: 'new', draftId: draft?.id })
+        } else switchTab('requests', action === 'offers' && top?.kind === 'request' ? top : undefined)
+      }} />
       {!hideTabBar && (
         <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/90 backdrop-blur-xl border-t border-black/[0.06] m-safe-bottom">
           <div className="flex">

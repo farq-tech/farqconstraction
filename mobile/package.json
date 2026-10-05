@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "iOS app for فرق بناء — its own iPhone screens (src/mobile), bundled into the app",
   "scripts": {
-    "build": "cd .. && VITE_API_BASE_URL=https://api.farq.sa npx vite build --config vite.mobile.config.ts && mv mobile/www/mobile.html mobile/www/index.html && cd mobile && npx cap sync ios",
+    "build": "cd .. && VITE_API_BASE_URL=https://farq-construction-api-production-6006.up.railway.app npx vite build --config vite.mobile.config.ts && mv mobile/www/mobile.html mobile/www/index.html && cd mobile && npx cap sync ios",
     "sync": "cap sync ios",
     "open": "cap open ios"
   },
