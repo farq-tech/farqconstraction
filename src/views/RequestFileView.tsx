@@ -69,6 +69,7 @@ import {
   validLink,
   type SpecCard,
 } from "../lib/specCard"
+import RfqDraftEditModal from "../components/RfqDraftEditModal"
 import RfqRevisionModal from "../components/RfqRevisionModal"
 import PreviousVersionResponses from "../components/PreviousVersionResponses"
 import { canReviseRfq, versionsLabel } from "../lib/rfqRevision"
@@ -167,6 +168,7 @@ export function RequestFileView({
   const [stepping, setStepping] = useState<"close" | null>(null)
   const [broadcasting, setBroadcasting] = useState(false)
   const [historyFilter, setHistoryFilter] = useState("all")
+  const [editingDraft, setEditingDraft] = useState(false)
   const [revising, setRevising] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const isAdmin = useConstructionAdmin()
@@ -557,9 +559,11 @@ export function RequestFileView({
           !rfq.submission_closed_at &&
           ["SENT", "PARTIALLY_SENT"].includes(status)
         const canRevise = canReviseRfq(rfq, isReadOnlyBuild())
-        if (!canClose && !canRevise) return null
+        const canEditDraft = status === "DRAFT_NOT_SENT" && !isReadOnlyBuild()
+        if (!canClose && !canRevise && !canEditDraft) return null
         return (
           <div className="mb-5 flex flex-wrap items-center gap-2">
+            {canEditDraft && <button onClick={() => setEditingDraft(true)} className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-bold text-[#0D1F1D]">تعديل الطلب</button>}
             {canRevise && (
               <button
                 onClick={() => setRevising(true)}
@@ -710,6 +714,7 @@ export function RequestFileView({
                           )}
                         </div>
                       )}
+                      {validLink((line.spec_card as SpecCard | undefined)?.reference_photo_url) && <a href={validLink((line.spec_card as SpecCard | undefined)?.reference_photo_url)!} target="_blank" rel="noopener noreferrer" className="block mt-2 text-xs text-[#123F3A] underline">عرض صورة المنتج</a>}
                       {spec && (
                         <div
                           className={`text-xs text-neutral-600 mt-1 leading-relaxed whitespace-pre-line ${
@@ -1241,6 +1246,7 @@ export function RequestFileView({
         </div>
       )}
 
+      {editingDraft && <RfqDraftEditModal rfq={rfq} onClose={() => setEditingDraft(false)} onSaved={() => { setNotice({ tone: "ok", text: "حُفظت تعديلات المسودة. لم يُرسل الطلب للموردين." }); void load(rfq.id, { comparison: true }) }} />}
       {revising && (
         <RfqRevisionModal
           rfqId={rfq.id}

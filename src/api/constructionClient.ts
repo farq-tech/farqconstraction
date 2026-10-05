@@ -3787,3 +3787,10 @@ export function createQuoteDiscountRequest(inviteId: string, body: { idempotency
 export function cancelQuoteDiscountRequest(inviteId: string, id: string) {
   return request<QuoteDiscountRequest>(`/api/construction/inbox/threads/${encodeURIComponent(inviteId)}/discount-requests/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
 }
+
+/** Save an unsent draft; never dispatches invitations. */
+export async function updateConstructionRfqDraft(rfqId: string, expectedVersionId: string, lines: Array<Record<string, unknown>>) {
+  return request<ConstructionRfq>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/draft`, {
+    method: 'PUT', body: JSON.stringify({ expected_version_id: expectedVersionId, lines }),
+  })
+}
