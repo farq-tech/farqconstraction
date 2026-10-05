@@ -29,3 +29,6 @@ logs/
 /.plugins/
 /.opencode-skills/
 .vercel
+
+# App Store Connect API keys never belong in the repo
+*.p8
