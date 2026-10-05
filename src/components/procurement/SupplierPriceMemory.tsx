@@ -16,7 +16,7 @@ export default function SupplierPriceMemory({ rfqId }: { rfqId: string }) {
     setError(false)
     getPrewarmCapabilities()
       .then((capabilities) =>
-        capabilities.price_memory_enabled
+        capabilities.price_memory_enabled && capabilities.can_release
           ? getSupplierPriceMemory(rfqId)
           : { enabled: false, lines: [] },
       )

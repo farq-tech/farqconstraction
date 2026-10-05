@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   ConstructionApiError,
   getConstructionPrewarm,
+  getPrewarmCapabilities,
   type ConstructionPrewarmIntelligence,
 } from '../../api/constructionClient'
 
@@ -14,7 +15,8 @@ export default function PrewarmIntelligence({ rfqId }: { rfqId: string }) {
     setData(null)
     setError(false)
     setExpanded(false)
-    getConstructionPrewarm(rfqId)
+    getPrewarmCapabilities()
+      .then((capabilities) => capabilities.can_release ? getConstructionPrewarm(rfqId) : { rfq_id: rfqId, enabled: false, lines: [] })
       .then((result) => {
         if (alive) setData(result)
       })
