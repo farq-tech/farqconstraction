@@ -51,7 +51,7 @@ export function toRfqSummary(r: ConstructionRfqSummary): RFQSummary {
     status: mapRfqUiStatus(r.status, r.award_id),
     date: formatArDate(r.created_at),
     deadline: r.delivery?.required_date ? formatArDate(r.delivery.required_date) : undefined,
-    closesLabel: r.award_id ? undefined : closing.label,
-    closesUrgent: r.award_id ? false : closing.urgent,
+    closesLabel: r.award_id ? undefined : mapRfqUiStatus(r.status, r.award_id) === 'closed' ? 'أُغلق استلام العروض' : closing.label,
+    closesUrgent: r.award_id || mapRfqUiStatus(r.status, r.award_id) === 'closed' ? false : closing.urgent,
   }
 }

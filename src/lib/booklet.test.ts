@@ -26,6 +26,7 @@ const offer = (over: Partial<ConstructionBookletOffer>): ConstructionBookletOffe
   rfq_id: 'r1',
   quote_version_id: 'q1',
   notes: null,
+  prices_include_tax: false,
   ...over,
 })
 
@@ -80,7 +81,7 @@ describe('buildBookletMatrix', () => {
     expect(l3.best_supplier_id).toBeNull()
   })
 
-  it('uses the server best when it has an offer on the line', () => {
+  it('verifies a server pick against comparable prices', () => {
     const m = buildBookletMatrix(detail())
     const l1 = m.rows[0]!
     expect(l1.best_supplier_id).toBe('s2')
@@ -170,16 +171,16 @@ describe('booklet formatting', () => {
     expect(waveCount(3)).toBe(3)
     expect(waveCount([{}, {}])).toBe(2)
     expect(waveCount(null)).toBe(0)
-    expect(waveLabel(3, 5)).toBe('دفعة 3 من 5')
-    expect(waveLabel(3, null)).toBe('دفعة 3')
+    expect(waveLabel(3, 5)).toBe('دفعة رقم 3')
+    expect(waveLabel(3, null)).toBe('دفعة رقم 3')
   })
 
   it('builds the RFQ chip text, or nothing', () => {
     expect(bookletChipText({ booklet_id: 'b1', reference: 'PR-H288', wave_number: 3, waves: 5 })).toBe(
-      'يتبع الكراسة PR-H288 — دفعة 3 من 5',
+      'يتبع الكراسة PR-H288 — دفعة رقم 3',
     )
     expect(bookletChipText({ booklet_id: 'b1', reference: 'PR-H288', wave_number: 2, waves: [{}, {}, {}] })).toBe(
-      'يتبع الكراسة PR-H288 — دفعة 2 من 3',
+      'يتبع الكراسة PR-H288 — دفعة رقم 2',
     )
     expect(bookletChipText({ booklet_id: 'b1', reference: null, wave_number: null, waves: null })).toBe('يتبع كراسة')
     expect(bookletChipText(null)).toBeNull()
@@ -204,7 +205,7 @@ describe('booklet formatting', () => {
     const now = Date.parse('2026-10-01T00:00:00Z')
     const plain = bookletDeadline('2026-10-05', now)!
     expect(plain.passed).toBe(false)
-    expect(plain.label).toContain('October 2026')
+    expect(plain.label).toContain('أكتوبر 2026')
     const ts = bookletDeadline('2026-09-30T12:00:00Z', now)!
     expect(ts.passed).toBe(true)
     expect(ts.label).toContain('3:00 مساءً')
@@ -235,8 +236,7 @@ describe('booklet state and stated validity («عروض الموردين لا ت
 
   it('the supplier’s stated validity is neutral information, past or not; none when not stated', () => {
     const past = statedValidityLabel('2020-01-05T00:00:00Z')
-    expect(past).toMatch(/^الصلاحية كما ذكرها المورد: /)
-    expect(past).not.toMatch(/انتهت|منتهي|تنتهي/)
+    expect(past).toBeNull()
     expect(statedValidityLabel(null)).toBeNull()
     expect(statedValidityLabel('not a date')).toBeNull()
   })

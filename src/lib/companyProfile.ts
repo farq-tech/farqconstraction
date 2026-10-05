@@ -1,10 +1,13 @@
+import { farqSession } from '../api/farqSession'
 /**
  * The buyer's company details, as printed on a request for quotation.
  *
  * Kept in this browser: the API has no company-profile endpoint yet, and the
  * settings screen used to toast «تم حفظ التغييرات» while saving nothing, so the
  * sender went on using values compiled into the bundle. What is saved here is
- * what `SendModal` sends. The defaults are Farq's own published contact details.
+ * what `SendModal` sends. Identity fields start empty and are scoped to the
+ * signed-in user. The legacy unscoped profile is retained, never assumed to
+ * belong to the next signed-in account.
  */
 
 export type CompanyProfile = {
@@ -22,13 +25,14 @@ export type CompanyProfile = {
   defaultDeadlineDays: number
 }
 
-const KEY = 'farq.construction.companyProfile.v1'
+const KEY = 'farq.construction.companyProfile.v2'
+const profileKey = () => `${KEY}.${farqSession.getUser()?.id || 'demo'}`
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = Object.freeze({
-  name: 'فرق للبناء',
+  name: '',
   city: 'الرياض',
-  phone: '0563333463',
-  email: 'info@farq.sa',
+  phone: '',
+  email: '',
   legalName: '',
   crNumber: '',
   vatNumber: '',
@@ -51,7 +55,7 @@ function clean(value: unknown, fallback: string): string {
 
 export function loadCompanyProfile(): CompanyProfile {
   try {
-    const raw = window.localStorage.getItem(KEY)
+    const raw = window.localStorage.getItem(profileKey())
     if (!raw) return { ...DEFAULT_COMPANY_PROFILE }
     const parsed = JSON.parse(raw) as Partial<CompanyProfile>
     return {
@@ -75,7 +79,7 @@ export function loadCompanyProfile(): CompanyProfile {
 export function saveCompanyProfile(profile: CompanyProfile): boolean {
   try {
     window.localStorage.setItem(
-      KEY,
+      profileKey(),
       JSON.stringify({
         name: clean(profile.name, DEFAULT_COMPANY_PROFILE.name),
         city: clean(profile.city, DEFAULT_COMPANY_PROFILE.city),

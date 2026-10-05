@@ -7,6 +7,8 @@ export function AwardSuccessView({ navigate }: NavProps) {
   const total = awardResult?.approved_total != null ? Number(awardResult.approved_total) : null
   const awardId = awardResult?.id ? String(awardResult.id) : null
 
+  if (!awardId) return <div className="max-w-lg mx-auto p-10 text-center"><p className="mb-4">لا توجد ترسية مؤكدة لعرضها.</p><button onClick={() => navigate('rfq-list')} className="rounded-xl bg-[#123F3A] text-white px-4 py-3">عرض الطلبات</button></div>
+
   return (
     <div className="max-w-lg mx-auto px-4 lg:px-8 py-12 text-center">
       <div className="w-16 h-16 rounded-full bg-[#CFF5DC] flex items-center justify-center mx-auto mb-5">
@@ -40,7 +42,7 @@ export function AwardSuccessView({ navigate }: NavProps) {
         </button>
       </div>
       <p className="text-xs text-neutral-400 mt-6">
-        الترسية محفوظة في النظام. إبلاغ المورد يتم من صفحة الطلب.
+        الترسية قرار مسجّل، ولا تعني تنفيذ دفع. راجع حالة إشعار المورد من صفحة الطلب.
       </p>
     </div>
   )

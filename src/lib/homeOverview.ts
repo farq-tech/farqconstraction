@@ -54,6 +54,7 @@ export type HomeBooklet = {
   deadlinePassed: boolean
   waves: number
   lines: HomeLine[]
+  awaitingDecision?: boolean
   linesTotal: number
   linesWithQuotes: number
   buckets: CoverageBuckets
@@ -137,12 +138,12 @@ export function vatLabel(basis: VatBasis): string {
 
 /**
  * On the home page: a booklet with a wave still open (or none sent yet).
- * A booklet whose every wave is cancelled, closed or awarded is not.
+ * Closed, unawarded waves remain visible for a purchasing decision.
  */
 export function isActiveBooklet(detail: Pick<ConstructionBookletDetail, 'waves'>): boolean {
   const waves = Array.isArray(detail?.waves) ? detail.waves : []
   if (!waves.length) return true
-  return waves.some((w) => !CLOSED_WAVE.has(upper(w.status)))
+  return waves.some((w) => !['CANCELLED', 'CANCELED', 'AWARDED'].includes(upper(w.status)))
 }
 
 /** The detail without anything that came from a cancelled wave. */
@@ -259,7 +260,8 @@ export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now(
     id: String(b.id || ''),
     reference: String(b.reference || '').trim() || 'كراسة',
     title: String(b.title || '').trim(),
-    deadlineAt: deadline?.at ?? null,
+    awaitingDecision: (detail.waves || []).length > 0 && (detail.waves || []).every((w) => CLOSED_WAVE.has(upper(w.status))),
+    deadlineAt: bookletClosed(detail.booklet) ? null : deadline?.at ?? null,
     deadlineLabel: deadline?.label ?? null,
     deadlinePassed: Boolean(deadline?.passed),
     waves: (detail.waves || []).length,

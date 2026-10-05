@@ -6,6 +6,7 @@ import {
   countHarajSupplierIds,
   createConstructionRfq,
   getConstructionRfq,
+  getConstructionMe,
   invitePreferredChannel,
   isHarajSellerExternalKey,
   matchConstructionBoqCatalog,
@@ -31,6 +32,7 @@ import {
 } from '../lib/rfqPackages'
 import { useProcurement } from '../procurementContext'
 import { farqSession } from '../api/farqSession'
+import { companyBrand } from '../lib/companyBranding'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
 import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty } from '../lib/sendGuards'
@@ -174,6 +176,15 @@ export function SendModal({
     d.setDate(d.getDate() + loadCompanyProfile().defaultDeadlineDays)
     return d.toISOString().slice(0, 10)
   })
+  const [senderCompany, setSenderCompany] = useState(() => loadCompanyProfile().name)
+  useEffect(() => {
+    let alive = true
+    getConstructionMe().then((me) => {
+      const brand = companyBrand(me.scope_owner_user_id)
+      if (alive && brand) setSenderCompany((name) => name || brand.nameAr)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
   const [site, setSite] = useState(() => loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
   // Suppliers asked when quotes close and whether installation is included.
   const [quoteDeadline, setQuoteDeadline] = useState(() => {
@@ -252,6 +263,7 @@ export function SendModal({
   })()
 
   const sendBlockers: string[] = []
+  if (!senderCompany.trim()) sendBlockers.push('حدّد اسم الشركة المرسلة كما سيظهر للموردين.')
   if (readIssue?.kind === 'invalid') sendBlockers.push(`قراءة هذه الكراسة غير صالحة للإرسال: ${readIssue.detail}`)
   if (badQtyItems.length)
     sendBlockers.push(
@@ -1045,7 +1057,7 @@ export function SendModal({
         // The person sending is the person signed in. This block used to carry
         // «عميل تجريبي» on every real request.
         buyer: {
-          company_name: company.name,
+          company_name: senderCompany.trim(),
           contact_name: buyerUser?.displayName?.trim() || buyerUser?.email?.trim() || company.name,
           email: buyerUser?.email?.trim() || company.email,
           phone: company.phone,
@@ -1285,6 +1297,10 @@ export function SendModal({
                 </button>
               </div>
 
+              <label className="block mb-4 text-xs text-neutral-600">اسم الشركة المرسلة — يظهر للموردين
+                <input value={senderCompany} onChange={(e) => setSenderCompany(e.target.value)} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm" placeholder="اسم شركتك" />
+              </label>
+
               <SiteSupplySection
                 city={site}
                 value={siteSupply}
@@ -1318,6 +1334,7 @@ export function SendModal({
                   )}
                 </div>
               </div>
+
 
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>

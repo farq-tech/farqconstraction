@@ -196,7 +196,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
     listBuyerRfqs()
       .then((overview) => {
         if (cancelled) return
-        setOfferCount(overview.summary?.response_count ?? 0)
+        setOfferCount(overview.rfqs?.length ?? 0)
         setLatestRfqId(overview.rfqs?.[0]?.id || null)
       })
       .catch(() => {

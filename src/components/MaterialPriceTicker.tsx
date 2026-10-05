@@ -32,7 +32,7 @@ export function MaterialPriceTicker({ onOpen }: { onOpen: () => void }) {
   }, [])
 
   const materials = index?.materials ?? []
-  const loop = materials.concat(materials)
+  const loop = materials
 
   return (
     <button
@@ -54,7 +54,7 @@ export function MaterialPriceTicker({ onOpen }: { onOpen: () => void }) {
         </span>
       </span>
       <span className="min-w-0 flex-1 overflow-hidden [mask-image:linear-gradient(to_left,transparent,#000_12px,#000_calc(100%-16px),transparent)]">
-        <span className="animate-price-ticker flex h-full items-center group-hover:[animation-play-state:paused]">
+        <span className="flex h-full items-center">
           {loop.length === 0 && <span className="px-4 text-xs text-white/50">نجلب الأسعار…</span>}
           {loop.map((item, i) => {
             const tone = changeTone(item.monthly_change_pct)

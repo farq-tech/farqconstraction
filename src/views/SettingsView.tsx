@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { companyBrand } from '../lib/companyBranding'
 import { loadCompanyProfile, saveCompanyProfile } from '../lib/companyProfile'
 import type { NavProps } from '../types'
 import {
@@ -93,6 +94,8 @@ export function SettingsView({ navigate }: NavProps) {
   useEffect(() => {
     Promise.all([getConstructionStatus(), getConstructionMe()])
       .then(async ([status, me]) => {
+        const brand = companyBrand(me.scope_owner_user_id)
+        if (brand) setCompany((p) => p.name ? p : ({ ...p, name: brand.nameAr }))
         const flags = (status.flags || {}) as Record<string, boolean>
         const delivery = (status.delivery_channels || {}) as Record<string, unknown>
         const waConfig = (status.whatsapp_configuration || {}) as Record<string, unknown>
@@ -111,11 +114,11 @@ export function SettingsView({ navigate }: NavProps) {
           const inbox = await getConstructionInboxStatus()
           inboxEnabled = Boolean(inbox.enabled && inbox.receiving_configured)
           inboxNote = inboxEnabled
-            ? `مراسلات=${inbox.correspondence_enabled ? '1' : '0'} · عامل=${inbox.worker_enabled ? '1' : '0'}`
+            ? `استقبال المراسلات ${inbox.correspondence_enabled ? 'مفعّل' : 'متوقف'} · معالجة الردود ${inbox.worker_enabled ? 'مفعّلة' : 'متوقفة'}`
             : 'راجع CONSTRUCTION_INBOX_ENABLED وباقي CONSTRUCTION_INBOX_*'
         } catch (err) {
           inboxEnabled = null
-          inboxNote = err instanceof Error ? err.message : 'تعذّر قراءة /inbox/status'
+          inboxNote = err instanceof Error ? err.message : 'تعذّر التحقق من جاهزية استقبال الردود'
         }
 
         let gmailState = '—'
@@ -216,7 +219,7 @@ export function SettingsView({ navigate }: NavProps) {
         <ChannelRow
           label="محادثة"
           on={channels.haraj}
-          detail="HARAJ_SEND_ENABLED + HARAJ_USER_ID + HARAJ_TOKEN · يلزم haraj_limit"
+          detail="قناة محادثات الموردين — يحدد مسؤول النظام جاهزيتها وحدود الإرسال"
         />
         <ChannelRow
           label="صندوق الوارد (Resend Inbound)"
@@ -238,6 +241,7 @@ export function SettingsView({ navigate }: NavProps) {
 
       {/* Company */}
       <Section title="الشركة">
+        <p className="text-xs text-neutral-600 mb-3">بيانات المرسل محفوظة في هذا المتصفح وتُستخدم في نموذج الإرسال. راجع تطابقها مع الشركة قبل الإرسال.</p>
         <Field label="اسم الشركة" value={company.name} onChange={v => setCompany(p => ({ ...p, name: v }))} />
         <Field label="المدينة" value={company.city} onChange={v => setCompany(p => ({ ...p, city: v }))} />
         <Field label="رقم التواصل" value={company.phone} onChange={v => setCompany(p => ({ ...p, phone: v }))} dir="ltr" />

@@ -36,8 +36,8 @@ describe('summarizeBooklet', () => {
       ['غراء أبو جمل', 1],
     ])
     expect(card.lines[0]!.bookletName).toBe('بلوك خرساني مصمت مقاس 15 سم')
-    expect(card.lines[0]!.best).toEqual({ unitPrice: 1.7, currency: 'SAR', supplierName: 'مؤسسة الركن المتين', vat: 'excl', fromChat: false, cutPercent: 8.1 })
-    expect(card.lines[1]!.best!.cutPercent).toBeNull()
+    expect(card.lines[0]!.best).toBeNull() // mixed VAT cannot produce a winner
+    expect(card.lines[1]!.best?.cutPercent ?? null).toBeNull()
     expect(card.lines[3]!.best).toBeNull()
     expect(card.buckets).toEqual({ none: 2, few: 3, many: 1 })
     expect([card.linesTotal, card.linesWithQuotes]).toEqual([6, 4])
@@ -50,7 +50,7 @@ describe('summarizeBooklet', () => {
     const line = card.lines.find((l) => l.key === 'pr288-3')!
     expect(line.name).toBe('أنبوب معدني EMT قطر 32 مم طول 3 م')
     expect(line.bookletName).toBeUndefined()
-    expect(card.lines.find((l) => l.key === 'pr288-8')!.best).toMatchObject({ unitPrice: 1, fromChat: true })
+    expect(card.lines.find((l) => l.key === 'pr288-8')!.best).toBeNull() // a single quote is not a price comparison
     expect(card.lines.find((l) => l.key === 'pr288-9')!.offers).toBe(0)
     expect(card.waves).toBe(2) // the cancelled wave is not counted
   })
@@ -58,9 +58,9 @@ describe('summarizeBooklet', () => {
   it('reads VAT basis per best offer', () => {
     const d = clone(PR580)
     d.matrix[0]!.offers.find((o) => o.supplier_id === 's1')!.prices_include_tax = true
-    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best!.vat).toBe('incl')
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best).toBeNull()
     d.matrix[0]!.offers.find((o) => o.supplier_id === 's1')!.prices_include_tax = null
-    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best!.vat).toBe('unknown')
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best).toBeNull()
     expect(vatLabel('incl')).toBe('شامل الضريبة')
     expect(vatLabel('excl')).toBe('غير شامل الضريبة')
   })
@@ -85,7 +85,7 @@ describe('cancelled waves and booklets', () => {
   it('a booklet whose every wave is cancelled, closed or awarded is not active; one with no waves is', () => {
     expect(isActiveBooklet({ waves: [] })).toBe(true)
     expect(isActiveBooklet({ waves: [{ wave_number: 1, rfq_id: 'r', status: 'CANCELLED', invites: 1, created_at: null }] })).toBe(false)
-    expect(isActiveBooklet({ waves: [{ wave_number: 1, rfq_id: 'r', status: 'AWARDED', invites: 1, created_at: null }, { wave_number: 2, rfq_id: 'q', status: 'CLOSED', invites: 1, created_at: null }] })).toBe(false)
+    expect(isActiveBooklet({ waves: [{ wave_number: 1, rfq_id: 'r', status: 'AWARDED', invites: 1, created_at: null }, { wave_number: 2, rfq_id: 'q', status: 'CLOSED', invites: 1, created_at: null }] })).toBe(true)
     expect(isActiveBooklet(PRH288)).toBe(true)
     const dead = clone(PR580)
     dead.waves.forEach((w) => (w.status = 'CANCELLED'))
@@ -248,8 +248,8 @@ describe('price cuts («موردون خفّضوا أسعارهم»)', () => {
       ['PR-H288', 'شركة النور الكهربائية', 'فيشر بلاستيك 8 مم', 1.2, 1, 16.7],
       ['PR-H288', 'مؤسسة الوصل', 'ماسورة EMT 1', 26, 24.5, 5.8],
     ])
-    expect(o.priceCuts[0]).toMatchObject({ perUnit: 0.15, lineAmount: 450, quantity: 3000, cheapestNow: true, fromChat: false, oldVat: 'excl' })
-    expect(o.priceCuts[1]).toMatchObject({ lineAmount: 400, cheapestNow: true, fromChat: true })
+    expect(o.priceCuts[0]).toMatchObject({ perUnit: 0.15, lineAmount: 450, quantity: 3000, cheapestNow: false, fromChat: false, oldVat: 'excl' })
+    expect(o.priceCuts[1]).toMatchObject({ lineAmount: 400, cheapestNow: false, fromChat: true })
     expect(o.priceCuts[2]).toMatchObject({ lineAmount: 300, cheapestNow: false, newVat: 'incl' })
   })
 

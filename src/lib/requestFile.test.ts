@@ -23,7 +23,7 @@ const invite = (over: Partial<ConstructionInvitation>): ConstructionInvitation =
 describe('request status', () => {
   it('maps the server status and the award, never the deadline copy', () => {
     expect(requestState({ status: 'SENT', submission_closed_at: null, award: null }).label).toBe('بانتظار العروض')
-    expect(requestState({ status: 'SENT', submission_closed_at: '2026-09-19T10:00:00Z', award: null }).label).toBe('مغلق')
+    expect(requestState({ status: 'SENT', submission_closed_at: '2026-09-19T10:00:00Z', award: null }).label).toBe('أُغلق استلام العروض')
     expect(requestState({ status: 'SENT', submission_closed_at: '2026-09-19T10:00:00Z', award: { id: 'a', status: 'APPROVED' } }).label).toBe('تمت الترسية')
     expect(requestState({ status: 'SENT', submission_closed_at: null, award: { id: 'a', status: 'CANCELLED' } }).key).toBe('OPEN')
   })
@@ -100,8 +100,8 @@ describe('whatsapp delivery receipts', () => {
 
 describe('quotes', () => {
   it('reads partial coverage against the lines the supplier was asked for', () => {
-    expect(quoteCoverage({ coverage: { requested: 5, priced: 3, complete: false } })!.label).toBe('عرض جزئي — 3 من 5 بنود')
-    expect(quoteCoverage({ coverage: { requested: 2, priced: 2, complete: true } })!.label).toBe('يغطي جميع البنود')
+    expect(quoteCoverage({ coverage: { requested: 5, priced: 3, complete: false } })!.label).toBe('عرض جزئي — 3 من 5 بنود الطلب')
+    expect(quoteCoverage({ coverage: { requested: 2, priced: 2, complete: true } })!.label).toBe('يغطي كامل الطلب — 2 بنود')
   })
 
   it('states tax and lead time without assuming either', () => {
@@ -239,12 +239,12 @@ describe('timeline', () => {
       (id) => (id === 's1' ? 'مؤسسة ABC' : 'شركة XYZ'),
     )
     expect(events.map((e) => e.title)).toEqual([
-      'تم إنشاء الطلب',
-      'تم إرسال الطلب إلى مؤسسة ABC عبر البريد',
       'تم استلام عرض من مؤسسة ABC',
+      'تم إرسال الطلب إلى مؤسسة ABC عبر البريد',
+      'تم إنشاء الطلب',
       'شركة XYZ فتح الطلب',
     ])
-    expect(events[2]!.at).toBe('2026-09-19T07:12:00Z')
+    expect(events[0]!.at).toBe('2026-09-19T07:12:00Z')
     expect(events[3]!.at).toBeNull()
     expect(events.filter((e) => e.at === rfq.created_at)).toHaveLength(1)
   })

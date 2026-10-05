@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ConstructionApiError,
+  closeConstructionRfqSubmissions,
   __resetConstructionRateLimitGate,
   getConstructionBooklet,
   getConstructionBookletsOverview,
@@ -93,5 +94,16 @@ describe('booklet client', () => {
     await expect(getConstructionBookletsOverview()).resolves.toBeNull()
     installFetch({ status: 500, body: { ok: false, error: 'BOOM' } })
     await expect(getConstructionBookletsOverview()).rejects.toBeInstanceOf(ConstructionApiError)
+  })
+})
+
+describe('combined close and finalize', () => {
+  it('finalizes offers within the same closing request, without a separate open call', async () => {
+    installFetch({ status: 200, body: { ok: true, data: { id: 'r', submission_closed_at: '2026-10-05T10:00:00Z', envelopes_opened_at: '2026-10-05T10:00:00Z' } } })
+    await closeConstructionRfqSubmissions('r', 'انتهت مدة الكراسة', true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toContain('/close-submissions')
+    expect(JSON.parse(String(init.body))).toEqual({ note: 'انتهت مدة الكراسة', open_envelopes: true })
   })
 })

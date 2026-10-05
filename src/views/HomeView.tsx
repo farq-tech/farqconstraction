@@ -142,7 +142,7 @@ export function HomeView({ navigate }: NavProps) {
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
             {hasBooklets
-              ? 'صورة كراساتك الجارية: ما تغطّى بعروض، وما ينتظر، وما يقترب موعده.'
+              ? 'كراسات قيد التسعير أو بانتظار قرار: تغطية البنود والعروض المستلمة.'
               : 'ارفع كراسة وسنقرأ البنود ونقترح لكل بند موردين مناسبين.'}
           </p>
         </div>
@@ -194,7 +194,7 @@ export function HomeView({ navigate }: NavProps) {
 
           {booklets.length === 0 ? (
             <div className="rounded-2xl border border-neutral-100 bg-white py-10 text-center text-sm text-neutral-500">
-              لا كراسات جارية — كل الكراسات أُغلقت أو تمت ترسيتها.
+              لا كراسات بانتظار متابعة — تمت ترسيتها أو إلغاؤها.
               <button onClick={() => navigate('booklets')} className="mt-3 flex items-center gap-1 mx-auto text-[#123F3A] font-semibold">
                 <FileIcon className="w-4 h-4" /> كل الكراسات
               </button>
@@ -205,7 +205,7 @@ export function HomeView({ navigate }: NavProps) {
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-[#0D1F1D] flex items-center gap-2">
                     <FileIcon className="w-4 h-4 text-[#123F3A]" />
-                    الكراسات الجارية
+                    الكراسات قيد المتابعة
                     <span className="text-xs font-semibold text-neutral-400">({booklets.length})</span>
                   </h2>
                   <button
@@ -250,7 +250,7 @@ function StatStrip({
   const nearSoon = nearest != null && nearest.at - now <= DEADLINE_SOON_MS
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-6">
-      <Stat value={totals.activeBooklets} label="كراسات جارية" />
+      <Stat value={totals.activeBooklets} label="كراسات قيد المتابعة" />
       <Stat value={totals.linesTotal} label="بنود" />
       <Stat
         value={`${totals.coveragePercent}%`}
@@ -261,7 +261,7 @@ function StatStrip({
       <Stat
         value={totals.linesWithoutQuotes}
         label="بنود بدون عروض"
-        sub={totals.linesWithoutQuotes ? 'تحتاج متابعة' : 'كل البنود مغطاة'}
+        sub={totals.linesTotal === 0 ? 'لا توجد بنود ضمن النطاق' : totals.linesWithoutQuotes ? 'تحتاج متابعة' : 'كل البنود مغطاة'}
         tone={totals.linesWithoutQuotes ? 'amber' : undefined}
       />
       <Stat value={totals.quotesLast24h} label="عروض آخر 24 ساعة" tone={totals.quotesLast24h ? 'green' : undefined} />
@@ -391,7 +391,7 @@ function BookletCard({ card, now, onOpen }: { card: HomeBooklet; now: number; on
                 title={card.deadlineLabel || undefined}
               >
                 <ClockIcon className="w-3 h-3" />
-                {card.deadlineAt != null ? countdownLabel(card.deadlineAt, now) : 'لم يُحدَّد موعد الإغلاق'}
+                {card.awaitingDecision ? 'أُغلق الاستلام — راجع العروض لاتخاذ القرار' : card.deadlineAt != null ? countdownLabel(card.deadlineAt, now) : 'لم يُحدَّد موعد الإغلاق'}
               </span>
             </div>
             <h3 className="font-black text-[#0D1F1D] leading-snug">{card.title || card.reference}</h3>
@@ -597,7 +597,7 @@ function AttentionPanel({ items, now, onOpen }: { items: AttentionItem[]; now: n
         {items.length > 0 && <span className="text-xs font-semibold text-neutral-400 ms-1">({items.length})</span>}
       </h2>
       {items.length === 0 ? (
-        <p className="px-4 pb-4 text-sm text-neutral-500">لا شيء عاجل: كل البنود لها عروض ولا موعد إغلاق قريب.</p>
+        <p className="px-4 pb-4 text-sm text-neutral-500">لا توجد تنبيهات متابعة ضمن هذا النطاق. راجع حالة الكراسات والعروض قبل اتخاذ القرار.</p>
       ) : (
         <ul className="divide-y divide-neutral-50">
           {items.map((item, i) => (

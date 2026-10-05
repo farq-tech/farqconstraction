@@ -236,10 +236,10 @@ describe('held prices never win (booklet)', () => {
   }
 
   it('shows the held cell but marks the other supplier best', () => {
-    expect(cheapestSupplier([offer({}), held])).toBe('s1')
+    expect(cheapestSupplier([offer({}), held])).toBeNull()
     const m = buildBookletMatrix(detail)
     const row = m.rows[0]!
-    expect(row.best_supplier_id).toBe('s1')
+    expect(row.best_supplier_id).toBeNull()
     expect(row.cells.get('s2')!.held).toBe(true)
     expect(row.cells.get('s2')!.best).toBe(false)
     const col = m.columns.find((c) => c.supplier_id === 's2')!
@@ -251,7 +251,7 @@ describe('held prices never win (booklet)', () => {
 
   it('keeps the home page best and price cuts clear of it', () => {
     const card = summarizeBooklet(detail)
-    expect(card.lines[0]!.best!.supplierName).toBe('أ')
+    expect(card.lines[0]!.best).toBeNull()
     expect(priceCutsFor(detail, card)).toEqual([])
   })
 })

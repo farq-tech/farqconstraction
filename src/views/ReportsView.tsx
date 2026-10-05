@@ -270,7 +270,7 @@ export function ReportsView({ navigate }: NavProps) {
 
       <Section title="المحفظة">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Kpi value={scoped ? 1 : t.projects} label="مشاريع" />
+          <Kpi value={scoped ? 1 : t.projects} label="طلبات تسعير" />
           <Kpi value={t.lines} label="بنود مطلوبة" />
           <Kpi value={t.priced_lines} label="بنود مسعّرة" hint={t.coverage_percent != null ? `${t.coverage_percent}% تغطية` : undefined} onClick={() => void openLines('priced', 'بنود وصلها سعر')} />
           <Kpi value={t.lines - t.priced_lines} label="بنود بلا سعر" onClick={() => void openLines('no_offer', 'بنود بلا أي عرض')} />
@@ -281,12 +281,12 @@ export function ReportsView({ navigate }: NavProps) {
         </div>
       </Section>
 
-      <Section title="المشاريع" note="اضغط المشروع لفتح ملفه">
+      <Section title="طلبات التسعير" note="كل صف طلب أو دفعة تسعير، وقد تتبع عدة طلبات الكراسة نفسها. اضغط الطلب لفتح ملفه.">
         <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-olive-50 text-xs text-olive-700">
-                {['المشروع', 'البنود', 'المسعّر', 'التغطية', 'أسعار مستلمة', 'عروض/بند', 'الموردون', 'ردّوا', 'وسيط الرد', 'فرق السعر', 'الحالة'].map((h) => (
+                {['الطلب / الدفعة', 'البنود', 'المسعّر', 'التغطية', 'أسعار مستلمة', 'عروض/بند', 'الموردون', 'ردّوا', 'وسيط الرد', 'فرق السعر', 'الحالة'].map((h) => (
                   <th key={h} className="text-right font-semibold px-3 py-2.5 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -326,7 +326,7 @@ export function ReportsView({ navigate }: NavProps) {
           <Bar label="وصلها سعران فأكثر (مقارنة حقيقية)" value={data.funnel.two_offers} total={data.funnel.lines} count={`${data.funnel.two_offers}`} tone="bg-olive-600" />
           <Bar label="وصلها ثلاثة أسعار فأكثر" value={data.funnel.three_offers} total={data.funnel.lines} count={`${data.funnel.three_offers}`} tone="bg-olive-700" />
           <div className="pt-2 text-xs text-neutral-500 border-t border-neutral-100">
-            الموردون: أُرسل إلى {t.reached} · فتح الرابط {t.opened} · ردّ {t.replied}{num(t.auto_only) ? ` (+${num(t.auto_only)} رد آلي فقط)` : ''} · قدّم عرضًا {t.quoted} · مشاريع مُرسّاة {data.funnel.awarded_projects}
+            الموردون: أُرسل إلى {t.reached} · فتح الرابط {t.opened} · ردّ {t.replied}{num(t.auto_only) ? ` (+${num(t.auto_only)} رد آلي فقط)` : ''} · قدّم عرضًا {t.quoted} · طلبات مُرسّاة {data.funnel.awarded_projects}
           </div>
         </div>
       </Section>
@@ -351,7 +351,7 @@ export function ReportsView({ navigate }: NavProps) {
         <div className="grid sm:grid-cols-3 gap-3">
           <Kpi value={num(data.savings.potential) ? money(data.savings.potential) : 'غير متاح بعد'} label="فرق السعر المتاح" hint="بين أقل وأعلى عرض على البنود التي وصلها عرضان فأكثر" />
           <Kpi value={data.savings.potential_percent != null ? `${data.savings.potential_percent}%` : 'غير متاح بعد'} label="نسبة فرق السعر" />
-          <Kpi value={data.savings.awarded_projects ? money(data.savings.realized) : 'غير متاح بعد'} label="توفير محقق" hint={data.savings.awarded_projects ? `من ${data.savings.awarded_projects} مشروع مُرسّى` : 'يظهر بعد أول ترسية'} />
+          <Kpi value={data.savings.awarded_projects ? money(data.savings.realized) : 'غير متاح بعد'} label="توفير محقق" hint={data.savings.awarded_projects ? `من ${data.savings.awarded_projects} طلب مُرسّى` : 'يظهر بعد أول ترسية'} />
         </div>
       </Section>
 

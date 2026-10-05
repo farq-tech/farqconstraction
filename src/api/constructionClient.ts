@@ -3660,7 +3660,7 @@ export function formatArDate(value?: string | null): string {
   if (Number.isNaN(ts)) return value
   // Isolated left-to-right: inside Arabic text «19 September 2026» otherwise
   // renders as «September 2026 19».
-  return `\u2066${new Date(ts).toLocaleDateString('en-GB', {
+  return `\u2066${new Date(ts).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
