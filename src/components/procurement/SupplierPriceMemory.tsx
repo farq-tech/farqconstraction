@@ -12,19 +12,21 @@ export default function SupplierPriceMemory({ rfqId }: { rfqId: string }) {
   const [revision, setRevision] = useState(0)
   useEffect(() => {
     let active = true
+    let internalAuthorized = false
     setData(null)
     setError(false)
     getPrewarmCapabilities()
-      .then((capabilities) =>
-        capabilities.price_memory_enabled && capabilities.can_release
+      .then((capabilities) => {
+        internalAuthorized = capabilities.can_release
+        return capabilities.price_memory_enabled && internalAuthorized
           ? getSupplierPriceMemory(rfqId)
-          : { enabled: false, lines: [] },
-      )
+          : { enabled: false, lines: [] }
+      })
       .then((value) => {
         if (active) setData(value)
       })
       .catch(() => {
-        if (active) setError(true)
+        if (active && internalAuthorized) setError(true)
       })
     return () => {
       active = false
