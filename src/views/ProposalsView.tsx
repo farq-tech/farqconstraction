@@ -707,7 +707,7 @@ export function ProposalsView({ navigate }: NavProps) {
    */
   const CHUNK = 25
   const filterKey = `${filter}|${query}`
-  const autoDone = useRef<Set<number>>(new Set(Object.keys(getSelections()).map(Number)))
+  const autoDone = useRef<Set<number>>(new Set<number>())
   const [autoSummary, setAutoSummary] = useState<{ suppliers: number; lines: number; empty: number } | null>(null)
 
   useEffect(() => {
@@ -744,7 +744,7 @@ export function ProposalsView({ navigate }: NavProps) {
       )
       setSelected((prev) => {
         const next = { ...prev }
-        for (const id of pickedIds) if (!(next[id] || []).length) next[id] = picks[id].map((s) => s.id)
+        for (const id of pickedIds) next[id] = [...new Set([...(next[id] || []), ...picks[id].map((s) => s.id)])]
         return next
       })
     }
@@ -1078,8 +1078,8 @@ export function ProposalsView({ navigate }: NavProps) {
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                 {empty === 0
-                  ? 'اختير كل تطابق مؤكد أو شبه مؤكد، بما فيه الموردون الذين اقترحهم النظام، من جميع القنوات. راجع القائمة قبل الإرسال؛ ترشيح المورد ليس تأكيدًا للمخزون.'
-                  : `${empty} بندًا لم نجد لها تطابقًا مؤكدًا أو شبه مؤكد. للبقية اختيرت كل الترشيحات المناسبة، بما فيها اقتراحات النظام. راجع القائمة قبل الإرسال.`}
+                  ? 'اختير كل الموردين المطابقين والمقترحين، بما فيهم ترشيحات النشاط. راجع القائمة قبل الإرسال؛ ترشيح المورد ليس تأكيدًا للمخزون.'
+                  : `${empty} بندًا لم نجد لها موردًا مقترحًا. للبقية اختيرت كل الترشيحات المناسبة، بما فيها اقتراحات النظام. راجع القائمة قبل الإرسال.`}
                 {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
               </div>
             </div>

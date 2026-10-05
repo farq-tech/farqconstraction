@@ -148,7 +148,7 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
       outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar'), roundOutcome: { grade: 'SIMILAR' } }] },
     })
     const ids = autoPickConfident(item).map((s) => s.id)
-    expect(ids).toEqual(['wa-priced', 'wa-similar', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'mail-lineword'])
+    expect(ids).toEqual(['wa-priced', 'wa-similar', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'wa-other-city', 'mail-lineword', 'mail-maybe', 'wa-maybe'])
   })
   it('a rejected supplier stays out even when sure', () => {
     const item = line(2, 'masonry_blocks', [wa('a', { why: 'الاسم: «بلوك»' })], { rejectedSupplierIds: ['a'] })

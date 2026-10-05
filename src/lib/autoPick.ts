@@ -136,7 +136,7 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
   // 5 Oct 2026: the buyer explicitly wants EVERY sure or near-certain match,
   // including the system's named suggestions, regardless of channel or count.
-  return all.filter(s => confidenceOf(s) !== 'MAYBE')
+  return all
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
