@@ -3805,7 +3805,7 @@ export function cancelQuoteDiscountRequest(inviteId: string, id: string) {
 /** Save an unsent draft; never dispatches invitations. */
 export async function updateConstructionRfqDraft(rfqId: string, expectedVersionId: string, lines: Array<Record<string, unknown>>) {
   return request<ConstructionRfq>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/draft`, {
-    method: 'PUT', body: JSON.stringify({ expected_version_id: expectedVersionId, lines }),
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected_version_id: expectedVersionId, lines }),
   })
 }
 
