@@ -57,7 +57,7 @@ export function RFQListView({ navigate }: NavProps) {
 
   const seen = new Set<string>()
   const allRfqs: RFQSummary[] = []
-  for (const r of [...localRfqs, ...apiRfqs]) {
+  for (const r of [...apiRfqs, ...localRfqs]) {
     if (seen.has(r.id)) continue
     seen.add(r.id)
     allRfqs.push(r)
