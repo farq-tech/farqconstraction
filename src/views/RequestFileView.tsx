@@ -1,3 +1,5 @@
+import PrewarmRelease from '../components/procurement/PrewarmRelease'
+import PrewarmIntelligence from '../components/procurement/PrewarmIntelligence'
 import { requestCreatorLabel } from "../lib/rfqIdentity"
 import AwardDialog from '../components/procurement/AwardDialog'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -625,6 +627,8 @@ export function RequestFileView({
         ))}
       </div>
 
+      <PrewarmRelease rfqId={rfq.id} />
+      <PrewarmIntelligence rfqId={rfq.id} />
       {tab === "overview" && (
         <div className="space-y-4">
           {rfq.award && awardedInviteId && (
