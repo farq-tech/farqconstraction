@@ -63,6 +63,7 @@ window.fetch = async (input, init) => {
         },
       ],
     }
+  else if (path.includes('/prewarm/releases/') && path.endsWith('/revoke')) { released=false;data={revoked:true} }
   else if (path.endsWith('/prewarm/releases') && init?.method === 'POST') {
     released = true
     releasedKind = JSON.parse(String(init.body)).quote_version_id

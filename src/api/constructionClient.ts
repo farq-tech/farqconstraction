@@ -1833,6 +1833,8 @@ export type ConstructionInboxStatus = {
 }
 
 export type ConstructionInboxThread = {
+  historical?:boolean
+  history_label?:string
   invite_id?: string
   supplier_id?: string
   /** Present on API thread rows (not nested under request_context). */
@@ -2124,7 +2126,7 @@ export async function listConstructionInboxThreads(query: {
   if (query.filter) params.set('filter', query.filter)
   if (query.visibility) params.set('visibility', query.visibility)
   if (query.cursor) params.set('cursor', query.cursor)
-  if (query.rfq_id) params.set('rfq_id', query.rfq_id)
+  if (query.rfq_id) { params.set('rfq_id', query.rfq_id); params.set('prewarm_history','1') }
   for (const [key, value] of Object.entries(query.extra || {})) if (value) params.set(key, value)
   const qs = params.toString()
   return request<ConstructionInboxThreadsResult>(
