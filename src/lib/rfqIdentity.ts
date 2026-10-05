@@ -40,6 +40,7 @@ export function toRfqSummary(r: ConstructionRfqSummary): RFQSummary {
   const closing = rfqClosing(r.quote_deadline, r.quote_deadline_time)
   return {
     id: r.id,
+    creatorLabel: requestCreatorLabel(r.creator),
     name: project || dept || 'طلب تسعير',
     reference: formatRfqReference(r.id, r.engineering_department || null),
     subtitle: [project ? dept : '', city].filter(Boolean).join(' · '),
@@ -54,4 +55,10 @@ export function toRfqSummary(r: ConstructionRfqSummary): RFQSummary {
     closesLabel: r.award_id ? undefined : mapRfqUiStatus(r.status, r.award_id) === 'closed' ? 'أُغلق استلام العروض' : closing.label,
     closesUrgent: r.award_id || mapRfqUiStatus(r.status, r.award_id) === 'closed' ? false : closing.urgent,
   }
+}
+
+export function requestCreatorLabel(creator?: { label?: string | null; source?: string } | null): string {
+  const name = creator?.label?.trim()
+  if (!name || /\S+@\S+/.test(name)) return 'غير مسجل'
+  return creator?.source === 'INITIAL_VERSION_ACCOUNT' ? `${name} (حساب الإنشاء)` : name
 }

@@ -1,3 +1,4 @@
+import { requestCreatorLabel } from "../lib/rfqIdentity"
 import AwardDialog from '../components/procurement/AwardDialog'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { NavProps } from "../types"
@@ -496,6 +497,7 @@ export function RequestFileView({
           {title}
         </h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-neutral-600">
+          <span>منشئ الطلب: {requestCreatorLabel(rfq.creator)}</span>
           {payload.delivery?.city && <span>{payload.delivery.city}</span>}
           {/* «الموقع والتوريد» as the suppliers read it; nothing for an older request. */}
           {storedSiteSupplyFacts(payload).map((fact) => (

@@ -56,7 +56,11 @@ export function scanPurchaseRequest(pages: Array<{ mime: string; base64: string 
 /** `label` is the display text; `email` may be stripped by the server's contact scrubber. */
 export type ConstructionOwner = { user_id: string; label?: string | null; email?: string | null; role?: string | null }
 
+export type ConstructionRequestCreator = { user_id?: string | null; label?: string | null; source?: "CREATION_RECORD" | "INITIAL_VERSION_ACCOUNT" | "UNKNOWN" }
+
 export type ConstructionRfqSummary = {
+  creator?: ConstructionRequestCreator | null
+  created_by_user_id?: string | null
   id: string
   status: string
   assigned_user_id?: string | null
@@ -147,6 +151,7 @@ export type ProviderDelivery = {
 }
 
 export type ConstructionRfq = {
+  creator?: ConstructionRequestCreator | null
   id: string
   status: string
   assigned_user_id?: string | null

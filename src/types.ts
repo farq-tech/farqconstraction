@@ -170,6 +170,7 @@ export interface BOQItem {
 }
 
 export interface RFQSummary {
+  creatorLabel?: string
   id: string
   name: string
   items: number

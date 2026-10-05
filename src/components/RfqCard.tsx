@@ -59,6 +59,7 @@ export function RfqCard({ rfq, onOpen }: { rfq: RFQSummary; onOpen: () => void }
           )}
         </div>
       </div>
+      <div className="text-xs text-neutral-500 mt-2">منشئ الطلب: {rfq.creatorLabel || "غير مسجل"}</div>
       {showProgress && (
         <div className="mt-3 flex gap-3">
           <Step label="وصلهم الطلب" value={rfq.sent ?? total} total={total} tone="bg-[#123F3A]/40" />
