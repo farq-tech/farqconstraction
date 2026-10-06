@@ -1,3 +1,4 @@
+import { quoteCompleteness } from './quoteCompleteness'
 import { getConstructionRfq, getConstructionComparison, updateConstructionRfqDraft, type ConstructionRfq, type ConstructionComparison, type AhmadDocument } from '../api/constructionClient'
 import { farqSession } from '../api/farqSession'
 export type DraftEditAction = { kind: 'edit'; label: string; rfqId: string; versionId: string; lines: Array<Record<string, unknown>>; userId: string; preview: string }
@@ -35,8 +36,9 @@ export function comparisonSummary(c: ConstructionComparison, selectedQuote?: str
     const knownTotal=typeof total==='number' && Number.isFinite(total) && total>=0
     const differences:string[]=[]
     for(const l of o.lines || []){const wanted=(c.rfq.current_version?.payload?.lines || []).find(w=>w.line_key && w.line_key===l.line_key);if(!wanted)continue;const spec=(wanted.spec_card || {}) as Record<string,unknown>, offered=(l.spec_card || {}) as Record<string,unknown>;for(const k of ['brand','thickness','dimensions','material','finish'])if(spec[k] && offered[k] && String(spec[k])!==String(offered[k]))differences.push(`${k}: المطلوب ${spec[k]}، المعروض ${offered[k]}`);if(l.quantity!=null && Number(l.quantity)!==Number(wanted.quantity))differences.push('كمية معروضة مختلفة عن الطلب')} 
-    if(knownTotal && !differences.length && allRequestLines && currency==='SAR' && typeof o.prices_include_tax==='boolean') eligible.push({name,total,vat:o.prices_include_tax})
-    return `${name}: الإجمالي ${knownTotal?`${total} ${currency}`:'غير معروف'}؛ ${taxBasis}؛ قيمة الضريبة ${typeof tax==='number'?tax:'غير معروفة'}؛ الشحن ${o.delivery ? JSON.stringify(o.delivery) : 'غير معروف'}؛ الرسوم ${o.mandatory_fees ? JSON.stringify(o.mandatory_fees) : 'غير معروفة'}؛ التوريد ${o.terms ? JSON.stringify(o.terms) : 'غير معروف'}؛ اختلافات معلنة ${differences.length?differences.join('، '):'لا توجد اختلافات يمكن إثباتها من الحقول المقروءة؛ المطابقة الفنية تحتاج تأكيدًا'}؛ تغطية البنود ${allRequestLines?'كاملة':coverage?`${coverage.priced}/${requestedCount || coverage.requested} من بنود الطلب الكامل`:'غير معروفة'}.`
+    const readiness=quoteCompleteness(o)
+    if(readiness.status==='COMPLETE' && knownTotal && !differences.length && allRequestLines && currency==='SAR' && typeof o.prices_include_tax==='boolean') eligible.push({name,total,vat:o.prices_include_tax})
+    return `${name}: حالة المعلومات ${readiness.status==='COMPLETE'?'مكتمل':readiness.status==='PARTIAL'?'جزئي':'يحتاج استكمال'}${readiness.missing.length?'؛ النواقص: '+readiness.missing.join('، '):''}؛ الإجمالي ${knownTotal?`${total} ${currency}`:'غير معروف'}؛ ${taxBasis}؛ قيمة الضريبة ${typeof tax==='number'?tax:'غير معروفة'}؛ الشحن ${o.delivery ? JSON.stringify(o.delivery) : 'غير معروف'}؛ الرسوم ${o.mandatory_fees ? JSON.stringify(o.mandatory_fees) : 'غير معروفة'}؛ التوريد ${o.terms ? JSON.stringify(o.terms) : 'غير معروف'}؛ اختلافات معلنة ${differences.length?differences.join('، '):'لا توجد اختلافات يمكن إثباتها من الحقول المقروءة؛ المطابقة الفنية تحتاج تأكيدًا'}؛ تغطية البنود ${allRequestLines?'كاملة':coverage?`${coverage.priced}/${requestedCount || coverage.requested} من بنود الطلب الكامل`:'غير معروفة'}.`
   })
   const comparable=eligible.length>0 && new Set(eligible.map(r=>r.vat)).size===1
   eligible.sort((a,b)=>a.total-b.total)
@@ -73,4 +75,12 @@ export function documentSummary(d:AhmadDocument){return `${d.summary || 'قرا�
 export function requestPageContext(rfq: ConstructionRfq | null, rfqId: string | null, tab: string, inviteId: string | null) {
  const invite=tab==='messages'?rfq?.invitations.find(i=>i.id===inviteId):undefined
  return {view:'rfq-detail',rfqId,tab,supplierId:invite?.supplier?.id || invite?.supplier_id || undefined,threadId:invite?.id}
+}
+
+export function completionRequest(c:ConstructionComparison, supplierId?:string|null, quoteId?:string|null) {
+ const rows=c.supplier_responses.filter(r=>(!supplierId || r.supplier.id===supplierId)&&(!quoteId || r.offer.quoteVersionId===quoteId))
+ if(rows.length!==1)return 'حدد عرض مورد واحد حتى أجهّز طلب الاستكمال الصحيح.'
+ const row=rows[0], check=quoteCompleteness(row.offer)
+ if(!check.missing.length)return 'المعلومات المطلوبة مسجلة. المطابقة الفنية واعتماد العرض تحتاج مراجعتك.'
+ return `مسودة طلب استكمال إلى ${row.supplier.name_ar || row.supplier.name_en || 'المورد'}:\nالسلام عليكم، يرجى استكمال المعلومات التالية لعرضكم في رد واحد:\n${check.missing.map((m,i)=>`${i+1}. ${m}`).join('\n')}\nوتأكيد البيانات والمطابقة قبل اعتماد العرض.\n\nالمصدر: نسخة العرض الحالية. هذه مسودة للمراجعة ولم تُرسل.`
 }

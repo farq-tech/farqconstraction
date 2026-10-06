@@ -1,3 +1,4 @@
+import { quoteCompleteness } from '../lib/quoteCompleteness'
 import { requestPageContext } from '../lib/ahmadProcurement'
 import SupplierPriceValidity from '../components/procurement/SupplierPriceValidity'
 import SupplierPriceMemory from '../components/procurement/SupplierPriceMemory'
@@ -390,8 +391,13 @@ export function RequestFileView({
   const progress = requestProgress(rfq)
   const lines = payload.lines || []
   const matrix = comparison?.quote_matrix || null
-  const best = lowestPerLine(matrix)
+  const readySuppliers = new Set((comparison?.supplier_responses || []).filter(r => quoteCompleteness(r.offer).status === 'COMPLETE').map(r => String(r.supplier.id)))
+  const readyMatrix = matrix ? {...matrix, lines: matrix.lines.map(line => ({...line, offers: line.offers.filter(cell => cell && readySuppliers.has(cell.supplier_id))}))} : null
+  const best = lowestPerLine(readyMatrix)
   const totals = matrixTotals(matrix)
+  const readyTotals = matrixTotals(readyMatrix)
+  totals.lowest = readyTotals.lowest
+  totals.totals = totals.totals.map(t => ({...t, complete: t.complete && readySuppliers.has(t.supplier_id)}))
   const totalBySupplier = new Map(totals.totals.map((t) => [t.supplier_id, t]))
   const sortedLines = sortLinesBySupplier(matrix?.lines || [], lineSort)
   const basket = cheapestPerLineTotal(matrix, best, totals.totals)
@@ -1397,6 +1403,7 @@ function QuoteCard({
   action?: React.ReactNode
 }) {
   const offer = row.offer
+  const readiness = quoteCompleteness(offer)
   const total = offer.totals?.total
   const complete = (offer.totals as { complete?: boolean } | undefined)
     ?.complete
@@ -1458,6 +1465,10 @@ function QuoteCard({
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+        <div className={readiness.status==='COMPLETE'?'text-xs text-emerald-700':'text-xs text-amber-800'}>
+          {readiness.status==='COMPLETE'?'مكتمل المعلومات':readiness.status==='PARTIAL'?'عرض جزئي':'يحتاج استكمال'}
+          {readiness.missing.length>0 && <div>النواقص: {readiness.missing.join('، ')}</div>}
+        </div>
         {coverage && (
           <span
             className={`px-2 py-0.5 rounded-full font-semibold ${
