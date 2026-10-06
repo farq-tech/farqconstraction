@@ -831,7 +831,7 @@ export function ProposalsView({ navigate }: NavProps) {
 
   const setSpecCard = (itemId: number, next: SpecCard | undefined) => {
     persistItems(
-      items.map((item) => {
+      getBoqItems().map((item) => {
         if (item.id !== itemId) return item
         const { specCard: _old, ...rest } = item
         return next ? { ...rest, specCard: next } : rest

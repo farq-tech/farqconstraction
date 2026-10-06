@@ -3,16 +3,7 @@ import { searchConstructionProducts } from '../api/constructionClient'
 import { safeImageUrl } from '../lib/rfqCart'
 import { cleanSpecCard, type SpecCard } from '../lib/specCard'
 
-let pending = 0
-const queue: Array<() => void> = []
-const searches = new Map<string, ReturnType<typeof searchConstructionProducts>>()
-function findPhoto(name: string) {
-  if (!searches.has(name)) searches.set(name, new Promise((resolve, reject) => {
-    const run = () => { pending++; searchConstructionProducts(name).then(resolve, reject).finally(() => { pending--; queue.shift()?.() }) }
-    if (pending < 2) run(); else queue.push(run)
-  }))
-  return searches.get(name)!
-}
+import { findReferencePhoto } from '../lib/referencePhotoSearch'
 
 export default function BoqProductPhoto({ name, value, onCommit }: { name: string; value?: SpecCard; onCommit: (next: SpecCard | undefined) => void }) {
   const started = useRef(false)
@@ -28,7 +19,7 @@ export default function BoqProductPhoto({ name, value, onCommit }: { name: strin
     if (started.current || value?.reference_photos_reviewed || image || !name.trim()) return
     started.current = true
     setStatus('جارٍ البحث عن صورة توضيحية…')
-    findPhoto(name).then(result => {
+    findReferencePhoto(name, () => active && !edited.current).then(result => {
       if (!active || edited.current) return
       const card = result.cards.find(c => safeImageUrl(c.image_url))
       if (!card) { setStatus(result.message_ar || 'لم نعثر على صورة مناسبة؛ يمكنك إضافة رابط صورة.'); return }
