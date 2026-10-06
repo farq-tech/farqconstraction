@@ -1,3 +1,4 @@
+import { supplierDisplayName } from '../lib/presentationQuality'
 import type { SupplierEntry } from '../types'
 import { apiBase } from './apiBase'
 import { constructionHeaders, shouldRetryAfterRefresh } from './constructionAuth'
@@ -106,7 +107,7 @@ function cleanCategory(raw?: string | null): string {
 }
 
 export function mapFarqSupplier(row: FarqApiSupplier): SupplierEntry {
-  const name = String(row.name_ar || row.name_en || row.id).trim()
+  const name = supplierDisplayName(row.name_ar, row.name_en)
   const cityRaw = row.city as unknown
   const cityFromObj =
     cityRaw && typeof cityRaw === 'object'

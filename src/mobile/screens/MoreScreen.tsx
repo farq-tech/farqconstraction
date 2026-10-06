@@ -53,7 +53,7 @@ export default function MoreScreen({ nav }: { nav: Nav }) {
           {leaving ? 'جارٍ تسجيل الخروج…' : 'تسجيل الخروج'}
         </button>
       </Group>
-      <p className="text-center text-[12px] text-neutral-400 mt-6">فرق بناء · iOS</p>
+      <p className="text-center text-[12px] text-neutral-400 mt-6">فرق بناء · iOS · الإصدار <bdi>{import.meta.env.VITE_APP_VERSION || 'غير معروف'}</bdi> · البناء <bdi>{import.meta.env.VITE_APP_BUILD || 'غير معروف'}</bdi></p>
     </Screen>
   )
 }

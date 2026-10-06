@@ -1,3 +1,4 @@
+import { supplierDisplayName } from '../../lib/presentationQuality'
 import { quoteCompleteness } from '../../lib/quoteCompleteness'
 import { useState, useEffect } from 'react'
 import {
@@ -164,10 +165,10 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
             </div>
           )}
 
-          <SectionTitle>الموردون المدعوون ({r.invitations.length})</SectionTitle>
+          <SectionTitle>الموردون المحددون ({r.invitations.length})</SectionTitle>
           <Group>
             {r.invitations.map((inv) => {
-              const name = inv.supplier?.name_ar || inv.supplier?.name_en || 'مورد'
+              const name = supplierDisplayName(inv.supplier?.name_ar, inv.supplier?.name_en)
               const resp = String(inv.response_status || '').toUpperCase()
               const tone = resp === 'QUOTED' || resp === 'RESPONDED' ? 'good' : resp === 'DECLINED' || resp === 'EXPIRED' ? 'bad' : 'neutral'
               return (
@@ -176,7 +177,7 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
                   leading={<Avatar name={name} size={36} />}
                   title={name}
                   subtitle={[inv.supplier?.city, formatInviteDeliveryStatus(inv.delivery_status)].filter(Boolean).join(' · ')}
-                  trailing={<Pill tone={tone}>{formatInviteResponseStatus(inv.response_status)}</Pill>}
+                  trailing={<Pill tone={tone}>{formatInviteResponseStatus(inv.response_status, inv.delivery_status)}</Pill>}
                   chevron={false}
                 />
               )

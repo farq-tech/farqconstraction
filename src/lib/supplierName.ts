@@ -84,7 +84,9 @@ export function cleanSupplierName(raw: string | null | undefined): string | null
   s = s.replace(/^عضو\s+(?=\D)/, '')
 
   s = trimEdges(s)
-  if (!/[\p{L}\p{N}]/u.test(s)) return null
+  s = s.replace(/^[-–—\s]*\d+[-–—\s]+(?=[\p{L}])/u, '')
+  if (/^\d{3,}[،,\s]/u.test(s)) return null
+  if (!/[\p{L}]/u.test(s)) return null
   if (s === 'مورد' || s === 'عضو') return null
   return s
 }

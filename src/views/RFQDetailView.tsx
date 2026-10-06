@@ -1,3 +1,4 @@
+import { supplierDisplayName } from '../lib/presentationQuality'
 import { useEffect, useState } from 'react'
 import type { NavProps } from '../types'
 import { ClockIcon } from '../icons'
@@ -464,7 +465,7 @@ export function RFQDetailView({ navigate }: NavProps) {
               >
                 <div className="font-semibold text-[#0D1F1D] text-sm">{row.supplierName}</div>
                 <div className="text-xs text-neutral-500 mt-1">
-                  {formatInviteResponseStatus(row.responseStatus)} · {row.amount} ر.س
+                  {formatInviteResponseStatus(row.responseStatus, row.deliveryStatus)} · {row.amount} ر.س
                 </div>
               </button>
             ))
@@ -491,7 +492,7 @@ export function RFQDetailView({ navigate }: NavProps) {
                   <div key={invite.id} className="bg-white border border-neutral-100 rounded-xl px-4 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-[#0D1F1D] text-sm truncate">
-                        {invite.supplier?.name_ar || invite.supplier?.name_en || invite.supplier_id}
+                        {supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en)}
                       </div>
                       <span className={`inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${stage.cls}`}>{stage.label}</span>
                     </div>
