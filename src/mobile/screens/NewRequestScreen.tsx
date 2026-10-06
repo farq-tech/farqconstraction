@@ -14,7 +14,7 @@ import {
 } from '../../api/constructionClient'
 import { listConstructionSuppliers, resolveRfqSupplierIds } from '../../api/constructionSuppliers'
 import { farqSession } from '../../api/farqSession'
-import { autoPickFor, buildPickContext } from '../../lib/autoPick'
+import { autoPickConfident, buildPickContext } from '../../lib/autoPick'
 import { loadCompanyProfile } from '../../lib/companyProfile'
 import { matchSuppliersForItems, rowsToLines, sanitizeBoqLines, type ParsedLine } from '../../lib/parseBoq'
 import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
@@ -32,7 +32,6 @@ const DEPARTMENTS: Array<[string, string]> = [
   ['ELECTRICAL', 'كهرباء'],
   ['MECHANICAL', 'ميكانيكا'],
 ]
-const AUTO_PICK = 10
 
 function isoIn(days: number): string {
   const d = new Date()
@@ -169,7 +168,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       const next = matched.map((item) => {
         for (const s of candidatesFor(item)) book[s.id] = s
         if (item.workOnly) return item
-        const auto = autoPickFor(item, AUTO_PICK, ctx)
+        const auto = autoPickConfident(item, ctx)
         picks[item.id] = auto.map((s) => s.id)
         for (const s of auto) book[s.id] = s
         return item
