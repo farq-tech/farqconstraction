@@ -19,7 +19,6 @@ import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../
 import { SendModal } from './SendModal'
 import MarketNameField from '../components/MarketNameField'
 import SpecCardEditor from '../components/SpecCardEditor'
-import BoqProductPhoto from '../components/BoqProductPhoto'
 import type { SpecCard } from '../lib/specCard'
 import { useProcurement } from '../procurementContext'
 
@@ -420,7 +419,7 @@ function BOQCard({
       )}
 
       {/* «بطاقة المواصفة»: optional, collapsed; answers what suppliers asked back. */}
-      {!item.workOnly && <>{!isSearching && <BoqProductPhoto key={`${item.id}:${name}`} name={name} value={item.specCard} onCommit={onSpecCard} />}<SpecCardEditor value={item.specCard} onCommit={onSpecCard} /></>}
+      {!item.workOnly && <><SpecCardEditor value={item.specCard} onCommit={onSpecCard} /></>}
 
       {expanded && (
         <div className="px-5 pb-5 border-t border-neutral-50 pt-4">

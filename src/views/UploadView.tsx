@@ -43,9 +43,6 @@ import ProductSearchPanel from '../components/rfqCart/ProductSearchPanel'
 import ManualLinesPanel from '../components/rfqCart/ManualLinesPanel'
 import CartPanel from '../components/rfqCart/CartPanel'
 import PurchaseScanReader from '../components/PurchaseScanReader'
-import BoqProductPhoto from '../components/BoqProductPhoto'
-import type { SpecCard } from '../lib/specCard'
-import { mergeUploadPhotos } from '../lib/uploadPhotos'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -337,9 +334,6 @@ export function UploadView({ navigate }: NavProps) {
   const [completedStages, setCompletedStages] = useState<string[]>([])
   const [activeStage, setActiveStage] = useState<string | null>(null)
   const [activity, setActivity] = useState<BoqActivity[]>([])
-  const [photoNames, setPhotoNames] = useState<string[]>([])
-  const [uploadPhotos, setUploadPhotos] = useState<Record<string, SpecCard | undefined>>({})
-  const uploadPhotosRef = useRef<Record<string, SpecCard | undefined>>({})
   const [recognized, setRecognized] = useState(0)
   const [progress, setProgress] = useState(0)
   const [dragging, setDragging] = useState(false)
@@ -496,9 +490,6 @@ export function UploadView({ navigate }: NavProps) {
     setEta(tracker.view())
 
     setActivity([])
-    setPhotoNames([])
-    setUploadPhotos({})
-    uploadPhotosRef.current = {}
     let watchdog: number | undefined
     try {
       const parsed = parseBoqFile(file, {
@@ -518,8 +509,6 @@ export function UploadView({ navigate }: NavProps) {
         onActivity: (event) => {
           if (!current()) return
           setActivity((prev) => [...prev, event])
-          // Final reader names are available before the slower supplier match.
-          if (event.kind === 'read') setPhotoNames([...new Set(event.names.filter(name => name.trim()))])
         },
         onRead: (facts) => {
           if (!current()) return
@@ -556,7 +545,6 @@ export function UploadView({ navigate }: NavProps) {
         parsed.then(resolve, reject)
       })
       if (!current()) return
-      result.items = mergeUploadPhotos(result.items, uploadPhotosRef.current)
 
       if (result.items.length === 0) {
         clearParsedBoq()
@@ -968,25 +956,6 @@ export function UploadView({ navigate }: NavProps) {
             </div>
 
             {phase === 'processing' && <LiveActivity events={activity} reading={activeStage !== 'match'} />}
-              <>
-                {photoNames.length > 0 && <section aria-label="صور البنود المقروءة" className="mt-4 rounded-2xl border border-[#CFF5DC] bg-white py-4" dir="rtl">
-                  <h2 className="px-5 text-sm font-bold text-[#123F3A]">صور البنود المقروءة</h2>
-                  <p className="px-5 mt-1 text-xs text-neutral-500">نبحث عن صور توضيحية أثناء مطابقة الموردين. يمكنك حذف الصورة أو إضافة أخرى.</p>
-                  {photoNames.map(name => <div key={`${runIdRef.current}:${name}`}>
-                    <h3 className="px-5 mt-4 text-sm font-semibold">{name}</h3>
-                    <BoqProductPhoto name={name} value={uploadPhotos[name]} onCommit={next => {
-                      uploadPhotosRef.current = { ...uploadPhotosRef.current, [name]: next }
-                      setUploadPhotos(uploadPhotosRef.current)
-                      if (phase === 'done') {
-                        const updated = mergeUploadPhotos(getBoqItems(), uploadPhotosRef.current)
-                        setCartItems(updated, newCartDocumentId)
-                        setItems(updated)
-                        if (draftBoq) setDraftBoq({ ...draftBoq, items: updated })
-                      }
-                    }} />
-                  </div>)}
-                </section>}
-              </>
             {phase === 'processing' && eta && <EtaPanel eta={eta} hasHistory={hasHistory} elapsed={elapsed} />}
 
             {phase === 'processing' && partialRead && readReport && (
