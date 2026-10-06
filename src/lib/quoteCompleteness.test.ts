@@ -1,0 +1,10 @@
+import {describe,it,expect} from 'vitest'
+import {quoteCompleteness} from './quoteCompleteness'
+const full={prices_include_tax:true,shipping_mode:'INCLUDED',delivery:0,unloading:0,mandatory_fees:0,lead_time_days:7,payment_status:'CONFIRMED',payment_terms:'30% مقدم والباقي عند التسليم',valid_until:'2099-12-31T00:00:00Z',declaration_accepted:true,lines:[{available:true,unit_price:10,quantity:12,available_quantity:12,compliance:'MATCH'}]}
+describe('supplier quote readiness',()=>{
+ it('requires commercial facts even when every item is priced',()=>{expect(quoteCompleteness({lines:full.lines,prices_include_tax:true}).status).toBe('NEEDS_COMPLETION')})
+ it('accepts explicit zero charges and separates partial supply',()=>{expect(quoteCompleteness(full).status).toBe('COMPLETE');expect(quoteCompleteness({...full,lines:[{...full.lines[0],available_quantity:6}]}).status).toBe('PARTIAL')})
+ it('holds unconfirmed matching and alternatives for review',()=>{expect(quoteCompleteness({...full,lines:[{...full.lines[0],compliance:'UNKNOWN'}]}).status).toBe('NEEDS_COMPLETION');expect(quoteCompleteness({...full,lines:[{...full.lines[0],compliance:'ALTERNATIVE',deviations:'different brand',datasheet_file:'https://example.com/spec.pdf'}]}).missing).toContain('البند 1: مراجعة واعتماد البديل')})
+ it('requires numeric roll packing and actual product evidence for mastic',()=>{const m={...full.lines[0],product_details_required:true,offered_brand:'B',offered_description:'black 4.76 x 6.35 mm',reference_photo_url:'https://example.com/p.jpg'};expect(quoteCompleteness({...full,lines:[m]}).status).toBe('NEEDS_COMPLETION');expect(quoteCompleteness({...full,lines:[{...m,roll_length_m:10,rolls_per_carton:20}]}).status).toBe('COMPLETE')})
+ it('expired validity and non-attested extraction stay incomplete',()=>{expect(quoteCompleteness({...full,valid_until:'2020-01-01T00:00:00Z'}).status).toBe('NEEDS_COMPLETION');expect(quoteCompleteness({...full,declaration_accepted:false}).status).toBe('NEEDS_COMPLETION')})
+})

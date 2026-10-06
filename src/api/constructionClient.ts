@@ -1,3 +1,4 @@
+import { quoteCompleteness } from '../lib/quoteCompleteness'
 /**
  * Thin Farq construction API client for this Figma Make UI.
  * Mirrors Frontend/src/services/constructionService.ts — browser → `/_api` →
@@ -379,12 +380,26 @@ export type PublicSupplierInvite = {
    * expires, so he always sees what he quoted — after the request closed too.
    */
   my_quote?: {
+    shipping_mode?: string | null
+    delivery?: number | null
+    unloading?: number | null
+    mandatory_fees?: number | null
+    lead_time_days?: number | null
+    payment_status?: string | null
+    payment_terms?: string | null
     quote_version: number
     submitted_at: string | null
     currency: string | null
     prices_include_tax: boolean | null
     valid_until?: string | null
     lines: Array<{
+      roll_length_m?: number | null
+      rolls_per_carton?: number | null
+      compliance?: string | null
+      deviations?: string | null
+      available_quantity?: number | null
+      offered_description?: string | null
+      reference_photo_url?: string | null
       line_id: string | null
       unit_price: number | string | null
       available: boolean | null
@@ -3622,7 +3637,7 @@ export function mapInvitationsToOfferRows(
       quote?.offer?.totals?.subtotal
     let status: 'complete' | 'partial' | 'pending' = 'pending'
     // QUOTED in invitations is enough — don't hide offers when comparison matrix is empty.
-    if (quoted && (coverage?.complete === true || priced >= lineCount || lineCount === 0 || !coverage)) {
+    if (quoted && coverage?.complete === true && lineCount > 0 && priced >= lineCount && quote?.offer && quoteCompleteness(quote.offer).status === 'COMPLETE') {
       status = 'complete'
     } else if (quoted || priced > 0) {
       status = 'partial'

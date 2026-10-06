@@ -1,3 +1,4 @@
+import { quoteCompleteness } from '../../lib/quoteCompleteness'
 import { useState, useEffect } from 'react'
 import {
   formatArDate,
@@ -28,6 +29,9 @@ type Offer = {
   priced: number
   requested: number
   complete: boolean
+  readiness: ReturnType<typeof quoteCompleteness>
+  currency: string
+  taxBasis: boolean | null
   submittedAt?: string
 }
 
@@ -47,7 +51,8 @@ function offersOf(c: ConstructionComparison | null): Offer[] {
         total: total == null ? null : num(total),
         priced: sum?.coverage.priced ?? 0,
         requested: sum?.coverage.requested ?? c.quote_matrix?.requested_line_count ?? 0,
-        complete: Boolean(sum?.coverage.complete),
+        complete: Boolean(sum?.coverage.complete) && quoteCompleteness(r.offer).status==='COMPLETE' && (sum?.coverage.priced ?? 0)>=(c.rfq.current_version?.payload?.lines?.length || Infinity),
+        readiness: quoteCompleteness(r.offer), currency: r.offer.currency || '', taxBasis: r.offer.prices_include_tax ?? null,
         submittedAt: r.offer?.submittedAt,
       }
     })
@@ -73,7 +78,8 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
   const delivery = r?.current_version?.payload?.delivery
   const title = r ? formatRfqTitle({ id: r.id, delivery, engineering_department: r.engineering_department, buyer: r.current_version?.payload?.buyer }) : 'الطلب'
   const st = r ? requestState({ status: r.status, award_id: r.award?.id, response_count: r.response_count, supplier_count: r.supplier_count }) : null
-  const best = offers.find((o) => o.total != null)
+  const eligible = offers.filter(o=>o.complete && o.total!=null && o.currency==='SAR' && o.taxBasis!==null)
+  const best = new Set(eligible.map(o=>o.taxBasis)).size===1 && eligible.filter(o=>o.total===eligible[0]?.total).length===1 ? eligible[0] : undefined
 
   return (
     <Screen title={title} onBack={nav.back}>
@@ -141,6 +147,7 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
                         {isBest && <div className="text-[11px] font-bold text-[#1a7a45]">الأقل سعرًا</div>}
                       </div>
                     </div>
+                    <div className="mt-2 text-xs text-amber-800">{o.readiness.status==='COMPLETE'?'مكتمل المعلومات':o.readiness.status==='PARTIAL'?'عرض جزئي':'يحتاج استكمال'}{o.readiness.missing.length>0 && <p>{o.readiness.missing.join('، ')}</p>}</div>
                     {o.quoteVersionId && <button onClick={()=>{window.dispatchEvent(new CustomEvent('ahmad-page-context',{detail:{rfqId:id,quoteVersionId:o.quoteVersionId,supplierId:o.supplierId}}));window.dispatchEvent(new Event('ahmad-open'))}} className="mt-3 w-full py-2 rounded-xl border text-sm">راجع هذا العرض مع أحمد</button>}
                     {!isReadOnlyBuild && !r.award && o.inviteId && o.quoteVersionId && <button onClick={() => setDiscount(o)} className="mt-3 w-full py-2.5 rounded-xl border border-[#123F3A]/30 font-bold text-[#123F3A]">اطلب تخفيض العرض</button>}
                     {o.requested > 0 && (

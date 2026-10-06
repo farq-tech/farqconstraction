@@ -7,7 +7,7 @@ import {
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
 import { linesFromManualText } from './rfqCart'
-import { missingSpecifications, comparisonSummary, prepareDraftEdit, type DraftEditAction, type DiscountAction } from './ahmadProcurement'
+import { missingSpecifications, comparisonSummary, completionRequest, prepareDraftEdit, type DraftEditAction, type DiscountAction } from './ahmadProcurement'
 
 export type AhmadAction = DraftEditAction | DiscountAction
   | { kind: 'create'; label: string; lines?: ReturnType<typeof linesFromManualText>; userId?: string }
@@ -87,6 +87,10 @@ export async function askAhmadAgent(message: string, history: { role: string; te
   }
   const q = normalizeAhmadText(message)
   if (/^(عدل|غير)\s/.test(q)) return prepareDraftEdit(message, scope.rfqId)
+  if (/استكمال.*عرض|نواقص.*عرض|ناقص.*عرض|اكمل.*عرض/.test(q)) {
+    if(!scope.rfqId)return {text:'افتح الطلب والعرض أولًا.'}
+    return {text:completionRequest(await getConstructionComparison(scope.rfqId),scope.supplierId,scope.quoteVersionId)}
+  }
   if (/نواقص|ناقص|اكمل.*مواصف|تفاصيل.*ناقص|وش.*ينقص/.test(q)) {
     if(!scope.rfqId)return {text:'افتح الطلب حتى أراجع مواصفاته.'}
     const r=await getConstructionRfq(scope.rfqId), missing=missingSpecifications(r)

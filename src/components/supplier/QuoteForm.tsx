@@ -29,7 +29,7 @@ import {
  * supplier prices the unit he sells in («علبة» of `packSize`), and the API
  * converts it to a per-unit price, keeping his unit and count.
  */
-type LineDraft = { unitPrice: string; available: boolean; notes: string; saleUnit?: SaleUnit | ''; packSize?: string }
+type LineDraft = { unitPrice: string; available: boolean; notes: string; saleUnit?: SaleUnit | ''; packSize?: string; compliance?: string; deviations?: string; availableQuantity?: string; offeredDescription?: string; referencePhotoUrl?: string; rollLength?: string; rollsPerCarton?: string }
 
 type Line = PublicSupplierInvite['lines'][number]
 
@@ -82,6 +82,8 @@ export function QuoteForm({
             unitPrice: bySaleUnit ? String(q.sale_unit_price) : price,
             available: q.available ?? price !== '',
             notes: q.notes || '',
+            rollLength: q.roll_length_m == null ? '' : String(q.roll_length_m), rollsPerCarton: q.rolls_per_carton == null ? '' : String(q.rolls_per_carton),
+            compliance: q.compliance || '', deviations: q.deviations || '', availableQuantity: q.available_quantity == null ? '' : String(q.available_quantity), offeredDescription: q.offered_description || '', referencePhotoUrl: q.reference_photo_url || '',
             saleUnit: bySaleUnit ? (q.sale_unit as SaleUnit) : '',
             packSize: bySaleUnit && q.pack_size ? String(q.pack_size) : '',
           }
@@ -108,9 +110,20 @@ export function QuoteForm({
   // Both were once sent as `true` on the supplier's behalf with nothing on screen:
   // a quote went in as tax-inclusive under a declaration nobody had seen.
   const [pricesIncludeTax, setPricesIncludeTax] = useState<boolean | null>(invite.my_quote?.prices_include_tax ?? null)
+  const [shippingMode, setShippingMode] = useState(invite.my_quote?.shipping_mode || '')
+  const [shippingCost, setShippingCost] = useState(invite.my_quote?.delivery == null ? '' : String(invite.my_quote.delivery))
+  const [unloading, setUnloading] = useState(invite.my_quote?.unloading == null ? '' : String(invite.my_quote.unloading))
+  const [fees, setFees] = useState(invite.my_quote?.mandatory_fees == null ? '' : String(invite.my_quote.mandatory_fees))
+  const [leadTime, setLeadTime] = useState(invite.my_quote?.lead_time_days == null ? '' : String(invite.my_quote.lead_time_days))
+  const [paymentStatus, setPaymentStatus] = useState(invite.my_quote?.payment_status || '')
+  const [paymentTerms, setPaymentTerms] = useState(invite.my_quote?.payment_terms || '')
+  const [validUntil, setValidUntil] = useState(invite.my_quote?.valid_until?.slice(0,10) || '')
+  const [validityUnknown, setValidityUnknown] = useState(false)
+  const [leadUnknown, setLeadUnknown] = useState(false)
   const [declarationAccepted, setDeclarationAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [submittedStatus, setSubmittedStatus] = useState('NEEDS_COMPLETION')
   const [done, setDone] = useState(false)
 
   const closed = Boolean(invite.submission_closed_at) || superseded
@@ -138,6 +151,23 @@ export function QuoteForm({
   })
 
   const submit = async () => {
+    const issues: string[] = []
+    const amount = (v:string) => v.trim() !== '' && Number.isFinite(Number(v)) && Number(v) >= 0
+    if (!shippingMode || (shippingMode === 'FEE' && !amount(shippingCost))) issues.push('طريقة الشحن وتكلفته')
+    if (!amount(unloading) || !amount(fees)) issues.push('رسوم التنزيل والرسوم الإضافية؛ اكتب صفرًا عند عدم وجودها')
+    if (!leadUnknown && !(Number.isInteger(Number(leadTime)) && Number(leadTime)>=1 && Number(leadTime)<=365)) issues.push('مدة التوريد أو يحتاج تأكيدًا')
+    if (!paymentStatus || (paymentStatus==='CONFIRMED' && !paymentTerms.trim())) issues.push('شروط الدفع أو يحتاج تأكيدًا')
+    if (!validityUnknown && (!validUntil || Date.parse(validUntil+'T23:59:59+03:00')<Date.now())) issues.push('صلاحية العرض أو يحتاج تأكيدًا')
+    invite.lines.forEach((line,i) => {
+      const d=drafts[line.id]
+      if (!d?.available) { if (!d?.notes?.trim()) issues.push(`البند ${i+1}: سبب عدم التوفر`); return }
+      if (!amount(d.unitPrice)) issues.push(`البند ${i+1}: سعر الوحدة`)
+      if (!d.compliance) issues.push(`البند ${i+1}: المطابقة`)
+      if (!(Number(d.availableQuantity)>0 && Number(d.availableQuantity)<=line.quantity)) issues.push(`البند ${i+1}: الكمية المتاحة`)
+      if (d.compliance==='ALTERNATIVE' && (!d.deviations?.trim() || !(d.referencePhotoUrl?.trim() || brands[line.id]?.datasheetFile?.trim()))) issues.push(`البند ${i+1}: اختلافات البديل وصورته أو مواصفاته`)
+      if (/mastic|ماستك|butyl/i.test(lineName(line)) && (!d.offeredDescription?.trim() || !(Number(d.rollLength)>0) || !(Number.isInteger(Number(d.rollsPerCarton)) && Number(d.rollsPerCarton)>0) || !brands[line.id]?.offeredBrand?.trim() || !(d.referencePhotoUrl?.trim() || brands[line.id]?.datasheetFile?.trim()))) issues.push(`البند ${i+1}: طول اللفة وعدد اللفات والماركة والصورة أو المواصفات`)
+    })
+    if (issues.length) { setError('أكمل في رد واحد: '+issues.join('؛ ')); return }
     if (missingPack) {
       setError('اكتب العدد في كل علبة أو كرتون اخترته.')
       return
@@ -145,7 +175,12 @@ export function QuoteForm({
     setSubmitting(true)
     setError(null)
     try {
-      await submitPublicSupplierQuote(token, {
+      const response = await submitPublicSupplierQuote(token, {
+        completeness_version: 1,
+        shipping_mode: shippingMode, delivery: shippingMode==='UNKNOWN'?null:shippingMode==='FEE'?Number(shippingCost):0,
+        unloading: Number(unloading), mandatory_fees: Number(fees), lead_time_days: leadUnknown?null:Number(leadTime),
+        payment_status: paymentStatus, payment_terms: paymentStatus==='CONFIRMED'?paymentTerms.trim():null,
+        valid_until: validityUnknown?null:validUntil+'T23:59:59+03:00',
         declaration_accepted: declarationAccepted,
         authorized_person: { name: personName.trim(), email: personEmail.trim() },
         currency: 'SAR',
@@ -156,6 +191,7 @@ export function QuoteForm({
           const available = d?.available === true
           // Optional: only what he filled, and only on a line he supplies.
           const brand = available ? brandFieldsFromDraft(brands[line.id]) : {}
+          const details = { roll_length_m: d?.rollLength ? Number(d.rollLength):null, rolls_per_carton: d?.rollsPerCarton?Number(d.rollsPerCarton):null, compliance: d?.compliance || null, deviations: d?.deviations?.trim() || null, available_quantity: available?Number(d?.availableQuantity):null, offered_description: d?.offeredDescription?.trim() || null, reference_photo_url: d?.referencePhotoUrl?.trim() || null, product_details_required: /mastic|ماستك|butyl/i.test(lineName(line)) }
           // Priced per box/carton: the server converts, and keeps what he wrote.
           if (available && d?.saleUnit) {
             return {
@@ -166,7 +202,7 @@ export function QuoteForm({
               pack_size: d.saleUnit === 'PIECE' ? 1 : Number(d.packSize),
               sale_unit_price: d.unitPrice,
               notes: d.notes || '',
-              ...brand,
+              ...brand, ...details,
             }
           }
           return {
@@ -176,10 +212,11 @@ export function QuoteForm({
             unit_price: d?.unitPrice || '',
             base_price: d?.unitPrice || null,
             notes: d?.notes || '',
-            ...brand,
+            ...brand, ...details,
           }
         }),
       })
+      setSubmittedStatus(String((response.completeness as {status?:string} | undefined)?.status || 'NEEDS_COMPLETION'))
       setDone(true)
       onSubmitted()
     } catch (err) {
@@ -193,7 +230,7 @@ export function QuoteForm({
     return (
       <div className="bg-white border border-neutral-100 rounded-2xl p-8 text-center">
         <div className="text-2xl font-black text-[#0D1F1D] mb-2">استلمنا عرضك</div>
-        <p className="text-sm text-neutral-500">وصل عرضك إلى {company}. تقدر تتابع حالته من «حالة العرض».</p>
+        <p className="text-sm text-neutral-500">وصل عرضك إلى {company}. حالته: {submittedStatus==='COMPLETE'?'مكتمل المعلومات':submittedStatus==='PARTIAL'?'عرض جزئي':'يحتاج استكمالًا'}. تأكيد المطابقة الفنية واعتماد العرض يخضعان لمراجعة المشتري. تقدر تتابع حالته من «حالة العرض».</p>
       </div>
     )
   }
@@ -296,6 +333,21 @@ export function QuoteForm({
             />
             متوفر — سأورّده
           </label>
+          {!drafts[line.id]?.available ? (
+            <label className="block text-xs mb-3">سبب عدم التوفر *
+              <input disabled={closed} maxLength={1000} value={drafts[line.id]?.notes || ''} onChange={e=>update(line.id,{notes:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" />
+            </label>
+          ) : (
+            <div className="grid gap-2 mb-3 text-xs">
+              <label>الكمية التي تستطيع توريدها *<input disabled={closed} inputMode="decimal" value={drafts[line.id]?.availableQuantity || ''} onChange={e=>update(line.id,{availableQuantity:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" /></label>
+              <label>المطابقة للمواصفات المطلوبة *<select disabled={closed} value={drafts[line.id]?.compliance || ''} onChange={e=>update(line.id,{compliance:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1"><option value="">اختر</option><option value="MATCH">مطابق للمطلوب</option><option value="ALTERNATIVE">بديل — أوضح الاختلافات</option><option value="UNKNOWN">يحتاج تأكيدًا</option></select></label>
+              {drafts[line.id]?.compliance==='ALTERNATIVE' && <label>اختلافات البديل *<textarea disabled={closed} maxLength={1000} value={drafts[line.id]?.deviations || ''} onChange={e=>update(line.id,{deviations:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" /></label>}
+              <label>{/mastic|ماستك|butyl/i.test(lineName(line))?'مواصفات المنتج: اللون والسماكة والعرض وطول اللفة وعدد اللفات بالكرتون *':'وصف المنتج المعروض'}<textarea disabled={closed} maxLength={1000} value={drafts[line.id]?.offeredDescription || ''} onChange={e=>update(line.id,{offeredDescription:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" /></label>
+              {/mastic|ماستك|butyl/i.test(lineName(line)) && <div className="grid grid-cols-2 gap-2"><label>طول اللفة بالمتر *<input disabled={closed} inputMode="decimal" value={drafts[line.id]?.rollLength || ''} onChange={e=>update(line.id,{rollLength:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" /></label><label>عدد اللفات بالكرتون *<input disabled={closed} inputMode="numeric" value={drafts[line.id]?.rollsPerCarton || ''} onChange={e=>update(line.id,{rollsPerCarton:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" /></label></div>}
+              <label>رابط صورة المنتج أو ورقة المواصفات<input disabled={closed} maxLength={500} type="url" dir="ltr" value={drafts[line.id]?.referencePhotoUrl || ''} onChange={e=>update(line.id,{referencePhotoUrl:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" /></label>
+              {/mastic|ماستك|butyl/i.test(lineName(line)) && <label>الماركة *<input disabled={closed} maxLength={80} value={brands[line.id]?.offeredBrand || ''} onChange={e=>updateBrand(line.id,{offeredBrand:e.target.value})} className="w-full border rounded-xl px-3 py-2 mt-1" /></label>}
+            </div>
+          )}
           <div className="flex flex-wrap items-end gap-2">
             <div>
               <label className="text-[11px] text-neutral-500 mb-1 block" htmlFor={`price-${line.id}`}>
@@ -379,6 +431,20 @@ export function QuoteForm({
         </div>
       ))}
 
+      <fieldset disabled={closed} className="bg-white border border-neutral-100 rounded-2xl p-4 grid gap-3 text-sm">
+        <legend className="font-bold">الشحن والتوريد وشروط العرض</legend>
+        <p className="text-xs text-neutral-500">حدد كل معلومة. اختيار «يحتاج تأكيدًا» يجعل العرض يحتاج استكمالًا.</p>
+        <label>الشحن إلى موقع الطلب *<select value={shippingMode} onChange={e=>setShippingMode(e.target.value)} className="w-full border rounded-xl p-2 mt-1"><option value="">اختر</option><option value="INCLUDED">مشمول في السعر</option><option value="FEE">تكلفة شحن إضافية</option><option value="PICKUP">استلام من مستودعنا</option><option value="UNKNOWN">يحتاج تأكيدًا</option></select></label>
+        {shippingMode==='FEE' && <label>تكلفة الشحن بالريال *<input inputMode="decimal" value={shippingCost} onChange={e=>setShippingCost(e.target.value)} className="w-full border rounded-xl p-2 mt-1" /></label>}
+        <label>رسوم التنزيل بالريال — صفر عند عدم وجودها *<input inputMode="decimal" value={unloading} onChange={e=>setUnloading(e.target.value)} className="w-full border rounded-xl p-2 mt-1" /></label>
+        <label>رسوم إضافية إلزامية بالريال — صفر عند عدم وجودها *<input inputMode="decimal" value={fees} onChange={e=>setFees(e.target.value)} className="w-full border rounded-xl p-2 mt-1" /></label>
+        <label>مدة التوريد إلى الموقع بالأيام *<input disabled={closed || leadUnknown} inputMode="numeric" value={leadTime} onChange={e=>setLeadTime(e.target.value)} className="w-full border rounded-xl p-2 mt-1" /></label>
+        <label><input type="checkbox" checked={leadUnknown} onChange={e=>setLeadUnknown(e.target.checked)} /> مدة التوريد تحتاج تأكيدًا</label>
+        <label>الدفع *<select value={paymentStatus} onChange={e=>setPaymentStatus(e.target.value)} className="w-full border rounded-xl p-2 mt-1"><option value="">اختر</option><option value="CONFIRMED">شروط الدفع محددة</option><option value="UNKNOWN">تحتاج تأكيدًا</option></select></label>
+        {paymentStatus==='CONFIRMED' && <textarea aria-label="شروط الدفع" maxLength={1000} placeholder="مثال: 30% مقدم، والباقي عند التسليم، أو آجل 30 يومًا" value={paymentTerms} onChange={e=>setPaymentTerms(e.target.value)} className="w-full border rounded-xl p-2" />}
+        <label>السعر صالح حتى *<input disabled={closed || validityUnknown} type="date" value={validUntil} onChange={e=>setValidUntil(e.target.value)} className="w-full border rounded-xl p-2 mt-1" /></label>
+        <label><input type="checkbox" checked={validityUnknown} onChange={e=>setValidityUnknown(e.target.checked)} /> صلاحية السعر تحتاج تأكيدًا</label>
+      </fieldset>
       <div className="bg-white border border-neutral-100 rounded-2xl p-4 space-y-3">
         <div className="text-sm font-bold text-[#0D1F1D]">المفوّض بالتسعير</div>
         <input
