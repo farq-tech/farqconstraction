@@ -620,3 +620,20 @@ describe('extractBoqTable — priced quotation', () => {
     ])
   })
 })
+describe('English procurement table', () => {
+  it('reads actual English headers, descriptions, quantities and units without inventing rows', async () => {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const doc = await pdfjs.getDocument({data:new Uint8Array(readFileSync(resolve('fixtures/boq/farq-family-speed-qa.pdf'))),verbosity:0}).promise
+    const page = await doc.getPage(1)
+    const content = await page.getTextContent()
+    const glyphs = content.items.flatMap((item): PdfGlyph[] => 'str' in item && item.str ? [{str:item.str,x:item.transform[4]!,y:item.transform[5]!,width:item.width}] : [])
+    const table = extractBoqTable([{page:1,glyphs}])
+    expect(table.rows).toHaveLength(12)
+    expect(table.rows[0]).toMatchObject({id:1,name:'PVC waterstop width 250 mm',qty:'100',unit:'م ط'})
+    expect(table.rows[6]).toMatchObject({id:7,qty:'5',unit:'طن'})
+    expect(table.rows[11]).toMatchObject({id:12,qty:'100',unit:'م²'})
+    expect(table.issues).toHaveLength(0)
+    await doc.destroy()
+  })
+  it('keeps an unknown English unit unknown',()=>expect(readVisualUnit('specialpack')).toBeNull())
+})

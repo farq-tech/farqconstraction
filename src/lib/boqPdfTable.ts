@@ -133,6 +133,7 @@ function repairLamAlef(text: string): string {
 /** Compare header labels without spelling drift (أ/ا, ة/ه, ى/ي). */
 function foldLabel(raw: string): string {
   return foldPdfText(raw)
+    .toLowerCase()
     .replace(/[أإآٱ]/g, 'ا')
     .replace(/ة/g, 'ه')
     .replace(/ى/g, 'ي')
@@ -335,7 +336,7 @@ const HEADER_LABELS_RAW: Record<ColumnKey, string[]> = {
   // Word as often as Etimad's «الرقم» does; «الوصف» / «البيان» / «الصنف» head
   // the description. A header the reader does not recognise is a table it never
   // reads: measured on a clean 1,650-row booklet, 71 rows came back.
-  number: ['الرقم', 'م', 'رقمالبند', 'رقم', 'مسلسل', 'رقمالصنف', 'رقمالبند'],
+  number: ['الرقم', 'م', 'رقمالبند', 'رقم', 'مسلسل', 'رقمالصنف', 'رقمالبند', 'no.', 'no', 'itemno.', 'itemno', 'number', 'sr.no.'],
   desc: [
     'البند',
     'وصفالبند',
@@ -348,9 +349,10 @@ const HEADER_LABELS_RAW: Record<ColumnKey, string[]> = {
     'وصفالاعمال',
     'بيانالاعمال',
     'الوصفوالمواصفات',
+    'description', 'itemdescription', 'productdescription', 'materialdescription',
   ],
-  qty: ['الكميه', 'الكميات', 'كميه', 'الكميهالمطلوبه'],
-  unit: ['الوحده', 'وحده', 'وحدهالقياس', 'الوحدات'],
+  qty: ['الكميه', 'الكميات', 'كميه', 'الكميهالمطلوبه', 'quantity', 'qty', 'qty.'],
+  unit: ['الوحده', 'وحده', 'وحدهالقياس', 'الوحدات', 'unit', 'uom', 'unitofmeasure'],
   spec: ['المواصفهالمختصره', 'المواصفهالفنيه', 'المواصفه', 'المواصفات'],
   category: ['الفئه', 'القسم'],
   mandatory: ['منتج', 'القائمه', 'الالزاميه'],
@@ -633,7 +635,9 @@ const UNIT_IN_WORDS: Array<[RegExp, string]> = [
 export function readVisualUnit(cell: string): string | null {
   const text = foldPdfText(cell)
   if (!text) return null
-  const compact = text.replace(/\s/g, '')
+  const compact = text.replace(/\s/g, '').toLowerCase()
+  const englishUnits: Record<string, string> = { piece: 'عدد', pieces: 'عدد', pc: 'عدد', pcs: 'عدد', each: 'عدد', meter: 'م ط', meters: 'م ط', metre: 'م ط', metres: 'م ط', m: 'م ط', m2: 'م²', 'm²': 'م²', sqm: 'م²', m3: 'م³', 'm³': 'م³', kg: 'كجم', ton: 'طن', tons: 'طن', tonne: 'طن', tonnes: 'طن', liter: 'لتر', litre: 'لتر', roll: 'لفة', box: 'كرتون' }
+  if (englishUnits[compact]) return englishUnits[compact]
   for (const [re, unit] of UNIT_IN_WORDS) {
     if (re.test(compact)) return unit
   }
