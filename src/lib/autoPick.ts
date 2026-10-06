@@ -115,9 +115,9 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
 export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 
 export function confidenceOf(s: Supplier): Confidence {
-  if (s.learned || isPriorQuoter(s)) return 'SURE'
-  if (s.roundOutcome && (s.roundOutcome.grade === 'PRICED' || s.roundOutcome.grade === 'ANSWERED')) return 'SURE'
   if (s.outOfCity) return 'MAYBE'
+  if (s.learned || isPriorQuoter(s)) return 'SURE'
+  if (s.roundOutcome) return s.roundOutcome.grade === 'PRICED' || s.roundOutcome.grade === 'ANSWERED' ? 'SURE' : 'MAYBE'
   if (s.evidence === 'دليل مباشر' || s.evidence === 'دليل منتج') return 'SURE'
   if (s.evidence === 'من الكتالوج' || s.evidence === 'تسمية آلية' || s.evidence === 'خريطة فرق') return 'LIKELY'
   if (s.evidence === 'نشاط متطابق') {
@@ -136,7 +136,7 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
   // 5 Oct 2026: the buyer explicitly wants EVERY sure or near-certain match,
   // including the system's named suggestions, regardless of channel or count.
-  return all
+  return all.filter((supplier) => confidenceOf(supplier) !== 'MAYBE')
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {

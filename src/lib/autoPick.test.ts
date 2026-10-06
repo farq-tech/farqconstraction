@@ -148,7 +148,24 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
       outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar'), roundOutcome: { grade: 'SIMILAR' } }] },
     })
     const ids = autoPickConfident(item).map((s) => s.id)
-    expect(ids).toEqual(['wa-priced', 'wa-similar', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'wa-other-city', 'mail-lineword', 'mail-maybe', 'wa-maybe'])
+    expect(ids).toEqual(['wa-priced', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'mail-lineword'])
+  })
+  it('keeps historical evidence outside the delivery city for manual review', () => {
+    const item = line(6, 'cement', [
+      wa('historical-away', { outOfCity: true, priorQuotes: 5 }),
+      wa('learned-away', { outOfCity: true, learned: true }),
+      wa('local', { why: 'الاسم: «اسمنت»' }),
+    ])
+    expect(autoPickFor(item).map(s => s.id)).toContain('historical-away')
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['local'])
+  })
+  it('counts the same unlimited confirmed picks for upload and proposals', () => {
+    const suppliers = Array.from({ length: 25 }, (_, i) => wa(`seller-${i}`, { why: 'الاسم: «اسمنت»' }))
+    const items = [line(7, 'cement', suppliers), line(8, 'cement', suppliers.slice(5))]
+    const context = buildPickContext(items)
+    const selected = items.map(item => autoPickConfident(item, context))
+    expect(selected.map(list => list.length)).toEqual([25, 20])
+    expect(new Set(selected.flat().map(s => s.id)).size).toBe(25)
   })
   it('a rejected supplier stays out even when sure', () => {
     const item = line(2, 'masonry_blocks', [wa('a', { why: 'الاسم: «بلوك»' })], { rejectedSupplierIds: ['a'] })
