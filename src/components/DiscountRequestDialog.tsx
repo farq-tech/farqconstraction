@@ -32,7 +32,7 @@ export default function DiscountRequestDialog({ inviteId, quoteVersionId, suppli
   const [error, setError] = useState<string | null>(null)
   const key = useRef(crypto.randomUUID())
   const current = jobs.find(j => j.quote_version_id === quoteVersionId && j.state !== 'CANCELLED')
-  const draft = `${timing === 'hour' ? 'السلام عليكم، معكم أحمد من فرق.\n' : 'السلام عليكم،\n'}شكرًا على عرضكم. نرجو تقديم أفضل تخفيض ممكن على إجمالي العرض${target.trim() ? `، والتخفيض المطلوب ${target.trim()}` : ''}.${reason.trim() ? `\n${reason.trim()}` : ''}\nيرجى إرسال عرض منقح يوضح الخصم والإجمالي بعد التخفيض وأساس الضريبة، مع الحفاظ على المواصفات والكميات وشروط التوريد، أو توضيح أي تغيير فيها.`
+  const draft = `${timing === 'hour' ? 'السلام عليكم، معكم أحمد، مساعد المشتريات لشركة الدفع للتجارة والمقاولات.\n' : 'السلام عليكم،\n'}شكرًا على عرضكم. نرجو تقديم أفضل تخفيض ممكن على إجمالي العرض${target.trim() ? `، والتخفيض المطلوب ${target.trim()}` : ''}.${reason.trim() ? `\n${reason.trim()}` : ''}\nيرجى إرسال عرض منقح يوضح الخصم والإجمالي بعد التخفيض وأساس الضريبة، مع الحفاظ على المواصفات والكميات وشروط التوريد، أو توضيح أي تغيير فيها.`
   useEffect(() => { if (!edited) setText(draft) }, [draft, edited])
   useEffect(() => {
     let active = true

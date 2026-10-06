@@ -1,0 +1,12 @@
+import { useEffect, useState } from 'react'
+import { getAhmadMemory, saveAhmadMemory, type AhmadCompanyMemory } from '../api/constructionClient'
+export default function AhmadMemoryDialog({ onClose }: { onClose: () => void }) {
+  const [memory, setMemory] = useState<AhmadCompanyMemory | null>(null)
+  const [text, setText] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  useEffect(() => { let active=true; getAhmadMemory().then(m=>{if(active){setMemory(m);setText(m.text)}}).catch(e=>active&&setError(e instanceof Error?e.message:'تعذر تحميل الذاكرة'));return()=>{active=false} }, [])
+  async function save(){if(!memory?.can_edit || busy)return;setBusy(true);setError('');try{const next=await saveAhmadMemory(text,memory.revision);setMemory(next);setText(next.text);setSaved(true)}catch(e){setError(e instanceof Error?e.message:'تعذر الحفظ')}finally{setBusy(false)}}
+  return <div className="fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-4" dir="rtl"><section role="dialog" aria-modal="true" aria-labelledby="ahmad-memory-title" className="bg-white p-5 rounded-2xl w-full max-w-lg max-h-[85dvh] overflow-auto"><h2 id="ahmad-memory-title" className="font-bold text-lg">ذاكرة الشركة المعتمدة</h2><p className="text-sm text-neutral-500 my-3">أضف المشاريع وشروط الدفع والتوريد والموردين المفضلين. هذه معلومات يعتمدها مسؤول الشركة؛ لا تتحول اقتراحات أحمد تلقائيًا إلى ذاكرة.</p><label className="text-sm">معلومات الشركة<textarea aria-label="معلومات الشركة المعتمدة" maxLength={4000} value={text} disabled={!memory?.can_edit || busy} onChange={e=>{setText(e.target.value);setSaved(false)}} rows={9} className="mt-2 w-full border rounded-xl p-3" /></label>{memory && !memory.can_edit && <p className="text-sm my-2">يمكنك قراءة الذاكرة. اعتمادها وتصحيحها متاح لمسؤول الشركة.</p>}{memory?.updated_at && <p className="text-xs text-neutral-500 my-2">آخر اعتماد: {new Date(memory.updated_at).toLocaleString('ar-SA')}</p>}{error && <p role="alert" className="text-red-700 my-2">{error}</p>}{saved && <p role="status" className="text-green-700 my-2">حُفظت الذاكرة المعتمدة على حساب الشركة.</p>}<div className="flex gap-2 mt-3">{memory?.can_edit && <button disabled={busy} onClick={()=>void save()} className="bg-[#17452d] text-white px-4 py-2 rounded-xl">{busy?'جارٍ الحفظ…':'اعتماد وحفظ المعلومات'}</button>}<button disabled={busy} onClick={onClose} className="border rounded-xl px-4 py-2">إغلاق</button></div></section></div>
+}

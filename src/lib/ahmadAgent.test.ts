@@ -5,7 +5,7 @@ import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
 
 vi.mock('../api/constructionClient', () => ({
-  askAhmad: vi.fn(), getAhmadBooklets: vi.fn(), listBuyerRfqs: vi.fn(), getConstructionReports: vi.fn(),
+  getAhmadMemory: vi.fn(), askAhmad: vi.fn(), getAhmadBooklets: vi.fn(), listBuyerRfqs: vi.fn(), getConstructionReports: vi.fn(),
   getConstructionRfq: vi.fn(), getConstructionComparison: vi.fn(), getConstructionBooklet: vi.fn(),
   listConstructionInboxThreads: vi.fn(), getConstructionInboxThread: vi.fn(), replyToConstructionInboxThread: vi.fn(),
 }))
@@ -60,4 +60,19 @@ describe('Ahmad data and actions', () => {
     vi.mocked(api.getConstructionInboxThread).mockResolvedValue({ can_reply: false, messages: [] })
     expect((await prepareAhmadReply('شركة البناء', 'السلام عليكم', {})).action).toBeUndefined()
   })
+})
+
+it('uses the open conversation to resolve request and supplier before preparing a discount review',async()=>{
+  vi.mocked(api.getConstructionInboxThread).mockResolvedValue({supplier_id:'supplier',request_context:{rfq_id:'request'},messages:[]} as never)
+  vi.mocked(api.getConstructionComparison).mockResolvedValue({supplier_responses:[{supplier:{id:'supplier',name_ar:'المورد المحدد'},offer:{inviteId:'thread',quoteVersionId:'quote'}}]} as never)
+  const result=await askAhmadAgent('جهز طلب تخفيض',[],{threadId:'thread',view:'thread'})
+  expect(api.getConstructionComparison).toHaveBeenCalledWith('request')
+  expect(result.action).toMatchObject({kind:'discount',inviteId:'thread',quoteVersionId:'quote',supplierName:'المورد المحدد'})
+  expect(api.replyToConstructionInboxThread).not.toHaveBeenCalled()
+})
+it('never treats request history as approved company preferences',async()=>{
+  vi.mocked(api.getAhmadMemory).mockResolvedValue({text:'',revision:null,updated_at:null,can_edit:true})
+  const result=await askAhmadAgent('وش ذاكرة الشركة؟',[])
+  expect(result.text).toContain('لا توجد معلومات معتمدة')
+  expect(api.askAhmad).not.toHaveBeenCalled()
 })

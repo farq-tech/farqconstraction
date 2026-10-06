@@ -175,6 +175,11 @@ export function RequestFileView({
   const [historyFilter, setHistoryFilter] = useState("all")
   const [editingDraft, setEditingDraft] = useState(false)
   const [revising, setRevising] = useState(false)
+  useEffect(()=>{
+    const invite=rfq?.invitations.find(i=>i.supplier?.id===chatSupplier)
+    window.dispatchEvent(new CustomEvent('ahmad-page-context',{detail:{rfqId:selectedRfqId,tab,supplierId:chatSupplier,threadId:invite?.id}}))
+  },[selectedRfqId,tab,chatSupplier,rfq])
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const isAdmin = useConstructionAdmin()
 
@@ -199,6 +204,7 @@ export function RequestFileView({
     [],
   )
 
+  useEffect(()=>{const refresh=(event:Event)=>{if((event as CustomEvent).detail?.rfqId===selectedRfqId && selectedRfqId)void load(selectedRfqId,{comparison:true}).catch(()=>setNotice({tone:'bad',text:'حُفظ التعديل لكن تعذر تحديث العرض. أعد تحميل الصفحة.'}))};window.addEventListener('ahmad-rfq-updated',refresh);return()=>window.removeEventListener('ahmad-rfq-updated',refresh)},[selectedRfqId,load])
   // First load: the request, and the quotes it opens on.
   useEffect(() => {
     if (!selectedRfqId) {
