@@ -24,19 +24,23 @@ export function comparisonSummary(c: ConstructionComparison, selectedQuote?: str
   const rows = c.supplier_responses.filter(r => !selectedQuote || String(r.offer.quoteVersionId) === selectedQuote)
   if (!rows.length) return 'لا يوجد عرض حالي في هذا السياق. لم تُفترض أي أسعار.'
   const matrix = c.quote_matrix?.supplier_summaries || []
-  const eligible: Array<{name:string;total:number}> = []
+  const requestedCount=c.rfq.current_version?.payload?.lines?.length || 0
+  const eligible: Array<{name:string;total:number;vat:boolean}> = []
   const summaries = rows.map(r => {
     const o=r.offer, name=r.supplier.name_ar || r.supplier.name_en || 'مورد', total=o.totals?.total
     const coverage=matrix.find(s=>s.supplier_id===r.supplier.id)?.coverage
     const tax=o.totals?.tax, currency=o.currency || 'عملة غير محددة'
+    const taxBasis=o.prices_include_tax===true?'السعر شامل الضريبة':o.prices_include_tax===false?'السعر غير شامل الضريبة':'أساس الضريبة غير معروف'
+    const allRequestLines=Boolean(coverage?.complete && requestedCount>0 && coverage.priced>=requestedCount)
     const knownTotal=typeof total==='number' && Number.isFinite(total) && total>=0
     const differences:string[]=[]
     for(const l of o.lines || []){const wanted=(c.rfq.current_version?.payload?.lines || []).find(w=>w.line_key && w.line_key===l.line_key);if(!wanted)continue;const spec=(wanted.spec_card || {}) as Record<string,unknown>, offered=(l.spec_card || {}) as Record<string,unknown>;for(const k of ['brand','thickness','dimensions','material','finish'])if(spec[k] && offered[k] && String(spec[k])!==String(offered[k]))differences.push(`${k}: المطلوب ${spec[k]}، المعروض ${offered[k]}`);if(l.quantity!=null && Number(l.quantity)!==Number(wanted.quantity))differences.push('كمية معروضة مختلفة عن الطلب')} 
-    if(knownTotal && !differences.length && coverage?.complete && currency==='SAR') eligible.push({name,total})
-    return `${name}: الإجمالي ${knownTotal?`${total} ${currency}`:'غير معروف'}؛ الضريبة ${typeof tax==='number'?tax:'غير معروفة'}؛ الشحن ${o.delivery ? JSON.stringify(o.delivery) : 'غير معروف'}؛ الرسوم ${o.mandatory_fees ? JSON.stringify(o.mandatory_fees) : 'غير معروفة'}؛ التوريد ${o.terms ? JSON.stringify(o.terms) : 'غير معروف'}؛ اختلافات معلنة ${differences.length?differences.join('، '):'لا توجد اختلافات يمكن إثباتها من الحقول المقروءة؛ المطابقة الفنية تحتاج تأكيدًا'}؛ تغطية البنود ${coverage?.complete?'كاملة':coverage?`${coverage.priced}/${coverage.requested}`:'غير معروفة'}.`
+    if(knownTotal && !differences.length && allRequestLines && currency==='SAR' && typeof o.prices_include_tax==='boolean') eligible.push({name,total,vat:o.prices_include_tax})
+    return `${name}: الإجمالي ${knownTotal?`${total} ${currency}`:'غير معروف'}؛ ${taxBasis}؛ قيمة الضريبة ${typeof tax==='number'?tax:'غير معروفة'}؛ الشحن ${o.delivery ? JSON.stringify(o.delivery) : 'غير معروف'}؛ الرسوم ${o.mandatory_fees ? JSON.stringify(o.mandatory_fees) : 'غير معروفة'}؛ التوريد ${o.terms ? JSON.stringify(o.terms) : 'غير معروف'}؛ اختلافات معلنة ${differences.length?differences.join('، '):'لا توجد اختلافات يمكن إثباتها من الحقول المقروءة؛ المطابقة الفنية تحتاج تأكيدًا'}؛ تغطية البنود ${allRequestLines?'كاملة':coverage?`${coverage.priced}/${requestedCount || coverage.requested} من بنود الطلب الكامل`:'غير معروفة'}.`
   })
+  const comparable=eligible.length>0 && new Set(eligible.map(r=>r.vat)).size===1
   eligible.sort((a,b)=>a.total-b.total)
-  return `${summaries.join('\n\n')}\n\n${eligible.length?`الأقل إجماليًا بين العروض مكتملة البنود وبعملة SAR: ${eligible[0].name}.`:'لا يمكن تحديد الأقل بين عروض متكافئة من البيانات المتاحة.'} لا يمكن الجزم بالأنسب قبل تأكيد تطابق المواصفات وأساس الضريبة والشحن؛ الإجمالي وحده لا يثبت المطابقة.\nالمصدر: عروض الطلب الحالية وبيان تغطية البنود. وقت القراءة: ${new Date().toISOString()}.`
+  return `${summaries.join('\n\n')}\n\n${comparable?`الأقل إجماليًا بين العروض مكتملة البنود وبعملة SAR وعلى نفس أساس الضريبة: ${eligible[0].name}.`:'لا يمكن تحديد الأقل بين عروض متكافئة من البيانات المتاحة.'} لا يمكن الجزم بالأنسب قبل تأكيد تطابق المواصفات وأساس الضريبة والشحن؛ الإجمالي وحده لا يثبت المطابقة.\nالمصدر: عروض الطلب الحالية وبيان تغطية البنود. وقت القراءة: ${new Date().toISOString()}.`
 }
 export async function prepareDraftEdit(message: string, rfqId?: string | null): Promise<{text:string;action?:DraftEditAction}> {
   if(!rfqId)return {text:'افتح الطلب الذي تريد تعديله أولًا.'}
