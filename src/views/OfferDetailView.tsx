@@ -290,7 +290,7 @@ export function OfferDetailView({ navigate }: NavProps) {
         <div className="bg-white border border-neutral-100 rounded-2xl px-4 py-4">
           <div className="text-xs text-neutral-400 mb-1">حالة الرد</div>
           <div className="font-bold text-[#0D1F1D] text-sm">
-            {formatInviteResponseStatus(invite.response_status)}
+            {formatInviteResponseStatus(invite.response_status, invite.delivery_status)}
           </div>
         </div>
         <div className="bg-white border border-neutral-100 rounded-2xl px-4 py-4">

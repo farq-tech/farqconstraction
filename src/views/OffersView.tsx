@@ -331,7 +331,7 @@ export function OffersView({ navigate }: NavProps) {
                         إرسال: {formatInviteDeliveryStatus(offer.deliveryStatus)}
                       </span>
                       <span className="text-xs text-neutral-400">
-                        رد: {formatInviteResponseStatus(offer.responseStatus)}
+                        رد: {formatInviteResponseStatus(offer.responseStatus, offer.deliveryStatus)}
                       </span>
                     </div>
                     <div className="text-lg font-black text-[#0D1F1D]">

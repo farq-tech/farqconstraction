@@ -1,3 +1,4 @@
+import { supplierDisplayName } from '../lib/presentationQuality'
 import { quoteCompleteness } from '../lib/quoteCompleteness'
 /**
  * Thin Farq construction API client for this Figma Make UI.
@@ -3574,8 +3575,9 @@ export function formatInviteDeliveryStatus(status: string): string {
   return status || '—'
 }
 
-export function formatInviteResponseStatus(status: string): string {
+export function formatInviteResponseStatus(status: string, deliveryStatus?: string): string {
   const key = String(status || '').toUpperCase()
+  if (['AWAITING_QUOTE', 'PENDING', 'EXPIRED'].includes(key) && deliveryStatus && !['SENT', 'PARTIALLY_SENT', 'DELIVERED', 'OPENED', 'READ'].includes(deliveryStatus.toUpperCase())) return 'لم تُرسل الدعوة'
   if (key === 'AWAITING_QUOTE' || key === 'PENDING') return 'بانتظار الرد'
   if (key === 'QUOTED' || key === 'RESPONDED') return 'وصل عرض'
   if (key === 'DECLINED') return 'رفض'
@@ -3651,9 +3653,7 @@ export function mapInvitationsToOfferRows(
       id: invite.id,
       inviteId: invite.id,
       supplierId,
-      supplierName: String(
-        invite.supplier?.name_ar || invite.supplier?.name_en || supplierId || 'مورد',
-      ),
+      supplierName: supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en),
       status,
       deliveryStatus: invite.delivery_status,
       responseStatus: invite.response_status,

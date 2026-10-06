@@ -1,3 +1,4 @@
+import { constrainPetPosition, readableSourceDates } from '../lib/presentationQuality'
 import { useEffect, useRef, useState } from 'react'
 import { executeAhmadReply, type AhmadAction, type AhmadAnswer } from '../lib/ahmadAgent'
 import { getBoqItems, setCartItems } from '../store/session'
@@ -38,7 +39,7 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
   const [size, setSize] = useState(0.85)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
   const [dragging, setDragging] = useState(false)
-  useEffect(() => { if(open)setPosition(null) }, [open])
+  useEffect(() => { setPosition(null) }, [open, contextKey])
   const [runDirection, setRunDirection] = useState<'left' | 'right'>('right')
   const [runFrame, setRunFrame] = useState(0)
   const lastPointerX = useRef(0)
@@ -76,7 +77,7 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
     return () => window.clearInterval(timer)
   }, [dragging])
   const petWidth = Math.max(128, 104 * size)
-  const petHeight = 156 * size + 48
+  const petHeight = 156 * size + 70
   useEffect(() => { try { const saved = Number(localStorage.getItem('ahmad-pet-size')); if (saved >= 0.65 && saved <= 1.45) setSize(saved) } catch { /* optional preference */ } }, [])
   function resizePet(delta: number) {
     const next = Math.max(0.65, Math.min(1.45, Math.round((size + delta) * 100) / 100))
@@ -110,7 +111,7 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
     return () => { stopped = true; timers.forEach(window.clearTimeout) }
   }, [busy, greet, dragging, activity])
   useEffect(() => {
-    function resize() { setPosition(p => p ? { x: Math.max(0, Math.min(p.x, window.innerWidth - petWidth - 24)), y: Math.max(0, Math.min(p.y, window.innerHeight - petHeight - 80)) } : p) }
+    function resize() { setPosition(p => p ? constrainPetPosition(p.x, p.y, window.innerWidth, window.innerHeight, petWidth, petHeight) : p) }
     resize()
     window.addEventListener('resize', resize)
     return () => window.removeEventListener('resize', resize)
@@ -160,9 +161,9 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
     } finally { executing.current = false; setBusy(false); if(confirmedScope !== contextRef.current)setActivity('idle') }
   }
   if (hidden) return <button type="button" onClick={() => toggleHidden(false)} aria-label="إظهار مساعد المشتريات أحمد" style={{ position: 'fixed', left: 12, bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', zIndex: 80, border: '1px solid #dce5df', borderRadius: 20, background: '#fff', color: '#17452d', padding: '6px 10px', fontSize: 11 }}>إظهار أحمد</button>
-  return <div className="ahmad-procurement-pet" dir="rtl" style={{ position: 'fixed', left: position?.x ?? 16, top: position?.y, bottom: position ? 'auto' : undefined, zIndex: 80, fontFamily: 'inherit' }}>
-    {showMemory && <AhmadMemoryDialog onClose={()=>setShowMemory(false)} />}
-    {discount && <DiscountRequestDialog inviteId={discount.inviteId} quoteVersionId={discount.quoteVersionId} supplierName={discount.supplierName} onClose={()=>setDiscount(null)} />}
+  return <div className="ahmad-procurement-pet" dir="rtl" style={{ position: 'fixed', left: position?.x ?? 16, top: position?.y, bottom: position ? 'auto' : undefined, zIndex: 80, fontFamily: 'inherit', pointerEvents: 'none' }}>
+    {showMemory && <div style={{ pointerEvents: 'auto' }}><AhmadMemoryDialog onClose={()=>setShowMemory(false)} /></div>}
+    {discount && <div style={{ pointerEvents: 'auto' }}><DiscountRequestDialog inviteId={discount.inviteId} quoteVersionId={discount.quoteVersionId} supplierName={discount.supplierName} onClose={()=>setDiscount(null)} /></div>}
     <style>{`
       .ahmad-procurement-pet { --ahmad-base: 16px; bottom: calc(var(--ahmad-base) + env(safe-area-inset-bottom, 0px)); }
       .ahmad-character { transform-origin: 50% 90%; animation: ahmad-idle 5s ease-in-out infinite; }
@@ -173,11 +174,11 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
       .ahmad-pet-button:focus-visible { outline: 3px solid #7caf91; outline-offset: 4px; border-radius: 20px; }
       .ahmad-pet-button[data-dragging=true] .ahmad-character { animation: none; }
       @keyframes ahmad-idle { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(1deg); } }
-      @media (max-width: 767px) { .ahmad-procurement-pet { --ahmad-base: 80px; } }
+      @media (max-width: 767px) { .ahmad-procurement-pet { --ahmad-base: 100px; } }
       @media (prefers-reduced-motion: reduce) { .ahmad-character, .ahmad-pose-enter, .ahmad-pose-leave { animation: none; } .ahmad-pose-leave { opacity: 0; } }
     `}</style>
     {greet && !open && <div style={{ position: 'absolute', bottom: 176, left: 0, width: 140, background: '#fff', border: '1px solid #dce5df', borderRadius: 16, padding: 8, color: '#17452d', fontSize: 12, textAlign: 'center' }}>هلا! أنا معك 👋</div>}
-    {open && <section aria-label="مساعد المشتريات أحمد" style={{ zIndex: 2, position: 'fixed', bottom: `calc(${petHeight + 24}px + var(--ahmad-base) + env(safe-area-inset-bottom, 0px))`, left: 16, width: 'min(370px, calc(100vw - 32px))', height: `min(620px, calc(100dvh - ${petHeight + 48}px - var(--ahmad-base) - env(safe-area-inset-bottom, 0px)))`, minHeight: 200, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #dce5df', borderRadius: 24, boxShadow: '0 16px 60px #173c2429', overflow: 'hidden' }}>
+    {open && <section aria-label="مساعد المشتريات أحمد" style={{ pointerEvents: 'auto', zIndex: 2, position: 'fixed', bottom: `calc(${petHeight + 24}px + var(--ahmad-base) + env(safe-area-inset-bottom, 0px))`, left: 16, width: 'min(370px, calc(100vw - 32px))', height: `min(620px, calc(100dvh - ${petHeight + 48}px - var(--ahmad-base) - env(safe-area-inset-bottom, 0px)))`, minHeight: 200, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #dce5df', borderRadius: 24, boxShadow: '0 16px 60px #173c2429', overflow: 'hidden' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: '#eff6f0', borderBottom: '1px solid #dce5df' }}>
         <div style={{ flex: 1 }}><strong style={{ fontSize: 18, color: '#17452d' }}>أحمد — مساعد المشتريات</strong><div style={{ fontSize: 12, color: '#53665a' }}>شركة الدفع للتجارة والمقاولات</div><div style={{ fontSize: 10, color: '#53665a' }}>مساعد آلي · {contextLabel}</div></div>
         <button type="button" aria-label="إغلاق محادثة أحمد" onClick={() => setOpen(false)} style={{ background: '#fff', borderRadius: 20, width: 32, height: 32, border: '1px solid #dce5df' }}>×</button>
@@ -191,7 +192,7 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
         {selectedDocument && <button disabled={busy} onClick={()=>setDocument(null)} className="border rounded-lg px-2 py-1 text-xs">إزالة سياق المرفق</button>}
       </div>
       <div role="log" aria-live="polite" style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {messages.map((m, i) => <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-start' : 'flex-end', maxWidth: '92%', padding: '10px 14px', borderRadius: 16, background: m.role === 'user' ? '#17452d' : '#f2f5f2', color: m.role === 'user' ? '#fff' : '#263d2e', fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{m.text}</div>)}
+        {messages.map((m, i) => <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-start' : 'flex-end', maxWidth: '92%', padding: '10px 14px', borderRadius: 16, background: m.role === 'user' ? '#17452d' : '#f2f5f2', color: m.role === 'user' ? '#fff' : '#263d2e', fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{readableSourceDates(m.text)}</div>)}
         {busy && <p style={{ fontSize: 13, color: '#53665a' }}>{activity==='reviewing'?'أحمد يقرأ المرفق…':activity==='saving'?'أحمد يحفظ التعديل…':'أحمد يراجع طلبك…'}</p>}<div ref={end} />
       </div>
       {pendingAction && <div style={{ padding: 12, borderTop: '1px solid #dce5df', maxHeight: 180, overflowY: 'auto', fontSize: 12 }}>
@@ -211,10 +212,10 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
     <button className="ahmad-pet-button" data-dragging={dragging} type="button" aria-label={open ? 'إغلاق مساعد المشتريات أحمد' : 'تحدث مع أحمد مساعد المشتريات'} aria-expanded={open}
       onPointerEnter={() => setGreet(true)} onPointerLeave={() => setGreet(false)}
       onPointerDown={e => { if (e.button !== 0) return; const rect = e.currentTarget.parentElement!.getBoundingClientRect(); lastPointerX.current = e.clientX; dragMoved.current = false; drag.current = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top, moved: false }; e.currentTarget.setPointerCapture(e.pointerId) }}
-      onPointerMove={e => { const d = drag.current; if (!d) return; if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) d.moved = true; if (d.moved) { if (Math.abs(e.clientX - lastPointerX.current) > 1) setRunDirection(e.clientX > lastPointerX.current ? 'right' : 'left'); lastPointerX.current = e.clientX; setDragging(true); setPosition({ x: Math.max(0, Math.min(window.innerWidth - petWidth - 24, d.left + e.clientX - d.x)), y: Math.max(0, Math.min(window.innerHeight - petHeight - 80, d.top + e.clientY - d.y)) }) } }}
+      onPointerMove={e => { const d = drag.current; if (!d) return; if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) d.moved = true; if (d.moved) { if (Math.abs(e.clientX - lastPointerX.current) > 1) setRunDirection(e.clientX > lastPointerX.current ? 'right' : 'left'); lastPointerX.current = e.clientX; setDragging(true); setPosition(constrainPetPosition(d.left + e.clientX - d.x, d.top + e.clientY - d.y, window.innerWidth, window.innerHeight, petWidth, petHeight)) } }}
       onPointerUp={() => { dragMoved.current = Boolean(drag.current?.moved); drag.current = null; setDragging(false) }}
       onPointerCancel={() => { drag.current = null; setDragging(false); dragMoved.current = true }}
-      onClick={() => { if (dragMoved.current) { dragMoved.current = false; return } setOpen(v => !v) }} style={{ touchAction: 'none', width: petWidth, height: petHeight, display: 'flex', flexDirection: 'column', alignItems: 'center', border: 0, background: 'transparent', cursor: dragging ? 'grabbing' : 'grab', padding: 0, filter: 'drop-shadow(0 4px 8px #173c2420)' }}>
+      onClick={() => { if (dragMoved.current) { dragMoved.current = false; return } setOpen(v => !v) }} style={{ pointerEvents: 'auto', touchAction: 'none', width: petWidth, height: petHeight, display: 'flex', flexDirection: 'column', alignItems: 'center', border: 0, background: 'transparent', cursor: dragging ? 'grabbing' : 'grab', padding: 0, filter: 'drop-shadow(0 4px 8px #173c2420)' }}>
       <span className="ahmad-character" role="img" aria-label="أحمد مساعد المشتريات" data-pose={frame} style={{ position: 'relative', display: 'block', width: 104 * size, height: 156 * size, flexShrink: 0 }}>
         {dragging ? <span aria-hidden="true" data-direction={runDirection} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-run-transparent.png)`, backgroundSize: '400% 200%', backgroundPosition: `${runFrame * 100 / 3}% 0%`, backgroundRepeat: 'no-repeat', clipPath: RUN_CLIP, transform: runDirection === 'left' ? 'scaleX(-1)' : undefined }} /> : activity !== 'idle' ? <span aria-hidden="true" className="ahmad-pose-enter" data-activity={activity} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-states.png)`, backgroundSize: '300% 200%', left: -26 * size, width: 156 * size, backgroundPosition: activity === 'reviewing' ? `${stateVariant * 50}% 0%` : activity === 'success' ? `${50 + stateVariant * 50}% 100%` : stateVariant ? '0% 100%' : '100% 0%', backgroundRepeat: 'no-repeat' }} /> : [previousFrame, frame].map((pose, layer) => <span key={layer === 1 ? `current-${pose}` : `previous-${pose}-${frame}`} aria-hidden="true" className={layer === 1 ? 'ahmad-pose-enter' : 'ahmad-pose-leave'} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-sprites-transparent.png)`, backgroundSize: '400% 200%', backgroundPosition: `${(pose % 4) * 100 / 3}% ${pose < 4 ? 0 : 100}%`, backgroundRepeat: 'no-repeat', clipPath: POSE_CLIPS[pose] }} />)}
       </span>
@@ -222,7 +223,7 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true, context
       <span style={{ fontSize: 10, color: '#17452d', padding: '1px 6px', textShadow: '0 1px 3px #fff, 0 0 6px #fff' }}>مساعد المشتريات</span>
       <span style={{ fontSize: 9, lineHeight: 1.4, color: '#17452d', padding: '1px 4px', textShadow: '0 1px 3px #fff, 0 0 6px #fff', whiteSpace: 'nowrap' }}>شركة الدفع للتجارة والمقاولات</span>
     </button>
-    <div role="group" aria-label="حجم شخصية أحمد" style={{ position: 'absolute', top: 20, right: -22, display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <div role="group" aria-label="حجم شخصية أحمد" style={{ pointerEvents: 'auto', position: 'absolute', top: 20, right: -22, display: 'flex', flexDirection: 'column', gap: 5 }}>
       <button type="button" aria-label="إخفاء أحمد" title="إخفاء أحمد" onClick={() => toggleHidden(true)} style={{ width: 24, height: 24, borderRadius: 12, border: '1px solid #dce5df', background: '#fff', color: '#17452d', fontSize: 16 }}>×</button>
       <button type="button" aria-label="تكبير أحمد" disabled={size >= 1.45} onClick={() => resizePet(0.15)} style={{ width: 24, height: 24, borderRadius: 12, border: '1px solid #dce5df', background: '#fff', color: '#17452d', fontSize: 18 }}>+</button>
       <button type="button" aria-label="تصغير أحمد" disabled={size <= 0.65} onClick={() => resizePet(-0.15)} style={{ width: 24, height: 24, borderRadius: 12, border: '1px solid #dce5df', background: '#fff', color: '#17452d', fontSize: 18 }}>−</button>
