@@ -18,7 +18,8 @@ import { rfqProjectName } from '../lib/rfqIdentity'
 import { cleanSupplierName } from '../lib/supplierName'
 
 const STATUS_CONF = {
-  complete: { label: 'وصل عرض', className: 'bg-[#CFF5DC] text-[#1a7a45]' },
+  complete: { label: 'مكتمل المعلومات', className: 'bg-[#CFF5DC] text-[#1a7a45]' },
+  needs_completion: { label: 'يحتاج استكمال', className: 'bg-orange-50 text-orange-800' },
   partial: { label: 'عرض جزئي', className: 'bg-amber-50 text-amber-700' },
   pending: { label: 'بانتظار الرد', className: 'bg-neutral-100 text-neutral-500' },
 }
@@ -127,6 +128,7 @@ export function OffersView({ navigate }: NavProps) {
 
   const completed = rows.filter((o) => o.status === 'complete')
   const partial = rows.filter((o) => o.status === 'partial')
+  const needsCompletion = rows.filter(o => o.status === 'needs_completion')
   const pending = rows.filter((o) => o.status === 'pending')
   const withMail = rows.filter((o) =>
     (o.dispatchAttempts || []).some((a) => a.channel === 'EMAIL' || a.channel === 'WHATSAPP'),
@@ -231,11 +233,15 @@ export function OffersView({ navigate }: NavProps) {
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="bg-white border border-neutral-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
           <span className="text-xl font-black text-[#123F3A]">{completed.length}</span>
-          <span className="text-sm text-neutral-500">عروض مستلمة</span>
+          <span className="text-sm text-neutral-500">مكتملة المعلومات</span>
         </div>
         <div className="bg-amber-50 rounded-xl px-4 py-2.5 flex items-center gap-2">
           <span className="text-xl font-black text-amber-700">{partial.length}</span>
           <span className="text-sm text-amber-600">جزئية</span>
+        </div>
+        <div className="bg-orange-50 rounded-xl px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xl font-black text-orange-800">{needsCompletion.length}</span>
+          <span className="text-sm text-orange-700">تحتاج استكمال</span>
         </div>
         <div className="bg-neutral-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
           <span className="text-xl font-black text-neutral-500">{pending.length}</span>

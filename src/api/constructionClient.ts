@@ -3593,7 +3593,7 @@ export function mapInvitationsToOfferRows(
   inviteId: string
   supplierId: string
   supplierName: string
-  status: 'complete' | 'partial' | 'pending'
+  status: 'complete' | 'partial' | 'needs_completion' | 'pending'
   deliveryStatus: string
   responseStatus: string
   itemsPriced: number
@@ -3635,10 +3635,13 @@ export function mapInvitationsToOfferRows(
       quote?.offer?.totals?.total ??
       quote?.offer?.totals?.goods_total ??
       quote?.offer?.totals?.subtotal
-    let status: 'complete' | 'partial' | 'pending' = 'pending'
+    let status: 'complete' | 'partial' | 'needs_completion' | 'pending' = 'pending'
+    const readiness = quote?.offer ? quoteCompleteness(quote.offer) : null
     // QUOTED in invitations is enough — don't hide offers when comparison matrix is empty.
     if (quoted && coverage?.complete === true && lineCount > 0 && priced >= lineCount && quote?.offer && quoteCompleteness(quote.offer).status === 'COMPLETE') {
       status = 'complete'
+    } else if (quoted && (!readiness || readiness.status === 'NEEDS_COMPLETION')) {
+      status = 'needs_completion'
     } else if (quoted || priced > 0) {
       status = 'partial'
     }
