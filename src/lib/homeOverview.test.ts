@@ -36,7 +36,7 @@ describe('summarizeBooklet', () => {
       ['غراء أبو جمل', 1],
     ])
     expect(card.lines[0]!.bookletName).toBe('بلوك خرساني مصمت مقاس 15 سم')
-    expect(card.lines[0]!.best).toBeNull() // mixed VAT cannot produce a winner
+    expect(card.lines[0]!.best).not.toBeNull() // show the lowest recorded price despite mixed VAT
     expect(card.lines[1]!.best?.cutPercent ?? null).toBeNull()
     expect(card.lines[3]!.best).toBeNull()
     expect(card.buckets).toEqual({ none: 2, few: 3, many: 1 })
@@ -50,7 +50,7 @@ describe('summarizeBooklet', () => {
     const line = card.lines.find((l) => l.key === 'pr288-3')!
     expect(line.name).toBe('أنبوب معدني EMT قطر 32 مم طول 3 م')
     expect(line.bookletName).toBeUndefined()
-    expect(card.lines.find((l) => l.key === 'pr288-8')!.best).toBeNull() // a single quote is not a price comparison
+    expect(card.lines.find((l) => l.key === 'pr288-8')!.best).not.toBeNull() // a single quote still has a recorded lowest price
     expect(card.lines.find((l) => l.key === 'pr288-9')!.offers).toBe(0)
     expect(card.waves).toBe(2) // the cancelled wave is not counted
   })
@@ -58,11 +58,19 @@ describe('summarizeBooklet', () => {
   it('reads VAT basis per best offer', () => {
     const d = clone(PR580)
     d.matrix[0]!.offers.find((o) => o.supplier_id === 's1')!.prices_include_tax = true
-    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best).toBeNull()
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best).not.toBeNull()
     d.matrix[0]!.offers.find((o) => o.supplier_id === 's1')!.prices_include_tax = null
-    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best).toBeNull()
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best).not.toBeNull()
     expect(vatLabel('incl')).toBe('شامل الضريبة')
     expect(vatLabel('excl')).toBe('غير شامل الضريبة')
+  })
+
+  it('shows the lowest recorded SAR price with unknown VAT and tied quotes', () => {
+    const d = clone(PR580)
+    d.matrix[0]!.offers.forEach((o, i) => { o.unit_price = i < 2 ? 1 : 9; o.currency = 'SAR'; o.prices_include_tax = null })
+    const best = summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best!
+    expect(best.unitPrice).toBe(1)
+    expect(best.vat).toBe('unknown')
   })
 
   it('tolerates a detail with no lines, matrix or suppliers', () => {

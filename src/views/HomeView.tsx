@@ -424,7 +424,7 @@ function BookletCard({ card, now, onOpen }: { card: HomeBooklet; now: number; on
             <span>البند</span>
             <span>الكمية</span>
             <span>العروض</span>
-            <span>أفضل سعر وحدة</span>
+            <span>الأقل سعرًا للوحدة</span>
           </div>
           <ul className="divide-y divide-neutral-50">
             {lines.map((line) => (
@@ -496,13 +496,14 @@ function LineRow({ line }: { line: HomeLine }) {
             </div>
             <div className="text-[11px] text-neutral-500 truncate">
               {line.best.supplierName}
+              {line.best.needsReview && <span className="text-amber-700 font-semibold"> · يحتاج مراجعة</span>}
               {line.best.fromChat && <span className="text-[#2F6CB5] font-semibold" title="سعر سجّلته فرق من رسالة المورد"> · من المحادثة</span>}
             </div>
           </>
         ) : none ? (
           <span className="text-xs text-neutral-400">—</span>
         ) : (
-          <span className="text-xs text-neutral-400">لا أفضل واضح</span>
+          <span className="text-xs text-neutral-400">لا يوجد سعر وحدة مسجّل بالريال</span>
         )}
       </div>
     </li>
