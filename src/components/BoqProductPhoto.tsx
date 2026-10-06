@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { searchConstructionProducts } from '../api/constructionClient'
 import { safeImageUrl } from '../lib/rfqCart'
 import { cleanSpecCard, type SpecCard } from '../lib/specCard'
 
-import { findReferencePhoto, pickLoadablePhoto } from '../lib/referencePhotoSearch'
+import { findReferencePhoto } from '../lib/referencePhotoSearch'
 
 export default function BoqProductPhoto({ name, value, onCommit }: { name: string; value?: SpecCard; onCommit: (next: SpecCard | undefined) => void }) {
   const started = useRef(false)
@@ -18,10 +19,9 @@ export default function BoqProductPhoto({ name, value, onCommit }: { name: strin
     if (started.current || value?.reference_photos_reviewed || image || !name.trim()) return
     started.current = true
     setStatus('جارٍ البحث عن صورة توضيحية…')
-    findReferencePhoto(name, () => active && !edited.current).then(async result => {
+    findReferencePhoto(name, () => active && !edited.current).then(result => {
       if (!active || edited.current) return
-      const card = await pickLoadablePhoto(result.cards, () => active && !edited.current)
-      if (!active || edited.current) return
+      const card = result.cards.find(c => safeImageUrl(c.image_url))
       if (!card) { setStatus(result.message_ar || 'لم نعثر على صورة مناسبة؛ يمكنك إضافة رابط صورة.'); return }
       // Only the photo is proposed: never replace the booklet's identity or specifications.
       if (!current.current.value?.reference_photo_url) current.current.onCommit(cleanSpecCard({ ...current.current.value, reference_photos_reviewed: true, reference_photo_url: safeImageUrl(card.image_url) }))

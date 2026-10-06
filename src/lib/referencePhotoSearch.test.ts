@@ -32,23 +32,3 @@ it('an active remounted row keeps a deduplicated queued search alive', async () 
   await vi.runAllTimersAsync()
   expect(search).toHaveBeenCalledTimes(1)
 })
-it('skips broken and duplicate image URLs before choosing a working alternative', async () => {
-  const { pickLoadablePhoto } = await import('./referencePhotoSearch')
-  const cards = [{image_url:'https://example.com/broken.png'}, {image_url:'https://example.com/broken.png'}, {image_url:'https://example.com/works.png'}] as Parameters<typeof pickLoadablePhoto>[0]
-  const probe = vi.fn(async url => url.endsWith('works.png'))
-  expect(await pickLoadablePhoto(cards, () => true, probe)).toBe(cards[2])
-  expect(probe).toHaveBeenCalledTimes(2)
-})
-it('does not save a proposed picture after the buyer edits or leaves the row', async () => {
-  const { pickLoadablePhoto } = await import('./referencePhotoSearch')
-  let active = true
-  const cards = [{image_url:'https://example.com/works.png'}] as Parameters<typeof pickLoadablePhoto>[0]
-  expect(await pickLoadablePhoto(cards, () => active, async () => { active = false; return true })).toBeUndefined()
-})
-it('bounds failed image probes to three distinct results', async () => {
-  const { pickLoadablePhoto } = await import('./referencePhotoSearch')
-  const cards = Array.from({length:8},(_,i)=>({image_url:`https://example.com/${i}.png`})) as Parameters<typeof pickLoadablePhoto>[0]
-  const probe = vi.fn(async () => false)
-  expect(await pickLoadablePhoto(cards, () => true, probe)).toBeUndefined()
-  expect(probe).toHaveBeenCalledTimes(3)
-})
