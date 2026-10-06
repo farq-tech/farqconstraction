@@ -3,7 +3,7 @@ import { constrainPetPosition, readableSourceDates, supplierDisplayName } from '
 import { formatInviteResponseStatus } from '../api/constructionClient'
 describe('customer-facing quality regressions', () => {
   it('does not turn addresses or punctuation into supplier identities', () => {
-    for (const raw of ['&', '1', ',,,,', '4971، مكة 24421 7682']) expect(supplierDisplayName(raw)).toBe('مورد — الاسم يحتاج تحقق')
+    for (const raw of ['&', '1', ',,,,', '4971، مكة 24421 7682', '4971 مكة 24421', '٤٩٧١ مكة ٢٤٤٢١']) expect(supplierDisplayName(raw)).toBe('مورد — الاسم يحتاج تحقق')
     expect(supplierDisplayName('&', 'Aluminum House')).toBe('Aluminum House')
     expect(supplierDisplayName('- 7 شركة التوريد')).toBe('شركة التوريد')
   })
