@@ -1,3 +1,4 @@
+import { requestPageContext } from '../lib/ahmadProcurement'
 import SupplierPriceValidity from '../components/procurement/SupplierPriceValidity'
 import SupplierPriceMemory from '../components/procurement/SupplierPriceMemory'
 import PrewarmRelease from '../components/procurement/PrewarmRelease'
@@ -176,8 +177,7 @@ export function RequestFileView({
   const [editingDraft, setEditingDraft] = useState(false)
   const [revising, setRevising] = useState(false)
   useEffect(()=>{
-    const invite=rfq?.invitations.find(i=>i.supplier?.id===chatSupplier)
-    window.dispatchEvent(new CustomEvent('ahmad-page-context',{detail:{rfqId:selectedRfqId,tab,supplierId:chatSupplier,threadId:invite?.id}}))
+    window.dispatchEvent(new CustomEvent('ahmad-page-context',{detail:requestPageContext(rfq,selectedRfqId,tab,chatSupplier)}))
   },[selectedRfqId,tab,chatSupplier,rfq])
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())

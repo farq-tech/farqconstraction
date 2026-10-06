@@ -68,6 +68,7 @@ export function OfferDetailView({ navigate }: NavProps) {
         const response = (comparison?.supplier_responses || []).find(
           (row) => String(row.supplier.id || '') === supplierId,
         )
+        window.dispatchEvent(new CustomEvent('ahmad-page-context',{detail:{view:'offer-detail',rfqId:selectedRfqId,threadId:found?.id,supplierId:supplierId || undefined,quoteVersionId:response?.offer?.quoteVersionId}}))
         const total =
           response?.offer?.totals?.total ??
           response?.offer?.totals?.goods_total ??
