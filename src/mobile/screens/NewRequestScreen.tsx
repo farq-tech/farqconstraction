@@ -53,6 +53,7 @@ function toSupplier(s: SupplierEntry): Supplier {
 function candidatesFor(item: BOQItem): Supplier[] {
   const all = [
     ...(item.learnedSuggestion?.suppliers || []),
+    ...(item.outcomeSuggestion?.suppliers || []),
     ...(item.mapSuggestion?.suppliers || []),
     ...item.suppliers,
     ...(item.aiSuggestion?.suppliers || []),
