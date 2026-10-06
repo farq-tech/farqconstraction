@@ -150,6 +150,18 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
     const ids = autoPickConfident(item).map((s) => s.id)
     expect(ids).toEqual(['wa-priced', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'mail-lineword'])
   })
+  it('retains stronger product evidence hidden by an earlier weak duplicate', () => {
+    const item = line(9, 'cement', [], {
+      suppliers: [wa('same', { evidence: 'دليل منتج' })],
+      outcomeSuggestion: { suppliers: [wa('same', { evidence: 'نتائج الجولات', roundOutcome: { grade: 'SIMILAR' } })] },
+    })
+    expect(autoPickConfident(item).map(s => [s.id, s.evidence])).toEqual([['same', 'دليل منتج']])
+  })
+  it('recognizes the buyer-choice lane without a redundant learned flag', () => {
+    const item = line(10, 'cement', [], { learnedSuggestion: { suppliers: [wa('chosen', { evidence: 'اختيارك' })] } })
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['chosen'])
+    expect(autoPickConfident({ ...item, rejectedSupplierIds: ['chosen'] })).toEqual([])
+  })
   it('keeps historical evidence outside the delivery city for manual review', () => {
     const item = line(6, 'cement', [
       wa('historical-away', { outOfCity: true, priorQuotes: 5 }),

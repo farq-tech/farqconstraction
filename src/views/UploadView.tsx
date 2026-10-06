@@ -1039,7 +1039,7 @@ export function UploadView({ navigate }: NavProps) {
                       {searchingCount ? searchingCount : coveredCount}
                     </div>
                     <div className="text-xs text-neutral-500 mt-0.5">
-                      {searchingCount ? 'بلا مورد في دليلنا' : 'بندًا لها موردون'}
+                      {searchingCount ? 'بندًا تحتاج مراجعة الموردين' : 'بندًا لها موردون مختارون'}
                     </div>
                   </div>
                   <div>
@@ -1084,8 +1084,8 @@ export function UploadView({ navigate }: NavProps) {
                 onContinue={() => void continueToSuppliers()}
                 continueLabel={
                   partialRead
-                    ? `متابعة لاختيار الموردين — البنود المقروءة فقط (${coveredCount} من ${readReport?.expected ?? items.length} لها موردون)`
-                    : `متابعة لاختيار الموردين (${coveredCount} بندًا من الكراسة لها موردون)`
+                    ? `متابعة لاختيار الموردين — البنود المقروءة فقط (${coveredCount} من ${readReport?.expected ?? items.length} لها موردون مختارون)`
+                    : `متابعة لاختيار الموردين (${coveredCount} بندًا من الكراسة لها موردون مختارون)`
                 }
               />
               <button

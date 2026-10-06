@@ -136,7 +136,19 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
   // 5 Oct 2026: the buyer explicitly wants EVERY sure or near-certain match,
   // including the system's named suggestions, regardless of channel or count.
-  return all.filter((supplier) => confidenceOf(supplier) !== 'MAYBE')
+  // A weak earlier lane must not hide stronger evidence for the same business.
+  const strongest = new Map<string, Supplier>()
+  const score = (s: Supplier) => ({ SURE: 2, LIKELY: 1, MAYBE: 0 })[confidenceOf(s)]
+  const candidates = [
+    ...(item.learnedSuggestion?.suppliers || []).map(s => ({ ...s, learned: true })),
+    ...lanesOf(item).flat(),
+  ]
+  for (const s of candidates) {
+    if (!s?.id) continue
+    const previous = strongest.get(s.id)
+    if (!previous || score(s) > score(previous)) strongest.set(s.id, s)
+  }
+  return all.map(s => strongest.get(s.id) || s).filter(s => confidenceOf(s) !== 'MAYBE')
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
