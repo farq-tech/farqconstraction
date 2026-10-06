@@ -1,3 +1,4 @@
+import { supplierDisplayName } from '../lib/presentationQuality'
 /**
  * THE SUPPLIER PORTAL (Figma «Supplier / المورد (Prototype)», frames 0–4 + F).
  *
@@ -211,7 +212,7 @@ export function SupplierPortalView(_props: NavProps) {
   const declined = account?.status === 'DECLINED'
   const chatEnabled = mode === 'session' && !declined
   const supplierName =
-    session?.supplier.name_ar || invite?.supplier.name_ar || invite?.supplier.name_en || 'المورد'
+    supplierDisplayName(session?.supplier.name_ar, invite?.supplier.name_ar, invite?.supplier.name_en)
   const selectedIsLinked = Boolean(invite && selected && invite.invite_id === selected.invite_id)
   const multi = requests.length > 1
 
