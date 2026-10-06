@@ -22,6 +22,8 @@ export type SpecCard = {
   material?: string
   finish?: string
   sale_units?: Array<{ unit: SaleUnit; pack_size?: number }>
+  reference_photos_reviewed?: boolean
+  reference_photo_urls?: string[]
   reference_photo_url?: string
   notes?: string
 }
@@ -103,6 +105,9 @@ export function cleanSpecCard(card: SpecCard | null | undefined): SpecCard | und
   if (units.length) out.sale_units = units
   const photo = validLink(card.reference_photo_url)
   if (photo) out.reference_photo_url = photo
+  const photos = [...new Set((card.reference_photo_urls || []).map(validLink).filter((u): u is string => Boolean(u)))].slice(0, 5)
+  if (photos.length) out.reference_photo_urls = photos
+  if (card.reference_photos_reviewed) out.reference_photos_reviewed = true
   return Object.keys(out).length ? out : undefined
 }
 

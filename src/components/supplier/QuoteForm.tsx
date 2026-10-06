@@ -10,6 +10,7 @@
  * booklet's own text under it.
  */
 import { useState, type ReactNode } from 'react'
+import { ProductReferencePhoto } from './ProductReferencePhoto'
 import { submitPublicSupplierQuote, type PublicSupplierInvite } from '../../api/constructionClient'
 import { deadlineChip, formatDateTimeAr, linesAr, type LineRef } from '../../lib/supplierPortal'
 import { ChatIcon, Chip, ClockIcon, PrimaryButton } from './PortalChrome'
@@ -309,16 +310,7 @@ export function QuoteForm({
               {line.spec_text_ar}
             </div>
           )}
-          {line.spec_card?.reference_photo_url && /^https?:\/\//.test(line.spec_card.reference_photo_url) && (
-            <a
-              href={line.spec_card.reference_photo_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-[12px] font-bold text-[#123F3A] underline mb-1"
-            >
-              صورة مرجعية للبند
-            </a>
-          )}
+          {[...new Set([line.spec_card?.reference_photo_url, ...(line.spec_card?.reference_photo_urls || [])].filter(Boolean))].map(photo => <ProductReferencePhoto key={photo} url={photo} name={line.market_name_ar || line.supplier_name_ar || line.name_ar || line.name_en || 'البند'} />)}
           <div className="text-xs text-neutral-500 mb-3">
             {line.quantity} {line.uom}
             {line.item_note ? ` · ${line.item_note}` : ''}
