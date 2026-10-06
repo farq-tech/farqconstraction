@@ -1,5 +1,6 @@
+import type { ConstructionRfq } from '../api/constructionClient'
 import {beforeEach,describe,expect,it,vi} from 'vitest'
-import {missingSpecifications,comparisonSummary,prepareDraftEdit,executeDraftEdit,documentSummary} from './ahmadProcurement'
+import {requestPageContext, missingSpecifications,comparisonSummary,prepareDraftEdit,executeDraftEdit,documentSummary} from './ahmadProcurement'
 import * as api from '../api/constructionClient'
 import {farqSession} from '../api/farqSession'
 vi.mock('../api/constructionClient',()=>({getConstructionRfq:vi.fn(),getConstructionComparison:vi.fn(),updateConstructionRfqDraft:vi.fn()}))
@@ -14,4 +15,11 @@ describe('Ahmad procurement review',()=>{
  it('checks approving identity and sends the exact version guard only after confirmation',async()=>{const result=await prepareDraftEdit('عدل السماكة إلى 5 مم','rfq');if(!result.action)throw Error('no action');vi.stubGlobal('window',{dispatchEvent:vi.fn()});vi.stubGlobal('CustomEvent',class{constructor(public type:string,public options:unknown){}});await executeDraftEdit(result.action);expect(api.updateConstructionRfqDraft).toHaveBeenCalledWith('rfq','v1',result.action.lines);vi.mocked(farqSession.getUser).mockReturnValue({id:'other'} as never);await expect(executeDraftEdit(result.action)).rejects.toThrow('تغيّر الحساب');expect(api.updateConstructionRfqDraft).toHaveBeenCalledTimes(1);vi.unstubAllGlobals()})
  it('does not pick incomplete cheap offers as best or treat unknown shipping and tax as zero',()=>{const c={rfq:request,supplier_responses:[{supplier:{id:'cheap',name_ar:'رخيص'},offer:{currency:'SAR',totals:{total:100}}},{supplier:{id:'full',name_ar:'كامل'},offer:{currency:'SAR',totals:{total:200,tax:0}}}],quote_matrix:{supplier_summaries:[{supplier_id:'cheap',coverage:{complete:false,priced:1,requested:2}},{supplier_id:'full',coverage:{complete:true,priced:2,requested:2}}]}} as unknown as api.ConstructionComparison;const result=comparisonSummary(c);expect(result).toContain('الأقل إجماليًا بين العروض مكتملة البنود وبعملة SAR: كامل');expect(result).toContain('الضريبة غير معروفة');expect(result).toContain('الشحن غير معروف');expect(result).toContain('لا يمكن الجزم بالأنسب')})
  it('makes extraction uncertainty and no saving explicit',()=>{expect(documentSummary({summary:null,items:[{name:'steel',quantity:null,unit:null,unit_price:null,total:0,specification:null,uncertain:true}],tax:null,shipping:null,payment:null,delivery:null,review_required:true,uncertainties:[]})).toContain('استخراج آلي أولي');expect(documentSummary({items:[],uncertainties:[]} as never)).toContain('لم تُحفظ الأسعار')})
+})
+
+it('maps the open invitation to its actual supplier and clears conversation context outside messages',()=>{
+ const r={invitations:[{id:'invite-1',supplier_id:'supplier-1',supplier:{id:'supplier-1'}}]} as unknown as ConstructionRfq
+ expect(requestPageContext(r,'rfq-1','messages','invite-1')).toMatchObject({threadId:'invite-1',supplierId:'supplier-1'})
+ expect(requestPageContext(r,'rfq-1','items','invite-1').threadId).toBeUndefined()
+ expect(requestPageContext(r,'rfq-1','messages','missing').supplierId).toBeUndefined()
 })

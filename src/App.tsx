@@ -44,7 +44,7 @@ function ProcurementAssistant() {
   const [page,setPage] = useState<AhmadScope>({})
   useEffect(()=>{const handle=(event:Event)=>setPage((event as CustomEvent<AhmadScope>).detail);window.addEventListener('ahmad-page-context',handle);return()=>window.removeEventListener('ahmad-page-context',handle)},[])
   const requestViews=['rfq-detail','offers','offer-detail','comparison','award','inbox-thread']
-  const scope:AhmadScope={view,rfqId:requestViews.includes(view)?selectedRfqId:undefined,bookletId:view==='booklet-detail'?selectedBookletId:undefined,supplierId:view==='supplier-detail'?selectedSupplierId:undefined,threadId:view==='inbox-thread'?selectedThreadId:undefined,quoteVersionId:view==='offer-detail'?selectedQuoteVersionId:undefined,...(view==='rfq-detail' && page.rfqId===selectedRfqId?page:{})}
+  const scope:AhmadScope={view,rfqId:requestViews.includes(view)?selectedRfqId:undefined,bookletId:view==='booklet-detail'?selectedBookletId:undefined,supplierId:view==='supplier-detail'?selectedSupplierId:undefined,threadId:view==='inbox-thread'?selectedThreadId:undefined,quoteVersionId:view==='offer-detail'?selectedQuoteVersionId:undefined,...(['rfq-detail','offer-detail'].includes(view) && page.view===view && page.rfqId===selectedRfqId?page:{})}
   const key=JSON.stringify(scope)
   const label=scope.rfqId?`الطلب ${scope.rfqId.slice(0,8)}${scope.supplierId?' · المورد المحدد':''}${scope.tab?` · ${{items:'البنود',messages:'المراسلات',quotes:'العروض',summary:'ملخص الطلب',suppliers:'الموردون'}[scope.tab] || scope.tab}`:''}`:scope.threadId?'المحادثة المفتوحة':'حساب الشركة'
   if (view === 'supplier' || view === 'join') return null

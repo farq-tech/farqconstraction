@@ -64,3 +64,9 @@ export async function executeDraftEdit(action:DraftEditAction){
  return 'حُفظ التعديل في مسودة الطلب دون إرسال للموردين. المصدر: تأكيد الحفظ من النظام.'
 }
 export function documentSummary(d:AhmadDocument){return `${d.summary || 'قراءة المستند'}\n${d.items.map((l,i)=>`${i+1}. ${l.name || 'اسم غير مقروء'} · الكمية: ${l.quantity ?? 'غير معروفة'} ${l.unit || ''} · سعر الوحدة: ${l.unit_price ?? 'غير معروف'} · الإجمالي: ${l.total ?? 'غير معروف'}${l.specification?` · ${l.specification}`:''}${l.uncertain?' (يحتاج تأكيدًا)':''}`).join('\n')}\nالضريبة: ${d.tax || 'غير معروفة'}؛ الشحن: ${d.shipping || 'غير معروف'}؛ الدفع: ${d.payment || 'غير معروف'}؛ التوريد: ${d.delivery || 'غير معروف'}\nنقاط المراجعة: ${d.uncertainties.join('، ') || 'راجع كل قيمة مع أصل المستند.'}\nالمصدر: المرفق الذي اخترته — استخراج آلي أولي، لم تُحفظ الأسعار أو البنود في الطلب.`}
+
+/** Message tabs store an invitation ID, which is distinct from a supplier ID. */
+export function requestPageContext(rfq: ConstructionRfq | null, rfqId: string | null, tab: string, inviteId: string | null) {
+ const invite=tab==='messages'?rfq?.invitations.find(i=>i.id===inviteId):undefined
+ return {view:'rfq-detail',rfqId,tab,supplierId:invite?.supplier?.id || invite?.supplier_id || undefined,threadId:invite?.id}
+}
