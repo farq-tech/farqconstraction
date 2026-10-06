@@ -1,3 +1,4 @@
+import { supplierDisplayName } from '../lib/presentationQuality'
 import { useEffect, useRef, useState } from 'react'
 import type { BOQItem } from '../types'
 import { XIcon } from '../icons'
@@ -357,7 +358,7 @@ export function SendModal({
     total: number,
   ): Promise<'sent' | 'failed' | 'cancelled'> => {
     if (cancelRef.current) return 'cancelled'
-    const name = String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد')
+    const name = String(supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en))
     const startedAt = Date.now()
     touchActivity({
       step: `بريد ${index + 1}/${total}`,
@@ -442,7 +443,7 @@ export function SendModal({
     total: number,
   ): Promise<'wa_ready' | 'sent' | 'failed' | 'cancelled'> => {
     if (cancelRef.current) return 'cancelled'
-    const name = String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد')
+    const name = String(supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en))
     const startedAt = Date.now()
     touchActivity({
       step: `واتساب ${index + 1}/${total}`,
@@ -519,7 +520,7 @@ export function SendModal({
     total: number,
   ): Promise<'wa_ready' | 'sent' | 'failed' | 'cancelled'> => {
     if (cancelRef.current) return 'cancelled'
-    const name = String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد')
+    const name = String(supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en))
     const startedAt = Date.now()
     touchActivity({ step: `واتساب ${index + 1}/${total}`, index: index + 1, total, supplierName: name, channel: 'WHATSAPP', inviteStartedAt: startedAt })
     updateRow(invite.id, { status: 'sending', detail: 'إرسال واتساب من رقم فرق…', startedAt })
@@ -557,7 +558,7 @@ export function SendModal({
     total: number,
   ): Promise<'sent' | 'failed' | 'cancelled'> => {
     if (cancelRef.current) return 'cancelled'
-    const name = String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد')
+    const name = String(supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en))
     const supplierId = String(invite.supplier?.id || invite.supplier_id || '')
     const startedAt = Date.now()
     touchActivity({
@@ -1091,7 +1092,7 @@ export function SendModal({
         invites.map((invite) => ({
           inviteId: invite.id,
           supplierId: String(invite.supplier?.id || invite.supplier_id || ''),
-          name: String(invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد'),
+          name: String(supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en)),
           channel: invitePreferredChannel(invite),
           status: 'pending' as const,
         })),

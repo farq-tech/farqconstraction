@@ -1,3 +1,4 @@
+import { supplierDisplayName } from '../lib/presentationQuality'
 import { quoteCompleteness } from '../lib/quoteCompleteness'
 import { requestPageContext } from '../lib/ahmadProcurement'
 import SupplierPriceValidity from '../components/procurement/SupplierPriceValidity'
@@ -292,7 +293,7 @@ export function RequestFileView({
   const nameOfSupplier = useCallback(
     (externalId: string | null) => {
       const inv = invites.find((i) => i.supplier_id === externalId)
-      return String(inv?.supplier?.name_ar || inv?.supplier?.name_en || "مورد")
+      return String(supplierDisplayName(inv?.supplier?.name_ar, inv?.supplier?.name_en))
     },
     [invites],
   )
@@ -678,7 +679,7 @@ export function RequestFileView({
                   key={String(row.offer.quoteVersionId)}
                   row={row}
                   name={String(
-                    row.supplier.name_ar || row.supplier.name_en || "مورد",
+                    supplierDisplayName(row.supplier.name_ar, row.supplier.name_en),
                   )}
                   coverage={quoteCoverage(
                     summaryBySupplier.get(String(row.supplier.id)),
@@ -799,7 +800,7 @@ export function RequestFileView({
                       key={String(row.offer.quoteVersionId)}
                       row={row}
                       name={String(
-                        row.supplier.name_ar || row.supplier.name_en || "مورد",
+                        supplierDisplayName(row.supplier.name_ar, row.supplier.name_en),
                       )}
                       coverage={cov}
                       summary={summaryBySupplier.get(String(row.supplier.id))}
@@ -873,8 +874,7 @@ export function RequestFileView({
                                   }`}
                                 >
                                   <span>
-                                    {row.supplier.name_ar ||
-                                      row.supplier.name_en}
+                                    {supplierDisplayName(row.supplier.name_ar, row.supplier.name_en)}
                                   </span>
                                   <span
                                     aria-hidden
@@ -997,7 +997,7 @@ export function RequestFileView({
                                 className="flex items-center justify-between gap-3 py-2"
                               >
                                 <span className="text-xs text-[#0D1F1D] truncate">
-                                  {row.supplier.name_ar || row.supplier.name_en}
+                                  {supplierDisplayName(row.supplier.name_ar, row.supplier.name_en)}
                                   <SupplierScoreBadge
                                     score={
                                       summaryBySupplier.get(
@@ -1035,7 +1035,7 @@ export function RequestFileView({
                             className="flex items-center justify-between gap-3 py-2"
                           >
                             <span className="text-xs text-[#0D1F1D] truncate">
-                              {row.supplier.name_ar || row.supplier.name_en}
+                              {supplierDisplayName(row.supplier.name_ar, row.supplier.name_en)}
                             </span>
                             <TotalCell
                               total={totalBySupplier.get(
@@ -1077,9 +1077,7 @@ export function RequestFileView({
                 >
                   <div className="flex-1 min-w-[180px]">
                     <div className="font-semibold text-[#0D1F1D] text-sm">
-                      {invite.supplier?.name_ar ||
-                        invite.supplier?.name_en ||
-                        invite.supplier_id}
+                      {supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en)}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span
@@ -1156,7 +1154,7 @@ export function RequestFileView({
                 }`}
               >
                 <div className="text-sm font-semibold text-[#0D1F1D] truncate">
-                  {invite.supplier?.name_ar || invite.supplier?.name_en}
+                  {supplierDisplayName(invite.supplier?.name_ar, invite.supplier?.name_en)}
                 </div>
                 <div className="text-[11px] text-neutral-500">
                   {supplierState(invite, awardedInviteId).label}
@@ -1285,7 +1283,7 @@ export function RequestFileView({
         />
       )}
 
-      {discountOffer && <DiscountRequestDialog inviteId={String(discountOffer.offer.inviteId)} quoteVersionId={String(discountOffer.offer.quoteVersionId)} supplierName={String(discountOffer.supplier.name_ar || discountOffer.supplier.name_en || 'المورد')} onClose={() => setDiscountOffer(null)} />}
+      {discountOffer && <DiscountRequestDialog inviteId={String(discountOffer.offer.inviteId)} quoteVersionId={String(discountOffer.offer.quoteVersionId)} supplierName={String(supplierDisplayName(discountOffer.supplier.name_ar, discountOffer.supplier.name_en))} onClose={() => setDiscountOffer(null)} />}
       {broadcasting && (
         <BroadcastDialog
           rfqId={rfq.id}
@@ -1332,7 +1330,7 @@ export function RequestFileView({
             setAwarding(null)
             setNotice({
               tone: "ok",
-              text: `تمت الترسية على ${awarding.supplier.name_ar || awarding.supplier.name_en}.`,
+              text: `تمت الترسية على ${supplierDisplayName(awarding.supplier.name_ar, awarding.supplier.name_en)}.`,
             })
             await load(rfq.id, {
               comparison: true,

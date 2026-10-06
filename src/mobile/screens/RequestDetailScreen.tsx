@@ -48,7 +48,7 @@ function offersOf(c: ConstructionComparison | null): Offer[] {
         inviteId: r.offer?.inviteId,
         quoteVersionId: r.offer?.quoteVersionId,
         supplierId: id,
-        name: r.supplier?.name_ar || r.supplier?.name_en || 'مورد',
+        name: supplierDisplayName(r.supplier?.name_ar, r.supplier?.name_en),
         total: total == null ? null : num(total),
         priced: sum?.coverage.priced ?? 0,
         requested: sum?.coverage.requested ?? c.quote_matrix?.requested_line_count ?? 0,
