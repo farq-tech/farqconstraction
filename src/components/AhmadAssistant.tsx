@@ -3,6 +3,10 @@ import { executeAhmadReply, type AhmadAction, type AhmadAnswer } from '../lib/ah
 import { getBoqItems, setCartItems } from '../store/session'
 import { appendToCart, newCartDocumentId } from '../lib/rfqCart'
 import { farqSession } from '../api/farqSession'
+import { readAhmadDocument, type AhmadDocument } from '../api/constructionClient'
+import { executeDraftEdit, documentSummary, type DiscountAction } from '../lib/ahmadProcurement'
+import DiscountRequestDialog from './DiscountRequestDialog'
+import AhmadMemoryDialog from './AhmadMemoryDialog'
 
 type Message = { role: 'user' | 'assistant'; text: string }
 // Constrain every pose to its silhouette envelope so neighbouring sprite noise
@@ -18,10 +22,12 @@ const POSE_CLIPS = [
   'polygon(31% 2%, 61% 2%, 68% 17%, 67% 26%, 75% 36%, 75% 62%, 70% 67%, 73% 90%, 78% 96%, 32% 96%, 30% 91%, 32% 44%, 26% 39%, 27% 32%, 32% 26%, 29% 16%)',
 ]
 const RUN_CLIP = 'polygon(39% 4%, 78% 4%, 85% 23%, 82% 32%, 90% 34%, 92% 44%, 82% 49%, 81% 57%, 91% 85%, 98% 87%, 99% 94%, 82% 98%, 62% 94%, 53% 90%, 29% 88%, 22% 87%, 17% 89%, 10% 89%, 5% 81%, 5% 69%, 20% 68%, 30% 56%, 26% 51%, 17% 50%, 16% 44%, 20% 37%, 22% 34%, 10% 29%, 10% 20%, 35% 10%)'
-export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
-  ask: (message: string, history: Message[]) => Promise<AhmadAnswer>
+export default function AhmadAssistant({ ask, onAction, signedIn = true, contextKey = '', contextLabel = 'حساب الشركة' }: {
+  ask: (message: string, history: Message[], document?: AhmadDocument | null) => Promise<AhmadAnswer>
   onAction?: (action: 'requests' | 'upload' | 'offers') => void
   signedIn?: boolean
+  contextKey?: string
+  contextLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('ahmad-pet-hidden') === '1' } catch { return false } })
@@ -32,6 +38,7 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
   const [size, setSize] = useState(0.85)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
   const [dragging, setDragging] = useState(false)
+  useEffect(() => { if(open)setPosition(null) }, [open])
   const [runDirection, setRunDirection] = useState<'left' | 'right'>('right')
   const [runFrame, setRunFrame] = useState(0)
   const lastPointerX = useRef(0)
@@ -45,6 +52,19 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
   const dragMoved = useRef(false)
   const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', text: 'هلا، أنا أحمد، مساعد المشتريات الآلي لشركة الدفع للتجارة والمقاولات. أساعدك تراجع العروض وتجهّز طلب التخفيض مع الحفاظ على المواصفات. وش تحتاج اليوم؟' }])
   const end = useRef<HTMLDivElement>(null)
+  const [selectedDocument, setDocument] = useState<AhmadDocument | null>(null)
+  const [showMemory, setShowMemory] = useState(false)
+  const [discount, setDiscount] = useState<DiscountAction | null>(null)
+  const [activity, setActivity] = useState<'idle' | 'reviewing' | 'thinking' | 'saving' | 'success'>('idle')
+  const [stateVariant, setStateVariant] = useState(0)
+  useEffect(() => { setStateVariant(v => 1-v) }, [activity])
+  const contextRef = useRef(contextKey)
+  const fileInput = useRef<HTMLInputElement>(null)
+  useEffect(()=>{const show=()=>setOpen(true);window.addEventListener('ahmad-open',show);return()=>window.removeEventListener('ahmad-open',show)},[])
+  contextRef.current = contextKey
+  useEffect(() => { setPendingAction(null); setDocument(null); setDiscount(null); setMessages([{role:'assistant',text:`أنا معك في ${contextLabel}. أقدر أراجع النواقص والعروض وأجهّز التعديلات للمراجعة.`}]) }, [contextKey])
+  useEffect(() => { if(activity!=='success')return; const t=window.setTimeout(()=>setActivity('idle'),2200);return()=>window.clearTimeout(t) }, [activity])
+  async function readFile(file:File){if(busy)return;const scope=contextRef.current;setBusy(true);setActivity('reviewing');setPendingAction(null);try{const result=await readAhmadDocument(file);if(scope!==contextRef.current)return;setDocument(result);setMessages(m=>[...m,{role:'assistant',text:documentSummary(result)}])}catch(e){if(scope===contextRef.current)setMessages(m=>[...m,{role:'assistant',text:e instanceof Error?e.message:'تعذّر قراءة المرفق'}])}finally{setBusy(false);setActivity('idle');if(fileInput.current)fileInput.current.value=''}}
   function toggleHidden(value: boolean) {
     setHidden(value)
     setOpen(false)
@@ -83,11 +103,12 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
       }, 18000 + Math.random() * 27000)
     }
     if (dragging) pose(1)
+    else if (activity !== 'idle') { pose(0) }
     else if (busy) perform('scratch', rest)
     else if (greet && Date.now() - lastGreeting.current > 15000) { lastGreeting.current = Date.now(); perform('wave', rest) }
     else { pose(0); rest() }
     return () => { stopped = true; timers.forEach(window.clearTimeout) }
-  }, [busy, greet, dragging])
+  }, [busy, greet, dragging, activity])
   useEffect(() => {
     function resize() { setPosition(p => p ? { x: Math.max(0, Math.min(p.x, window.innerWidth - petWidth - 24)), y: Math.max(0, Math.min(p.y, window.innerHeight - petHeight - 80)) } : p) }
     resize()
@@ -97,15 +118,18 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }) }, [messages, busy, open])
   async function send(value: string) {
     if (busy || !value.trim()) return
-    const history = messages.slice(-10)
+    const history = messages.slice(-10).map(m=>({...m,text:m.text.slice(0,4000)}))
+    const scope=contextRef.current
+    setPendingAction(null); setActivity('thinking')
     setText(''); setMessages(m => [...m, { role: 'user', text: value.trim() }]); setBusy(true)
     try {
-      const answer = signedIn ? await ask(value.trim(), history) : { text: 'سجّل دخولك أولًا حتى أراجع طلبات شركتك وعروضها.' }
+      const answer = signedIn ? await ask(value.trim(), history, selectedDocument) : { text: 'سجّل دخولك أولًا حتى أراجع طلبات شركتك وعروضها.' }
+      if(scope!==contextRef.current)return
       setPendingAction(answer.action || null)
       setMessages(m => [...m, { role: 'assistant', text: answer.text }])
     } catch (error) {
-      setMessages(m => [...m, { role: 'assistant', text: error instanceof Error ? error.message : 'تعذّر قراءة البيانات الآن. أعد المحاولة.' }])
-    } finally { setBusy(false) }
+      if(scope===contextRef.current)setMessages(m => [...m, { role: 'assistant', text: error instanceof Error ? error.message : 'تعذّر قراءة البيانات الآن. أعد المحاولة.' }])
+    } finally { setBusy(false); setActivity('idle') }
   }
   async function confirmAction() {
     if (!pendingAction || executing.current) return
@@ -116,22 +140,31 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
       }
       onAction?.('upload'); setOpen(false); setPendingAction(null); return
     }
+    if(pendingAction.kind === 'discount'){if(pendingAction.userId!==farqSession.getUser()?.id){setPendingAction(null);return}setDiscount(pendingAction);setPendingAction(null);return}
+    const confirmedScope = contextRef.current
     executing.current = true
+    setActivity('saving')
     setBusy(true)
     try {
-      const result = await executeAhmadReply(pendingAction)
+      const result = pendingAction.kind === 'edit' ? await executeDraftEdit(pendingAction) : await executeAhmadReply(pendingAction)
+      if (confirmedScope !== contextRef.current) return
+      setActivity('success')
       setMessages(m => [...m, { role: 'assistant', text: result }])
       setPendingAction(null)
     } catch (error) {
+      if (confirmedScope !== contextRef.current) return
+      setActivity('idle')
       setMessages(m => [...m, { role: 'assistant', text: error instanceof Error ? error.message : 'تعذّر تأكيد حالة الإرسال. راجع المراسلات.' }])
       // Inspect the thread before any new attempt; never blindly repeat an uncertain write.
       setPendingAction(null)
-    } finally { executing.current = false; setBusy(false) }
+    } finally { executing.current = false; setBusy(false); if(confirmedScope !== contextRef.current)setActivity('idle') }
   }
   if (hidden) return <button type="button" onClick={() => toggleHidden(false)} aria-label="إظهار مساعد المشتريات أحمد" style={{ position: 'fixed', left: 12, bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', zIndex: 80, border: '1px solid #dce5df', borderRadius: 20, background: '#fff', color: '#17452d', padding: '6px 10px', fontSize: 11 }}>إظهار أحمد</button>
   return <div className="ahmad-procurement-pet" dir="rtl" style={{ position: 'fixed', left: position?.x ?? 16, top: position?.y, bottom: position ? 'auto' : undefined, zIndex: 80, fontFamily: 'inherit' }}>
+    {showMemory && <AhmadMemoryDialog onClose={()=>setShowMemory(false)} />}
+    {discount && <DiscountRequestDialog inviteId={discount.inviteId} quoteVersionId={discount.quoteVersionId} supplierName={discount.supplierName} onClose={()=>setDiscount(null)} />}
     <style>{`
-      .ahmad-procurement-pet { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+      .ahmad-procurement-pet { --ahmad-base: 16px; bottom: calc(var(--ahmad-base) + env(safe-area-inset-bottom, 0px)); }
       .ahmad-character { transform-origin: 50% 90%; animation: ahmad-idle 5s ease-in-out infinite; }
       .ahmad-pose-enter { animation: ahmad-pose-fade .34s ease-in-out both; }
       .ahmad-pose-leave { animation: ahmad-pose-out .34s ease-in-out both; }
@@ -140,21 +173,31 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
       .ahmad-pet-button:focus-visible { outline: 3px solid #7caf91; outline-offset: 4px; border-radius: 20px; }
       .ahmad-pet-button[data-dragging=true] .ahmad-character { animation: none; }
       @keyframes ahmad-idle { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(1deg); } }
-      @media (max-width: 767px) { .ahmad-procurement-pet { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); } }
+      @media (max-width: 767px) { .ahmad-procurement-pet { --ahmad-base: 80px; } }
       @media (prefers-reduced-motion: reduce) { .ahmad-character, .ahmad-pose-enter, .ahmad-pose-leave { animation: none; } .ahmad-pose-leave { opacity: 0; } }
     `}</style>
     {greet && !open && <div style={{ position: 'absolute', bottom: 176, left: 0, width: 140, background: '#fff', border: '1px solid #dce5df', borderRadius: 16, padding: 8, color: '#17452d', fontSize: 12, textAlign: 'center' }}>هلا! أنا معك 👋</div>}
-    {open && <section aria-label="مساعد المشتريات أحمد" style={{ position: 'fixed', bottom: 'calc(256px + env(safe-area-inset-bottom, 0px))', left: 16, width: 'min(370px, calc(100vw - 32px))', height: 'min(510px, calc(100dvh - 280px))', minHeight: 200, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #dce5df', borderRadius: 24, boxShadow: '0 16px 60px #173c2429', overflow: 'hidden' }}>
+    {open && <section aria-label="مساعد المشتريات أحمد" style={{ zIndex: 2, position: 'fixed', bottom: `calc(${petHeight + 24}px + var(--ahmad-base) + env(safe-area-inset-bottom, 0px))`, left: 16, width: 'min(370px, calc(100vw - 32px))', height: `min(620px, calc(100dvh - ${petHeight + 48}px - var(--ahmad-base) - env(safe-area-inset-bottom, 0px)))`, minHeight: 200, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #dce5df', borderRadius: 24, boxShadow: '0 16px 60px #173c2429', overflow: 'hidden' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: '#eff6f0', borderBottom: '1px solid #dce5df' }}>
-        <div style={{ flex: 1 }}><strong style={{ fontSize: 18, color: '#17452d' }}>أحمد — مساعد المشتريات</strong><div style={{ fontSize: 12, color: '#53665a' }}>شركة الدفع للتجارة والمقاولات</div><div style={{ fontSize: 10, color: '#53665a' }}>مساعد آلي</div></div>
+        <div style={{ flex: 1 }}><strong style={{ fontSize: 18, color: '#17452d' }}>أحمد — مساعد المشتريات</strong><div style={{ fontSize: 12, color: '#53665a' }}>شركة الدفع للتجارة والمقاولات</div><div style={{ fontSize: 10, color: '#53665a' }}>مساعد آلي · {contextLabel}</div></div>
         <button type="button" aria-label="إغلاق محادثة أحمد" onClick={() => setOpen(false)} style={{ background: '#fff', borderRadius: 20, width: 32, height: 32, border: '1px solid #dce5df' }}>×</button>
       </header>
+      <div style={{padding:'8px 12px',display:'flex',gap:6,flexWrap:'wrap',borderBottom:'1px solid #dce5df'}}>
+        <button disabled={!signedIn || busy} onClick={()=>setShowMemory(true)} className="border rounded-lg px-2 py-1 text-xs">ذاكرة الشركة</button>
+        <button disabled={!signedIn || busy} onClick={()=>fileInput.current?.click()} className="border rounded-lg px-2 py-1 text-xs">قراءة صورة / PDF</button>
+        <input ref={fileInput} aria-label="مرفق لأحمد" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={e=>{const file=e.target.files?.[0];if(file)void readFile(file)}} />
+        <button disabled={busy} onClick={()=>void send('وش ينقص مواصفات الطلب؟')} className="border rounded-lg px-2 py-1 text-xs">نواقص الطلب</button>
+        <button disabled={busy} onClick={()=>void send('قارن العروض')} className="border rounded-lg px-2 py-1 text-xs">قارن العروض</button>
+        {selectedDocument && <button disabled={busy} onClick={()=>setDocument(null)} className="border rounded-lg px-2 py-1 text-xs">إزالة سياق المرفق</button>}
+      </div>
       <div role="log" aria-live="polite" style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {messages.map((m, i) => <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-start' : 'flex-end', maxWidth: '92%', padding: '10px 14px', borderRadius: 16, background: m.role === 'user' ? '#17452d' : '#f2f5f2', color: m.role === 'user' ? '#fff' : '#263d2e', fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{m.text}</div>)}
-        {busy && <p style={{ fontSize: 13, color: '#53665a' }}>أحمد يراجع طلبك…</p>}<div ref={end} />
+        {busy && <p style={{ fontSize: 13, color: '#53665a' }}>{activity==='reviewing'?'أحمد يقرأ المرفق…':activity==='saving'?'أحمد يحفظ التعديل…':'أحمد يراجع طلبك…'}</p>}<div ref={end} />
       </div>
       {pendingAction && <div style={{ padding: 12, borderTop: '1px solid #dce5df', maxHeight: 180, overflowY: 'auto', fontSize: 12 }}>
         {pendingAction.kind === 'reply' && <><strong>{pendingAction.recipient}</strong><div style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{pendingAction.text}</div></>}
+        {pendingAction.kind === 'edit' && <p>{pendingAction.preview}</p>}
+        {pendingAction.kind === 'discount' && <p>المورد: {pendingAction.supplierName}. لم يُرسل شيء بعد.</p>}
         {pendingAction.kind === 'create' && pendingAction.lines?.map((line, i) => <div key={i} style={{ marginBottom: 6 }}>{line.qty} {line.unit} · {line.name}</div>)}
         <button type="button" disabled={busy} onClick={() => void confirmAction()} style={{ background: '#17452d', color: '#fff', padding: '8px 12px', borderRadius: 12, border: 0 }}>{pendingAction.label}</button>
         <button type="button" disabled={busy} onClick={() => setPendingAction(null)} style={{ marginRight: 8, padding: '8px 12px', background: '#fff', border: '1px solid #dce5df', borderRadius: 12 }}>إلغاء</button>
@@ -173,7 +216,7 @@ export default function AhmadAssistant({ ask, onAction, signedIn = true }: {
       onPointerCancel={() => { drag.current = null; setDragging(false); dragMoved.current = true }}
       onClick={() => { if (dragMoved.current) { dragMoved.current = false; return } setOpen(v => !v) }} style={{ touchAction: 'none', width: petWidth, height: petHeight, display: 'flex', flexDirection: 'column', alignItems: 'center', border: 0, background: 'transparent', cursor: dragging ? 'grabbing' : 'grab', padding: 0, filter: 'drop-shadow(0 4px 8px #173c2420)' }}>
       <span className="ahmad-character" role="img" aria-label="أحمد مساعد المشتريات" data-pose={frame} style={{ position: 'relative', display: 'block', width: 104 * size, height: 156 * size, flexShrink: 0 }}>
-        {dragging ? <span aria-hidden="true" data-direction={runDirection} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-run-transparent.png)`, backgroundSize: '400% 200%', backgroundPosition: `${runFrame * 100 / 3}% 0%`, backgroundRepeat: 'no-repeat', clipPath: RUN_CLIP, transform: runDirection === 'left' ? 'scaleX(-1)' : undefined }} /> : [previousFrame, frame].map((pose, layer) => <span key={layer === 1 ? `current-${pose}` : `previous-${pose}-${frame}`} aria-hidden="true" className={layer === 1 ? 'ahmad-pose-enter' : 'ahmad-pose-leave'} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-sprites-transparent.png)`, backgroundSize: '400% 200%', backgroundPosition: `${(pose % 4) * 100 / 3}% ${pose < 4 ? 0 : 100}%`, backgroundRepeat: 'no-repeat', clipPath: POSE_CLIPS[pose] }} />)}
+        {dragging ? <span aria-hidden="true" data-direction={runDirection} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-run-transparent.png)`, backgroundSize: '400% 200%', backgroundPosition: `${runFrame * 100 / 3}% 0%`, backgroundRepeat: 'no-repeat', clipPath: RUN_CLIP, transform: runDirection === 'left' ? 'scaleX(-1)' : undefined }} /> : activity !== 'idle' ? <span aria-hidden="true" className="ahmad-pose-enter" data-activity={activity} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-states.png)`, backgroundSize: '300% 200%', left: -26 * size, width: 156 * size, backgroundPosition: activity === 'reviewing' ? `${stateVariant * 50}% 0%` : activity === 'success' ? `${50 + stateVariant * 50}% 100%` : stateVariant ? '0% 100%' : '100% 0%', backgroundRepeat: 'no-repeat' }} /> : [previousFrame, frame].map((pose, layer) => <span key={layer === 1 ? `current-${pose}` : `previous-${pose}-${frame}`} aria-hidden="true" className={layer === 1 ? 'ahmad-pose-enter' : 'ahmad-pose-leave'} style={{ position: 'absolute', inset: 0, backgroundImage: `url(${import.meta.env.BASE_URL}ahmad-procurement-sprites-transparent.png)`, backgroundSize: '400% 200%', backgroundPosition: `${(pose % 4) * 100 / 3}% ${pose < 4 ? 0 : 100}%`, backgroundRepeat: 'no-repeat', clipPath: POSE_CLIPS[pose] }} />)}
       </span>
       <span style={{ background: '#17452d', color: '#fff', padding: '4px 14px', borderRadius: 20, fontSize: 13, marginTop: -4 }}>أحمد</span>
       <span style={{ fontSize: 10, color: '#17452d', padding: '1px 6px', textShadow: '0 1px 3px #fff, 0 0 6px #fff' }}>مساعد المشتريات</span>

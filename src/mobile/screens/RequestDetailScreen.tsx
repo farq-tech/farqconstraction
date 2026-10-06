@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   formatArDate,
   formatInviteDeliveryStatus,
@@ -65,6 +65,7 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
   const [editing, setEditing] = useState(false)
   const [discount, setDiscount] = useState<Offer | null>(null)
   const [notice, setNotice] = useState('')
+  useEffect(()=>{const refresh=(event:Event)=>{if((event as CustomEvent).detail?.rfqId===id){void rfq.reload();void comparison.reload()}};window.addEventListener('ahmad-rfq-updated',refresh);return()=>window.removeEventListener('ahmad-rfq-updated',refresh)},[id,rfq.reload,comparison.reload])
 
   const r = rfq.data
   const offers = offersOf(comparison.data)
@@ -140,6 +141,7 @@ export default function RequestDetailScreen({ id, nav }: { id: string; nav: Nav 
                         {isBest && <div className="text-[11px] font-bold text-[#1a7a45]">الأقل سعرًا</div>}
                       </div>
                     </div>
+                    {o.quoteVersionId && <button onClick={()=>{window.dispatchEvent(new CustomEvent('ahmad-page-context',{detail:{rfqId:id,quoteVersionId:o.quoteVersionId,supplierId:o.supplierId}}));window.dispatchEvent(new Event('ahmad-open'))}} className="mt-3 w-full py-2 rounded-xl border text-sm">راجع هذا العرض مع أحمد</button>}
                     {!isReadOnlyBuild && !r.award && o.inviteId && o.quoteVersionId && <button onClick={() => setDiscount(o)} className="mt-3 w-full py-2.5 rounded-xl border border-[#123F3A]/30 font-bold text-[#123F3A]">اطلب تخفيض العرض</button>}
                     {o.requested > 0 && (
                       <div className="mt-3">

@@ -17,7 +17,7 @@ import { HomeIcon, FileIcon, InboxIcon, UsersIcon } from '../icons'
 import { statusBar } from './native'
 import { enablePush } from './push'
 import AhmadAssistant from '../components/AhmadAssistant'
-import { askAhmadAgent } from '../lib/ahmadAgent'
+import { askAhmadAgent, type AhmadScope } from '../lib/ahmadAgent'
 import { getBoqItems } from '../store/session'
 import { saveDraft } from './purchaseRequests'
 
@@ -51,6 +51,8 @@ export default function MobileApp() {
   const [tab, setTab] = useState<Tab>('home')
   const [stacks, setStacks] = useState<Record<Tab, Route[]>>({ home: [], requests: [], inbox: [], suppliers: [], more: [] })
   const [needsReply, setNeedsReply] = useState(0)
+  const [assistantPage,setAssistantPage] = useState<AhmadScope>({})
+  useEffect(()=>{const handle=(event:Event)=>setAssistantPage((event as CustomEvent<AhmadScope>).detail);window.addEventListener('ahmad-page-context',handle);return()=>window.removeEventListener('ahmad-page-context',handle)},[])
 
   const stack = stacks[tab]
   const top = stack[stack.length - 1]
@@ -136,7 +138,7 @@ export default function MobileApp() {
   return (
     <div className="min-h-[100dvh] bg-[#f2f3ef] text-[#0D1F1D]" dir="rtl">
       {screen}
-      <AhmadAssistant key={session.user?.id} ask={(message, history) => askAhmadAgent(message, history, { rfqId: top?.kind === 'request' ? top.id : undefined })} onAction={action => {
+      <AhmadAssistant key={session.user?.id} contextKey={JSON.stringify([tab,top,top?.kind==='request' && assistantPage.rfqId===top.id?assistantPage:null])} contextLabel={top?.kind === 'request' ? `الطلب ${top.id.slice(0,8)}` : top?.kind === 'thread' ? 'المحادثة المفتوحة' : 'حساب الشركة'} ask={(message, history, document) => askAhmadAgent(message, history, { view: top?.kind || tab, rfqId: top?.kind === 'request' ? top.id : undefined, threadId: top?.kind === 'thread' ? top.inviteId : undefined, ...(top?.kind==='request' && assistantPage.rfqId===top.id?assistantPage:{}), document })} onAction={action => {
         if (action === 'upload') {
           const items = getBoqItems()
           const draft = items.length ? saveDraft({ project: '', reference: null, requester: null, lines: items.map(l => ({ name: l.name, qty: l.qty, unit: l.unit, spec: l.spec })) }) : null

@@ -1,18 +1,19 @@
 import {
-  askAhmad, getAhmadBooklets, listBuyerRfqs, getConstructionReports,
+  askAhmad, getAhmadBooklets, getAhmadMemory, listBuyerRfqs, getConstructionReports,
   getConstructionRfq, getConstructionComparison, getConstructionBooklet,
   listConstructionInboxThreads, getConstructionInboxThread, replyToConstructionInboxThread,
-  type ConstructionInboxThread, type ConstructionInboxThreadDetail,
+  type ConstructionInboxThread, type ConstructionInboxThreadDetail, type AhmadDocument,
 } from '../api/constructionClient'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
 import { linesFromManualText } from './rfqCart'
+import { missingSpecifications, comparisonSummary, prepareDraftEdit, type DraftEditAction, type DiscountAction } from './ahmadProcurement'
 
-export type AhmadAction =
+export type AhmadAction = DraftEditAction | DiscountAction
   | { kind: 'create'; label: string; lines?: ReturnType<typeof linesFromManualText>; userId?: string }
   | { kind: 'reply'; label: string; inviteId: string; recipient: string; text: string; channel: 'EMAIL' | 'WHATSAPP' | 'HARAJ' | 'PORTAL'; parentId: string | null; idempotencyKey: string; userId: string }
 export type AhmadAnswer = { text: string; action?: AhmadAction }
-export type AhmadScope = { rfqId?: string | null; bookletId?: string | null }
+export type AhmadScope = { rfqId?: string | null; bookletId?: string | null; supplierId?: string | null; threadId?: string | null; quoteVersionId?: string | null; view?: string; tab?: string; document?: AhmadDocument | null }
 export function normalizeAhmadText(text: string) {
   return text.toLowerCase().replace(/[ً-ْـ]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim()
 }
@@ -78,7 +79,32 @@ function messageText(detail: ConstructionInboxThreadDetail) {
 }
 
 export async function askAhmadAgent(message: string, history: { role: string; text: string }[], scope: AhmadScope = {}): Promise<AhmadAnswer> {
+  scope = { ...scope }
+  if (scope.threadId) {
+    const thread = await getConstructionInboxThread(scope.threadId)
+    scope.rfqId = thread.request_context?.rfq_id || (thread as {rfq_id?:string}).rfq_id || scope.rfqId
+    scope.supplierId = thread.supplier_id || scope.supplierId
+  }
   const q = normalizeAhmadText(message)
+  if (/^(عدل|غير)\s/.test(q)) return prepareDraftEdit(message, scope.rfqId)
+  if (/نواقص|ناقص|اكمل.*مواصف|تفاصيل.*ناقص|وش.*ينقص/.test(q)) {
+    if(!scope.rfqId)return {text:'افتح الطلب حتى أراجع مواصفاته.'}
+    const r=await getConstructionRfq(scope.rfqId), missing=missingSpecifications(r)
+    return {text:`${missing.length?`أحتاج تأكيد هذه المعلومات في رد واحد:\n${missing.join('\n')}`:'المواصفات الأساسية المسجلة مكتملة؛ تأكيد المنتج الفعلي والمطابقة يبقى مطلوبًا.'}\nالمصدر: بنود النسخة الحالية للطلب ${r.id}. لم تُفترض تفاصيل المنتج الناقصة.`}
+  }
+  if(/جهز.*تخفيض|اطلب.*تخفيض|طلب تخفيض/.test(q)){
+    if(!scope.rfqId)return {text:'افتح الطلب والعرض الذي تريد طلب تخفيضه.'}
+    const c=await getConstructionComparison(scope.rfqId)
+    const rows=c.supplier_responses.filter(r=>(!scope.quoteVersionId || r.offer.quoteVersionId===scope.quoteVersionId) && (!scope.supplierId || r.supplier.id===scope.supplierId))
+    if(rows.length!==1)return {text:'حدد عرضًا واحدًا من الطلب أولًا، حتى أجهّز طلب التخفيض للمورد الصحيح.'}
+    const row=rows[0], userId=farqSession.getUser()?.id
+    if(!row.offer.inviteId || !row.offer.quoteVersionId || !userId)return {text:'لا توجد نسخة عرض ومحادثة صالحان لتجهيز طلب التخفيض.'}
+    return {text:`أفتح لك مراجعة طلب تخفيض عرض ${row.supplier.name_ar || 'المورد'}. اختر التخفيض الآن أو «يرسله أحمد بعد ساعة» وراجع النص قبل تأكيد الإرسال.`,action:{kind:'discount',label:'مراجعة طلب التخفيض',inviteId:row.offer.inviteId,quoteVersionId:row.offer.quoteVersionId,supplierName:row.supplier.name_ar || row.supplier.name_en || 'المورد',userId}}
+  }
+  if(/قارن|ارخص|الانسب|افضل عرض/.test(q)){
+    if(!scope.rfqId)return {text:'افتح الطلب حتى أقارن عروضه الفعلية.'}
+    return {text:comparisonSummary(await getConstructionComparison(scope.rfqId),/هذا العرض/.test(q)?scope.quoteVersionId:undefined)}
+  }
   const send = message.match(/^(?:أرسل|ارسل|رسل|ابعث)\s+(?:رسالة\s+)?(?:إلى|الى|لـ|ل)\s*(.+?)\s*[:：]\s*([\s\S]+)$/)
   if (send) return prepareAhmadReply(send[1].trim(), send[2].trim(), scope)
   if (/^(انشئ|انشي|سوي|سو|افتح|جهز|ابي انشئ|ابي اسوي).*(كراسه|طلب شراء|طلب تسعير)/.test(q)) {
@@ -92,6 +118,10 @@ export async function askAhmadAgent(message: string, history: { role: string; te
   }
   if (/^(ارسل|رسل|ابعث)/.test(q)) return { text: 'حدّد المورد ونص الرسالة بهذا الشكل:\nأرسل إلى اسم المورد: نص الرسالة\nأعرضها لك للمراجعة قبل الإرسال.' }
 
+  if(/ذاكره|شروط الشركه|موردين.*مفضل|مشاريع الشركه/.test(q)){
+    const memory=await getAhmadMemory()
+    return {text:memory.revision?`${memory.text || 'الذاكرة المعتمدة فارغة.'}\nالمصدر: ذاكرة الشركة المعتمدة، آخر اعتماد ${memory.updated_at || 'غير معروف'}. لتصحيحها افتح «ذاكرة الشركة».`:'لا توجد معلومات معتمدة في ذاكرة الشركة حتى الآن. مسؤول الشركة يضيفها من زر «ذاكرة الشركة». لم أستنتج تفضيلات من الطلبات.'}
+  }
   const wantsCount = /كم|عدد|احصا|ملخص/.test(q)
   if (wantsCount && /كراس/.test(q)) {
     const { booklets } = await getAhmadBooklets()
@@ -121,18 +151,8 @@ export async function askAhmadAgent(message: string, history: { role: string; te
     return { text: `المراسلات المتاحة${scope.rfqId ? ' للطلب المفتوح' : ' لحسابك'}: ${count(threads.length)} محادثة.\n${threads.slice(0, 20).map(t => `${supplierName(t)} · ${t.request_context?.reference || ''}\n${t.preview || 'لا يوجد نص معاينة'}`).join('\n\n')}${threads.length > 20 ? '\n\nهذه أحدث 20 محادثة. حدّد اسم المورد لقراءة رسائله.' : ''}` }
   }
 
-  // Each source fails independently; unknown data stays unknown rather than zero.
-  const sources = {
-    booklets: () => getAhmadBooklets(), requests: () => listBuyerRfqs(),
-    suppliers: () => listConstructionSuppliers({ limit: 10 }), reports: () => getConstructionReports({ rfqId: scope.rfqId }),
-    correspondence: () => listConstructionInboxThreads({ filter: 'all', rfq_id: scope.rfqId }),
-    ...(scope.rfqId ? { selectedRequest: () => getConstructionRfq(scope.rfqId!), comparison: () => getConstructionComparison(scope.rfqId!) } : {}),
-    ...(scope.bookletId ? { selectedBooklet: () => getConstructionBooklet(scope.bookletId!) } : {}),
-  }
-  const keys = Object.keys(sources) as (keyof typeof sources)[]
-  const results = await Promise.allSettled(keys.map(k => sources[k]!()))
-  const context: Record<string, unknown> = { scope, fetched_at: new Date().toISOString(), unavailable: [] }
-  results.forEach((r, i) => { if (r.status === 'fulfilled') context[keys[i]] = r.value; else (context.unavailable as string[]).push(keys[i]) })
+  // Company memory and scoped procurement facts are reloaded by the server.
+  const context: Record<string, unknown> = { scope: { ...scope, document: undefined }, document_review: scope.document }
   try { return { text: await askAhmad(message, history, scope.rfqId, context) } }
   catch {
     return { text: 'المحادثة الذكية لا تستجيب حاليًا. تقدر تسألني مباشرة: كم كراسة؟ كم مورد؟ كم طلب؟ ملخص العروض؟ رسائل اسم المورد؟ أو أرسل إلى اسم المورد: نص الرسالة. وأقدر أفتح لك إنشاء كراسة جديدة.' }

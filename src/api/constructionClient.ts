@@ -3826,3 +3826,12 @@ export type SupplierPriceMemoryResult = {
 export async function getSupplierPriceMemory(id:string):Promise<SupplierPriceMemoryResult> {
   return request<SupplierPriceMemoryResult>(`/api/construction/rfqs/${encodeURIComponent(id)}/price-memory`)
 }
+
+export type AhmadCompanyMemory = { text: string; revision: string | null; updated_at: string | null; can_edit: boolean }
+export function getAhmadMemory() { return request<AhmadCompanyMemory>('/api/construction/assistant/memory') }
+export function saveAhmadMemory(text: string, expectedRevision: string | null) { return request<AhmadCompanyMemory>('/api/construction/assistant/memory', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, expected_revision: expectedRevision }) }) }
+export type AhmadDocument = { review_required: boolean; summary: string | null; items: Array<{ name: string | null; quantity: number | null; unit: string | null; unit_price: number | null; total: number | null; specification: string | null; uncertain: boolean }>; tax: string | null; shipping: string | null; payment: string | null; delivery: string | null; uncertainties: string[] }
+export function readAhmadDocument(file: File) {
+  if (file.size > 8 * 1024 * 1024 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('اختر صورة أو PDF لا يتجاوز 8 ميجابايت.')
+  return request<AhmadDocument>('/api/construction/assistant/read-document', { method: 'POST', headers: { 'Content-Type': file.type }, body: file, timeoutMs: 90000 })
+}

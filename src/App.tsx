@@ -28,7 +28,7 @@ import { SupplierJoinView } from './views/SupplierJoinView'
 import { SupplierJoinsAdminView } from './views/SupplierJoinsAdminView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFarqSession } from './api/useFarqSession'
 import { restoreSession } from './store/session'
 import { LearningReviewView } from './views/LearningReviewView'
@@ -36,13 +36,19 @@ import { ServicesAdminView, ServiceOffView } from './views/ServicesAdminView'
 import { useServices } from './api/useServices'
 import { serviceForView, viewAllowed } from './lib/services'
 import AhmadAssistant from './components/AhmadAssistant'
-import { askAhmadAgent } from './lib/ahmadAgent'
+import { askAhmadAgent, type AhmadScope } from './lib/ahmadAgent'
 
 function ProcurementAssistant() {
-  const { navigate, selectedRfqId, selectedBookletId, view } = useProcurement()
+  const { navigate, selectedRfqId, selectedBookletId, selectedSupplierId, selectedThreadId, selectedQuoteVersionId, view } = useProcurement()
   const session = useFarqSession()
+  const [page,setPage] = useState<AhmadScope>({})
+  useEffect(()=>{const handle=(event:Event)=>setPage((event as CustomEvent<AhmadScope>).detail);window.addEventListener('ahmad-page-context',handle);return()=>window.removeEventListener('ahmad-page-context',handle)},[])
+  const requestViews=['rfq-detail','offers','offer-detail','comparison','award','inbox-thread']
+  const scope:AhmadScope={view,rfqId:requestViews.includes(view)?selectedRfqId:undefined,bookletId:view==='booklet-detail'?selectedBookletId:undefined,supplierId:view==='supplier-detail'?selectedSupplierId:undefined,threadId:view==='inbox-thread'?selectedThreadId:undefined,quoteVersionId:view==='offer-detail'?selectedQuoteVersionId:undefined,...(view==='rfq-detail' && page.rfqId===selectedRfqId?page:{})}
+  const key=JSON.stringify(scope)
+  const label=scope.rfqId?`الطلب ${scope.rfqId.slice(0,8)}${scope.supplierId?' · المورد المحدد':''}${scope.tab?` · ${{items:'البنود',messages:'المراسلات',quotes:'العروض',summary:'ملخص الطلب',suppliers:'الموردون'}[scope.tab] || scope.tab}`:''}`:scope.threadId?'المحادثة المفتوحة':'حساب الشركة'
   if (view === 'supplier' || view === 'join') return null
-  return <AhmadAssistant key={session.user?.id || 'guest'} signedIn={session.isAuthenticated} ask={(message, history) => askAhmadAgent(message, history, { rfqId: selectedRfqId, bookletId: selectedBookletId })} onAction={action => navigate(action === 'upload' ? 'create-upload' : action === 'offers' && selectedRfqId ? 'offers' : 'rfq-list')} />
+  return <AhmadAssistant key={session.user?.id || 'guest'} contextKey={key} contextLabel={label} signedIn={session.isAuthenticated} ask={(message, history, document) => askAhmadAgent(message, history, {...scope,document})} onAction={action => navigate(action === 'upload' ? 'create-upload' : action === 'offers' && selectedRfqId ? 'offers' : 'rfq-list')} />
 }
 
 function AppRoutes() {
