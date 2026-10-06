@@ -38,6 +38,7 @@ export type HomeLine = {
     supplierName: string
     vat: VatBasis
     fromChat: boolean
+    needsReview: boolean
     /** «خفّض X%»: this offer's newer version lowered the price. */
     cutPercent: number | null
   } | null
@@ -231,7 +232,14 @@ export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now(
   const names = supplierNames(detail)
   const matrix = buildBookletMatrix(detail)
   const lines: HomeLine[] = matrix.rows.map((row) => {
-    const best: BookletCell | undefined = row.best_supplier_id ? row.cells.get(row.best_supplier_id) : undefined
+    // The summary shows the lowest recorded unit price, even with one quote,
+    // a tie or mixed VAT. Preserve review flags instead of hiding the price.
+    const best: BookletCell | undefined = [...row.cells.values()]
+      .filter((offer) => {
+        const price = num(offer.unit_price)
+        return price != null && price >= 0 && upper(offer.currency || 'SAR') === 'SAR'
+      })
+      .sort((a, b) => Number(a.unit_price) - Number(b.unit_price) || String(a.supplier_id).localeCompare(String(b.supplier_id)))[0]
     const price = num(best?.unit_price)
     return {
       key: row.line_key,
@@ -249,6 +257,7 @@ export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now(
               supplierName: names.get(String(best.supplier_id)) || 'مورد',
               vat: vatBasis(best.prices_include_tax),
               fromChat: upper(best.entered_by) === FARQ_FROM_CHAT,
+              needsReview: best.held,
               cutPercent: offerCut(best)?.percent ?? null,
             }
           : null,
