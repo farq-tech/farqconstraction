@@ -117,7 +117,7 @@ export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 export function confidenceOf(s: Supplier): Confidence {
   if (s.outOfCity) return 'MAYBE'
   if (s.learned || isPriorQuoter(s)) return 'SURE'
-  if (s.roundOutcome) return s.roundOutcome.grade === 'PRICED' || s.roundOutcome.grade === 'ANSWERED' ? 'SURE' : 'MAYBE'
+  if (s.roundOutcome?.grade === 'PRICED' || s.roundOutcome?.grade === 'ANSWERED') return 'SURE'
   if (s.evidence === 'دليل مباشر' || s.evidence === 'دليل منتج') return 'SURE'
   if (s.evidence === 'من الكتالوج' || s.evidence === 'تسمية آلية' || s.evidence === 'خريطة فرق') return 'LIKELY'
   if (s.evidence === 'نشاط متطابق') {

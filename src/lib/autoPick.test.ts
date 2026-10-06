@@ -145,7 +145,7 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
       mail('mail-maybe', { evidence: 'على مستوى النشاط', why: 'نشاط العائلة: «مواد بناء»' }),
       wa('wa-maybe', { evidence: 'على مستوى النشاط' }),
     ], {
-      outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar'), roundOutcome: { grade: 'SIMILAR' } }] },
+      outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar', { evidence: 'نتائج الجولات' }), roundOutcome: { grade: 'SIMILAR' } }] },
     })
     const ids = autoPickConfident(item).map((s) => s.id)
     expect(ids).toEqual(['wa-priced', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'mail-lineword'])
@@ -156,6 +156,10 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
       outcomeSuggestion: { suppliers: [wa('same', { evidence: 'نتائج الجولات', roundOutcome: { grade: 'SIMILAR' } })] },
     })
     expect(autoPickConfident(item).map(s => [s.id, s.evidence])).toEqual([['same', 'دليل منتج']])
+  })
+  it('does not let a weak outcome override independent product evidence on one record', () => {
+    const item = line(11, 'cement', [wa('same', { evidence: 'دليل منتج', roundOutcome: { grade: 'SIMILAR' } })])
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['same'])
   })
   it('recognizes the buyer-choice lane without a redundant learned flag', () => {
     const item = line(10, 'cement', [], { learnedSuggestion: { suppliers: [wa('chosen', { evidence: 'اختيارك' })] } })
