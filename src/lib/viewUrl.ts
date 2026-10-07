@@ -1,6 +1,6 @@
 import type { AppView } from '../types'
 
-export const simpleViews: AppView[] = ['home', 'settings', 'reports', 'material-prices', 'create-upload', 'create-proposals', 'rfq-list', 'supplier-management', 'learning-review', 'access-denied', 'services', 'tenders', 'booklets', 'login']
+export const simpleViews: AppView[] = ['home', 'settings', 'reports', 'material-prices', 'create-upload', 'create-proposals', 'rfq-list', 'supplier-management', 'learning-review', 'access-denied', 'services', 'tenders', 'booklets', 'login', 'signup', 'contractor-registrations']
 
 export function viewUrl(current: string, view: AppView, ids: { rfqId?: string | null; threadId?: string | null; bookletId?: string | null } = {}): string {
   const url = new URL(current)

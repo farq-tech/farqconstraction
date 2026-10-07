@@ -2,6 +2,8 @@ import { ProcurementProvider, useProcurement } from './procurementContext'
 import { isReadOnlyBuild } from './api/readOnlyMode'
 import { Shell } from './components/Shell'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ContractorRegistrationsView } from './views/ContractorRegistrationsView'
+import { ContractorSignupView } from './views/ContractorSignupView'
 import { LoginView } from './views/LoginView'
 import { InviteView } from './views/InviteView'
 import { HomeView } from './views/HomeView'
@@ -80,6 +82,7 @@ function AppRoutes() {
     void restoreSession()
   }, [session.isAuthenticated])
 
+  if (view === 'signup') return <ContractorSignupView navigate={navigate} />
   if (view === 'supplier') return <SupplierPortalView navigate={navigate} />
   if (view === 'join') return <SupplierJoinView navigate={navigate} />
   // An invited colleague arrives signed out; the page creates the session.
@@ -103,6 +106,8 @@ function AppRoutes() {
   if ((view === 'login' && !session.isAuthenticated) || (import.meta.env.PROD && !session.isAuthenticated)) {
     return <LoginView navigate={navigate} />
   }
+
+  if (view === 'contractor-registrations') return <ContractorRegistrationsView navigate={navigate} />
 
   // A screen whose add-on service is off for this account («الخدمات»). With
   // gating off or no answer from the server, nothing is ever hidden here.

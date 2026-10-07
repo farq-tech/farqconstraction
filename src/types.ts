@@ -1,5 +1,7 @@
 export type AppView =
   | 'login'
+  | 'signup'
+  | 'contractor-registrations'
   | 'home'
   | 'material-prices'
   | 'tenders'

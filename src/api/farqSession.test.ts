@@ -290,3 +290,14 @@ describe('farqSession — sign out', () => {
     session.dispose()
   })
 })
+
+it('contractor signup sends profile and consent while generic signup stays compatible', async () => {
+  const fetcher = recordingFetch(() => jsonResponse(200, loginBody()))
+  const auth = createFarqSession({ storage: fakeStorage(), fetchImpl: fetcher.impl })
+  const contractor = {companyName: 'شركة', contactName: 'مسؤول', city: 'الرياض', phone: '0551234567', contactConsent: true}
+  await auth.signUp('new@example.sa', 'long-password', contractor)
+  expect(fetcher.calls[0].body.contractor).toEqual(contractor)
+  expect(auth.isAuthenticated()).toBe(true)
+  await auth.signUp('colleague@example.sa', 'long-password')
+  expect(fetcher.calls[1].body).toEqual({email: 'colleague@example.sa', password: 'long-password'})
+})

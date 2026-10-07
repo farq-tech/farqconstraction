@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { FarqAuthError, farqSession } from '../api/farqSession'
+import { apiBase } from '../api/apiBase'
+import { DEFAULT_COMPANY_PROFILE, loadCompanyProfile, saveCompanyProfile } from '../lib/companyProfile'
 import type { NavProps } from '../types'
 
 /**
@@ -28,9 +30,18 @@ export function LoginView({ navigate }: NavProps) {
     setLoading(true)
     try {
       await farqSession.signIn(email.trim(), password)
+      if (!loadCompanyProfile().name) {
+        try {
+          const response = await fetch(`${apiBase()}/api/auth/contractor-profile`, { headers: { Authorization: `Bearer ${farqSession.getAccessToken()}` } })
+          if (response.ok) {
+            const { data } = await response.json()
+            if (data?.profile) saveCompanyProfile({ ...DEFAULT_COMPANY_PROFILE, name: data.profile.company_name, legalName: data.profile.company_name, city: data.profile.city, defaultDeliveryCity: data.profile.city, phone: data.profile.phone, email: email.trim() })
+          }
+        } catch { /* The session remains usable if profile hydration is unavailable. */ }
+      }
       // Never keep the password in component state after it has been spent.
       setPassword('')
-      navigate('home')
+      navigate(new URLSearchParams(window.location.search).get('view') === 'contractor-registrations' ? 'contractor-registrations' : 'home')
     } catch (err) {
       setError(loginErrorAr(err))
     } finally {
@@ -104,6 +115,7 @@ export function LoginView({ navigate }: NavProps) {
             ) : 'دخول'}
           </button>
 
+<button type="button" className="w-full mt-5 text-sm font-bold text-[#123F3A]" onClick={() => navigate('signup')}>ما عندك حساب؟ سجّل كمقاول</button>
 {!import.meta.env.PROD && (
           <button
             type="button"
