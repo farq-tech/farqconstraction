@@ -541,7 +541,7 @@ function PriceCutsPanel({ cuts, now, onOpen }: { cuts: PriceCut[]; now: number; 
   return (
     <section className="bg-white border border-neutral-100 rounded-2xl overflow-hidden">
       <h2 className="px-4 pt-4 pb-2 text-base font-bold text-[#0D1F1D]">
-        موردون خفّضوا أسعارهم
+        تغيرات أسعار الموردين
         <span className="text-xs font-semibold text-neutral-400 ms-1">({cuts.length})</span>
       </h2>
       <ul className="divide-y divide-neutral-50">
@@ -557,7 +557,7 @@ function PriceCutsPanel({ cuts, now, onOpen }: { cuts: PriceCut[]; now: number; 
                       {c.lineName} · <Ref value={c.reference} />
                     </div>
                   </div>
-                  <CutChip percent={c.percent} />
+                  {c.needsConfirmation ? <span className="text-xs font-bold text-amber-800">تغير كبير — يحتاج تأكيد</span> : <CutChip percent={c.percent} />}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-sm tabular-nums">
                   <span className="text-neutral-400 line-through">{unitPriceLabel(c.oldPrice, c.currency)}</span>
@@ -569,10 +569,11 @@ function PriceCutsPanel({ cuts, now, onOpen }: { cuts: PriceCut[]; now: number; 
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-500">
                   {c.lineAmount != null && (
                     <span>
-                      وفر <span className="font-bold text-[#0D1F1D] tabular-nums">{MONEY(c.lineAmount, c.currency)}</span> على{' '}
+                      فرق بالقيمة <span className="font-bold text-[#0D1F1D] tabular-nums">{MONEY(c.lineAmount, c.currency)}</span> على{' '}
                       {formatQuantity(c.quantity, c.uom)}
                     </span>
                   )}
+                  {c.needsConfirmation && <span className="text-amber-800">قد يكون تصحيح سعر أو وحدة؛ لا يُحسب كتوفير قبل التأكيد.</span>}
                   {c.cheapestNow ? (
                     <span className="px-1.5 py-px rounded bg-[#1a7a45] text-white font-bold">صار الأرخص</span>
                   ) : (

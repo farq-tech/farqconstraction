@@ -23,6 +23,13 @@ const HOUR = 3_600_000
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
 describe('summarizeBooklet', () => {
+  it('shows a suspicious price change without multiplying it into savings', () => {
+    const d = clone(PR580)
+    const o = d.matrix[0]!.offers[0]!
+    Object.assign(o, { unit_price: 2, previous_unit_price: 2000, price_cut_percent: 99.9, price_cut_per_unit: 1998 })
+    const changes = priceCutsFor(d, summarizeBooklet(d, FIXTURE_NOW))
+    expect(changes.find(c => c.supplierId === String(o.supplier_id))).toMatchObject({ needsConfirmation: true, lineAmount: null, cheapestNow: false })
+  })
   it('never promotes a held or zero price over an eligible supplier price', () => {
     const d = clone(PR580)
     const offers = d.matrix[0]!.offers

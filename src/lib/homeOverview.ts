@@ -79,6 +79,7 @@ export type HomeTotals = {
 
 /** «موردون خفّضوا أسعارهم»: one line whose supplier sent a lower price. */
 export type PriceCut = {
+  needsConfirmation: boolean
   bookletId: string
   reference: string
   supplierId: string
@@ -257,7 +258,7 @@ export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now(
               vat: vatBasis(best.prices_include_tax),
               fromChat: upper(best.entered_by) === FARQ_FROM_CHAT,
               needsReview: best.held,
-              cutPercent: offerCut(best)?.percent ?? null,
+              cutPercent: (offerCut(best)?.percent ?? 0) >= 90 ? null : offerCut(best)?.percent ?? null,
             }
           : null,
     }
@@ -330,7 +331,11 @@ export function priceCutsFor(raw: ConstructionBookletDetail, card: HomeBooklet):
       if (!cut) continue
       const id = String(o.supplier_id)
       const quantity = line?.quantity ?? null
+      // A near-total decrease may be a unit/decimal correction, not negotiation.
+      // Preserve the visible change, but do not multiply it into a claimed saving.
+      const needsConfirmation = cut.percent >= 90
       out.push({
+        needsConfirmation,
         bookletId: card.id,
         reference: card.reference,
         supplierId: id,
@@ -346,8 +351,8 @@ export function priceCutsFor(raw: ConstructionBookletDetail, card: HomeBooklet):
         currency: o.currency || 'SAR',
         percent: cut.percent,
         perUnit: cut.perUnit,
-        lineAmount: quantity != null ? round2(cut.perUnit * quantity) : null,
-        cheapestNow: best.get(String(m.line_key)) === id,
+        lineAmount: !needsConfirmation && quantity != null ? round2(cut.perUnit * quantity) : null,
+        cheapestNow: !needsConfirmation && best.get(String(m.line_key)) === id,
         fromChat: upper(o.entered_by) === FARQ_FROM_CHAT,
         at: time(o.submitted_at),
       })
