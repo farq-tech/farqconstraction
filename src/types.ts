@@ -24,6 +24,7 @@ export type AppView =
   | 'learning-review'
   | 'access-denied'
   | 'supplier'
+  | 'procurement-inbox'
   | 'inbox'
   | 'inbox-thread'
   | 'invite'

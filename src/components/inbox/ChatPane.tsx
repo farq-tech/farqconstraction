@@ -31,6 +31,7 @@ import {
 } from '../../lib/quickReplies'
 import type { QuoteEvent } from '../../lib/supplierPanel'
 import { visibleReplyDraft } from '../../lib/supplierReply'
+import HumanTakeover from '../procurement/HumanTakeover'
 import ReplyDraftCard from './ReplyDraftCard'
 import InboxAiPanel from './InboxAiPanel'
 import { LinkIcon, XIcon } from '../../icons'
@@ -625,6 +626,7 @@ export function ChatPane({
             )}
           </div>
         </div>
+        {thread&&!thread.locked&&<HumanTakeover key={String(thread.invite_id)} inviteId={String(thread.invite_id)} canWrite={Boolean(thread.can_reply)&&!readOnly}/>}
         {thread && !thread.locked && thread.messages.some((m) => m.direction === 'INBOUND') && (
           <button
             type="button"

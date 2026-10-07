@@ -4,7 +4,7 @@ import type { AppView } from '../types'
 import { HomeIcon, FileIcon, InboxIcon, UsersIcon, SettingsIcon, BellIcon, AccountIcon, PriceIcon } from '../icons'
 import { MaterialPriceTicker } from './MaterialPriceTicker'
 import { NotificationsDrawer } from './NotificationsDrawer'
-import { getConstructionMe, inboxUnreadConversations, listBuyerRfqs, listConstructionInboxMessages } from '../api/constructionClient'
+import { getConstructionMe, inboxUnreadConversations, listBuyerRfqs, listConstructionInboxMessages, getProcurementSummary } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { useFarqSession } from '../api/useFarqSession'
 import { useServices } from '../api/useServices'
@@ -71,6 +71,7 @@ function buildNav(
       badge: inboxBadge || undefined,
       active: (v: AppView) => v === 'inbox' || v === 'inbox-thread',
     },
+    {id:'procurement-inbox' as AppView,label:'أسئلة الموردين',Icon:InboxIcon,active:(v:AppView)=>v==='procurement-inbox'},
     {
       id: 'supplier-management' as AppView,
       label: 'الموردون',
@@ -141,8 +142,10 @@ export function Shell({ view, navigate, children }: ShellProps) {
   const [showNotifs, setShowNotifs] = useState(false)
   const [offerCount, setOfferCount] = useState<number | null>(null)
   const [inboxUnread, setInboxUnread] = useState<number | null>(null)
+  const [procurementCount,setProcurementCount]=useState<number|null>(null)
   const [latestRfqId, setLatestRfqId] = useState<string | null>(null)
   const session = useFarqSession()
+  useEffect(()=>{let active=true;setProcurementCount(null);if(!session.isAuthenticated)return;const load=()=>getProcurementSummary().then(d=>{if(active)setProcurementCount(d.needs_intervention)}).catch(()=>{if(active)setProcurementCount(null)});void load();const timer=setInterval(load,30000);window.addEventListener('procurement-updated',load);return()=>{active=false;clearInterval(timer);window.removeEventListener('procurement-updated',load)}},[session.isAuthenticated,session.user?.id])
   // The sidebar used to state «وضع تجريبي / بدون تسجيل دخول» unconditionally,
   // so a genuinely signed-in owner was told he was not signed in.
   const displayName = session.user?.displayName?.trim() || ''
@@ -319,6 +322,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
       </aside>
 
       <div className="lg:mr-60">
+        {procurementCount!=null&&procurementCount>0&&<button onClick={()=>navigate('procurement-inbox')} className="w-full border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900 text-right">تحتاج تدخلك <span className="inline-flex items-center justify-center rounded-full bg-amber-200 min-w-6 px-2 ms-2">{procurementCount}</span></button>}
         <header className="lg:hidden sticky top-0 z-40 bg-[#123F3A] px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate('home')} className="flex items-center gap-2">
             <FarqWordmark className="h-5 bg-white" />
@@ -326,6 +330,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
             <span className="text-white/90 font-bold text-base leading-none">بناء</span>
           </button>
           <div className="flex items-center gap-2">
+            <button aria-label="أسئلة الموردين" onClick={()=>navigate('procurement-inbox')} className="text-xs font-bold text-white/80 px-2 py-1">أسئلة الموردين</button>
             {/* The sidebar's «طلب تسعير جديد» on a phone: opens «كيف تبي تبدأ طلب التسعير؟». */}
             <button
               onClick={() => navigate('create-upload')}
@@ -350,7 +355,7 @@ export function Shell({ view, navigate, children }: ShellProps) {
         </header>
 
         <nav className="lg:hidden fixed bottom-0 right-0 left-0 bg-white border-t border-neutral-100 z-40 flex">
-          {NAV.filter((item) => item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services' && item.id !== 'supplier-joins' && item.id !== 'tenders').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
+          {NAV.filter((item) => item.id !== 'procurement-inbox' && item.id !== 'learning-review' && item.id !== 'settings' && item.id !== 'booklets' && item.id !== 'services' && item.id !== 'supplier-joins' && item.id !== 'tenders').slice(0, 6).map(({ id, label, Icon, badge, active }) => {
             const isActive = active(view)
             return (
               <button

@@ -32,3 +32,6 @@ logs/
 
 # App Store Connect API keys never belong in the repo
 *.p8
+
+# Private supplier conversation evaluation exports
+/artifacts/procurement-eval/

@@ -38,6 +38,7 @@ export function resolveServices(response: ConstructionMyServices | null | undefi
 
 /** Screens that belong to a service; anything not listed is always shown. */
 const VIEW_SERVICE: Partial<Record<AppView, string>> = {
+  'procurement-inbox':'rfq',
   'rfq-list': 'rfq',
   'create-upload': 'rfq',
   'create-proposals': 'rfq',

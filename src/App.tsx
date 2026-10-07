@@ -26,6 +26,7 @@ import { AccessDeniedView } from './views/AccessDeniedView'
 import { SupplierPortalView } from './views/SupplierPortalView'
 import { SupplierJoinView } from './views/SupplierJoinView'
 import { SupplierJoinsAdminView } from './views/SupplierJoinsAdminView'
+import ProcurementInboxView from './views/ProcurementInboxView'
 import { InboxView } from './views/InboxView'
 import { InboxThreadView } from './views/InboxThreadView'
 import { useEffect, useRef, useState } from 'react'
@@ -148,6 +149,7 @@ function AppRoutes() {
       {view === 'reports' && <ReportsView navigate={navigate} />}
       {view === 'settings' && <SettingsView navigate={navigate} />}
       {view === 'learning-review' && <LearningReviewView navigate={navigate} />}
+      {view === 'procurement-inbox' && <ProcurementInboxView navigate={navigate} />}
       {view === 'inbox' && <InboxView navigate={navigate} />}
       {view === 'inbox-thread' && <InboxThreadView navigate={navigate} />}
       {view === 'access-denied' && <AccessDeniedView navigate={navigate} />}
