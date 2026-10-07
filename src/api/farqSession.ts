@@ -404,8 +404,8 @@ export function createFarqSession(options: FarqSessionOptions = {}) {
     },
 
     /** Create an account (an invited colleague with no account yet) and sign in. */
-    async signUp(email: string, password: string): Promise<FarqSession> {
-      const result = await post<ApiSessionPayload>('/signup', { email, password })
+    async signUp(email: string, password: string, contractor?: { companyName: string; contactName: string; city: string; phone: string; contactConsent: boolean }): Promise<FarqSession> {
+      const result = await post<ApiSessionPayload>('/signup', { email, password, ...(contractor ? {contractor} : {}) })
       if (!result.ok || !result.data) {
         throw new FarqAuthError(
           result.status === 409 ? 'هذا البريد لديه حساب بالفعل.' : result.message || 'تعذّر إنشاء الحساب.',
