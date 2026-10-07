@@ -39,6 +39,7 @@ export default function PdfAttachmentPreview({ url }: { url: string }) {
         const n = Math.min(pageNumber, doc.numPages)
         {
           const page = await doc.getPage(n)
+          try {
           if (cancelled || !host.current) return
           const base = page.getViewport({ scale: 1 })
           const width = Math.max(240, host.current.clientWidth)
@@ -54,8 +55,8 @@ export default function PdfAttachmentPreview({ url }: { url: string }) {
           host.current.appendChild(canvas)
           renderTask = page.render({ canvasContext: canvas.getContext('2d')!, viewport })
           await renderTask.promise
-          page.cleanup()
           if (!cancelled) setStatus('')
+          } finally { page.cleanup() }
         }
       } catch {
         if (!cancelled) setStatus('تعذر عرض الملف. أعد فتح المرفق للمحاولة مرة أخرى.')
