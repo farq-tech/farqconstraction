@@ -197,6 +197,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   /* ---------- step 2: suppliers ---------- */
 
   function toggle(itemId: number, supplierId: string) {
+    if (!(selected[itemId] || []).includes(supplierId)) automaticSelections.current[itemId] = (automaticSelections.current[itemId] || []).filter(id => id !== supplierId)
     setSelected((prev) => {
       const cur = prev[itemId] || []
       return { ...prev, [itemId]: cur.includes(supplierId) ? cur.filter((x) => x !== supplierId) : [...cur, supplierId] }

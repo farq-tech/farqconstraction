@@ -341,6 +341,7 @@ export function UploadView({ navigate }: NavProps) {
   const [dragging, setDragging] = useState(false)
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
+  const [pendingCityFile, setPendingCityFile] = useState<File | null>(null)
   const [deliveryCity, setDeliveryCity] = useState(() => getSession().matchingCity || loadCompanyProfile().defaultDeliveryCity || 'الرياض')
   const [errorMsg, setErrorMsg] = useState('')
   const [needsSignIn, setNeedsSignIn] = useState(false)
@@ -691,13 +692,13 @@ export function UploadView({ navigate }: NavProps) {
   useEffect(() => {
     const file = takePendingUpload()
     if (file) {
-      void runProcessing(file)
+      setPendingCityFile(file)
       return
     }
     // A refresh (or a closed tab) while a booklet was being read: carry on.
     let cancelled = false
     void loadInflightUpload(farqSession.getUser()?.id ?? null).then((saved) => {
-      if (!cancelled && saved) void runProcessing(saved)
+      if (!cancelled && saved) setPendingCityFile(saved)
     })
     return () => {
       cancelled = true
@@ -784,6 +785,11 @@ export function UploadView({ navigate }: NavProps) {
           if (current.length) setCartItems(current.map(item => ({ ...item, needsMatch: true })), newCartDocumentId)
         }} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2" />
       </label>}
+      {phase === 'idle' && pendingCityFile && <button type="button" disabled={!deliveryCity.trim()} onClick={() => {
+        const file = pendingCityFile
+        setPendingCityFile(null)
+        void runProcessing(file)
+      }} className="mb-4 w-full rounded-xl bg-[#123F3A] text-white p-3 font-bold">قراءة {pendingCityFile.name} ومطابقة الموردين في {deliveryCity}</button>}
       {phase === 'idle' && <button type="button" onClick={() => setCameraOpen(true)} className="mb-4 w-full rounded-2xl bg-[#123F3A] px-4 py-4 text-white font-bold">قراءة طلب شراء بالكاميرا</button>}
       {phase === 'idle' ? (
         <StartChooser

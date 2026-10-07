@@ -944,6 +944,9 @@ export function ProposalsView({ navigate }: NavProps) {
     // Only lines that already list this supplier follow; a line is never given a
     // supplier here that its own card does not show.
     const ids = sameMaterialIds(itemId).filter((id) => id === itemId || items.find((i) => i.id === id)?.suppliers.some((s) => s.id === supplierId))
+    if (!turningOff) persistItems(items.map(item => ids.includes(item.id)
+      ? { ...item, autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => id !== supplierId) }
+      : item))
     setSelected((prev) => {
       const next = { ...prev }
       for (const id of ids) {
