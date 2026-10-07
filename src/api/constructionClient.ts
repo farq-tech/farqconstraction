@@ -1746,6 +1746,13 @@ export async function getConstructionDispatch(rfqId: string): Promise<Constructi
   return request<ConstructionDispatchJob>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/dispatch`)
 }
 
+/** Add scoped invitations to the current version; this never sends messages. */
+export async function addConstructionRfqSuppliers(rfqId: string, suppliers: Array<{ external_key: string; line_keys: string[] }>) {
+  return request<{ invites: Array<{ invite_id: string; supplier_id: string; status: string }> }>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/suppliers`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suppliers }),
+  })
+}
+
 export async function cancelConstructionDispatch(rfqId: string): Promise<ConstructionDispatchJob> {
   return request<ConstructionDispatchJob>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/dispatch/cancel`, { method: 'POST' })
 }

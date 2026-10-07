@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { getRfqSupplierPlan } from '../api/constructionClient'
+import { addConstructionRfqSuppliers, getRfqSupplierPlan } from '../api/constructionClient'
+import { extraPlanSuppliers } from '../lib/extraPlanSuppliers'
 import {
   channelClass,
   channelLabel,
@@ -92,6 +93,26 @@ export default function SupplierPlanPanel({ rfqId }: { rfqId: string }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hidden, setHidden] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [addedNote, setAddedNote] = useState('')
+  const extras = plan ? extraPlanSuppliers(plan) : []
+
+  async function addAll() {
+    setAdding(true)
+    setError(null)
+    let added = 0
+    try {
+      for (let start = 0; start < extras.length; start += 100) {
+        const result = await addConstructionRfqSuppliers(rfqId, extras.slice(start, start + 100))
+        added += result.invites.filter(i => i.status === 'CREATED').length
+      }
+      setAddedNote(`أُضيف ${added} موردين لنفس الطلب. لم يُرسل لهم بعد؛ راجع الإرسال من قائمة الموردين.`)
+      setPlan(await getRfqSupplierPlan(rfqId))
+    } catch {
+      setError(`تعذر إكمال الإضافة. أُضيف ${added} موردين قبل التوقف؛ أعد فتح المطابقة قبل المحاولة.`)
+      setPlan(await getRfqSupplierPlan(rfqId).catch(() => null))
+    } finally { setAdding(false) }
+  }
 
   async function toggle() {
     const next = !open
@@ -120,6 +141,10 @@ export default function SupplierPlanPanel({ rfqId }: { rfqId: string }) {
       </button>
       {open && loading && <div className="text-xs text-neutral-500 px-1">جارٍ قراءة الطلب والبحث في الدليل…</div>}
       {open && error && <div className="text-xs text-rose-600 px-1">{error}</div>}
+      {open && addedNote && <p role="status" className="text-sm text-[#123F3A]">{addedNote}</p>}
+      {open && extras.length > 0 && <button disabled={adding} onClick={() => void addAll()} className="rounded-xl bg-[#123F3A] px-4 py-2 text-sm font-bold text-white disabled:opacity-40">
+        {adding ? 'جارٍ إضافة الموردين…' : `إضافة جميع الموردين الإضافيين بدليل قوي (${extras.length}) — دون إرسال`}
+      </button>}
       {open && plan && (
         <div className="space-y-2">
           <div className="bg-white border border-neutral-100 rounded-xl px-4 py-3 text-sm">
