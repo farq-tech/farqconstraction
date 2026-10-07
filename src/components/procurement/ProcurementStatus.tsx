@@ -1,3 +1,5 @@
+import { supplierCountForDisplay } from "../../lib/supplierCountVisibility"
+import { useActualSupplierCounts } from "../priceReview/useActualSupplierCounts"
 import { useEffect, useState } from "react"
 import {
   getProcurementSummary,
@@ -10,6 +12,7 @@ export default function ProcurementStatus({
   rfqId: string
   onOpen: () => void
 }) {
+  const canViewActualCounts = useActualSupplierCounts()
   const [data, setData] = useState<ProcurementSummary | null>(null)
   useEffect(() => {
     let active = true
@@ -55,10 +58,10 @@ export default function ProcurementStatus({
       </div>
       {data.quote_status && (
         <p className="text-xs text-neutral-600 mt-3">
-          {data.quote_status.contacted} تمت مراسلتهم ·{" "}
+          {supplierCountForDisplay(data.quote_status.contacted, canViewActualCounts)} تمت مراسلتهم ·{" "}
           {data.quote_status.replied} ردوا · {data.quote_status.priced} قدّموا
           عروضًا · {data.quote_status.declined} اعتذروا ·{" "}
-          {data.quote_status.no_response} لم يردوا
+          {supplierCountForDisplay(data.quote_status.no_response, canViewActualCounts)} لم يردوا
         </p>
       )}
       <p className="text-[10px] text-neutral-400 mt-2">

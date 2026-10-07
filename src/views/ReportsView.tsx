@@ -1,3 +1,5 @@
+import { supplierCountForDisplay } from '../lib/supplierCountVisibility'
+import { useActualSupplierCounts } from '../components/priceReview/useActualSupplierCounts'
 import { useEffect, useMemo, useState } from 'react'
 import type { NavProps } from '../types'
 import { useProcurement } from '../procurementContext'
@@ -130,6 +132,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 }
 
 export function ReportsView({ navigate }: NavProps) {
+  const canViewActualCounts = useActualSupplierCounts()
   const { openRfq } = useProcurement()
   const [days, setDays] = useState<number | null>(null)
   const [rfqId, setRfqId] = useState<string | null>(null)
@@ -306,7 +309,7 @@ export function ReportsView({ navigate }: NavProps) {
                     <td className="px-3 py-2.5 tabular-nums">{coverage}%</td>
                     <td className="px-3 py-2.5 tabular-nums">{p.line_offers_total}</td>
                     <td className="px-3 py-2.5 tabular-nums">{p.lines ? Math.round((p.line_offers_total / p.lines) * 100) / 100 : '—'}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{p.reached}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{supplierCountForDisplay(p.reached, canViewActualCounts)}</td>
                     <td className="px-3 py-2.5 tabular-nums">{p.replied}</td>
                     <td className="px-3 py-2.5 text-xs">{p.replied ? duration(p.median_reply_hours) : '—'}</td>
                     <td className="px-3 py-2.5 text-xs">{num(p.spread_value) ? money(p.spread_value) : '—'}</td>
@@ -463,7 +466,7 @@ export function ReportsView({ navigate }: NavProps) {
                       <td className="px-2 py-2 text-xs text-neutral-500">{l.site_address || '—'}</td>
                       <td className="px-2 py-2 tabular-nums">{l.quantity}</td>
                       <td className="px-2 py-2 tabular-nums">{l.offers}</td>
-                      <td className="px-2 py-2 tabular-nums">{l.reached}</td>
+                      <td className="px-2 py-2 tabular-nums">{supplierCountForDisplay(l.reached, canViewActualCounts)}</td>
                       <td className="px-2 py-2 tabular-nums">{l.replied}</td>
                       <td className="px-2 py-2">
                         <button onClick={() => { setDrill(null); openRfq(l.rfq_id, 'rfq-detail') }} className="text-xs font-bold text-olive-700 hover:underline whitespace-nowrap">افتح الطلب</button>

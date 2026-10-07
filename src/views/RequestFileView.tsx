@@ -1,4 +1,6 @@
 import ProcurementStatus from '../components/procurement/ProcurementStatus'
+import { supplierCountForDisplay, supplierCountIsLimited } from '../lib/supplierCountVisibility'
+import { useActualSupplierCounts } from '../components/priceReview/useActualSupplierCounts'
 import { supplierDisplayName } from '../lib/presentationQuality'
 import { quoteCompleteness } from '../lib/quoteCompleteness'
 import { requestPageContext } from '../lib/ahmadProcurement'
@@ -187,6 +189,7 @@ export function RequestFileView({
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const isAdmin = useConstructionAdmin()
+  const canViewActualCounts = useActualSupplierCounts()
 
   const load = useCallback(
     async (
@@ -393,6 +396,8 @@ export function RequestFileView({
     payload.quote_deadline_time,
   )
   const progress = requestProgress(rfq)
+  const displayedReached = supplierCountForDisplay(progress.reached, canViewActualCounts)
+  const limitedReached = supplierCountIsLimited(progress.reached, canViewActualCounts)
   const lines = payload.lines || []
   const matrix = comparison?.quote_matrix || null
   const readySuppliers = new Set((comparison?.supplier_responses || []).filter(r => quoteCompleteness(r.offer).status === 'COMPLETE').map(r => String(r.supplier.id)))
@@ -557,7 +562,7 @@ export function RequestFileView({
           value={progress.items}
           label={progress.items === 1 ? "بند" : "بنود"}
         />
-        <Figure value={progress.reached} label="موردين وصلهم الطلب" />
+        <Figure value={displayedReached} label="موردين وصلهم الطلب" />
         <Figure
           value={progress.quoted}
           label={progress.quoted === 1 ? "عرض مستلم" : "عروض مستلمة"}
@@ -567,7 +572,7 @@ export function RequestFileView({
       <div className="mb-5 bg-white border border-neutral-100 rounded-2xl px-4 py-3">
         <div className="flex items-baseline justify-between mb-1.5 text-sm">
           <span className="font-semibold text-[#0D1F1D]">
-            {progress.quoted} من {progress.reached} موردين ردّوا بعرض
+            {progress.quoted} عروض مستلمة{!limitedReached && ` من ${displayedReached} موردين`}
           </span>
           <span className="text-xs text-neutral-400 tabular-nums">
             {progress.percent}%
@@ -647,7 +652,7 @@ export function RequestFileView({
             {id === "quotes" && progress.quoted > 0
               ? ` (${progress.quoted})`
               : ""}
-            {id === "suppliers" ? ` (${invites.length})` : ""}
+            {id === "suppliers" ? ` (${supplierCountForDisplay(invites.length, canViewActualCounts)})` : ""}
           </button>
         ))}
       </div>
@@ -678,7 +683,7 @@ export function RequestFileView({
             <Empty
               text={
                 progress.reached
-                  ? `لم تصل عروض بعد — ${progress.reached} موردين وصلهم الطلب.`
+                  ? `لم تصل عروض بعد — ${displayedReached} موردين وصلهم الطلب.`
                   : "لم يصل الطلب لأي مورد بعد."
               }
             />

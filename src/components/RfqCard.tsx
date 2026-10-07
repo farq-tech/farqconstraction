@@ -1,3 +1,5 @@
+import { supplierCountForDisplay } from '../lib/supplierCountVisibility'
+import { useActualSupplierCounts } from './priceReview/useActualSupplierCounts'
 import type { RFQSummary } from '../types'
 
 const STATUS: Record<RFQSummary['status'], { label: string; cls: string }> = {
@@ -32,8 +34,9 @@ function Step({ label, value, total, tone }: { label: string; value: number; tot
  * with the time left before quotes close.
  */
 export function RfqCard({ rfq, onOpen }: { rfq: RFQSummary; onOpen: () => void }) {
+  const canViewActualCounts = useActualSupplierCounts()
   const status = STATUS[rfq.status]
-  const total = rfq.suppliers || 0
+  const total = supplierCountForDisplay(rfq.suppliers || 0, canViewActualCounts)
   const showProgress = rfq.status !== 'draft' && total > 0
   return (
     <button
@@ -62,7 +65,7 @@ export function RfqCard({ rfq, onOpen }: { rfq: RFQSummary; onOpen: () => void }
       <div className="text-xs text-neutral-500 mt-2">منشئ الطلب: {rfq.creatorLabel || "غير مسجل"}</div>
       {showProgress && (
         <div className="mt-3 flex gap-3">
-          <Step label="وصلهم الطلب" value={rfq.sent ?? total} total={total} tone="bg-[#123F3A]/40" />
+          <Step label="وصلهم الطلب" value={supplierCountForDisplay(rfq.sent ?? total, canViewActualCounts)} total={total} tone="bg-[#123F3A]/40" />
           <Step label="ردّوا" value={rfq.replied ?? 0} total={total} tone="bg-[#2F6CB5]/70" />
           <Step label="قدّموا عرضًا" value={rfq.offers} total={total} tone="bg-[#1a7a45]" />
         </div>

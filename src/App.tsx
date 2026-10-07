@@ -1,3 +1,5 @@
+import PlatformCompanyReview from './components/PlatformCompanyReview'
+import { getPlatformReviewScope } from './api/platformReviewScope'
 import { ProcurementProvider, useProcurement } from './procurementContext'
 import { isReadOnlyBuild } from './api/readOnlyMode'
 import { Shell } from './components/Shell'
@@ -64,6 +66,12 @@ function AppRoutes() {
   const session = useFarqSession()
   const services = useServices()
   const restored = useRef(false)
+  const [reviewScope, setReviewScope] = useState(getPlatformReviewScope())
+  useEffect(() => {
+    const update = () => setReviewScope(getPlatformReviewScope())
+    window.addEventListener("farq-platform-scope-changed", update)
+    return () => window.removeEventListener("farq-platform-scope-changed", update)
+  }, [])
 
   /*
    * Bring the booklet back after a refresh.
@@ -121,7 +129,8 @@ function AppRoutes() {
 
   return (
     <Shell view={view} navigate={navigate}>
-      <ErrorBoundary resetKey={view}>
+      <PlatformCompanyReview />
+      <ErrorBoundary key={reviewScope || session.user?.id || "own"} resetKey={view}>
       {view === 'home' && <HomeView navigate={navigate} />}
       {view === 'material-prices' && <MaterialPricesView navigate={navigate} />}
       {view === 'tenders' && <TendersView navigate={navigate} />}

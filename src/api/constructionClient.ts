@@ -1,3 +1,4 @@
+import { platformReviewPath, getPlatformReviewScope } from './platformReviewScope'
 import { supplierDisplayName } from '../lib/presentationQuality'
 import { quoteCompleteness } from '../lib/quoteCompleteness'
 /**
@@ -808,12 +809,14 @@ async function rawFetch(
   const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    return await fetch(`${apiBase()}${path}`, {
+    const scopedPath = platformReviewPath(path, fetchInit.method || "GET")
+    return await fetch(`${apiBase()}${scopedPath}`, {
       ...fetchInit,
       signal: controller.signal,
       headers,
     })
   } catch (err) {
+    if (getPlatformReviewScope() && !["GET", "HEAD"].includes(String(fetchInit.method || "GET").toUpperCase())) throw err
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new ConstructionApiError(
         'انتهت مهلة الطلب إلى واجهة البناء — أعد المحاولة أو قلّل عدد البنود.',
@@ -936,12 +939,16 @@ function unwrap<T>(
   return payload.data as T
 }
 
+export async function getPlatformReviewCompanies() {
+  return request<{ companies: Array<{ owner_user_id: string; label: string }> }>('/api/construction/platform/companies')
+}
+
 export async function getConstructionStatus() {
   return request<Record<string, unknown>>('/api/construction/status')
 }
 
 export async function getConstructionMe() {
-  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string; request_scope?: ConstructionRequestScope }>(
+  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string; request_scope?: ConstructionRequestScope; permissions?: { view_actual_supplier_counts?: boolean; view_all_company_booklets?: boolean } }>(
     '/api/construction/me',
   )
 }
