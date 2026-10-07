@@ -18,7 +18,7 @@ export type ReplyKindBadge = {
 const BADGES: Record<string, ReplyKindBadge> = {
   AUTO_REPLY: { label: 'رد آلي من المورد', className: 'bg-neutral-100 text-neutral-600' },
   BUTTON: { label: 'ضغط «متوفر وبسعّره»', className: 'bg-green-50 text-green-800' },
-  NON_TEXT_ACK: { label: 'ملصق أو تفاعل', className: 'bg-neutral-100 text-neutral-500' },
+  NON_TEXT_ACK: { label: 'تأكيد أو تفاعل', className: 'bg-neutral-100 text-neutral-500' },
   ALT_CONTACT: { label: 'يطلب التواصل على رقم آخر', className: 'bg-amber-100 text-amber-800' },
   DECLINED: { label: 'اعتذر', className: 'bg-red-100 text-red-700' },
   INTERESTED: { label: 'مهتم / متوفر', className: 'bg-green-100 text-green-800' },

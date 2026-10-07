@@ -12,7 +12,7 @@ export const REPLY_KIND_AR: Record<string, string> = {
   AUTO_REPLY: 'رد آلي',
   GREETING: 'تحية',
   BUTTON: 'ضغط زر «متوفر»',
-  NON_TEXT_ACK: 'ملصق أو صوت',
+  NON_TEXT_ACK: 'تأكيد أو تفاعل',
   WRONG_NUMBER: 'رقم غلط',
   OTHER: 'غير واضح',
 }

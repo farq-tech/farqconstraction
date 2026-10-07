@@ -456,7 +456,7 @@ export const MEANING_LABEL: Record<MeaningKey, string> = {
   INTERESTED: 'مهتم',
   BUTTON: 'ضغط «متوفر وبسعّره»',
   AUTO_REPLY: 'رد آلي',
-  NON_TEXT_ACK: 'ملصق أو تفاعل',
+  NON_TEXT_ACK: 'تأكيد أو تفاعل',
   VOICE: 'صوتية',
 }
 export const QUOTE_LABEL: Record<QuoteKey, string> = {
