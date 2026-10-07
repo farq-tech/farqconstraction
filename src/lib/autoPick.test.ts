@@ -134,6 +134,17 @@ describe('autoPickFor — «نتائج الجولات»', () => {
 describe('autoPickConfident — all sure and near-certain matches on every channel', () => {
   const wa = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'واتساب', ...extra })
   const mail = (id: string, extra: Partial<Supplier> = {}): Supplier => ({ ...sup(id, 'نشاط متطابق'), channel: 'بريد', ...extra })
+  it('does not auto-select a reply alone, but retains independent product evidence and priced history', () => {
+    const item = line(20, 'cement', [], {
+      outcomeSuggestion: { suppliers: [
+        wa('reply-only', { evidence: 'نتائج الجولات', roundOutcome: { grade: 'ANSWERED' } }),
+        wa('reply-with-proof', { evidence: 'دليل منتج', roundOutcome: { grade: 'ANSWERED' } }),
+        wa('priced', { evidence: 'نتائج الجولات', roundOutcome: { grade: 'PRICED', pricedLines: 1 } }),
+      ] },
+    })
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['reply-with-proof', 'priced'])
+    expect(autoPickFor(item).map(s => s.id)).toContain('reply-only')
+  })
   it('takes every near-certain channel match, never unrelated family suggestions', () => {
     const item = line(1, 'masonry_blocks', [
       wa('wa-name', { why: 'الاسم: «للبلوك»' }),
