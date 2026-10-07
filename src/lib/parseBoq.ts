@@ -1628,6 +1628,7 @@ export async function applyNameMemory<T extends ParsedLine>(
 export async function parseBoqFile(
   file: File,
   opts: {
+    deliveryCity?: string
     onStage?: BoqParseProgress
     onWork?: BoqWorkProgress
     /**
@@ -1651,6 +1652,7 @@ export async function parseBoqFile(
 async function parseBoqFileInner(
   file: File,
   opts: {
+    deliveryCity?: string
     onStage?: BoqParseProgress
     onWork?: BoqWorkProgress
     onRead?: (facts: BoqReadFacts) => void
@@ -1914,7 +1916,7 @@ async function parseBoqFileInner(
   // Supplier matching must never wipe successfully parsed lines.
   stage('match')
   try {
-    const matched = await matchSuppliersForItems(lines, { onWork: work })
+    const matched = await matchSuppliersForItems(lines, { onWork: work, deliveryCity: opts.deliveryCity })
     const lineHasSuppliers = (item: BOQItem) =>
       item.suppliers.length > 0 ||
       (item.aiSuggestion?.suppliers.length ?? 0) > 0 ||

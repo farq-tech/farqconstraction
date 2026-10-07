@@ -1,3 +1,4 @@
+import { loadCompanyProfile } from '../lib/companyProfile'
 import { useState, useRef, useEffect } from 'react'
 import { autoPickConfident, buildPickContext } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
@@ -19,6 +20,7 @@ import {
   clearParsedBoq,
   getBoqItems,
   getSession,
+  setMatchingCity,
   resetWorkingSession,
   setCartItems,
   setParsedBoq,
@@ -339,6 +341,7 @@ export function UploadView({ navigate }: NavProps) {
   const [dragging, setDragging] = useState(false)
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
+  const [deliveryCity, setDeliveryCity] = useState(() => getSession().matchingCity || loadCompanyProfile().defaultDeliveryCity || 'الرياض')
   const [errorMsg, setErrorMsg] = useState('')
   const [needsSignIn, setNeedsSignIn] = useState(false)
   /** How much of the booklet we actually read, and why the rest is missing. */
@@ -389,13 +392,14 @@ export function UploadView({ navigate }: NavProps) {
     if (continuing) return
     const current = getBoqItems()
     if (!current.length) return
+    setMatchingCity(deliveryCity)
     setContinuing(true)
     setCartError('')
     try {
       let next = current
       const pending = linesToMatch(current)
       if (pending.length) {
-        const matched = await matchSuppliersForItems(pending)
+        const matched = await matchSuppliersForItems(pending, { deliveryCity })
         if (matched.matchApiError) {
           setCartError(
             `تعذّرت مطابقة الموردين للبنود الجديدة: ${matched.matchApiError} — بنودك محفوظة، أعد المحاولة.`,
@@ -492,7 +496,9 @@ export function UploadView({ navigate }: NavProps) {
     setActivity([])
     let watchdog: number | undefined
     try {
+      setMatchingCity(deliveryCity)
       const parsed = parseBoqFile(file, {
+        deliveryCity,
         onStage: (id) => {
           if (!current()) return
           const i = STAGES.findIndex((s) => s.id === id)
@@ -758,6 +764,15 @@ export function UploadView({ navigate }: NavProps) {
         setCameraOpen(false)
         setStartPath('manual')
       }} />}
+      {phase === 'idle' && <label className="block mb-4 text-sm text-neutral-600">مدينة التسليم للمطابقة
+        <input value={deliveryCity} disabled={continuing} onChange={e => {
+          const city = e.target.value
+          setDeliveryCity(city)
+          setMatchingCity(city)
+          const current = getBoqItems()
+          if (current.length) setCartItems(current.map(item => ({ ...item, needsMatch: true })), newCartDocumentId)
+        }} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2" />
+      </label>}
       {phase === 'idle' && <button type="button" onClick={() => setCameraOpen(true)} className="mb-4 w-full rounded-2xl bg-[#123F3A] px-4 py-4 text-white font-bold">قراءة طلب شراء بالكاميرا</button>}
       {phase === 'idle' ? (
         <StartChooser

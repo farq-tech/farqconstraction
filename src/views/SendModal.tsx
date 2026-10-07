@@ -186,7 +186,7 @@ export function SendModal({
     }).catch(() => {})
     return () => { alive = false }
   }, [])
-  const [site, setSite] = useState(() => loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
+  const [site, setSite] = useState(() => getSession().matchingCity || loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
   // Suppliers asked when quotes close and whether installation is included.
   const [quoteDeadline, setQuoteDeadline] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10)
@@ -1317,9 +1317,11 @@ export function SendModal({
                   <label className="text-xs text-neutral-500 mb-1 block">موقع التسليم</label>
                   <input
                     value={site}
+                    readOnly={Boolean(getSession().matchingCity)}
                     onChange={(e) => setSite(e.target.value)}
                     className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"
                   />
+                  {getSession().matchingCity && <p className="text-xs text-neutral-500 mt-1">لتغيير المدينة، ارجع إلى الطلب وأعد مطابقة الموردين قبل الإرسال.</p>}
                 </div>
                 <div>
                   <label className="text-xs text-neutral-500 mb-1 block">موعد الاستلام</label>

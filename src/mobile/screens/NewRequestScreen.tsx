@@ -361,7 +361,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
           <>
             <label className="block mb-3">
               <span className="text-[13px] text-neutral-500">مدينة التسليم للمطابقة</span>
-              <input value={city} onChange={e => setCity(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-4 outline-none" />
+              <input value={city} disabled={Boolean(busy)} onChange={e => setCity(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-4 outline-none" />
             </label>
             <input ref={fileInput} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} />
             <Card className="p-4" onClick={reading ? undefined : () => fileInput.current?.click()}>
