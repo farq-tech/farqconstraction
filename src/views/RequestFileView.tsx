@@ -433,7 +433,7 @@ export function RequestFileView({
     setNotice(null)
     try {
       const updated = await sendConstructionRfqInvite(rfq.id, invite.id, {
-        retry: true,
+        retry: supplierState(invite).key === "FAILED",
         sendConsent: false,
         harajLimit: invitePreferredChannel(invite) === "HARAJ" ? 1 : undefined,
       })
@@ -1094,7 +1094,7 @@ export function RequestFileView({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {st.key === "FAILED" && (
+                    {(st.key === "FAILED" || st.key === "NOT_SENT") && (
                       <button
                         disabled={resending === invite.id}
                         onClick={() => resend(invite)}
@@ -1102,7 +1102,7 @@ export function RequestFileView({
                       >
                         {resending === invite.id
                           ? "جارٍ الإرسال…"
-                          : "إعادة الإرسال"}
+                          : st.key === "NOT_SENT" ? "إرسال الطلب" : "إعادة الإرسال"}
                       </button>
                     )}
                     <button
@@ -1117,7 +1117,7 @@ export function RequestFileView({
             })
           )}
           {services.has(SUPPLIER_MATCH_V2_SERVICE) && (
-            <SupplierPlanPanel key={rfq.id} rfqId={rfq.id} />
+            <SupplierPlanPanel key={`${rfq.id}:${rfq.current_version?.id || ''}`} rfqId={rfq.id} />
           )}
         </div>
       )}
