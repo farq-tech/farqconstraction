@@ -7,6 +7,8 @@ import {
   formatRfqReference,
   inboxUnreadConversations,
   listConstructionInboxMessages,
+  listProcurementTasks,
+  type ProcurementTask,
   markConstructionInboxMessageRead,
   type ConstructionInboxMessage,
 } from '../api/constructionClient'
@@ -69,6 +71,8 @@ function LoadingSkeleton() {
 
 export function NotificationsDrawer({ onClose, navigate, onUnreadChange }: NotificationsDrawerProps) {
   const { openRfq, setSelectedOfferId } = useProcurement()
+  const [procurementTasks,setProcurementTasks]=useState<ProcurementTask[]>([])
+  useEffect(()=>{let active=true;listProcurementTasks().then(r=>{if(active)setProcurementTasks(r.mode==='LIVE'?r.tasks.filter(t=>['NEW','ASSIGNED','WAITING_BUYER'].includes(t.state)):[])}).catch(()=>{});return()=>{active=false}},[])
   const [messages, setMessages] = useState<ConstructionInboxMessage[]>([])
   // null = the server has not told us (loading or failed). Never rendered as a number.
   const [unreadCount, setUnreadCount] = useState<number | null>(null)
@@ -136,7 +140,7 @@ export function NotificationsDrawer({ onClose, navigate, onUnreadChange }: Notif
 
   // Order is DERIVED from state on every change (load, mark-read, anything later),
   // so it cannot drift: whatever is in `messages`, what is shown is newest first.
-  const groups = useMemo(() => groupNotificationsByDay(messages, now), [messages, now])
+  const groups = useMemo(() => { const groupedIds=new Set(procurementTasks.flatMap(t=>(t.waiters||[]).map(w=>w.message_id)));return groupNotificationsByDay(messages.filter(m=>!groupedIds.has(m.id)), now) }, [messages, now,procurementTasks])
 
   const openMessage = async (message: ConstructionInboxMessage) => {
     if (message.unread) {
@@ -211,6 +215,7 @@ export function NotificationsDrawer({ onClose, navigate, onUnreadChange }: Notif
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
+          {procurementTasks.length>0&&<section className="p-4 border-b space-y-2"><h3 className="text-sm font-bold text-[#123F3A]">تحتاج تدخلك</h3>{procurementTasks.slice(0,10).map(t=><button key={t.id} onClick={()=>{navigate('procurement-inbox');onClose()}} className="block w-full text-right rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs"><b>{t.item_name}</b><p className="mt-1">{t.supplier_count} موردين ينتظرون: {t.question}</p></button>)}</section>}
           {loading ? (
             <LoadingSkeleton />
           ) : error ? (

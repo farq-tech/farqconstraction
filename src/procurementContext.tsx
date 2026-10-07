@@ -82,6 +82,7 @@ function initialViewFromUrl(): AppView {
     // Links in the email alerts: a supplier conversation or a request.
     if (view === 'inbox' && UUID_PARAM.test(params.get('thread') || '')) return 'inbox-thread'
     if (view === 'rfq' && UUID_PARAM.test(params.get('rfq') || '')) return 'rfq-detail'
+    if(view==='procurement-inbox')return 'procurement-inbox'
     if (view === 'inbox') return 'inbox'
     if (view === 'booklet' && BOOKLET_PARAM.test(params.get('booklet') || '')) return 'booklet-detail'
     if (view === 'booklets') return 'booklets'

@@ -1,3 +1,4 @@
+import ProcurementStatus from '../components/procurement/ProcurementStatus'
 import { supplierDisplayName } from '../lib/presentationQuality'
 import { quoteCompleteness } from '../lib/quoteCompleteness'
 import { requestPageContext } from '../lib/ahmadProcurement'
@@ -484,6 +485,7 @@ export function RequestFileView({
 
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
+      <ProcurementStatus rfqId={rfq.id} onOpen={()=>navigate('procurement-inbox')} />
       {/* Header */}
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-2 flex-wrap text-xs">

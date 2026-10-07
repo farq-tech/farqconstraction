@@ -3863,3 +3863,28 @@ export function readAhmadDocument(file: File) {
   if (file.size > 8 * 1024 * 1024 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('اختر صورة أو PDF لا يتجاوز 8 ميجابايت.')
   return request<AhmadDocument>('/api/construction/assistant/read-document', { method: 'POST', headers: { 'Content-Type': file.type }, body: file, timeoutMs: 90000 })
 }
+
+// Human procurement loop: the same scoped API and guarded write path as the inbox.
+export type ProcurementTaskState = 'NEW' | 'ASSIGNED' | 'WAITING_BUYER' | 'ANSWERED' | 'SENT_TO_SUPPLIERS' | 'CLOSED'
+export type ProcurementWaiter = { id:string; invite_id:string; supplier_name:string; original_question:string; message_id:string; created_at:string; state:string; failure_code:string|null }
+export type ProcurementTask = { id:string; rfq_id:string; rfq_version_id:string; line_key:string; item_name:string; question:string; attribute:string; kind:'QUESTION_TASK'|'ATTACHMENT_REQUEST'|'HUMAN_REVIEW_REQUIRED'; state:ProcurementTaskState; priority:'BLOCKING_QUOTE'|'IMPORTANT'|'INFORMATIONAL'; assigned_user_id:string|null; created_at:string; revision:number; supplier_count?:number; waiting_count?:number; waiters?:ProcurementWaiter[]; can_write?:boolean; answer?:{id:string;value:string|number;unit:string|null;revision:number;confirmed_by:string;confirmed_at:string}|null }
+export type ProcurementSummary = { needs_intervention:number; waiting_suppliers:number; blocking_tasks:number; solved_today:number; quote_status?:{contacted:number;replied:number;priced:number;declined:number;no_response:number} }
+export type ProcurementTaskList = { mode:'SHADOW'|'LIVE';tasks:ProcurementTask[];summary:ProcurementSummary }
+const procurementPost = <T,>(path:string,body:unknown) => request<T>(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+export const listProcurementTasks = (rfqId?:string) => request<ProcurementTaskList>(`/api/construction/procurement/tasks${rfqId?`?rfq_id=${encodeURIComponent(rfqId)}`:''}`)
+export const getProcurementSummary = (rfqId?:string) => request<ProcurementSummary>(`/api/construction/procurement/summary${rfqId?`?rfq_id=${encodeURIComponent(rfqId)}`:''}`)
+export const getProcurementTask = (id:string) => request<ProcurementTask>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}`)
+export const answerProcurementTask = (id:string,body:{value:string|number;unit?:string;revision:number;idempotency_key:string;correction?:boolean}) => procurementPost<ProcurementTask>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/answer`,body)
+export const answerProcurementAttachment = (id:string,body:{revision:number;idempotency_key:string;files?:ConstructionInboxOutboundAttachment[];file_id?:string;unavailable?:boolean}) => procurementPost<ProcurementTask>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/attachment`,body)
+export const listProcurementProjectFiles = (id:string) => request<{files:Array<{id:string;filename:string;content_type:string}>}>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/files`)
+export const assignProcurementTask = (id:string,userId:string,revision:number) => procurementPost<ProcurementTask>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/assign`,{user_id:userId,revision})
+export const closeProcurementTask = (id:string,revision:number) => procurementPost<ProcurementTask>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/close`,{revision})
+export const retryProcurementTask = (id:string) => procurementPost<ProcurementTask>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/retry`,{})
+export type ProcurementImpact = { answer_id:string;revision:number;hash:string;text:string;recipients:Array<{invite_id:string;supplier_id:string;supplier_name:string}> }
+export const getProcurementImpact = (id:string) => request<ProcurementImpact>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/impact`)
+export const broadcastProcurementAnswer = (id:string,hash:string) => procurementPost<{queued:number}>(`/api/construction/procurement/tasks/${encodeURIComponent(id)}/broadcast`,{hash})
+export type ProcurementConversationState = {assistant_mode:'AI'|'HUMAN';can_takeover?:boolean;mode?:'LIVE'|'SHADOW';human_owner?:string|null;revision:number;summary?:string;state?:Record<string,unknown>}
+export const getProcurementConversationState = (id:string) => request<ProcurementConversationState>(`/api/construction/inbox/threads/${encodeURIComponent(id)}/assistant-mode`)
+export const setProcurementConversationMode = (id:string,mode:'AI'|'HUMAN',revision:number) => procurementPost<ProcurementConversationState>(`/api/construction/inbox/threads/${encodeURIComponent(id)}/assistant-mode`,{mode,revision})
+export type ProcurementShadowCase = {message_id:string;invite_id:string;supplier_message:string;received_at:string;old_reply:string|null;new_decision:{decision:string;reply:string|null;reason?:string|null;intents?:Array<{intent:string;confidence:number}>;facts?:Array<{attribute:string;value:unknown}>;action?:string;context?:{history:Array<{from:string;text:string}>;lines?:Array<{line_key:string;name:string;quantity?:number;uom?:string;technical_specification?:Record<string,unknown>}>};validation?:{ok:boolean;failures:string[]}}}
+export const listProcurementShadows = () => request<{mode:string;cases:ProcurementShadowCase[]}>('/api/construction/procurement/shadow')
