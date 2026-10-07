@@ -8,6 +8,7 @@ import {
   createConstructionRfq,
   getConstructionRfq,
   getConstructionMe,
+  getConstructionStatus,
   invitePreferredChannel,
   isHarajSellerExternalKey,
   matchConstructionBoqCatalog,
@@ -205,11 +206,16 @@ export function SendModal({
   // 3 Oct 2026): WhatsApp is paid per message, email and Haraj chat are free,
   // and every distinct supplier of the request spends one supplier credit.
   const [waPricing, setWaPricing] = useState<ConstructionWhatsAppPricing | null>(null)
+  const [chatReady, setChatReady] = useState<boolean | null>(null)
+  const [channelReadFailed, setChannelReadFailed] = useState(false)
   const [entitlement, setEntitlement] = useState<ConstructionEntitlement | null>(null)
   useEffect(() => {
     let alive = true
     void fetchConstructionWhatsAppPricing().then((p) => { if (alive) setWaPricing(p) })
     void fetchConstructionEntitlement().then((e) => { if (alive) setEntitlement(e) })
+    void getConstructionStatus().then(s => {
+      if (alive) setChatReady(Boolean((s.delivery_channels as Record<string, unknown> | undefined)?.haraj))
+    }).catch(() => { if (alive) setChannelReadFailed(true) })
     return () => { alive = false }
   }, [])
   const [busy, setBusy] = useState(false)
@@ -281,6 +287,10 @@ export function SendModal({
   const byChannel = recipients.reduce(
     (acc, r) => { if (r.channel === 'واتساب') acc.wa += 1; else if (r.channel === 'محادثة') acc.haraj += 1; else acc.email += 1; return acc },
     { email: 0, wa: 0, haraj: 0 },
+  )
+  if (byChannel.haraj > 0 && chatReady !== true) sendBlockers.push(
+    chatReady === false ? `قناة المحادثة متوقفة: ${byChannel.haraj} موردًا لن تصلهم الرسالة. ألغِ اختيارهم أو انتظر تفعيل القناة.`
+      : channelReadFailed ? 'تعذر التحقق من قناة المحادثة. أغلق المراجعة وأعد المحاولة.' : 'نتحقق من جاهزية قناة المحادثة قبل الإرسال.',
   )
   const waUnit = waPricing?.enabled && waPricing.price_sar ? waPricing.price_sar : null
   const waTotal = waUnit != null ? byChannel.wa * waUnit : null
@@ -1206,7 +1216,7 @@ export function SendModal({
                 : 'جارٍ الإرسال…'
               : phase === 'done'
                 ? 'نتيجة الإرسال'
-                : 'جاهز للإرسال'}
+                : sendBlockers.length ? 'راجع الطلب قبل الإرسال' : 'جاهز للإرسال'}
           </h2>
           <button type="button" onClick={requestClose} className="p-1 text-neutral-400 hover:text-neutral-600">
             <XIcon className="w-5 h-5" />
@@ -1246,7 +1256,7 @@ export function SendModal({
                         {byChannel.wa === 0
                           ? '—'
                           : waTotal != null
-                            ? `${waTotal.toFixed(2)} ريال (${byChannel.wa} × ${waUnit!.toFixed(2)})`
+                            ? `${waTotal.toFixed(2)} ريال (${byChannel.wa} × ${Number(waUnit!.toFixed(6))})`
                             : waPricing && !waPricing.enabled
                               ? 'الإرسال من رقم فرق متوقف — روابط واتساب ويب'
                               : 'جارٍ قراءة السعر…'}
