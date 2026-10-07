@@ -169,6 +169,7 @@ export function RequestFileView({
   const [notice, setNotice] = useState<{
     tone: "ok" | "bad"
     text: string
+    url?: string
   } | null>(null)
   const [resending, setResending] = useState<string | null>(null)
   const [awarding, setAwarding] = useState<Offer | null>(null)
@@ -435,8 +436,7 @@ export function RequestFileView({
     try {
       if (invitePreferredChannel(invite) === "WHATSAPP") {
         const link = await prepareConstructionWhatsAppLink(rfq.id, invite.id)
-        if (link.url) window.open(link.url, "_blank", "noopener,noreferrer")
-        setNotice({tone:"ok",text:"جُهزت رسالة واتساب؛ أكمل إرسالها من واتساب. لم تُرسل تلقائيًا."})
+        setNotice({tone:"ok",text:"جُهزت رسالة واتساب؛ أكمل إرسالها من الرابط. لم تُرسل تلقائيًا.",url:link.url})
         return
       }
       const updated = await sendConstructionRfqInvite(rfq.id, invite.id, {
@@ -620,6 +620,7 @@ export function RequestFileView({
           }`}
         >
           {notice.text}
+          {notice.url && <a href={notice.url} target="_blank" rel="noopener noreferrer" className="block mt-2 font-bold underline">فتح واتساب لإرسال الطلب</a>}
         </div>
       )}
 
@@ -1124,7 +1125,7 @@ export function RequestFileView({
             })
           )}
           {services.has(SUPPLIER_MATCH_V2_SERVICE) && (
-            <SupplierPlanPanel key={`${rfq.id}:${rfq.current_version?.id || ''}`} rfqId={rfq.id} />
+            <SupplierPlanPanel key={`${rfq.id}:${rfq.current_version?.id || ''}`} rfqId={rfq.id} onAdded={() => load(rfq.id, { comparison: true })} />
           )}
         </div>
       )}

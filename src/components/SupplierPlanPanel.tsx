@@ -88,7 +88,7 @@ function Lane({ title, subtitle, suppliers, needs, blocked }: {
   )
 }
 
-export default function SupplierPlanPanel({ rfqId }: { rfqId: string }) {
+export default function SupplierPlanPanel({ rfqId, onAdded }: { rfqId: string; onAdded?: () => Promise<void> }) {
   const [open, setOpen] = useState(false)
   const [plan, setPlan] = useState<SupplierPlan | null>(null)
   const [loading, setLoading] = useState(false)
@@ -113,6 +113,7 @@ export default function SupplierPlanPanel({ rfqId }: { rfqId: string }) {
       const result = await addConstructionRfqSuppliers(rfqId,[{external_key:id,line_keys:plan.lines.map(l=>l.key)}])
       setAddedNote(result.invites.some(i=>i.status==='CREATED') ? 'أضيف المورد إلى الطلب دون إرسال.' : 'المورد موجود في الطلب.')
       setHits(h=>h.filter(s=>s.id!==id))
+      await onAdded?.()
       setPlan(await getRfqSupplierPlan(rfqId))
     } catch { setError('تعذر إضافة المورد') } finally { setAdding(false) }
   }
@@ -128,6 +129,7 @@ export default function SupplierPlanPanel({ rfqId }: { rfqId: string }) {
         added += result.invites.filter(i => i.status === 'CREATED').length
       }
       setAddedNote(`أُضيف ${added} موردين لنفس الطلب. لم يُرسل لهم بعد؛ راجع الإرسال من قائمة الموردين.`)
+      await onAdded?.()
       setPlan(await getRfqSupplierPlan(rfqId))
     } catch {
       setError(`تعذر إكمال الإضافة. أُضيف ${added} موردين قبل التوقف؛ أعد فتح المطابقة قبل المحاولة.`)
