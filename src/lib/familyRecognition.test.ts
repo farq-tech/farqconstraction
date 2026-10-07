@@ -46,7 +46,7 @@ it.each([
  expect(resolveOntology(name).intent).not.toBe(wrong)
 })
 
-it.each(['Chemical anchor resin', 'chemical anchoring resin', 'epoxy anchor adhesive'])('routes adhesive %s to chemical anchoring rather than mechanical fixings', name => {
+it.each(['Chemical anchor resin', 'chemical anchoring resin', 'epoxy anchor adhesive', 'Resin anchor'])('routes adhesive %s to chemical anchoring rather than mechanical fixings', name => {
  const result = resolveOntology(name)
  expect(result.intent).toBe('anchoring_epoxy')
  expect(result.family).toBe('concrete_admixtures')
