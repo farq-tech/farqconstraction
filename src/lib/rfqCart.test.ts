@@ -159,3 +159,18 @@ describe('quotaLabel — «عمليات البحث اليوم»', () => {
     expect(quotaLabel(null)).toBe('')
   })
 })
+
+it('keeps visible records for retained manual selections when a new city has different candidates', () => {
+  const manual = { id: 'manual', name: 'مورد يدوي', city: 'جدة', evidence: 'اختيارك' as const, channel: 'بريد' as const }
+  const old: BOQItem = { id: 77, name: 'اسمنت', qty: '10', unit: 'كيس', status: 'ready', supplierCount: 1, suppliers: [manual], needsMatch: true }
+  const fresh = { ...old, suppliers: [], supplierCount: 0 }
+  expect(mergeMatched([old], [fresh], { 77: ['manual'] })[0].suppliers).toEqual([manual])
+  expect(mergeMatched([old], [fresh])[0].suppliers).toEqual([])
+})
+
+it('never retains old automatic or rejected suppliers across material rematches', () => {
+  const supplier = (id: string) => ({ id, name: id, city: 'الرياض', evidence: 'دليل منتج' as const, channel: 'بريد' as const })
+  const old: BOQItem = { id: 78, name: 'حديد', qty: '10', unit: 'طن', status: 'ready', supplierCount: 2, suppliers: [supplier('old-auto'), supplier('rejected')], needsMatch: true, autoPickedSupplierIds: ['old-auto'], rejectedSupplierIds: ['rejected'] }
+  const fresh = { ...old, suppliers: [supplier('rejected'), supplier('new')], supplierCount: 2 }
+  expect(mergeMatched([old], [fresh], { 78: ['old-auto', 'rejected'] })[0].suppliers.map(s => s.id)).toEqual(['new'])
+})

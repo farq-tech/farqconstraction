@@ -297,20 +297,28 @@ export function linesToMatch(items: BOQItem[]): ParsedLine[] {
  * card, origin, product reference, market name) is kept; a line the matcher
  * did not answer keeps its place and stays «بلا مورد».
  */
-export function mergeMatched(items: BOQItem[], matched: BOQItem[]): BOQItem[] {
+export function mergeMatched(items: BOQItem[], matched: BOQItem[], retainedSelections: Record<number, string[]> = {}): BOQItem[] {
   const byId = new Map(matched.map((m) => [m.id, m]))
   return items.map((item) => {
     if (!item.needsMatch) return item
     const m = byId.get(item.id)
     const base = { ...item, needsMatch: undefined }
     if (!m) return base
+    const rejected = new Set(item.rejectedSupplierIds || [])
+    const automatic = new Set(item.autoPickedSupplierIds || [])
+    const retained = new Set((retainedSelections[item.id] || []).filter(id => !automatic.has(id) && !rejected.has(id)))
+    const matchedIds = new Set(m.suppliers.map(s => s.id))
+    const suppliers = [...m.suppliers.filter(s => !rejected.has(s.id)), ...item.suppliers.filter(s => retained.has(s.id) && !matchedIds.has(s.id))]
     return {
       ...base,
-      status: m.status,
-      supplierCount: m.supplierCount,
-      suppliers: m.suppliers,
+      status: suppliers.length ? 'ready' : m.status,
+      supplierCount: suppliers.length,
+      suppliers,
       farqSpecId: m.farqSpecId,
       lineKey: m.lineKey || item.lineKey,
+      outcomeSuggestion: m.outcomeSuggestion,
+      exposureId: m.exposureId,
+      autoPickedSupplierIds: [],
       aiSuggestion: m.aiSuggestion,
       learnedSuggestion: m.learnedSuggestion,
       familySuggestion: m.familySuggestion,

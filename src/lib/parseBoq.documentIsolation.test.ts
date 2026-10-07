@@ -17,6 +17,9 @@ import {
   getActiveDocumentId,
   getBoqItems,
   setParsedBoq,
+  getSession,
+  setMatchingCity,
+  setSelections,
 } from '../store/session'
 import type { BOQItem } from '../types'
 
@@ -299,4 +302,16 @@ describe('warehouse / Farq-test booklet parse', () => {
     expect(nameOverlap(warehouse.map((l) => l.name), site.map((l) => l.name)).length).toBeLessThan(5)
     expect(nameOverlap(datacenter.map((l) => l.name), site.map((l) => l.name)).length).toBeLessThan(5)
   })
+})
+
+it('changing delivery city invalidates automatic picks while preserving manual choices', () => {
+  beginBoqUpload({ documentId: 'city-test' })
+  setMatchingCity('الرياض')
+  setParsedBoq({ fileName: 'city-test.pdf', documentId: 'city-test', items: [{ id: 1, name: 'اسمنت', qty: '10', unit: 'كيس', suppliers: [], supplierCount: 0, status: 'ready', autoPickedSupplierIds: ['auto'] }] })
+  setSelections({ 1: ['auto', 'manual'] })
+  setMatchingCity('جدة')
+  expect(getSession().matchingCity).toBe('جدة')
+  expect(getSession().selections[1]).toEqual(['manual'])
+  expect(getBoqItems()[0].needsMatch).toBe(true)
+  expect(getBoqItems()[0].autoPickedSupplierIds).toEqual([])
 })

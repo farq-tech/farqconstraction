@@ -14,7 +14,7 @@ import {
 } from '../../api/constructionClient'
 import { listConstructionSuppliers, resolveRfqSupplierIds } from '../../api/constructionSuppliers'
 import { farqSession } from '../../api/farqSession'
-import { autoPickFor, buildPickContext } from '../../lib/autoPick'
+import { autoPickConfident, buildPickContext } from '../../lib/autoPick'
 import { loadCompanyProfile } from '../../lib/companyProfile'
 import { matchSuppliersForItems, rowsToLines, sanitizeBoqLines, type ParsedLine } from '../../lib/parseBoq'
 import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
@@ -32,7 +32,6 @@ const DEPARTMENTS: Array<[string, string]> = [
   ['ELECTRICAL', 'كهرباء'],
   ['MECHANICAL', 'ميكانيكا'],
 ]
-const AUTO_PICK = 10
 
 function isoIn(days: number): string {
   const d = new Date()
@@ -54,6 +53,7 @@ function toSupplier(s: SupplierEntry): Supplier {
 function candidatesFor(item: BOQItem): Supplier[] {
   const all = [
     ...(item.learnedSuggestion?.suppliers || []),
+    ...(item.outcomeSuggestion?.suppliers || []),
     ...(item.mapSuggestion?.suppliers || []),
     ...item.suppliers,
     ...(item.aiSuggestion?.suppliers || []),
@@ -86,6 +86,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   const [items, setItems] = useState<BOQItem[]>([])
   const [selected, setSelected] = useState<Record<number, string[]>>({})
   const [known, setKnown] = useState<Record<string, Supplier>>({})
+  const automaticSelections = useRef<Record<number, string[]>>({})
   const [picker, setPicker] = useState<BOQItem | null>(null)
   const [search, setSearch] = useState('')
   const [results, setResults] = useState<SupplierEntry[]>([])
@@ -157,22 +158,29 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   }
 
   async function toSuppliers() {
+    if (!city.trim()) return setError('اكتب مدينة التسليم قبل مطابقة الموردين.')
     const usable = lines.filter((l) => cleanLineName(l.name) && readQty(l.qty))
     if (!usable.length) return setError('أضف بندًا واحدًا على الأقل بكمية صحيحة.')
     setError(null)
     setBusy('نبحث عن موردين لكل بند…')
     try {
-      const { items: matched } = await matchSuppliersForItems(usable)
+      const { items: matched } = await matchSuppliersForItems(usable, { deliveryCity: city })
       const ctx = buildPickContext(matched)
       const picks: Record<number, string[]> = {}
       const book: Record<string, Supplier> = {}
       const next = matched.map((item) => {
         for (const s of candidatesFor(item)) book[s.id] = s
         if (item.workOnly) return item
-        const auto = autoPickFor(item, AUTO_PICK, ctx)
-        picks[item.id] = auto.map((s) => s.id)
+        const auto = autoPickConfident(item, ctx)
+        const previousAuto = new Set(automaticSelections.current[item.id] || [])
+        const manual = (selected[item.id] || []).filter(id => !previousAuto.has(id) && known[id])
+        picks[item.id] = [...new Set([...manual, ...auto.map(s => s.id)])]
+        for (const id of manual) book[id] = known[id]
         for (const s of auto) book[s.id] = s
-        return item
+        automaticSelections.current[item.id] = auto.filter(s => !manual.includes(s.id)).map(s => s.id)
+        const existing = new Set(item.suppliers.map(s => s.id))
+        const suppliers = [...item.suppliers, ...manual.filter(id => !existing.has(id)).map(id => known[id])]
+        return { ...item, suppliers, supplierCount: suppliers.length }
       })
       setItems(next)
       setSelected(picks)
@@ -189,6 +197,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   /* ---------- step 2: suppliers ---------- */
 
   function toggle(itemId: number, supplierId: string) {
+    if (!(selected[itemId] || []).includes(supplierId)) automaticSelections.current[itemId] = (automaticSelections.current[itemId] || []).filter(id => id !== supplierId)
     setSelected((prev) => {
       const cur = prev[itemId] || []
       return { ...prev, [itemId]: cur.includes(supplierId) ? cur.filter((x) => x !== supplierId) : [...cur, supplierId] }
@@ -359,6 +368,10 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       <main className="flex-1 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] m-fade">
         {step === 'items' && (
           <>
+            <label className="block mb-3">
+              <span className="text-[13px] text-neutral-500">مدينة التسليم للمطابقة</span>
+              <input value={city} disabled={Boolean(busy)} onChange={e => setCity(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-4 outline-none" />
+            </label>
             <input ref={fileInput} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} />
             <Card className="p-4" onClick={reading ? undefined : () => fileInput.current?.click()}>
               <div className="flex items-center gap-3">
@@ -492,7 +505,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
               </label>
               <label className="block">
                 <span className="text-[13px] text-neutral-500">مدينة التسليم</span>
-                <input value={city} onChange={(e) => setCity(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-4 outline-none" />
+                <div className="mt-1 flex items-center justify-between"><span>{city}</span><button type="button" onClick={() => setStep('items')} className="text-[#123F3A] underline">تغيير المدينة وإعادة مطابقة الموردين</button></div>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">

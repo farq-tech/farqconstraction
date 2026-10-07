@@ -115,9 +115,9 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
 export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 
 export function confidenceOf(s: Supplier): Confidence {
-  if (s.learned || isPriorQuoter(s)) return 'SURE'
-  if (s.roundOutcome && (s.roundOutcome.grade === 'PRICED' || s.roundOutcome.grade === 'ANSWERED')) return 'SURE'
   if (s.outOfCity) return 'MAYBE'
+  if (s.learned || isPriorQuoter(s)) return 'SURE'
+  if (s.roundOutcome?.grade === 'PRICED' || s.roundOutcome?.grade === 'ANSWERED') return 'SURE'
   if (s.evidence === 'دليل مباشر' || s.evidence === 'دليل منتج') return 'SURE'
   if (s.evidence === 'من الكتالوج' || s.evidence === 'تسمية آلية' || s.evidence === 'خريطة فرق') return 'LIKELY'
   if (s.evidence === 'نشاط متطابق') {
@@ -136,7 +136,21 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
   // 5 Oct 2026: the buyer explicitly wants EVERY sure or near-certain match,
   // including the system's named suggestions, regardless of channel or count.
-  return all
+  // A weak earlier lane must not hide stronger evidence for the same business.
+  const strongest = new Map<string, Supplier>()
+  const outsideCity = new Set<string>()
+  const score = (s: Supplier) => ({ SURE: 2, LIKELY: 1, MAYBE: 0 })[confidenceOf(s)]
+  const candidates = [
+    ...(item.learnedSuggestion?.suppliers || []).map(s => ({ ...s, learned: true })),
+    ...lanesOf(item).flat(),
+  ]
+  for (const s of candidates) {
+    if (!s?.id) continue
+    if (s.outOfCity) outsideCity.add(s.id)
+    const previous = strongest.get(s.id)
+    if (!previous || score(s) > score(previous)) strongest.set(s.id, s)
+  }
+  return all.map(s => strongest.get(s.id) || s).filter(s => !outsideCity.has(s.id) && confidenceOf(s) !== 'MAYBE')
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {

@@ -145,10 +145,51 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
       mail('mail-maybe', { evidence: 'على مستوى النشاط', why: 'نشاط العائلة: «مواد بناء»' }),
       wa('wa-maybe', { evidence: 'على مستوى النشاط' }),
     ], {
-      outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar'), roundOutcome: { grade: 'SIMILAR' } }] },
+      outcomeSuggestion: { suppliers: [{ ...wa('wa-priced'), roundOutcome: { grade: 'PRICED', pricedLines: 2 } }, { ...wa('wa-similar', { evidence: 'نتائج الجولات' }), roundOutcome: { grade: 'SIMILAR' } }] },
     })
     const ids = autoPickConfident(item).map((s) => s.id)
-    expect(ids).toEqual(['wa-priced', 'wa-similar', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'wa-other-city', 'mail-lineword', 'mail-maybe', 'wa-maybe'])
+    expect(ids).toEqual(['wa-priced', 'wa-name', 'wa-activity', 'wa-lineword', 'wa-haraj', 'mail-lineword'])
+  })
+  it('retains stronger product evidence hidden by an earlier weak duplicate', () => {
+    const item = line(9, 'cement', [], {
+      suppliers: [wa('same', { evidence: 'دليل منتج' })],
+      outcomeSuggestion: { suppliers: [wa('same', { evidence: 'نتائج الجولات', roundOutcome: { grade: 'SIMILAR' } })] },
+    })
+    expect(autoPickConfident(item).map(s => [s.id, s.evidence])).toEqual([['same', 'دليل منتج']])
+  })
+  it('does not let a weak outcome override independent product evidence on one record', () => {
+    const item = line(11, 'cement', [wa('same', { evidence: 'دليل منتج', roundOutcome: { grade: 'SIMILAR' } })])
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['same'])
+  })
+  it('preserves restrictive delivery location across duplicate proof lanes', () => {
+    const item = line(12, 'cement', [], {
+      suppliers: [wa('same', { evidence: 'دليل منتج' })],
+      outcomeSuggestion: { suppliers: [wa('same', { outOfCity: true, evidence: 'نتائج الجولات', roundOutcome: { grade: 'SIMILAR' } })] },
+    })
+    expect(autoPickConfident(item)).toEqual([])
+    expect(autoPickFor(item).map(s => s.id)).toEqual(['same'])
+  })
+  it('recognizes the buyer-choice lane without a redundant learned flag', () => {
+    const item = line(10, 'cement', [], { learnedSuggestion: { suppliers: [wa('chosen', { evidence: 'اختيارك' })] } })
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['chosen'])
+    expect(autoPickConfident({ ...item, rejectedSupplierIds: ['chosen'] })).toEqual([])
+  })
+  it('keeps historical evidence outside the delivery city for manual review', () => {
+    const item = line(6, 'cement', [
+      wa('historical-away', { outOfCity: true, priorQuotes: 5 }),
+      wa('learned-away', { outOfCity: true, learned: true }),
+      wa('local', { why: 'الاسم: «اسمنت»' }),
+    ])
+    expect(autoPickFor(item).map(s => s.id)).toContain('historical-away')
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['local'])
+  })
+  it('counts the same unlimited confirmed picks for upload and proposals', () => {
+    const suppliers = Array.from({ length: 25 }, (_, i) => wa(`seller-${i}`, { why: 'الاسم: «اسمنت»' }))
+    const items = [line(7, 'cement', suppliers), line(8, 'cement', suppliers.slice(5))]
+    const context = buildPickContext(items)
+    const selected = items.map(item => autoPickConfident(item, context))
+    expect(selected.map(list => list.length)).toEqual([25, 20])
+    expect(new Set(selected.flat().map(s => s.id)).size).toBe(25)
   })
   it('a rejected supplier stays out even when sure', () => {
     const item = line(2, 'masonry_blocks', [wa('a', { why: 'الاسم: «بلوك»' })], { rejectedSupplierIds: ['a'] })

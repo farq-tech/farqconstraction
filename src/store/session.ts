@@ -35,6 +35,7 @@ type SessionState = {
   documentId: string | null
   fileName: string
   projectName: string
+  matchingCity: string
   boqItems: BOQItem[]
   /**
    * The upload screen's verdict on this read, carried to the send step. It was
@@ -61,6 +62,7 @@ function emptyState(ownerUserId: string | null): SessionState {
     documentId: null,
     fileName: '',
     projectName: '',
+    matchingCity: '',
     boqItems: [],
     readIssue: null,
     rfqs: [],
@@ -255,4 +257,19 @@ export function getRfqs(): RFQSummary[] {
 
 export function getOffers(): SessionOffer[] {
   return state.offers
+}
+
+/** City used to rank this draft's supplier suggestions. */
+export function setMatchingCity(city: string) {
+  const next = city.trim()
+  if (next !== state.matchingCity) {
+    // Preserve hand-picked suppliers, invalidate only the system's old city picks.
+    for (const item of state.boqItems) {
+      const automatic = new Set(item.autoPickedSupplierIds || [])
+      state.selections[item.id] = (state.selections[item.id] || []).filter(id => !automatic.has(id))
+    }
+    state.boqItems = state.boqItems.map(item => ({ ...item, autoPickedSupplierIds: [], needsMatch: true }))
+  }
+  state.matchingCity = next
+  emit()
 }

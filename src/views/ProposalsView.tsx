@@ -944,6 +944,9 @@ export function ProposalsView({ navigate }: NavProps) {
     // Only lines that already list this supplier follow; a line is never given a
     // supplier here that its own card does not show.
     const ids = sameMaterialIds(itemId).filter((id) => id === itemId || items.find((i) => i.id === id)?.suppliers.some((s) => s.id === supplierId))
+    if (!turningOff) persistItems(items.map(item => ids.includes(item.id)
+      ? { ...item, autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => id !== supplierId) }
+      : item))
     setSelected((prev) => {
       const next = { ...prev }
       for (const id of ids) {
@@ -958,13 +961,19 @@ export function ProposalsView({ navigate }: NavProps) {
   const selectAll = (itemId: number) => {
     const item = items.find((i) => i.id === itemId)
     if (!item) return
-    learn(item, item.suppliers.map((s) => s.id), 'CHOSEN')
-    const chosen = item.suppliers.map((s) => s.id)
+    const rejected = new Set(item.rejectedSupplierIds || [])
+    const chosen = item.suppliers.filter(s => !rejected.has(s.id)).map(s => s.id)
+    learn(item, chosen, 'CHOSEN')
     const ids = sameMaterialIds(itemId)
+    persistItems(items.map(item => ids.includes(item.id)
+      ? { ...item, autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => !chosen.includes(id)) }
+      : item))
     setSelected((prev) => {
       const next = { ...prev }
       for (const id of ids) {
-        const listed = new Set((items.find((i) => i.id === id)?.suppliers || []).map((s) => s.id))
+        const target = items.find(i => i.id === id)
+        const rejectedHere = new Set(target?.rejectedSupplierIds || [])
+        const listed = new Set((target?.suppliers || []).filter(s => !rejectedHere.has(s.id)).map(s => s.id))
         next[id] = id === itemId ? chosen : [...new Set([...(next[id] || []), ...chosen.filter((x) => listed.has(x))])]
       }
       return next
@@ -1078,8 +1087,8 @@ export function ProposalsView({ navigate }: NavProps) {
               </div>
               <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                 {empty === 0
-                  ? 'اختير كل الموردين المطابقين والمقترحين، بما فيهم ترشيحات النشاط. راجع القائمة قبل الإرسال؛ ترشيح المورد ليس تأكيدًا للمخزون.'
-                  : `${empty} بندًا لم نجد لها موردًا مقترحًا. للبقية اختيرت كل الترشيحات المناسبة، بما فيها اقتراحات النظام. راجع القائمة قبل الإرسال.`}
+                  ? 'اختير الموردون المطابقون والأقرب للمادة؛ ترشيحات النشاط العامة متاحة للمراجعة. راجع القائمة قبل الإرسال؛ ترشيح المورد ليس تأكيدًا للمخزون.'
+                  : `${empty} بندًا دون مورد مختار؛ راجع الترشيحات المتاحة واختر المناسب. للبقية اختير الموردون المطابقون والأقرب للمادة. راجع القائمة قبل الإرسال.`}
                 {autoSummary && autoSummary.lines > 0 ? ' الاختيار تلقائي ولا يُحسب من اختياراتك التي يتعلّم منها النظام.' : ''}
               </div>
             </div>

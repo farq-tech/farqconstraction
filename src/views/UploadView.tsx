@@ -1,5 +1,6 @@
+import { loadCompanyProfile } from '../lib/companyProfile'
 import { useState, useRef, useEffect } from 'react'
-import { autoPickFor, buildPickContext } from '../lib/autoPick'
+import { autoPickConfident, buildPickContext } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
 import { UploadIcon, CheckIcon } from '../icons'
 import { matchSuppliersForItems, parseBoqFile } from '../lib/parseBoq'
@@ -19,6 +20,8 @@ import {
   clearParsedBoq,
   getBoqItems,
   getSession,
+  setMatchingCity,
+  setSelections,
   resetWorkingSession,
   setCartItems,
   setParsedBoq,
@@ -339,6 +342,8 @@ export function UploadView({ navigate }: NavProps) {
   const [dragging, setDragging] = useState(false)
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
+  const [pendingCityFile, setPendingCityFile] = useState<File | null>(null)
+  const [deliveryCity, setDeliveryCity] = useState(() => getSession().matchingCity || loadCompanyProfile().defaultDeliveryCity || 'الرياض')
   const [errorMsg, setErrorMsg] = useState('')
   const [needsSignIn, setNeedsSignIn] = useState(false)
   /** How much of the booklet we actually read, and why the rest is missing. */
@@ -363,7 +368,13 @@ export function UploadView({ navigate }: NavProps) {
   const [cartError, setCartError] = useState('')
   /** Once the buyer works on the cart here, «طلبك» itself is the way back; the restore note steps aside. */
   const [cartTouched, setCartTouched] = useState(false)
-  useEffect(() => subscribeSession(() => setCart(getBoqItems())), [])
+  useEffect(() => subscribeSession(() => {
+    setCart(getBoqItems())
+    setDeliveryCity(prev => {
+      const city = getSession().matchingCity
+      return city && city !== prev.trim() ? city : prev
+    })
+  }), [])
 
   const addToCart = (lines: Array<Omit<BOQItem, 'id'>>) => {
     if (!lines.length) return
@@ -387,22 +398,31 @@ export function UploadView({ navigate }: NavProps) {
    */
   const continueToSuppliers = async () => {
     if (continuing) return
+    if (!deliveryCity.trim()) return setCartError('اكتب مدينة التسليم قبل مطابقة الموردين.')
+    if (!getBoqItems().length) return
+    setMatchingCity(deliveryCity)
     const current = getBoqItems()
-    if (!current.length) return
     setContinuing(true)
     setCartError('')
     try {
       let next = current
       const pending = linesToMatch(current)
       if (pending.length) {
-        const matched = await matchSuppliersForItems(pending)
+        const matched = await matchSuppliersForItems(pending, { deliveryCity })
         if (matched.matchApiError) {
           setCartError(
             `تعذّرت مطابقة الموردين للبنود الجديدة: ${matched.matchApiError} — بنودك محفوظة، أعد المحاولة.`,
           )
           return
         }
-        next = mergeMatched(getBoqItems(), matched.items)
+        const selections = { ...getSession().selections }
+        for (const item of current.filter(item => item.needsMatch)) {
+          const automatic = new Set(item.autoPickedSupplierIds || [])
+          const rejected = new Set(item.rejectedSupplierIds || [])
+          selections[item.id] = (selections[item.id] || []).filter(id => !automatic.has(id) && !rejected.has(id))
+        }
+        next = mergeMatched(getBoqItems(), matched.items, selections)
+        setSelections(selections)
       }
       setCartItems(next, newCartDocumentId)
       const session = getSession()
@@ -446,6 +466,10 @@ export function UploadView({ navigate }: NavProps) {
   }, [phase])
 
   const runProcessing = async (file: File) => {
+    if (!deliveryCity.trim()) {
+      setErrorMsg('اكتب مدينة التسليم قبل قراءة الكراسة ومطابقة الموردين.')
+      return
+    }
     // No session on a deployed build means no call reaches the API at all: the
     // server-side readers never run, no supplier is matched, and the screen then
     // apologises for a read it should not have started. Seen twice on
@@ -492,7 +516,9 @@ export function UploadView({ navigate }: NavProps) {
     setActivity([])
     let watchdog: number | undefined
     try {
+      setMatchingCity(deliveryCity)
       const parsed = parseBoqFile(file, {
+        deliveryCity,
         onStage: (id) => {
           if (!current()) return
           const i = STAGES.findIndex((s) => s.id === id)
@@ -674,13 +700,13 @@ export function UploadView({ navigate }: NavProps) {
   useEffect(() => {
     const file = takePendingUpload()
     if (file) {
-      void runProcessing(file)
+      setPendingCityFile(file)
       return
     }
     // A refresh (or a closed tab) while a booklet was being read: carry on.
     let cancelled = false
     void loadInflightUpload(farqSession.getUser()?.id ?? null).then((saved) => {
-      if (!cancelled && saved) void runProcessing(saved)
+      if (!cancelled && saved) setPendingCityFile(saved)
     })
     return () => {
       cancelled = true
@@ -744,7 +770,7 @@ export function UploadView({ navigate }: NavProps) {
   const badRead = partialRead || Boolean(readReport?.descriptionColumnSuspect) || Boolean(readReport?.codedItemsSuspect)
   // The same choice the proposals page makes, so both screens say one thing.
   const pickContext = buildPickContext(items)
-  const picksById = new Map(items.map((i) => [i.id, i.workOnly ? [] : autoPickFor(i, undefined, pickContext)]))
+  const picksById = new Map(items.map((i) => [i.id, i.workOnly ? [] : autoPickConfident(i, pickContext)]))
   const searchingCount = items.filter((i) => !i.workOnly && !(picksById.get(i.id) || []).length).length
   const supplierCount = new Set([...picksById.values()].flat().map((s) => s.id)).size
   const coveredCount = items.filter((i) => (picksById.get(i.id) || []).length > 0).length
@@ -758,6 +784,20 @@ export function UploadView({ navigate }: NavProps) {
         setCameraOpen(false)
         setStartPath('manual')
       }} />}
+      {phase === 'idle' && <label className="block mb-4 text-sm text-neutral-600">مدينة التسليم للمطابقة
+        <input value={deliveryCity} disabled={continuing} onChange={e => {
+          const city = e.target.value
+          setDeliveryCity(city)
+          setMatchingCity(city)
+          const current = getBoqItems()
+          if (current.length) setCartItems(current.map(item => ({ ...item, needsMatch: true })), newCartDocumentId)
+        }} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2" />
+      </label>}
+      {phase === 'idle' && pendingCityFile && <button type="button" disabled={!deliveryCity.trim()} onClick={() => {
+        const file = pendingCityFile
+        setPendingCityFile(null)
+        void runProcessing(file)
+      }} className="mb-4 w-full rounded-xl bg-[#123F3A] text-white p-3 font-bold">قراءة {pendingCityFile.name} ومطابقة الموردين في {deliveryCity}</button>}
       {phase === 'idle' && <button type="button" onClick={() => setCameraOpen(true)} className="mb-4 w-full rounded-2xl bg-[#123F3A] px-4 py-4 text-white font-bold">قراءة طلب شراء بالكاميرا</button>}
       {phase === 'idle' ? (
         <StartChooser
@@ -1039,7 +1079,7 @@ export function UploadView({ navigate }: NavProps) {
                       {searchingCount ? searchingCount : coveredCount}
                     </div>
                     <div className="text-xs text-neutral-500 mt-0.5">
-                      {searchingCount ? 'بلا مورد في دليلنا' : 'بندًا لها موردون'}
+                      {searchingCount ? 'بندًا تحتاج مراجعة الموردين' : 'بندًا لها موردون مختارون'}
                     </div>
                   </div>
                   <div>
@@ -1084,8 +1124,8 @@ export function UploadView({ navigate }: NavProps) {
                 onContinue={() => void continueToSuppliers()}
                 continueLabel={
                   partialRead
-                    ? `متابعة لاختيار الموردين — البنود المقروءة فقط (${coveredCount} من ${readReport?.expected ?? items.length} لها موردون)`
-                    : `متابعة لاختيار الموردين (${coveredCount} بندًا من الكراسة لها موردون)`
+                    ? `متابعة لاختيار الموردين — البنود المقروءة فقط (${coveredCount} من ${readReport?.expected ?? items.length} لها موردون مختارون)`
+                    : `متابعة لاختيار الموردين (${coveredCount} بندًا من الكراسة لها موردون مختارون)`
                 }
               />
               <button
