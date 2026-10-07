@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import type { BOQItem } from '../../types'
-import { cartCountLabel, safeImageUrl } from '../../lib/rfqCart'
+import { cartCountLabel, safeImageUrl, validCartQuantity } from '../../lib/rfqCart'
 import { specCardSummary } from '../../lib/specCard'
 
 const ORIGIN_LABEL: Record<NonNullable<BOQItem['origin']>, string> = {
@@ -29,6 +29,7 @@ function CartLine({
   onRemove: (id: number) => void
 }) {
   const [editing, setEditing] = useState(false)
+  const [quantityError, setQuantityError] = useState('')
   const [draft, setDraft] = useState({ name: item.name, qty: item.qty, unit: item.unit, spec: item.spec || '' })
   const image = safeImageUrl(item.productRef?.imageUrl)
   const card = specCardSummary(item.specCard)
@@ -64,6 +65,11 @@ function CartLine({
               <button
                 type="button"
                 onClick={() => {
+                  if (!validCartQuantity(draft.qty)) {
+                    setQuantityError('اكتب كمية أكبر من صفر؛ لم يتم حفظ التعديل.')
+                    return
+                  }
+                  setQuantityError('')
                   onEdit(item.id, { name: draft.name, qty: draft.qty, unit: draft.unit, spec: draft.spec.trim() || undefined })
                   setEditing(false)
                 }}
@@ -75,6 +81,7 @@ function CartLine({
                 إلغاء
               </button>
             </div>
+            {quantityError && <p role="alert" className="text-xs text-red-700">{quantityError}</p>}
           </div>
         ) : (
           <>
