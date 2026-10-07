@@ -10,6 +10,7 @@ import {
 } from 'react'
 import type { AppView, BOQItem } from './types'
 import { captureSupplierLink } from './lib/supplierLink'
+import { simpleViews, viewUrl } from './lib/viewUrl'
 
 export type DraftBoqState = {
   /** Content hash for the active upload — items must match this document only. */
@@ -94,6 +95,7 @@ function initialViewFromUrl(): AppView {
     // navigate to it runs *after* signOut, which needs a session first.
     // Without this the sign-in screen has no door on a real domain.
     if (view === 'login') return 'login'
+    if (simpleViews.includes(view as AppView)) return view as AppView
   } catch {
     /* ignore */
   }
@@ -121,7 +123,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   type HistoryEntry = { farqView: AppView; rfqId?: string | null; threadId?: string | null; bookletId?: string | null }
   const push = (entry: HistoryEntry) => {
     try {
-      window.history.pushState(entry, '')
+      window.history.pushState(entry, '', viewUrl(window.location.href, entry.farqView, entry))
     } catch {
       /* ignore */
     }
@@ -148,9 +150,13 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   const viewRef = useRef(view)
   viewRef.current = view
   const navigate = useCallback((v: AppView) => {
-    if (viewRef.current !== v) push({ farqView: v })
+    if (viewRef.current !== v) push({ farqView: v,
+      ...(['rfq-detail', 'rfq-closed', 'offers', 'comparison', 'offer-detail', 'award'].includes(v) ? { rfqId: selectedRfqId } : {}),
+      ...(v === 'inbox-thread' ? { threadId: selectedThreadId } : {}),
+      ...(v === 'booklet-detail' ? { bookletId: selectedBookletId } : {}),
+    })
     setView(v)
-  }, [])
+  }, [selectedRfqId, selectedThreadId, selectedBookletId])
 
   const openInboxThread = useCallback((inviteId: string) => {
     setSelectedThreadId(inviteId)
