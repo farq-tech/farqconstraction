@@ -42,7 +42,7 @@ function deliveryMark(message: ConstructionInboxThreadMessage): { text: string; 
 /** A refused supplier attachment must read as an instruction, not a code. */
 function inboundFileNoticeAr(state?: string): string {
   if (state === 'TOO_LARGE')
-    return 'لم يُحفظ المرفق: أكبر من الحد (25 ميجابايت للملف و40 ميجابايت للرسالة). اطلب من المورد إرساله على أجزاء.'
+    return 'لم يُحفظ المرفق: أكبر من الحد (100 ميجابايت للملف و150 ميجابايت للرسالة). اطلب من المورد إرساله على أجزاء.'
   if (state === 'BLOCKED_TYPE')
     return 'لم يُحفظ المرفق — افتح البريد الأصلي للحصول عليه.'
   return 'لم يُحفظ المرفق — افتح البريد الأصلي للحصول عليه.'
