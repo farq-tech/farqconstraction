@@ -86,6 +86,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   const [items, setItems] = useState<BOQItem[]>([])
   const [selected, setSelected] = useState<Record<number, string[]>>({})
   const [known, setKnown] = useState<Record<string, Supplier>>({})
+  const automaticSelections = useRef<Record<number, string[]>>({})
   const [picker, setPicker] = useState<BOQItem | null>(null)
   const [search, setSearch] = useState('')
   const [results, setResults] = useState<SupplierEntry[]>([])
@@ -171,9 +172,15 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
         for (const s of candidatesFor(item)) book[s.id] = s
         if (item.workOnly) return item
         const auto = autoPickConfident(item, ctx)
-        picks[item.id] = auto.map((s) => s.id)
+        const previousAuto = new Set(automaticSelections.current[item.id] || [])
+        const manual = (selected[item.id] || []).filter(id => !previousAuto.has(id) && known[id])
+        picks[item.id] = [...new Set([...manual, ...auto.map(s => s.id)])]
+        for (const id of manual) book[id] = known[id]
         for (const s of auto) book[s.id] = s
-        return item
+        automaticSelections.current[item.id] = auto.filter(s => !manual.includes(s.id)).map(s => s.id)
+        const existing = new Set(item.suppliers.map(s => s.id))
+        const suppliers = [...item.suppliers, ...manual.filter(id => !existing.has(id)).map(id => known[id])]
+        return { ...item, suppliers, supplierCount: suppliers.length }
       })
       setItems(next)
       setSelected(picks)

@@ -368,7 +368,10 @@ export function UploadView({ navigate }: NavProps) {
   const [cartTouched, setCartTouched] = useState(false)
   useEffect(() => subscribeSession(() => {
     setCart(getBoqItems())
-    if (getSession().matchingCity) setDeliveryCity(getSession().matchingCity)
+    setDeliveryCity(prev => {
+      const city = getSession().matchingCity
+      return city && city !== prev.trim() ? city : prev
+    })
   }), [])
 
   const addToCart = (lines: Array<Omit<BOQItem, 'id'>>) => {
