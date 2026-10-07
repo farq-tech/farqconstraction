@@ -50,7 +50,7 @@ function ProcurementAssistant() {
   const scope:AhmadScope={view,rfqId:requestViews.includes(view)?selectedRfqId:undefined,bookletId:view==='booklet-detail'?selectedBookletId:undefined,supplierId:view==='supplier-detail'?selectedSupplierId:undefined,threadId:view==='inbox-thread'?selectedThreadId:undefined,quoteVersionId:view==='offer-detail'?selectedQuoteVersionId:undefined,...(['rfq-detail','offer-detail'].includes(view) && page.view===view && page.rfqId===selectedRfqId?page:{})}
   const key=JSON.stringify(scope)
   const label=scope.rfqId?`الطلب ${scope.rfqId.slice(0,8)}${scope.supplierId?' · المورد المحدد':''}${scope.tab?` · ${{items:'البنود',messages:'المراسلات',quotes:'العروض',summary:'ملخص الطلب',suppliers:'الموردون'}[scope.tab] || scope.tab}`:''}`:scope.threadId?'المحادثة المفتوحة':'حساب الشركة'
-  if (view === 'supplier' || view === 'join') return null
+  if (view === 'supplier' || view === 'join' || view === 'signup' || view === 'contractor-registrations') return null
   return <AhmadAssistant key={session.user?.id || 'guest'} contextKey={key} contextLabel={label} signedIn={session.isAuthenticated} ask={(message, history, document) => askAhmadAgent(message, history, {...scope,document})} onAction={action => navigate(action === 'upload' ? 'create-upload' : action === 'offers' && selectedRfqId ? 'offers' : 'rfq-list')} />
 }
 
