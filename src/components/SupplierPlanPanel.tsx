@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { addConstructionRfqSuppliers, getRfqSupplierPlan } from '../api/constructionClient'
 import { extraPlanSuppliers } from '../lib/extraPlanSuppliers'
 import {
@@ -95,6 +96,26 @@ export default function SupplierPlanPanel({ rfqId }: { rfqId: string }) {
   const [hidden, setHidden] = useState(false)
   const [adding, setAdding] = useState(false)
   const [addedNote, setAddedNote] = useState('')
+  const [search, setSearch] = useState('')
+  const [hits, setHits] = useState<Array<{id:string;name:string;city:string}>>([])
+  async function findSuppliers() {
+    setError(null)
+    try {
+      const result = await listConstructionSuppliers({query:search.trim(),limit:20,offset:0,contactableOnly:true})
+      setHits(result.suppliers.map(s=>({id:s.id,name:s.name,city:s.city})))
+    } catch { setError('تعذر البحث في الدليل') }
+  }
+  async function addFound(id:string) {
+    if (!plan || adding) return
+    setAdding(true)
+    setError(null)
+    try {
+      const result = await addConstructionRfqSuppliers(rfqId,[{external_key:id,line_keys:plan.lines.map(l=>l.key)}])
+      setAddedNote(result.invites.some(i=>i.status==='CREATED') ? 'أضيف المورد إلى الطلب دون إرسال.' : 'المورد موجود في الطلب.')
+      setHits(h=>h.filter(s=>s.id!==id))
+      setPlan(await getRfqSupplierPlan(rfqId))
+    } catch { setError('تعذر إضافة المورد') } finally { setAdding(false) }
+  }
   const extras = plan ? extraPlanSuppliers(plan) : []
 
   async function addAll() {
@@ -142,6 +163,12 @@ export default function SupplierPlanPanel({ rfqId }: { rfqId: string }) {
       {open && loading && <div className="text-xs text-neutral-500 px-1">جارٍ قراءة الطلب والبحث في الدليل…</div>}
       {open && error && <div className="text-xs text-rose-600 px-1">{error}</div>}
       {open && addedNote && <p role="status" className="text-sm text-[#123F3A]">{addedNote}</p>}
+      {open && plan && <div className="rounded-xl border p-3 space-y-2">
+        <p className="text-sm">إضافة مورد متخصص من الدليل بعد مراجعة نشاطه — دون إرسال</p>
+        <input aria-label="بحث مورد إضافي" value={search} onChange={e=>setSearch(e.target.value)} className="border rounded p-2" />
+        <button disabled={search.trim().length<2 || adding} onClick={()=>void findSuppliers()}>بحث</button>
+        {hits.map(s=><div key={s.id} className="flex justify-between"><span>{s.name} · {s.city}</span><button disabled={adding} onClick={()=>void addFound(s.id)}>إضافة إلى الطلب</button></div>)}
+      </div>}
       {open && extras.length > 0 && <button disabled={adding} onClick={() => void addAll()} className="rounded-xl bg-[#123F3A] px-4 py-2 text-sm font-bold text-white disabled:opacity-40">
         {adding ? 'جارٍ إضافة الموردين…' : `إضافة جميع الموردين الإضافيين بدليل قوي (${extras.length}) — دون إرسال`}
       </button>}

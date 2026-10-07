@@ -25,6 +25,7 @@ import {
   invitePreferredChannel,
   type ConstructionBroadcastStatus,
   sendConstructionRfqInvite,
+  prepareConstructionWhatsAppLink,
   type ConstructionComparison,
   type ConstructionInvitation,
   type ConstructionRfq,
@@ -432,6 +433,12 @@ export function RequestFileView({
     setResending(invite.id)
     setNotice(null)
     try {
+      if (invitePreferredChannel(invite) === "WHATSAPP") {
+        const link = await prepareConstructionWhatsAppLink(rfq.id, invite.id)
+        if (link.url) window.open(link.url, "_blank", "noopener,noreferrer")
+        setNotice({tone:"ok",text:"جُهزت رسالة واتساب؛ أكمل إرسالها من واتساب. لم تُرسل تلقائيًا."})
+        return
+      }
       const updated = await sendConstructionRfqInvite(rfq.id, invite.id, {
         retry: supplierState(invite).key === "FAILED",
         sendConsent: false,
