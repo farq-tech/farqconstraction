@@ -354,9 +354,9 @@ export function OfferDetailView({ navigate }: NavProps) {
                     disabled={cloudBusy}
                     onClick={handleWhatsAppCloud}
                     className="px-3 py-1.5 bg-[#123F3A] text-white text-xs font-bold rounded-lg disabled:opacity-50"
-                    title="يرسل عبر Meta Cloud مع send_consent=true — يخصم من ميزانية التجربة"
+                    title="إرسال رسالة واتساب؛ قد تُحتسب تكلفة حسب الباقة"
                   >
-                    {cloudBusy ? 'Cloud…' : 'إرسال Cloud (موافقة)'}
+                    {cloudBusy ? 'جارٍ الإرسال…' : 'إرسال واتساب'}
                   </button>
                 )}
               </>
@@ -367,7 +367,7 @@ export function OfferDetailView({ navigate }: NavProps) {
                 disabled={waBusy}
                 onClick={handleWhatsAppManual}
                 className="px-3 py-1.5 border border-neutral-200 text-neutral-600 text-xs font-bold rounded-lg disabled:opacity-50"
-                title="API يفضّل البريد إن وُجد — قد يرفض الرابط بـ EMAIL_PREFERRED"
+                title="البريد هو القناة المفضلة لهذا المورد"
               >
                 {waBusy ? '…' : 'واتساب يدوي'}
               </button>
@@ -375,13 +375,12 @@ export function OfferDetailView({ navigate }: NavProps) {
           </div>
         </div>
         <p className="text-[11px] text-neutral-400 mb-3 leading-relaxed">
-          بريد عبر Resend · المحادثات عند التفعيل · واتساب ويب يدوي دائمًا. Cloud WhatsApp يعمل فقط إذا أظهر
-          `/status` القناة ON وبعد موافقة صريحة (`send_consent`) و`WHATSAPP_ENABLED` — SENT = قبول المزوّد.
+          تظهر هنا القنوات المتاحة وحالة إرسال الطلب. قبول الرسالة من مزوّد الخدمة لا يعني أن المورد قرأها.
         </p>
         {sendNote && <p className="text-xs text-[#123F3A] mb-3">{sendNote}</p>}
         {attempts.length === 0 ? (
           <p className="text-sm text-neutral-500">
-            لا محاولات إرسال مسجّلة (`dispatch_attempts`). استخدم الأزرار أعلاه حسب القناة المتاحة.
+            لا توجد محاولات إرسال مسجّلة. استخدم القناة المتاحة أعلاه.
           </p>
         ) : (
           <div className="space-y-2">
@@ -421,7 +420,7 @@ export function OfferDetailView({ navigate }: NavProps) {
                     )}
                   </span>
                   {line.requested_quantity != null && <span className="block text-xs text-neutral-500">الكمية المطلوبة: {String(line.requested_quantity)} {String(line.requested_uom || '')}</span>}
-                  {line.held === true && <span className="block text-xs text-amber-800">تحتاج تأكيد: {String(line.review_reason || 'السعر مستبعد من المقارنة')}</span>}
+                  {line.held === true && <span className="block text-xs text-amber-800">{String(line.review_reason || 'تحتاج تأكيد: السعر مستبعد من المقارنة')}</span>}
                   <BrandChips
                     brand={brandFromLine(line)}
                     alternative={line.alternative === true || line.is_equivalent === true}
