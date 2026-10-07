@@ -7,16 +7,21 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
 /** Render locally: iOS WKWebView cannot reliably display a blob PDF iframe. */
 export default function PdfAttachmentPreview({ url }: { url: string }) {
   const host = useRef<HTMLDivElement>(null)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageCount, setPageCount] = useState(0)
   const [status, setStatus] = useState('جارٍ فتح الملف…')
   useEffect(() => {
     let cancelled = false
+    setStatus('جارٍ فتح الملف…')
     const task = pdfjs.getDocument(url)
     const render = async () => {
       try {
         const doc = await task.promise
         if (cancelled || !host.current) return
+        setPageCount(doc.numPages)
         host.current.replaceChildren()
-        for (let n = 1; n <= doc.numPages && !cancelled; n++) {
+        const n = Math.min(pageNumber, doc.numPages)
+        {
           const page = await doc.getPage(n)
           if (cancelled || !host.current) return
           const base = page.getViewport({ scale: 1 })
@@ -40,10 +45,19 @@ export default function PdfAttachmentPreview({ url }: { url: string }) {
       }
     }
     void render()
-    return () => { cancelled = true; void task.destroy() }
-  }, [url])
+    return () => {
+      cancelled = true
+      host.current?.querySelectorAll('canvas').forEach(canvas => { canvas.width = 0; canvas.height = 0 })
+      void task.destroy()
+    }
+  }, [url, pageNumber])
   return <div className="flex-1 min-h-0 overflow-y-auto bg-neutral-100 p-3">
     {status && <p role="status" className="p-4 text-center text-sm text-neutral-700">{status}</p>}
+    {pageCount > 1 && <div className="sticky top-0 flex justify-between items-center bg-white p-2 mb-2">
+      <button disabled={pageNumber <= 1} onClick={() => setPageNumber(n => n - 1)} className="p-2 disabled:opacity-40">السابق</button>
+      <span>{pageNumber} / {pageCount}</span>
+      <button disabled={pageNumber >= pageCount} onClick={() => setPageNumber(n => n + 1)} className="p-2 disabled:opacity-40">التالي</button>
+    </div>}
     <div ref={host} />
   </div>
 }
