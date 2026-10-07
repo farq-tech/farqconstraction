@@ -105,7 +105,7 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
 /**
  * How sure we are that this supplier sells this line's material.
  *
- *   SURE     he priced or answered about it in a round, the buyer chose him
+ *   SURE     he priced it in a round, the buyer chose him
  *            before, or the map's reason is his NAME or REGISTERED ACTIVITY
  *            naming the material — and he is not in another city
  *   LIKELY   the map confirmed the material some other way («نشاط متطابق»:
@@ -117,7 +117,9 @@ export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 export function confidenceOf(s: Supplier): Confidence {
   if (s.outOfCity) return 'MAYBE'
   if (s.learned || isPriorQuoter(s)) return 'SURE'
-  if (s.roundOutcome?.grade === 'PRICED' || s.roundOutcome?.grade === 'ANSWERED') return 'SURE'
+  // A question or clarification also counts as ANSWERED; a reply alone
+  // does not establish that the supplier sells the requested material.
+  if (s.roundOutcome?.grade === 'PRICED') return 'SURE'
   // A sibling product or broad trade cannot establish sale of this material,
   // even if a legacy adapter labelled the row as a catalogue match.
   if (/^(?:منتج شقيق|نشاط العائلة|صيانة\/إصلاح)/u.test((s.why || '').trim())) return 'MAYBE'
