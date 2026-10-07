@@ -133,7 +133,7 @@ export function scoreBreakdown(score: SupplierScore | null | undefined): string[
   const r = score.responsiveness
   if (r) out.push(`سرعة الاستجابة ${pts(r, 25)} (${followupsLabel(r.followups)})`)
   const c = score.completeness
-  if (c) out.push(`اكتمال البنود ${pts(c, 20)} (${Number(c.priced) || 0} من ${Number(c.requested) || 0})`)
+  if (c) out.push(`تغطية البنود الموجهة للمورد ${pts(c, 20)} (${Number(c.priced) || 0} من ${Number(c.requested) || 0}) — لا تشمل شروط الشراء`)
   const k = score.competitiveness
   if (k) out.push(`تنافسية السعر ${pts(k, 35)}${k.all_flagged ? ' — كل الأسعار قيد المراجعة' : ''}`)
   const v = score.clarity

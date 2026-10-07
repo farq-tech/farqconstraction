@@ -15,17 +15,18 @@ export default function SupplierScoreBadge({ score, className = '' }: { score?: 
     <span className={`group relative inline-block align-middle ${className}`}>
       <span
         tabIndex={0}
-        title={[`تقييم المورد ${text}`, ...lines].join('\n')}
-        aria-label={`تقييم المورد ${text}`}
+        title={[`تقييم الاستجابة ${text} — لا يثبت اكتمال العرض أو مطابقة المنتج`, ...lines].join('\n')}
+        aria-label={`تقييم الاستجابة ${text}؛ راجع اكتمال العرض والمطابقة قبل الشراء`}
         className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums cursor-help ${tone}`}
       >
-        {text}
+        الاستجابة {text}
       </span>
       <span
         role="tooltip"
         className="pointer-events-none absolute z-30 top-full mt-1 right-0 hidden group-hover:block group-focus-within:block w-72 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-[11px] font-normal leading-relaxed text-neutral-700 shadow-lg text-right whitespace-normal"
       >
-        <span className="block font-bold text-[#0D1F1D] mb-1">تقييم المورد {text}</span>
+        <span className="block font-bold text-[#0D1F1D] mb-1">تقييم الاستجابة {text}</span>
+        <span className="block mb-1 text-amber-800">هذا التقييم لا يثبت اكتمال شروط الشراء أو مطابقة المنتج. راجع النواقص وحالة الأسعار.</span>
         {lines.map((line) => (
           <span key={line} className="block">
             {line}
