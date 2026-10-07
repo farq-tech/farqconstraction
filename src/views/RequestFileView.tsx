@@ -25,6 +25,7 @@ import {
   invitePreferredChannel,
   type ConstructionBroadcastStatus,
   sendConstructionRfqInvite,
+  prepareConstructionWhatsAppLink,
   type ConstructionComparison,
   type ConstructionInvitation,
   type ConstructionRfq,
@@ -168,6 +169,7 @@ export function RequestFileView({
   const [notice, setNotice] = useState<{
     tone: "ok" | "bad"
     text: string
+    url?: string
   } | null>(null)
   const [resending, setResending] = useState<string | null>(null)
   const [awarding, setAwarding] = useState<Offer | null>(null)
@@ -432,8 +434,13 @@ export function RequestFileView({
     setResending(invite.id)
     setNotice(null)
     try {
+      if (invitePreferredChannel(invite) === "WHATSAPP") {
+        const link = await prepareConstructionWhatsAppLink(rfq.id, invite.id)
+        setNotice({tone:"ok",text:"جُهزت رسالة واتساب؛ أكمل إرسالها من الرابط. لم تُرسل تلقائيًا.",url:link.url})
+        return
+      }
       const updated = await sendConstructionRfqInvite(rfq.id, invite.id, {
-        retry: true,
+        retry: supplierState(invite).key === "FAILED",
         sendConsent: false,
         harajLimit: invitePreferredChannel(invite) === "HARAJ" ? 1 : undefined,
       })
@@ -613,6 +620,7 @@ export function RequestFileView({
           }`}
         >
           {notice.text}
+          {notice.url && <a href={notice.url} target="_blank" rel="noopener noreferrer" className="block mt-2 font-bold underline">فتح واتساب لإرسال الطلب</a>}
         </div>
       )}
 
@@ -1094,7 +1102,7 @@ export function RequestFileView({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {st.key === "FAILED" && (
+                    {(st.key === "FAILED" || st.key === "NOT_SENT") && (
                       <button
                         disabled={resending === invite.id}
                         onClick={() => resend(invite)}
@@ -1102,7 +1110,7 @@ export function RequestFileView({
                       >
                         {resending === invite.id
                           ? "جارٍ الإرسال…"
-                          : "إعادة الإرسال"}
+                          : st.key === "NOT_SENT" ? "إرسال الطلب" : "إعادة الإرسال"}
                       </button>
                     )}
                     <button
@@ -1117,7 +1125,7 @@ export function RequestFileView({
             })
           )}
           {services.has(SUPPLIER_MATCH_V2_SERVICE) && (
-            <SupplierPlanPanel key={rfq.id} rfqId={rfq.id} />
+            <SupplierPlanPanel key={`${rfq.id}:${rfq.current_version?.id || ''}`} rfqId={rfq.id} onAdded={() => load(rfq.id, { comparison: true })} />
           )}
         </div>
       )}
