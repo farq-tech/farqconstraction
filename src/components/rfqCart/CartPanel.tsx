@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import type { BOQItem } from '../../types'
 import { cartCountLabel, safeImageUrl } from '../../lib/rfqCart'
+import { autoPickFor } from '../../lib/autoPick'
 import { specCardSummary } from '../../lib/specCard'
 
 const ORIGIN_LABEL: Record<NonNullable<BOQItem['origin']>, string> = {
@@ -32,6 +33,7 @@ function CartLine({
   const [draft, setDraft] = useState({ name: item.name, qty: item.qty, unit: item.unit, spec: item.spec || '' })
   const image = safeImageUrl(item.productRef?.imageUrl)
   const card = specCardSummary(item.specCard)
+  const candidateCount = autoPickFor(item, Number.POSITIVE_INFINITY).length
   const matched = !item.needsMatch && (item.origin === undefined || item.origin === 'booklet' || item.supplierCount > 0)
   return (
     <div className="px-3 py-3 flex items-start gap-3 text-right" data-line={item.id}>
@@ -93,10 +95,10 @@ function CartLine({
               {matched ? (
                 <span
                   className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                    item.supplierCount ? 'bg-[#CFF5DC] text-[#1a7a45]' : 'bg-amber-50 text-amber-700'
+                    candidateCount ? 'bg-[#CFF5DC] text-[#1a7a45]' : 'bg-amber-50 text-amber-700'
                   }`}
                 >
-                  {item.supplierCount ? `${item.supplierCount} موردين` : 'بلا مورد'}
+                  {candidateCount ? `${candidateCount} موردًا مقترحًا` : 'يحتاج مراجعة الموردين'}
                 </span>
               ) : (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f0faf7] text-[#123F3A]">نطابق الموردين عند المتابعة</span>
