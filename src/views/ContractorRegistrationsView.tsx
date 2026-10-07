@@ -50,6 +50,7 @@ export function ContractorRegistrationsView({ navigate }: NavProps) {
     RETRY: "جارٍ إعادة المحاولة",
     ACCEPTED: "قَبِل مزود البريد الإشعار",
     FAILED: "تعذّر إرسال الإشعار",
+    UNKNOWN: "حالة الإرسال غير مؤكدة — تحتاج مراجعة",
   };
   return (
     <main
