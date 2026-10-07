@@ -25,13 +25,14 @@ import { RfqEmailPreviewModal } from '../components/RfqEmailPreviewModal'
 import BrandChips from '../components/brand/BrandChips'
 import { brandFromLine } from '../lib/brandEquivalence'
 import { cleanSupplierName } from '../lib/supplierName'
-import { vatNotStated, vatStatusLabel } from '../lib/priceReview'
+import { isHeldOffer, vatNotStated, vatStatusLabel } from '../lib/priceReview'
 
 export function OfferDetailView({ navigate }: NavProps) {
   const { selectedRfqId, selectedOfferId, openRfq } = useProcurement()
   const [rfq, setRfq] = useState<ConstructionRfq | null>(null)
   const [invite, setInvite] = useState<ConstructionInvitation | null>(null)
   const [quoteTotal, setQuoteTotal] = useState<number | null>(null)
+  const [heldPrices, setHeldPrices] = useState(false)
   /** The quote's VAT basis; undefined until a quote is found. */
   const [quoteTax, setQuoteTax] = useState<boolean | null | undefined>(undefined)
   const [quoteLines, setQuoteLines] = useState<Array<Record<string, unknown>>>([])
@@ -75,7 +76,16 @@ export function OfferDetailView({ navigate }: NavProps) {
           response?.offer?.totals?.subtotal
         setQuoteTotal(total != null ? Number(total) : null)
         setQuoteTax(response ? (response.offer?.prices_include_tax ?? null) : undefined)
-        setQuoteLines(Array.isArray(response?.offer?.lines) ? response!.offer.lines! : [])
+        const matrixLines = comparison?.quote_matrix?.lines || []
+        const supplierCells = matrixLines.flatMap(line => line.offers.filter(o => String(o.supplier_id) === supplierId))
+        setHeldPrices(supplierCells.some(isHeldOffer))
+        setQuoteLines((Array.isArray(response?.offer?.lines) ? response!.offer.lines! : []).map(line => {
+          const requested = matrixLines.find(r => String(r.id) === String(line.line_id || line.id || ''))
+          const cell = requested?.offers.find(o => String(o.supplier_id) === supplierId)
+          return { ...line, original_name: requested?.market_name_ar || requested?.name_ar || line.original_name,
+            requested_quantity: requested?.quantity, requested_uom: requested?.uom,
+            held: cell ? isHeldOffer(cell) : false, review_reason: cell?.price_review?.reason_ar }
+        }))
         if (!found) setError('الدعوة غير موجودة في هذا الطلب')
       })
       .catch((err: Error) => {
@@ -294,7 +304,8 @@ export function OfferDetailView({ navigate }: NavProps) {
           </div>
         </div>
         <div className="bg-white border border-neutral-100 rounded-2xl px-4 py-4">
-          <div className="text-xs text-neutral-400 mb-1">إجمالي العرض</div>
+          <div className="text-xs text-neutral-400 mb-1">{heldPrices ? 'إجمالي العرض الخام — غير معتمد للمقارنة' : 'إجمالي العرض'}</div>
+          {heldPrices && <p role="alert" className="text-xs text-amber-800 mb-2">يتضمن أسعارًا تحتاج تأكيدًا؛ راجع المقارنة قبل اتخاذ قرار الشراء.</p>}
           <div className="font-bold text-[#0D1F1D] text-sm">
             {quoteTotal != null ? formatSar(quoteTotal) : '—'}
           </div>
@@ -409,6 +420,8 @@ export function OfferDetailView({ navigate }: NavProps) {
                       line.original_name || line.name_ar || line.line_key || `بند ${index + 1}`,
                     )}
                   </span>
+                  {line.requested_quantity != null && <span className="block text-xs text-neutral-500">الكمية المطلوبة: {String(line.requested_quantity)} {String(line.requested_uom || '')}</span>}
+                  {line.held === true && <span className="block text-xs text-amber-800">تحتاج تأكيد: {String(line.review_reason || 'السعر مستبعد من المقارنة')}</span>}
                   <BrandChips
                     brand={brandFromLine(line)}
                     alternative={line.alternative === true || line.is_equivalent === true}
