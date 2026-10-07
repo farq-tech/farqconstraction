@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   claimConstructionInboxRequest,
   downloadConstructionInboxFile,
@@ -14,6 +14,7 @@ import { chatTimeLabel } from '../../lib/inboxChat'
 import { splitQuotedReply } from '../../lib/quotedEmail'
 import type { Nav } from '../MobileApp'
 import { Avatar, ErrorNote, Skeleton, useLoad } from '../ui'
+const PdfAttachmentPreview = lazy(() => import('../../components/PdfAttachmentPreview'))
 
 /** A subject line that names the channel's source is never shown. */
 function showSubject(subject?: string | null): boolean {
@@ -278,6 +279,10 @@ export default function ThreadScreen({ inviteId, nav }: { inviteId: string; nav:
           </div>
           {viewer.type.startsWith('image/') ? (
             <img src={viewer.url} alt={viewer.name} className="flex-1 object-contain" />
+          ) : viewer.type.includes('pdf') || /\.pdf$/i.test(viewer.name) ? (
+            <Suspense fallback={<p className="bg-white p-4 text-center">جارٍ فتح الملف…</p>}>
+              <PdfAttachmentPreview url={viewer.url} />
+            </Suspense>
           ) : (
             <iframe src={viewer.url} title={viewer.name} className="flex-1 w-full bg-white" />
           )}
