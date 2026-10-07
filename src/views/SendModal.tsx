@@ -264,7 +264,7 @@ export function SendModal({
   })()
 
   const sendBlockers: string[] = []
-  if (!getSession().matchingCity) sendBlockers.push('حدّد مدينة التسليم وأعد مطابقة الموردين من صفحة الطلب قبل الإرسال.')
+  if (!getSession().matchingCity || getSession().boqItems.some(item => item.needsMatch)) sendBlockers.push('حدّد مدينة التسليم وأعد مطابقة الموردين من صفحة الطلب قبل الإرسال.')
   if (!senderCompany.trim()) sendBlockers.push('حدّد اسم الشركة المرسلة كما سيظهر للموردين.')
   if (readIssue?.kind === 'invalid') sendBlockers.push(`قراءة هذه الكراسة غير صالحة للإرسال: ${readIssue.detail}`)
   if (badQtyItems.length)
