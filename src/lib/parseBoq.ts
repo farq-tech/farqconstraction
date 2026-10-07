@@ -1838,7 +1838,7 @@ async function parseBoqFileInner(
     source === 'pdf-table' && specsPending > 0
       ? currentAuthMode() === 'demo'
         ? `المواصفات الفنية لم تُستخرج (${specsPending} من ${lines.length} بندًا): استخراجها يجري على خادم فرق ويحتاج تسجيل دخول. الكميات والوحدات مقروءة بالكامل من الكراسة نفسها.`
-        : `المواصفات الفنية لم تصل بعد لـ ${specsPending} من ${lines.length} بندًا — استخراجها من الكراسة أبطأ من مهلة هذه الشاشة، فطُوبقت هذه البنود بالاسم والكمية. الكميات والوحدات مقروءة بالكامل.`
+        : `لا توجد مواصفات تفصيلية مستخرجة لـ ${specsPending} من ${lines.length} بندًا. طُوبقت هذه البنود بالنص المقروء والكمية والوحدة؛ راجع المقاس والبراند قبل الإرسال، ويمكنك إضافة التفاصيل بتعديل البند.`
       : ''
   const expectedLineCount = usedTable ? table!.expectedCount : null
   const unreadableLineCount = usedTable ? unreadableCount(table!) : 0

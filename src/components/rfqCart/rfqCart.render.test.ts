@@ -117,6 +117,13 @@ describe('CartPanel', () => {
     expect(html).toContain('نطابق الموردين عند المتابعة')
     expect(html).toContain('الماركة: Ariston')
   })
+  it('counts suggestion lanes uniquely instead of saying no supplier when catalogue is empty', () => {
+    const supplier = { id: 'map-1', name: 'مورد مواسير', city: 'الرياض', channel: 'بريد' as const, evidence: 'على مستوى النشاط' as const }
+    const line: BOQItem = { ...booklet, supplierCount: 0, suppliers: [], mapSuggestion: { suppliers: [supplier], family: 'pipes_fittings' }, familySuggestion: { suppliers: [supplier], family: 'pipes_fittings' } }
+    const html = renderToStaticMarkup(createElement(CartPanel, { items: [line], busy: false, error: '', onEdit: noop, onRemove: noop, onContinue: noop }))
+    expect(html).toContain('1 موردًا مقترحًا')
+    expect(html).not.toContain('بلا مورد')
+  })
   it('empty: says how to start and cannot continue', () => {
     const html = renderToStaticMarkup(
       createElement(CartPanel, { items: [], busy: false, error: '', onEdit: noop, onRemove: noop, onContinue: noop }),

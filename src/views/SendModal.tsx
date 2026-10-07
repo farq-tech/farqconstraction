@@ -1224,7 +1224,7 @@ export function SendModal({
                 </div>
                 <div className="text-xs text-neutral-600 mt-1">كل مورد يرى بنوده فقط، ويرد عبر رابط أو بالرد على الرسالة.</div>
                 {searchingItems > 0 && (
-                  <div className="text-xs text-amber-700 mt-1">{searchingItems} بنود ما زال البحث عن موردين لها جاريًا — تُرسل لاحقًا.</div>
+                  <div className="text-xs text-amber-700 mt-1">{searchingItems} بنود بدون موردين مختارين — لن تُرسل ضمن هذه الدفعة.</div>
                 )}
               </div>
 
