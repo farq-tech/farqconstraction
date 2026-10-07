@@ -1038,6 +1038,11 @@ export function UploadView({ navigate }: NavProps) {
               <div className="mt-4 text-xs text-neutral-500 leading-relaxed">
                 {partialRead ? 'توقفت القراءة' : badRead ? 'انتهت القراءة' : 'اكتملت القراءة'} في{' '}
                 {arSeconds(elapsed)}.
+                {!partialRead && !badRead && (
+                  <p className="mt-2 font-semibold text-[#123F3A]">
+                    اكتملت قراءة الكراسة. راجع البنود والموردين وأكمل الإرسال؛ لم يُرسل الطلب بعد.
+                  </p>
+                )}
               </div>
             )}
           </div>

@@ -17,7 +17,7 @@ describe('replyKindBadge', () => {
   it('names every meaningful kind in Arabic', () => {
     expect(replyKindBadge('AUTO_REPLY')?.label).toBe('رد آلي من المورد')
     expect(replyKindBadge('BUTTON')?.label).toBe('ضغط «متوفر وبسعّره»')
-    expect(replyKindBadge('NON_TEXT_ACK')?.label).toBe('ملصق أو تفاعل')
+    expect(replyKindBadge('NON_TEXT_ACK')?.label).toBe('تأكيد أو تفاعل')
     expect(replyKindBadge('ALT_CONTACT')?.label).toBe('يطلب التواصل على رقم آخر')
     expect(replyKindBadge('DECLINED')?.label).toBe('اعتذر')
     expect(replyKindBadge('INTERESTED')?.label).toBe('مهتم / متوفر')

@@ -238,6 +238,6 @@ describe('reply meanings from the 245-thread playbook', () => {
     expect(meaningKey('BUTTON')).toBe('BUTTON')
     expect(meaningKey('non_text_ack')).toBe('NON_TEXT_ACK')
     expect(MEANING_LABEL.BUTTON).toBe('ضغط «متوفر وبسعّره»')
-    expect(MEANING_LABEL.NON_TEXT_ACK).toBe('ملصق أو تفاعل')
+    expect(MEANING_LABEL.NON_TEXT_ACK).toBe('تأكيد أو تفاعل')
   })
 })
