@@ -30,6 +30,18 @@ describe('summarizeBooklet', () => {
     const changes = priceCutsFor(d, summarizeBooklet(d, FIXTURE_NOW))
     expect(changes.find(c => c.supplierId === String(o.supplier_id))).toMatchObject({ needsConfirmation: true, lineAmount: null, cheapestNow: false })
   })
+  it('never promotes a held or zero price over an eligible supplier price', () => {
+    const d = clone(PR580)
+    const offers = d.matrix[0]!.offers
+    offers[0]!.unit_price = 0
+    offers[1]!.unit_price = 0.01
+    offers[1]!.status = 'PRICE_REVIEW'
+    const best = summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best!
+    expect(best.unitPrice).toBeGreaterThan(0.01)
+    expect(best.needsReview).toBe(false)
+    offers.forEach((o) => { o.status = 'PRICE_REVIEW' })
+    expect(summarizeBooklet(d, FIXTURE_NOW).lines[0]!.best).toBeNull()
+  })
   it('PR-580: six lines, block quoted by seven, both channels unquoted', () => {
     const card = summarizeBooklet(PR580, FIXTURE_NOW)
     expect(card.reference).toBe('PR-580')

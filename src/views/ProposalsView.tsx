@@ -194,7 +194,7 @@ function SuggestionBox({
                   title="لا يناسب هذه المادة: لن يُقترح لها مرة أخرى"
                   className="flex-shrink-0 text-[11px] font-semibold text-neutral-400 hover:text-red-600"
                 >
-                  غير مناسب
+                  استبعاد المورد
                 </button>
               </div>
             )

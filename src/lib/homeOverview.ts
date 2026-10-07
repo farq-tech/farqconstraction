@@ -233,12 +233,11 @@ export function summarizeBooklet(raw: ConstructionBookletDetail, now = Date.now(
   const names = supplierNames(detail)
   const matrix = buildBookletMatrix(detail)
   const lines: HomeLine[] = matrix.rows.map((row) => {
-    // The summary shows the lowest recorded unit price, even with one quote,
-    // a tie or mixed VAT. Preserve review flags instead of hiding the price.
+    // A recorded minimum must obey the same price eligibility as comparison.
     const best: BookletCell | undefined = [...row.cells.values()]
       .filter((offer) => {
         const price = num(offer.unit_price)
-        return price != null && price >= 0 && upper(offer.currency || 'SAR') === 'SAR'
+        return !offer.held && !isHeldOffer(offer) && (!offer.status || offer.status === 'PRICED') && price != null && price > 0 && upper(offer.currency || 'SAR') === 'SAR'
       })
       .sort((a, b) => Number(a.unit_price) - Number(b.unit_price) || String(a.supplier_id).localeCompare(String(b.supplier_id)))[0]
     const price = num(best?.unit_price)

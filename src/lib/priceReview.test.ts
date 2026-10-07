@@ -251,7 +251,7 @@ describe('held prices never win (booklet)', () => {
 
   it('keeps the home page best and price cuts clear of it', () => {
     const card = summarizeBooklet(detail)
-    expect(card.lines[0]!.best).toBeNull()
+    expect(card.lines[0]!.best).toMatchObject({ unitPrice: 10, supplierName: 'أ', needsReview: false })
     expect(priceCutsFor(detail, card)).toEqual([])
   })
 })

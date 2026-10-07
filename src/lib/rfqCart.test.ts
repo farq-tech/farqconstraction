@@ -18,6 +18,15 @@ import {
 } from './rfqCart'
 import { buildRfqLinesFromItems } from './rfqPackages'
 
+it('rejects invalid edits without changing the original quantity', () => {
+  const items = [{ id: 1, name: 'حديد', qty: '100', unit: 'طن', suppliers: [] }] as unknown as BOQItem[]
+  for (const qty of ['0', '-1', '', 'غير معروف', '0.00001']) {
+    expect(() => editCartLine(items, 1, { qty })).toThrow('اكتب كمية أكبر من صفر')
+    expect(items[0]!.qty).toBe('100')
+  }
+  expect(editCartLine(items, 1, { qty: '٢٫٥' })[0]!.qty).toBe('2.5')
+})
+
 const ariston: ProductCard = {
   id: 'c1',
   name: 'سخان مياه أريستون 80 لتر',
