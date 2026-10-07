@@ -961,13 +961,19 @@ export function ProposalsView({ navigate }: NavProps) {
   const selectAll = (itemId: number) => {
     const item = items.find((i) => i.id === itemId)
     if (!item) return
-    learn(item, item.suppliers.map((s) => s.id), 'CHOSEN')
-    const chosen = item.suppliers.map((s) => s.id)
+    const rejected = new Set(item.rejectedSupplierIds || [])
+    const chosen = item.suppliers.filter(s => !rejected.has(s.id)).map(s => s.id)
+    learn(item, chosen, 'CHOSEN')
     const ids = sameMaterialIds(itemId)
+    persistItems(items.map(item => ids.includes(item.id)
+      ? { ...item, autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => !chosen.includes(id)) }
+      : item))
     setSelected((prev) => {
       const next = { ...prev }
       for (const id of ids) {
-        const listed = new Set((items.find((i) => i.id === id)?.suppliers || []).map((s) => s.id))
+        const target = items.find(i => i.id === id)
+        const rejectedHere = new Set(target?.rejectedSupplierIds || [])
+        const listed = new Set((target?.suppliers || []).filter(s => !rejectedHere.has(s.id)).map(s => s.id))
         next[id] = id === itemId ? chosen : [...new Set([...(next[id] || []), ...chosen.filter((x) => listed.has(x))])]
       }
       return next

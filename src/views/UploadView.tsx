@@ -21,6 +21,7 @@ import {
   getBoqItems,
   getSession,
   setMatchingCity,
+  setSelections,
   resetWorkingSession,
   setCartItems,
   setParsedBoq,
@@ -414,7 +415,14 @@ export function UploadView({ navigate }: NavProps) {
           )
           return
         }
-        next = mergeMatched(getBoqItems(), matched.items, getSession().selections)
+        const selections = { ...getSession().selections }
+        for (const item of current.filter(item => item.needsMatch)) {
+          const automatic = new Set(item.autoPickedSupplierIds || [])
+          const rejected = new Set(item.rejectedSupplierIds || [])
+          selections[item.id] = (selections[item.id] || []).filter(id => !automatic.has(id) && !rejected.has(id))
+        }
+        next = mergeMatched(getBoqItems(), matched.items, selections)
+        setSelections(selections)
       }
       setCartItems(next, newCartDocumentId)
       const session = getSession()
