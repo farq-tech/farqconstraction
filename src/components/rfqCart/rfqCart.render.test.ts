@@ -119,7 +119,7 @@ describe('CartPanel', () => {
   })
   it('counts suggestion lanes uniquely instead of saying no supplier when catalogue is empty', () => {
     const supplier = { id: 'map-1', name: 'مورد مواسير', city: 'الرياض', channel: 'بريد' as const, evidence: 'على مستوى النشاط' as const }
-    const line: BOQItem = { ...booklet, supplierCount: 0, suppliers: [], mapSuggestion: { suppliers: [supplier], family: 'pipes_fittings' }, familySuggestion: { suppliers: [supplier], family: 'pipes_fittings' } }
+    const line: BOQItem = { ...booklet, supplierCount: 0, suppliers: [], mapSuggestion: { intent: 'ppr_pipe', supplierCount: 1, suppliers: [supplier], family: 'pipes_fittings' }, familySuggestion: { suppliers: [supplier], family: 'pipes_fittings' } }
     const html = renderToStaticMarkup(createElement(CartPanel, { items: [line], busy: false, error: '', onEdit: noop, onRemove: noop, onContinue: noop }))
     expect(html).toContain('1 موردًا مقترحًا')
     expect(html).not.toContain('بلا مورد')
