@@ -627,6 +627,7 @@ let emitActivity: ((event: BoqActivity) => void) | null = null
 async function matchViaFarqBoqApi(
   lines: ParsedLine[],
   work: BoqWorkProgress = noWork,
+  deliveryCity?: string,
 ): Promise<RemoteMatch> {
   const out = new Map<string, RemoteHit>()
   if (!lines.length) return { hits: out }
@@ -674,6 +675,7 @@ async function matchViaFarqBoqApi(
     const resolutionOf = new Map(supplyLines.map((line, i) => [line, resolutions[i] ?? null]))
     for (const chunk of chunks) {
       const body = {
+        delivery_city: deliveryCity,
         lines: chunk.map((line) => ({
           line_key: lineKeyFor(line),
           name_ar: line.name,
@@ -770,7 +772,7 @@ async function matchViaFarqBoqApi(
 
 export async function matchSuppliersForItems(
   lines: ParsedLine[],
-  opts: { onWork?: BoqWorkProgress } = {},
+  opts: { onWork?: BoqWorkProgress; deliveryCity?: string } = {},
 ): Promise<{
   items: BOQItem[]
   /** Remote match request failure, if any — surfaced, never swallowed. */
@@ -778,7 +780,7 @@ export async function matchSuppliersForItems(
 }> {
   const work = opts.onWork ?? noWork
   const cleanLines = sanitizeBoqLines(lines)
-  const remote = await matchViaFarqBoqApi(cleanLines, work)
+  const remote = await matchViaFarqBoqApi(cleanLines, work, opts.deliveryCity)
   const apiHits = remote.hits
 
   // There is no local supplier search any more, and that is deliberate.

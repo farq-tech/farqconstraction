@@ -3153,6 +3153,7 @@ export async function getConstructionProductSearchQuota(): Promise<import('../li
 }
 
 export async function matchConstructionBoqCatalog(payload: {
+  delivery_city?: string
   lines?: Array<{
     line_key: string
     name_ar?: string
@@ -3275,7 +3276,7 @@ export async function matchConstructionBoqCatalog(payload: {
     headers: { 'Content-Type': 'application/json' },
     // `compact` asks the API to leave out the candidate items and long catalogue
     // texts this screen never renders: about a quarter of the bytes per call.
-    body: JSON.stringify({ rows, compact: true }),
+    body: JSON.stringify({ rows, compact: true, ...(payload.delivery_city?.trim() ? { delivery_city: payload.delivery_city.trim() } : {}) }),
     timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
   })
 

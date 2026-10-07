@@ -162,7 +162,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
     setError(null)
     setBusy('نبحث عن موردين لكل بند…')
     try {
-      const { items: matched } = await matchSuppliersForItems(usable)
+      const { items: matched } = await matchSuppliersForItems(usable, { deliveryCity: city })
       const ctx = buildPickContext(matched)
       const picks: Record<number, string[]> = {}
       const book: Record<string, Supplier> = {}
@@ -359,6 +359,10 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       <main className="flex-1 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] m-fade">
         {step === 'items' && (
           <>
+            <label className="block mb-3">
+              <span className="text-[13px] text-neutral-500">مدينة التسليم للمطابقة</span>
+              <input value={city} onChange={e => setCity(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-4 outline-none" />
+            </label>
             <input ref={fileInput} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} />
             <Card className="p-4" onClick={reading ? undefined : () => fileInput.current?.click()}>
               <div className="flex items-center gap-3">
@@ -492,7 +496,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
               </label>
               <label className="block">
                 <span className="text-[13px] text-neutral-500">مدينة التسليم</span>
-                <input value={city} onChange={(e) => setCity(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-4 outline-none" />
+                <div className="mt-1 flex items-center justify-between"><span>{city}</span><button type="button" onClick={() => setStep('items')} className="text-[#123F3A] underline">تغيير المدينة وإعادة مطابقة الموردين</button></div>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
