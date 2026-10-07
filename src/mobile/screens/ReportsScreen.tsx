@@ -1,3 +1,5 @@
+import { supplierCountForDisplay } from '../../lib/supplierCountVisibility'
+import { useActualSupplierCounts } from '../../components/priceReview/useActualSupplierCounts'
 import { useMemo, useState } from 'react'
 import {
   formatArDate,
@@ -57,6 +59,7 @@ function projectState(p: ConstructionReportProject): { label: string; tone: 'goo
 type SortKey = 'replied' | 'median' | 'quotes' | 'wins'
 
 export default function ReportsScreen({ nav }: { nav: Nav }) {
+  const canViewActualCounts = useActualSupplierCounts()
   const [days, setDays] = useState<number | null>(30)
   const { data, error, loading, reload } = useLoad<ConstructionReports>(() => getConstructionReports({ days }), [days])
   const [drill, setDrill] = useState<{ title: string; lines: ConstructionReportLine[] | null } | null>(null)
@@ -225,7 +228,7 @@ export default function ReportsScreen({ nav }: { nav: Nav }) {
                   </div>
                   <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-neutral-100">
                     <Stat label="أسعار" value={p.line_offers_total} />
-                    <Stat label="ردّوا" value={`${p.replied}/${p.reached}`} />
+                    <Stat label="ردّوا" value={`${p.replied}/${supplierCountForDisplay(p.reached, canViewActualCounts)}`} />
                     <Stat label="وسيط الرد" value={p.replied ? duration(p.median_reply_hours) : '—'} />
                   </div>
                 </Card>

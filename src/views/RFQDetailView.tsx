@@ -1,3 +1,5 @@
+import { supplierCountForDisplay } from '../lib/supplierCountVisibility'
+import { useActualSupplierCounts } from '../components/priceReview/useActualSupplierCounts'
 import { supplierDisplayName } from '../lib/presentationQuality'
 import { useEffect, useState } from 'react'
 import type { NavProps } from '../types'
@@ -85,6 +87,7 @@ function auditEventDetail(event: { event_type: string; snapshot?: Record<string,
 }
 
 export function RFQDetailView({ navigate }: NavProps) {
+  const canViewActualCounts = useActualSupplierCounts()
   const { selectedRfqId, openRfq, setSelectedOfferId, openInboxThread } = useProcurement()
   const [rfq, setRfq] = useState<ConstructionRfq | null>(null)
   const [loading, setLoading] = useState(true)
@@ -275,7 +278,7 @@ export function RFQDetailView({ navigate }: NavProps) {
     <div className="flex-1 min-w-0">
       <div className="flex items-baseline justify-between mb-1">
         <span className="text-xs text-neutral-500">{label}</span>
-        <span className="text-sm font-black text-[#0D1F1D] tabular-nums">{value}<span className="text-neutral-400 text-xs font-medium">/{total}</span></span>
+        <span className="text-sm font-black text-[#0D1F1D] tabular-nums">{supplierCountForDisplay(value, canViewActualCounts)}<span className="text-neutral-400 text-xs font-medium">/{supplierCountForDisplay(total, canViewActualCounts)}</span></span>
       </div>
       <div className="h-2 rounded-full bg-neutral-100 overflow-hidden">
         <div className={`h-full rounded-full ${colour}`} style={{ width: `${total ? Math.round((value / total) * 100) : 0}%` }} />
@@ -344,7 +347,7 @@ export function RFQDetailView({ navigate }: NavProps) {
       {draftNotSent && (
         <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="mb-3">
-            الطلب محفوظ ولم يُرسل بعد إلى {invites.length} موردين.
+            الطلب محفوظ ولم يُرسل بعد إلى {supplierCountForDisplay(invites.length, canViewActualCounts)} موردين.
           </p>
           <button
             type="button"
@@ -352,7 +355,7 @@ export function RFQDetailView({ navigate }: NavProps) {
             onClick={dispatchPendingEmails}
             className="px-4 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-50"
           >
-            {dispatching ? dispatchProgress || 'جارٍ الإرسال…' : `أرسل الطلب الآن (${invites.length})`}
+            {dispatching ? dispatchProgress || 'جارٍ الإرسال…' : `أرسل الطلب الآن (${supplierCountForDisplay(invites.length, canViewActualCounts)})`}
           </button>
         </div>
       )}
@@ -406,7 +409,7 @@ export function RFQDetailView({ navigate }: NavProps) {
             }`}
           >
             {label}
-            {id === 'correspondence' ? ` (${invites.length})` : ''}
+            {id === 'correspondence' ? ` (${supplierCountForDisplay(invites.length, canViewActualCounts)})` : ''}
             {id === 'offers' ? ` (${quoted.length})` : ''}
           </button>
         ))}
@@ -444,7 +447,7 @@ export function RFQDetailView({ navigate }: NavProps) {
           {replied.length === 0 ? (
             <div className="text-center py-10 bg-white border border-neutral-100 rounded-2xl">
               <p className="text-sm text-neutral-500 mb-4">
-                لا ردود بعد — {invites.length} دعوة بانتظار عرض المورد.
+                لا ردود بعد — {supplierCountForDisplay(invites.length, canViewActualCounts)} دعوة بانتظار عرض المورد.
               </p>
               <button
                 onClick={() => openRfq(rfq.id, 'offers')}
