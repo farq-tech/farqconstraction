@@ -118,6 +118,9 @@ export function confidenceOf(s: Supplier): Confidence {
   if (s.outOfCity) return 'MAYBE'
   if (s.learned || isPriorQuoter(s)) return 'SURE'
   if (s.roundOutcome?.grade === 'PRICED' || s.roundOutcome?.grade === 'ANSWERED') return 'SURE'
+  // A sibling product or broad trade cannot establish sale of this material,
+  // even if a legacy adapter labelled the row as a catalogue match.
+  if (/^(?:منتج شقيق|نشاط العائلة|صيانة\/إصلاح)/u.test((s.why || '').trim())) return 'MAYBE'
   if (s.evidence === 'دليل مباشر' || s.evidence === 'دليل منتج') return 'SURE'
   if (s.evidence === 'من الكتالوج' || s.evidence === 'تسمية آلية' || s.evidence === 'خريطة فرق') return 'LIKELY'
   if (s.evidence === 'نشاط متطابق') {

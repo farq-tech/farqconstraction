@@ -468,7 +468,7 @@ function BOQCard({
             <SuggestionBox
               tone="teal"
               title={`المادة: «${intentLabelAr(item.mapSuggestion.intent)}»`}
-              note="موردون من خريطة فرق لهذه المادة. اختر أي عدد، واضغط «غير مناسب» على من لا يناسب: فرق يتعلّم من الاثنين."
+              note="موردون من خريطة فرق لهذه المادة. راجع دليل كل مورد، واضغط «استبعاد المورد» على من لا يناسب."
               emptyText="المادة معروفة، ولا يحمل دليل فرق موردًا لها بعد."
               suppliers={item.mapSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
               evidence="خريطة فرق"
