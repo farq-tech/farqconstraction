@@ -125,7 +125,10 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
   const headEnd = config.customScripts?.headEnd ?? ''
   const bodyStart = config.customScripts?.bodyStart ?? ''
   const bodyEnd = config.customScripts?.bodyEnd ?? ''
-  const robotsTxt = config.robots?.index === false ? 'User-agent: *\nDisallow: /\n' : ''
+  // The application stays excluded; the new public marketing route is crawlable.
+  const robotsTxt = config.robots?.index === false
+    ? 'User-agent: *\nAllow: /how-it-works\nDisallow: /\n'
+    : ''
 
   return {
     name: 'figma-site-configuration',
