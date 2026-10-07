@@ -159,3 +159,11 @@ describe('quotaLabel — «عمليات البحث اليوم»', () => {
     expect(quotaLabel(null)).toBe('')
   })
 })
+
+it('keeps visible records for retained manual selections when a new city has different candidates', () => {
+  const manual = { id: 'manual', name: 'مورد يدوي', city: 'جدة', evidence: 'اختيارك' as const, channel: 'بريد' as const }
+  const old: BOQItem = { id: 77, name: 'اسمنت', qty: '10', unit: 'كيس', status: 'ready', supplierCount: 1, suppliers: [manual], needsMatch: true }
+  const fresh = { ...old, suppliers: [], supplierCount: 0 }
+  expect(mergeMatched([old], [fresh], { 77: ['manual'] })[0].suppliers).toEqual([manual])
+  expect(mergeMatched([old], [fresh])[0].suppliers).toEqual([])
+})

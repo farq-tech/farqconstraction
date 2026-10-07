@@ -390,9 +390,9 @@ export function UploadView({ navigate }: NavProps) {
    */
   const continueToSuppliers = async () => {
     if (continuing) return
-    const current = getBoqItems()
-    if (!current.length) return
+    if (!getBoqItems().length) return
     setMatchingCity(deliveryCity)
+    const current = getBoqItems()
     setContinuing(true)
     setCartError('')
     try {
@@ -406,7 +406,7 @@ export function UploadView({ navigate }: NavProps) {
           )
           return
         }
-        next = mergeMatched(getBoqItems(), matched.items)
+        next = mergeMatched(getBoqItems(), matched.items, getSession().selections)
       }
       setCartItems(next, newCartDocumentId)
       const session = getSession()

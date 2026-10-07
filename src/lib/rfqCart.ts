@@ -297,18 +297,21 @@ export function linesToMatch(items: BOQItem[]): ParsedLine[] {
  * card, origin, product reference, market name) is kept; a line the matcher
  * did not answer keeps its place and stays «بلا مورد».
  */
-export function mergeMatched(items: BOQItem[], matched: BOQItem[]): BOQItem[] {
+export function mergeMatched(items: BOQItem[], matched: BOQItem[], retainedSelections: Record<number, string[]> = {}): BOQItem[] {
   const byId = new Map(matched.map((m) => [m.id, m]))
   return items.map((item) => {
     if (!item.needsMatch) return item
     const m = byId.get(item.id)
     const base = { ...item, needsMatch: undefined }
     if (!m) return base
+    const retained = new Set(retainedSelections[item.id] || [])
+    const matchedIds = new Set(m.suppliers.map(s => s.id))
+    const suppliers = [...m.suppliers, ...item.suppliers.filter(s => retained.has(s.id) && !matchedIds.has(s.id))]
     return {
       ...base,
-      status: m.status,
-      supplierCount: m.supplierCount,
-      suppliers: m.suppliers,
+      status: suppliers.length ? 'ready' : m.status,
+      supplierCount: suppliers.length,
+      suppliers,
       farqSpecId: m.farqSpecId,
       lineKey: m.lineKey || item.lineKey,
       outcomeSuggestion: m.outcomeSuggestion,
