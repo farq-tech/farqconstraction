@@ -2954,8 +2954,10 @@ export async function matchConstructionSuppliers(payload: {
  * «مقدّم عروض سابقاً»: how many of this company's requests the supplier priced,
  * when the API ranked him first for having quoted this material before.
  */
-function priorQuotesOf(s: Record<string, unknown>): number | undefined {
-  const prior = s.prior_quoter as { quotes?: unknown } | undefined
+export function priorQuotesOf(s: Record<string, unknown>): number | undefined {
+  const prior = s.prior_quoter as { quotes?: unknown; match?: unknown } | undefined
+  // A category quote is useful background, not proof of pricing this material.
+  if (prior?.match !== 'SPEC' && prior?.match !== 'LINE_TEXT') return undefined
   const n = Number(prior?.quotes)
   return prior && Number.isFinite(n) && n > 0 ? n : undefined
 }
