@@ -165,7 +165,6 @@ export function SendModal({
   items,
   selectedByItem,
   projectName,
-  searchingItems,
   onClose,
   onSent,
   onFailed,
@@ -237,6 +236,7 @@ export function SendModal({
   }
 
   // Work with nothing to buy is never put in front of a supplier.
+  const unselectedItems = items.filter(i => !i.workOnly && !(selectedByItem[i.id] || []).length).length
   const readyItems = items.filter((i) => !i.workOnly && (selectedByItem[i.id] || []).length > 0)
   const selectedSupplierIds = [...new Set(readyItems.flatMap((i) => selectedByItem[i.id] || []))]
 
@@ -1223,8 +1223,8 @@ export function SendModal({
                   {readyItems.length === 1 ? 'بند' : 'بنود'}
                 </div>
                 <div className="text-xs text-neutral-600 mt-1">كل مورد يرى بنوده فقط، ويرد عبر رابط أو بالرد على الرسالة.</div>
-                {searchingItems > 0 && (
-                  <div className="text-xs text-amber-700 mt-1">{searchingItems} بنود بدون موردين مختارين — لن تُرسل ضمن هذه الدفعة.</div>
+                {unselectedItems > 0 && (
+                  <div className="text-xs text-amber-700 mt-1">{unselectedItems} بنود بدون موردين مختارين — لن تُرسل ضمن هذه الدفعة.</div>
                 )}
               </div>
 
