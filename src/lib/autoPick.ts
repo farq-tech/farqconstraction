@@ -138,6 +138,7 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   // including the system's named suggestions, regardless of channel or count.
   // A weak earlier lane must not hide stronger evidence for the same business.
   const strongest = new Map<string, Supplier>()
+  const outsideCity = new Set<string>()
   const score = (s: Supplier) => ({ SURE: 2, LIKELY: 1, MAYBE: 0 })[confidenceOf(s)]
   const candidates = [
     ...(item.learnedSuggestion?.suppliers || []).map(s => ({ ...s, learned: true })),
@@ -145,10 +146,11 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   ]
   for (const s of candidates) {
     if (!s?.id) continue
+    if (s.outOfCity) outsideCity.add(s.id)
     const previous = strongest.get(s.id)
     if (!previous || score(s) > score(previous)) strongest.set(s.id, s)
   }
-  return all.map(s => strongest.get(s.id) || s).filter(s => confidenceOf(s) !== 'MAYBE')
+  return all.map(s => strongest.get(s.id) || s).filter(s => !outsideCity.has(s.id) && confidenceOf(s) !== 'MAYBE')
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
