@@ -156,9 +156,15 @@ function specCardFromSheet(sheet: QuickSheet): SpecCard | undefined {
 
 /** A positive quantity as text, or '1'. Arabic digits are read. */
 export function cleanQty(value: string): string {
-  const ascii = String(value || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,،٬\s]/g, '')
+  const ascii = String(value || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,،٬\s]/g, '').replace('٫', '.')
   const n = Number(ascii)
   return Number.isFinite(n) && n > 0 ? String(Math.round(n * 1000) / 1000) : '1'
+}
+
+export function validCartQuantity(value: string): boolean {
+  const ascii = String(value).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,،٬\s]/g, '').replace('٫', '.')
+  const n = Number(ascii)
+  return Number.isFinite(n) && n > 0 && Math.round(n * 1000) > 0
 }
 
 /** A cart line from a product card. No price field exists to fill. */
@@ -270,6 +276,7 @@ export function editCartLine(
   id: number,
   patch: Partial<Pick<BOQItem, 'name' | 'qty' | 'unit' | 'spec' | 'specCard'>>,
 ): BOQItem[] {
+  if (patch.qty !== undefined && !validCartQuantity(patch.qty)) throw new Error('اكتب كمية أكبر من صفر.')
   return items.map((item) => {
     if (item.id !== id) return item
     const next = { ...item, ...patch }
