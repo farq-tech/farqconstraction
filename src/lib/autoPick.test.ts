@@ -215,3 +215,13 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
     expect(autoPickConfident(edge).filter((s) => s.channel === 'واتساب').length).toBe(100)
   })
 })
+
+it('keeps sibling products and broad family evidence for manual review', () => {
+  const sibling = { ...sup('steel', 'من الكتالوج'), why: 'منتج شقيق: «انابيب حديديه»' }
+  const family = { ...sup('general', 'نشاط متطابق'), why: 'نشاط العائلة: «سباكه»' }
+  const direct = { ...sup('ppr', 'نشاط متطابق'), why: 'النشاط المسجّل: «مواسير PPR»' }
+  const item = line(1, 'ppr', [sibling, family, direct])
+  expect(autoPickConfident(item).map(s => s.id)).toEqual(['ppr'])
+  expect(autoPickFor(item).map(s => s.id)).toContain('steel')
+  expect(autoPickConfident(line(1, 'ppr', [{ ...sibling, priorQuotes: 1 }])).map(s => s.id)).toEqual(['steel'])
+})
