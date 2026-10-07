@@ -145,7 +145,7 @@ export function RFQListView({ navigate }: NavProps) {
               rfq={rfq}
               onOpen={() =>
                 rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
-                  ? navigate('create-proposals')
+                  ? navigate(getSession().matchingCity ? 'create-proposals' : 'create-upload')
                   : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
               }
             />
