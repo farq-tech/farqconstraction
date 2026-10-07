@@ -157,6 +157,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   }
 
   async function toSuppliers() {
+    if (!city.trim()) return setError('اكتب مدينة التسليم قبل مطابقة الموردين.')
     const usable = lines.filter((l) => cleanLineName(l.name) && readQty(l.qty))
     if (!usable.length) return setError('أضف بندًا واحدًا على الأقل بكمية صحيحة.')
     setError(null)

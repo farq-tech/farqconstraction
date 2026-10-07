@@ -366,7 +366,10 @@ export function UploadView({ navigate }: NavProps) {
   const [cartError, setCartError] = useState('')
   /** Once the buyer works on the cart here, «طلبك» itself is the way back; the restore note steps aside. */
   const [cartTouched, setCartTouched] = useState(false)
-  useEffect(() => subscribeSession(() => setCart(getBoqItems())), [])
+  useEffect(() => subscribeSession(() => {
+    setCart(getBoqItems())
+    if (getSession().matchingCity) setDeliveryCity(getSession().matchingCity)
+  }), [])
 
   const addToCart = (lines: Array<Omit<BOQItem, 'id'>>) => {
     if (!lines.length) return
@@ -390,6 +393,7 @@ export function UploadView({ navigate }: NavProps) {
    */
   const continueToSuppliers = async () => {
     if (continuing) return
+    if (!deliveryCity.trim()) return setCartError('اكتب مدينة التسليم قبل مطابقة الموردين.')
     if (!getBoqItems().length) return
     setMatchingCity(deliveryCity)
     const current = getBoqItems()
@@ -450,6 +454,10 @@ export function UploadView({ navigate }: NavProps) {
   }, [phase])
 
   const runProcessing = async (file: File) => {
+    if (!deliveryCity.trim()) {
+      setErrorMsg('اكتب مدينة التسليم قبل قراءة الكراسة ومطابقة الموردين.')
+      return
+    }
     // No session on a deployed build means no call reaches the API at all: the
     // server-side readers never run, no supplier is matched, and the screen then
     // apologises for a read it should not have started. Seen twice on
