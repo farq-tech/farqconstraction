@@ -160,6 +160,31 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const [showStatus, setShowStatus] = useState(false)
   /** Bumped by «إعادة المحاولة»: re-runs the same reads, adds no new ones. */
   const [reloadKey, setReloadKey] = useState(0)
+  // Live refresh: the list re-reads itself every 30 s while the tab is visible,
+  // and once more when the window regains focus — silently (no spinner, the
+  // rows stay in place). «تحديث» does the same on demand. The owner (8 Oct 2026):
+  // «ليه الرسائل ما يصير سينك إلا إذا حدثت الصفحة؟ أبي على طول أو زر يحدث».
+  const [pollKey, setPollKey] = useState(0)
+  const silentReload = useRef(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshedAt, setRefreshedAt] = useState<number | null>(null)
+  const refreshNow = useCallback(() => {
+    silentReload.current = true
+    setPollKey((n) => n + 1)
+  }, [])
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshNow()
+    }
+    const id = window.setInterval(onVisible, 30_000)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [refreshNow])
   const [status, setStatus] = useState<ConstructionInboxStatus | null>(null)
   const [gmail, setGmail] = useState<ConstructionGmailStatus | null>(null)
   const [gmailError, setGmailError] = useState<string | null>(null)
@@ -299,7 +324,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   useEffect(() => {
     let cancelled = false
     listGeneration.current += 1
-    setLoading(true)
+    const silent = silentReload.current
+    silentReload.current = false
+    if (silent) setRefreshing(true)
+    else setLoading(true)
     setError(null)
     // Each tab is filtered by the server (lib/inboxTabs.ts), which also falls
     // back to the old «all + split here» read against an older API. Every
@@ -357,13 +385,16 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
         setTotal(0)
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (cancelled) return
+        if (silent) setRefreshing(false)
+        else setLoading(false)
+        setRefreshedAt(Date.now())
       })
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, reloadKey, serverFiltersKey])
+  }, [tab, reloadKey, pollKey, serverFiltersKey])
 
   const handleGmailConnect = async () => {
     if (connectInFlight.current) return
@@ -958,6 +989,9 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           error={error}
           rateLimitSec={rateLimitSec}
           onRetry={() => setReloadKey((n) => n + 1)}
+          onRefresh={refreshNow}
+          refreshing={refreshing}
+          refreshedAt={refreshedAt}
           tab={tab}
           onTabChange={setTab}
           counts={counts}

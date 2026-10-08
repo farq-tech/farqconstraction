@@ -295,6 +295,35 @@ export function ChatPane({
     void load(true)
   }, [load])
 
+  // The open conversation re-reads itself every 20 s while visible and when the
+  // window regains focus, without the loading state, so a supplier's new message
+  // appears without a page refresh (owner, 8 Oct 2026).
+  useEffect(() => {
+    let busy = false
+    const refresh = async () => {
+      if (busy || document.visibilityState !== 'visible') return
+      busy = true
+      try {
+        publish(await getConstructionInboxThread(inviteId))
+      } catch {
+        /* the next tick tries again; the thread on screen stays */
+      } finally {
+        busy = false
+      }
+    }
+    const id = window.setInterval(() => void refresh(), 20_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refresh()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [inviteId, publish])
+
   useEffect(() => {
     setSelecting(false)
     setPicked(new Set())
