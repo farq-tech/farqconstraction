@@ -37,6 +37,11 @@ export type ConversationListProps = {
   /** Seconds left on the API limiter, when the failure was a rate limit. */
   rateLimitSec: number | null
   onRetry: () => void
+  /** Silent re-read of the list (also runs every 30 s and on focus). */
+  onRefresh?: () => void
+  refreshing?: boolean
+  /** When the list was last read from the server, for «آخر تحديث». */
+  refreshedAt?: number | null
   tab: InboxTab
   onTabChange: (tab: InboxTab) => void
   /**
@@ -78,6 +83,9 @@ export function ConversationList({
   error,
   rateLimitSec,
   onRetry,
+  onRefresh,
+  refreshing = false,
+  refreshedAt = null,
   tab,
   onTabChange,
   counts,
@@ -192,6 +200,18 @@ export function ConversationList({
               )}
             </button>
           ))}
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              title={refreshedAt ? `آخر تحديث ${new Date(refreshedAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })} — يتحدث تلقائيًا كل 30 ثانية` : 'تحديث'}
+              aria-label="تحديث المحادثات"
+              className="flex-shrink-0 w-7 h-7 rounded-full bg-neutral-100 text-neutral-600 hover:bg-neutral-200 inline-flex items-center justify-center disabled:opacity-50"
+            >
+              <span className={`text-sm leading-none ${refreshing ? 'animate-spin' : ''}`} aria-hidden>↻</span>
+            </button>
+          )}
           {!loading && !error && (
             <span className="text-[11px] text-neutral-400 ms-auto flex-shrink-0 ps-2">
               {searching
