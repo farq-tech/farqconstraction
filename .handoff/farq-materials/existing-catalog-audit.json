@@ -1,0 +1,149 @@
+{
+  "counts": {
+    "total": 189931,
+    "active": 189902,
+    "active_with_image": 187191,
+    "active_with_brand": 95489,
+    "reference_items": 2525,
+    "source_keys": 189931
+  },
+  "sources": [
+    {
+      "source_name": "benna.com.sa (matkel.com)",
+      "products": 89858,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (youmats.com)",
+      "products": 43836,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa",
+      "products": 12319,
+      "missing_images": 67
+    },
+    {
+      "source_name": "masdaronline.com",
+      "products": 8104,
+      "missing_images": 2534
+    },
+    {
+      "source_name": "benna.com.sa (aptools.sa)",
+      "products": 6008,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (saco.sa)",
+      "products": 5534,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (amazon.sa)",
+      "products": 4263,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (ultralightstores.com)",
+      "products": 3561,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (elburoj.com)",
+      "products": 3454,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (build-station.com)",
+      "products": 2409,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (meshkati.sa)",
+      "products": 1929,
+      "missing_images": 0
+    },
+    {
+      "source_name": "benna.com.sa (masdaronline.com)",
+      "products": 1212,
+      "missing_images": 0
+    }
+  ],
+  "categories": [
+    {
+      "category": "plumbing",
+      "products": 76292,
+      "missing_images": 1702
+    },
+    {
+      "category": "electrical",
+      "products": 41737,
+      "missing_images": 48
+    },
+    {
+      "category": "building-material",
+      "products": 9153,
+      "missing_images": 66
+    },
+    {
+      "category": "paints",
+      "products": 8043,
+      "missing_images": 0
+    },
+    {
+      "category": "lighting-electrical",
+      "products": 6891,
+      "missing_images": 67
+    },
+    {
+      "category": "power-tools",
+      "products": 5363,
+      "missing_images": 13
+    },
+    {
+      "category": "precast-concrete",
+      "products": 4693,
+      "missing_images": 1
+    },
+    {
+      "category": "lighting-components-accessories",
+      "products": 3521,
+      "missing_images": 0
+    },
+    {
+      "category": "lighting",
+      "products": 2860,
+      "missing_images": 0
+    },
+    {
+      "category": "electrical-material",
+      "products": 2389,
+      "missing_images": 0
+    },
+    {
+      "category": "bathroom",
+      "products": 2363,
+      "missing_images": 0
+    },
+    {
+      "category": "reinforcement-steel",
+      "products": 2351,
+      "missing_images": 50
+    },
+    {
+      "category": "hand-tools",
+      "products": 2098,
+      "missing_images": 280
+    },
+    {
+      "category": "home-hardware",
+      "products": 1430,
+      "missing_images": 0
+    },
+    {
+      "category": "kitchen",
+      "products": 1101,
+      "missing_images": 0
+    }
+  ]
+}

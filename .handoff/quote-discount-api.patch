@@ -1,0 +1,426 @@
+From d9e6cb26751173ecb82d5f12b39dbe6cd278f194 Mon Sep 17 00:00:00 2001
+From: farq-tech <farqtechservices@gmail.com>
+Date: Mon, 5 Oct 2026 10:43:39 +0300
+Subject: [PATCH] Add durable quote discount requests through inbox
+ correspondence
+
+---
+ ...0_construction_quote_discount_requests.sql |  24 ++++
+ api/lib/construction/company-inbox.js         |   4 +
+ api/lib/construction/correspondence.js        |  14 ++-
+ .../construction/quote-discount-requests.js   | 112 ++++++++++++++++++
+ api/routes/construction.js                    |   7 +-
+ ...nstruction-quote-discount-requests.test.js | 102 ++++++++++++++++
+ api/workers/construction-inbox.js             |   1 +
+ docs/adr/0047-quote-discount-requests.md      |  11 ++
+ ...0_construction_quote_discount_requests.sql |  24 ++++
+ 9 files changed, 295 insertions(+), 4 deletions(-)
+ create mode 100644 api/db/migrations/construction/20261005120000_construction_quote_discount_requests.sql
+ create mode 100644 api/lib/construction/quote-discount-requests.js
+ create mode 100644 api/tests/construction-quote-discount-requests.test.js
+ create mode 100644 docs/adr/0047-quote-discount-requests.md
+ create mode 100644 supabase/migrations/20261005120000_construction_quote_discount_requests.sql
+
+diff --git a/api/db/migrations/construction/20261005120000_construction_quote_discount_requests.sql b/api/db/migrations/construction/20261005120000_construction_quote_discount_requests.sql
+new file mode 100644
+index 000000000..fe99b9fe5
+--- /dev/null
++++ b/api/db/migrations/construction/20261005120000_construction_quote_discount_requests.sql
+@@ -0,0 +1,24 @@
++create table construction.quote_discount_requests (
++  id uuid primary key,
++  invite_id uuid not null references construction.rfq_invites(id),
++  quote_version_id uuid not null references construction.supplier_quote_versions(id),
++  owner_id uuid not null references auth.users(id),
++  actor_user_id uuid not null references auth.users(id),
++  parent_message_id uuid references construction.inbox_messages(id),
++  channel text not null,
++  text text not null check(length(text) between 1 and 4000),
++  delay_minutes integer not null check(delay_minutes in (0,60)),
++  send_at timestamptz not null,
++  state text not null default 'SCHEDULED' check(state in ('SCHEDULED','PROCESSING','SENT','FAILED','UNKNOWN','SKIPPED','CANCELLED')),
++  failure_code text,
++  outbox_id uuid references construction.inbox_outbox(id),
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now()
++);
++create unique index quote_discount_once_per_version on construction.quote_discount_requests(invite_id,quote_version_id) where state <> 'CANCELLED';
++create index quote_discount_due on construction.quote_discount_requests(send_at) where state='SCHEDULED';
++alter table construction.quote_discount_requests owner to construction_owner;
++alter table construction.quote_discount_requests enable row level security;
++revoke all on construction.quote_discount_requests from public, anon, authenticated;
++grant select, insert, update on construction.quote_discount_requests to farq_construction_app;
++create policy quote_discount_backend on construction.quote_discount_requests to farq_construction_app using (true) with check (true);
+diff --git a/api/lib/construction/company-inbox.js b/api/lib/construction/company-inbox.js
+index 13bac5065..62f0cc6c1 100644
+--- a/api/lib/construction/company-inbox.js
++++ b/api/lib/construction/company-inbox.js
+@@ -347,6 +347,10 @@ function createCompanyInbox({ pool, env = process.env, fetchImpl = fetch, portal
+     unresolved: correspondence.unresolved,
+     resolveArrival: correspondence.resolveArrival,
+     reply: correspondence.reply,
++    listDiscountRequests: correspondence.discountRequests.list,
++    createDiscountRequest: correspondence.discountRequests.create,
++    cancelDiscountRequest: correspondence.discountRequests.cancel,
++    runDueDiscounts: correspondence.discountRequests.runDue,
+     retryReply: correspondence.retryReply,
+     dismissDraft: correspondence.dismissDraft,
+     aiAnalysis: correspondence.aiAnalysis,
+diff --git a/api/lib/construction/correspondence.js b/api/lib/construction/correspondence.js
+index 19fc06fc9..dc7d8f0b1 100644
+--- a/api/lib/construction/correspondence.js
++++ b/api/lib/construction/correspondence.js
+@@ -702,7 +702,7 @@ function createCorrespondence({ pool, env, config, replyAddress, fetchImpl, WebS
+     const { from, to, reply_to, subject, text, attachments, headers } = payload || {};
+     return { from, to, reply_to, subject, text, attachments, headers };
+   }
+-  async function reply({ actor, params, body = {} }) {
++  async function reply({ actor, params, body = {} }, internal = {}) {
+     requireActor(actor, true);
+     if (!UUID.test(body.idempotency_key || '') || (body.parent_message_id != null && !UUID.test(body.parent_message_id)) || typeof body.text !== 'string' || !body.text.trim() || body.text.length > 20000 || /\u0000/.test(body.text) || ['to','cc','bcc','from','reply_to'].some(k => k in body)) throw fail(400, 'INBOX_INVALID_REPLY');
+     const attachments = filesForSend(body.attachments);
+@@ -725,6 +725,8 @@ function createCorrespondence({ pool, env, config, replyAddress, fetchImpl, WebS
+     const prepared = await tx(async client => {
+       const t = await invitation(client, actor, params.id); if (!t) return null;
+       await ownership(client, actor, t);
++      if (internal.beforeSend) await internal.beforeSend(client);
++      if (internal.employeeName) t.owner_name = internal.employeeName;
+       let row = (await client.query('select * from construction.inbox_outbox where id=$1 for update', [body.idempotency_key])).rows[0];
+       if (row) {
+         if (row.invite_id !== params.id || row.actor_user_id !== actor.userId || row.content_hash !== hash || row.channel !== channel) throw fail(409, 'INBOX_IDEMPOTENCY_CONFLICT');
+@@ -818,6 +820,14 @@ function createCorrespondence({ pool, env, config, replyAddress, fetchImpl, WebS
+     await audit(pool, actor, row.rfq_id, 'ATTACHMENT_DOWNLOADED', params.id);
+     return { filename: row.filename, content: Buffer.from(row.content_base64, 'base64') };
+   }
+-  return { supplierHistory,unresolved,resolveArrival,workAction,setThreadsVisibility, enabled, capture, listThreads, thread, claim, setState, reply, systemReply, retryReply, dismissDraft, aiAnalysis, aiDraftDecision, attachment };
++  const discountRequests = require('./quote-discount-requests').createDiscountRequests({ pool, env, reply,
++    authorize: async (client, actor, id, write) => {
++      requireActor(actor, write);
++      const t = await invitation(client, actor, id);
++      if (t && write) await ownership(client, actor, t);
++      return t;
++    },
++  });
++  return { discountRequests, supplierHistory,unresolved,resolveArrival,workAction,setThreadsVisibility, enabled, capture, listThreads, thread, claim, setState, reply, systemReply, retryReply, dismissDraft, aiAnalysis, aiDraftDecision, attachment };
+ }
+ module.exports = { createCorrespondence };
+diff --git a/api/lib/construction/quote-discount-requests.js b/api/lib/construction/quote-discount-requests.js
+new file mode 100644
+index 000000000..9e2e2c748
+--- /dev/null
++++ b/api/lib/construction/quote-discount-requests.js
+@@ -0,0 +1,112 @@
++'use strict';
++const { UUID, fail } = require('./inbox-mail');
++const { rfqScopeSql } = require('./request-scope');
++
++function canSchedule(env, ownerId) {
++  return env.CONSTRUCTION_WRITE_ENABLED === '1' && env.CONSTRUCTION_INBOX_WORKER_ENABLED === '1' && env.CONSTRUCTION_INBOX_ROUTING_V1 === '1'
++    && String(env.CONSTRUCTION_INBOX_WORK_OWNERS || '').split(',').map(s => s.trim()).includes(ownerId);
++}
++function validate(body) {
++  if (!UUID.test(body.idempotency_key || '') || !UUID.test(body.quote_version_id || '')
++    || ![0, 60].includes(body.delay_minutes) || typeof body.text !== 'string' || !body.text.trim()
++    || body.text.length > 4000 || /\u0000/.test(body.text)) throw fail(400, 'DISCOUNT_INVALID_REQUEST');
++}
++function publicRequest(row) {
++  return { id: row.id, quote_version_id: row.quote_version_id, text: row.text, send_at: row.send_at, state: row.state, failure_code: row.failure_code || null };
++}
++function createDiscountRequests({ pool, env, authorize, reply }) {
++  const entitlements = require('./entitlements').createEntitlements({ pool, env });
++  async function transaction(fn) {
++    const client = await pool.connect();
++    try { await client.query('begin'); const result = await fn(client); await client.query('commit'); return result; }
++    catch(e) { await client.query('rollback'); throw e; } finally { client.release(); }
++  }
++  async function eligible(client, actor, inviteId, quoteVersionId) {
++    const result = (await client.query(`select r.id rfq_id,q.current_version_id from construction.rfq_invites i
++      join construction.rfq_versions v on v.id=i.rfq_version_id join construction.rfqs r on r.id=v.rfq_id
++      join construction.supplier_quotes q on q.invite_id=i.id
++      where i.id=$1 and r.buyer_user_id=$2${rfqScopeSql(actor, 'r')}
++      and r.current_version_id=i.rfq_version_id and r.status::text not in ('CANCELLED','AWARDED')
++      and not exists(select 1 from construction.awards a where a.rfq_id=r.id and a.status::text <> 'CANCELLED')
++      for update of r,q`, [inviteId, actor.actorId])).rows[0];
++    if (!result || result.current_version_id !== quoteVersionId) throw fail(409, 'DISCOUNT_QUOTE_CHANGED_OR_AWARDED');
++    return result;
++  }
++  async function list({ actor, params }) {
++    const t = await authorize(pool, actor, params.id, false);
++    if (!t) return null;
++    const rows = (await pool.query('select * from construction.quote_discount_requests where invite_id=$1 order by created_at desc', [params.id])).rows;
++    return { requests: rows.map(publicRequest), can_schedule: canSchedule(env, actor.actorId) };
++  }
++  async function create({ actor, params, body = {} }) {
++    validate(body);
++    if (body.delay_minutes && !canSchedule(env, actor.actorId)) throw fail(503, 'DISCOUNT_SCHEDULER_UNAVAILABLE');
++    const row = await transaction(async client => {
++      const t = await authorize(client, actor, params.id, true); if (!t) return null;
++      await eligible(client, actor, params.id, body.quote_version_id);
++      const prior = (await client.query('select * from construction.quote_discount_requests where id=$1', [body.idempotency_key])).rows[0];
++      if (prior) {
++        if (prior.invite_id !== params.id || prior.actor_user_id !== actor.userId || prior.quote_version_id !== body.quote_version_id || prior.text !== body.text.trim() || prior.delay_minutes !== body.delay_minutes) throw fail(409, 'INBOX_IDEMPOTENCY_CONFLICT');
++        return prior;
++      }
++      const latest = (await client.query('select id,channel from construction.inbox_messages where invite_id=$1 and correspondence_captured order by received_at desc,id desc limit 1', [params.id])).rows[0];
++      // Match the supplier's inbound channel. FORM quotes use the portal when enabled, otherwise email.
++      const channel = latest && ['EMAIL','WHATSAPP','HARAJ','PORTAL'].includes(latest.channel) ? latest.channel : null;
++      try {
++        return (await client.query(`insert into construction.quote_discount_requests(id,invite_id,quote_version_id,owner_id,actor_user_id,parent_message_id,channel,text,delay_minutes,send_at)
++          values($1,$2,$3,$4,$5,$6,$7,$8,$9,now()+($9::int * interval '1 minute')) returning *`,
++          [body.idempotency_key, params.id, body.quote_version_id, actor.actorId, actor.userId, latest?.id || null, channel || 'DEFAULT', body.text.trim(), body.delay_minutes])).rows[0];
++      } catch(e) { if (e.code === '23505') throw fail(409, 'DISCOUNT_ALREADY_REQUESTED'); throw e; }
++    });
++    if (!row) return null;
++    if (row.delay_minutes === 0 && row.state === 'SCHEDULED') return publicRequest(await execute(row.id));
++    return publicRequest(row);
++  }
++  async function cancel({ actor, params }) {
++    return transaction(async client => {
++      if (!(await authorize(client, actor, params.id, true))) return null;
++      const result = (await client.query(`update construction.quote_discount_requests set state='CANCELLED',updated_at=now()
++        where id=$1 and invite_id=$2 and owner_id=$3 and state='SCHEDULED' returning *`, [params.discountId, params.id, actor.actorId])).rows[0];
++      if (!result) throw fail(409, 'DISCOUNT_NOT_SCHEDULED');
++      return publicRequest(result);
++    });
++  }
++  async function execute(id) {
++    // Claim once across workers. A crashed/uncertain dispatch is never blindly retried.
++    const row = (await pool.query("update construction.quote_discount_requests set state='PROCESSING',updated_at=now() where id=$1 and state='SCHEDULED' and send_at<=now() returning *", [id])).rows[0];
++    if (!row) return (await pool.query('select * from construction.quote_discount_requests where id=$1', [id])).rows[0];
++    let state = 'UNKNOWN', failureCode = null, outboxId = null;
++    try {
++      const user = (await pool.query(`select role,request_scope from construction.access_users where user_id=$1 and active
++        and coalesce(scope_owner_user_id,user_id)=$2 and role in ('ADMIN','PROCUREMENT')`, [row.actor_user_id, row.owner_id])).rows[0];
++      if (!user) throw fail(403, 'INBOX_FORBIDDEN');
++      if (entitlements.enabled && !(await entitlements.access(row.owner_id)).can_send) throw fail(402, 'CONSTRUCTION_PACKAGE_REQUIRED');
++      const actor = { userId: row.actor_user_id, actorId: row.owner_id, role: user.role, requestScope: user.request_scope };
++      const result = await reply({ actor, params: { id: row.invite_id }, body: { idempotency_key: row.id, parent_message_id: row.parent_message_id, text: row.text,
++        ...(row.channel === 'DEFAULT' ? {} : { channel: row.channel }) } }, {
++        employeeName: row.delay_minutes === 60 ? 'رد آلي من فرق' : null,
++        beforeSend: client => eligible(client, actor, row.invite_id, row.quote_version_id),
++      });
++      if (!result) throw fail(404, 'INBOX_FORBIDDEN');
++      state = result.state === 'SENT' ? 'SENT' : result.state === 'FAILED' ? 'FAILED' : 'UNKNOWN';
++      failureCode = result.failure_code || null; outboxId = result.id;
++    } catch(e) {
++      // Once an outbox exists, reconcile its real outcome instead of inferring failure from a thrown exception.
++      const outbox = (await pool.query('select id,state,failure_code from construction.inbox_outbox where id=$1', [row.id])).rows[0];
++      if (outbox) { state = outbox.state === 'SENT' ? 'SENT' : outbox.state === 'FAILED' ? 'FAILED' : 'UNKNOWN'; outboxId = outbox.id; failureCode = outbox.failure_code || e.code || 'DISCOUNT_SEND_UNKNOWN'; }
++      else { state = e.status && e.status < 500 ? 'SKIPPED' : 'FAILED'; failureCode = e.code || 'DISCOUNT_SEND_FAILED'; }
++    }
++    return (await pool.query('update construction.quote_discount_requests set state=$2,failure_code=$3,outbox_id=$4,updated_at=now() where id=$1 returning *', [row.id, state, failureCode, outboxId])).rows[0];
++  }
++  async function runDue(ownerId) {
++    if (!canSchedule(env, ownerId)) return { checked: 0 };
++    if (!(await pool.query("select to_regclass('construction.quote_discount_requests') is not null present")).rows[0]?.present) return { checked: 0 };
++    await pool.query(`update construction.quote_discount_requests set state='UNKNOWN',failure_code='DISCOUNT_RECONCILIATION_REQUIRED',updated_at=now()
++      where owner_id=$1 and state='PROCESSING' and updated_at<now()-interval '10 minutes'`, [ownerId]);
++    const due = (await pool.query("select id from construction.quote_discount_requests where owner_id=$1 and state='SCHEDULED' and send_at<=now() order by send_at limit 5", [ownerId])).rows;
++    for (const row of due) await execute(row.id);
++    return { checked: due.length };
++  }
++  return { list, create, cancel, runDue };
++}
++module.exports = { createDiscountRequests, canSchedule, validate, publicRequest };
+diff --git a/api/routes/construction.js b/api/routes/construction.js
+index 1a60b46c2..44c257915 100755
+--- a/api/routes/construction.js
++++ b/api/routes/construction.js
+@@ -214,7 +214,7 @@ function createConstructionRouter(options = {}) {
+   // phone, email, link or messaging handle, and what suppliers wrote reaches the
+   // buyer with those masked (contact-guard.js; CONSTRUCTION_CONTACT_GUARD=0 turns it off).
+   const contactGuard = require('../lib/construction/contact-guard');
+-  const MASKED_INBOX_READS = new Set(['list', 'detail', 'listThreads', 'thread', 'supplierHistory', 'unresolved', 'aiAnalysis']);
++  const MASKED_INBOX_READS = new Set(['list', 'detail', 'listThreads', 'thread', 'supplierHistory', 'unresolved', 'aiAnalysis', 'listDiscountRequests']);
+   function refuseContact(res, text) {
+     if (!contactGuard.guardEnabled() || !contactGuard.contactViolation(String(text || ''))) return false;
+     res.apiError(400, contactGuard.CONTACT_BLOCKED_MESSAGE, {
+@@ -232,7 +232,7 @@ function createConstructionRouter(options = {}) {
+       res.set('Cache-Control', 'private, no-store');
+       try {
+         if (!repository.inbox) return res.apiError(503, 'INBOX_UNAVAILABLE');
+-        if (method === 'reply' && refuseContact(res, req.body?.text)) return undefined;
++        if (['reply', 'createDiscountRequest'].includes(method) && refuseContact(res, req.body?.text)) return undefined;
+         const result = await repository.inbox[method]({ actor: req.constructionActor, params: req.params, query: req.query, body: req.body });
+         if (!result) return res.apiError(404, 'Construction resource not found');
+         return res.apiSuccess(contactGuard.guardEnabled() && MASKED_INBOX_READS.has(method) ? contactGuard.maskResult(result) : result);
+@@ -256,6 +256,9 @@ function createConstructionRouter(options = {}) {
+   router.post('/inbox/requests/:id/owner', read, write, buyer, replyLimit, inboxCall('claim'));
+   router.post('/inbox/threads/:id/work-action', read, write, buyer, inboxCall('workAction'));
+   router.post('/inbox/threads/:id/state', read, write, buyer, replyLimit, inboxCall('setState'));
++  router.get('/inbox/threads/:id/discount-requests', read, buyer, requirePackage('READ'), inboxCall('listDiscountRequests'));
++  router.post('/inbox/threads/:id/discount-requests', read, write, buyer, requirePackage('SEND'), replyLimit, inboxCall('createDiscountRequest'));
++  router.post('/inbox/threads/:id/discount-requests/:discountId/cancel', read, write, buyer, replyLimit, inboxCall('cancelDiscountRequest'));
+   router.post('/inbox/threads/:id/reply', read, write, buyer, requirePackage('SEND'), replyLimit, inboxCall('reply'));
+   router.post('/inbox/outbox/:id/retry', read, write, buyer, replyLimit, inboxCall('retryReply'));
+   // «تجاهل» on a suggested reply (reply-drafts.js). Nothing is sent.
+diff --git a/api/tests/construction-quote-discount-requests.test.js b/api/tests/construction-quote-discount-requests.test.js
+new file mode 100644
+index 000000000..bd2d36848
+--- /dev/null
++++ b/api/tests/construction-quote-discount-requests.test.js
+@@ -0,0 +1,102 @@
++'use strict';
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const fs = require('node:fs');
++const { PGlite } = require('@electric-sql/pglite');
++const { createDiscountRequests, canSchedule, validate } = require('../lib/construction/quote-discount-requests');
++const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
++const actor = { actorId: id(1), userId: id(2), role: 'PROCUREMENT', requestScope: 'OWN_REQUESTS' };
++const env = { CONSTRUCTION_ENTITLEMENTS: '0', CONSTRUCTION_WRITE_ENABLED: '1', CONSTRUCTION_INBOX_WORKER_ENABLED: '1', CONSTRUCTION_INBOX_ROUTING_V1: '1', CONSTRUCTION_INBOX_WORK_OWNERS: id(1) };
++async function fixture() {
++  const db = new PGlite();
++  await db.exec(`create role anon; create role authenticated; create role construction_owner; create role farq_construction_app; create schema auth; create schema construction;
++    create table auth.users(id uuid primary key);
++    create table construction.rfqs(id uuid primary key,buyer_user_id uuid,assigned_user_id uuid,current_version_id uuid,status text);
++    create table construction.rfq_versions(id uuid primary key,rfq_id uuid);
++    create table construction.rfq_invites(id uuid primary key,rfq_version_id uuid);
++    create table construction.supplier_quotes(invite_id uuid,current_version_id uuid);
++    create table construction.supplier_quote_versions(id uuid primary key);
++    create table construction.inbox_messages(id uuid primary key,invite_id uuid,channel text,correspondence_captured boolean,received_at timestamptz);
++    create table construction.inbox_outbox(id uuid primary key,state text,failure_code text);
++    create table construction.awards(rfq_id uuid,status text);
++    create table construction.access_users(user_id uuid,scope_owner_user_id uuid,role text,request_scope text,active boolean);
++    insert into auth.users values('${id(1)}'),('${id(2)}');
++    insert into construction.rfqs values('${id(3)}','${id(1)}','${id(2)}','${id(4)}','SENT');
++    insert into construction.rfq_versions values('${id(4)}','${id(3)}');
++    insert into construction.rfq_invites values('${id(5)}','${id(4)}');
++    insert into construction.supplier_quotes values('${id(5)}','${id(6)}');
++    insert into construction.supplier_quote_versions values('${id(6)}'),('${id(7)}');
++    insert into construction.access_users values('${id(2)}','${id(1)}','PROCUREMENT','OWN_REQUESTS',true);`);
++  await db.exec('grant usage on schema construction to farq_construction_app');
++  await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../db/migrations/construction/20261005120000_construction_quote_discount_requests.sql'),'utf8'));
++  // Exercise the runtime role's actual new-table RLS/grants, not only superuser access.
++  await db.exec('set role farq_construction_app');
++  await db.query('select * from construction.quote_discount_requests');
++  await db.exec('reset role');
++  const pool = { query: (sql,args) => db.query(sql,args), connect: async () => ({ query: (sql,args) => db.query(sql,args), release() {} }) };
++  const sends = [];
++  let uncertain = false;
++  const requests = createDiscountRequests({ pool, env,
++    authorize: async (_, a) => a.actorId === id(1) ? {} : null,
++    reply: async (input, internal) => {
++      await internal.beforeSend(pool);
++      sends.push({ input, internal });
++      await db.query('insert into construction.inbox_outbox(id,state) values($1,$2)',[input.body.idempotency_key, uncertain ? 'SENDING' : 'SENT']);
++      if (uncertain) throw Error('provider outcome unknown');
++      return { id: input.body.idempotency_key, state: 'SENT' };
++    },
++  });
++  const body = { idempotency_key: id(8), quote_version_id: id(6), delay_minutes: 60, text: 'نرجو تخفيض إجمالي العرض' };
++  const create = (changes = {}, a = actor) => requests.create({ actor: a, params: { id: id(5) }, body: { ...body, ...changes } });
++  const due = () => db.exec("update construction.quote_discount_requests set send_at=now()-interval '1 minute'");
++  return { db, requests, sends, create, due, uncertain: () => { uncertain = true } };
++}
++test('schedule persists, sends only when due as Ahmad, and replays never duplicate', async () => {
++  const f = await fixture();
++  try {
++    const row = await f.create(); assert.equal(row.state,'SCHEDULED');
++    const delay = new Date(row.send_at).getTime() - Date.now(); assert.ok(delay > 3590000 && delay <= 3600000);
++    await f.requests.runDue(id(1)); assert.equal(f.sends.length,0);
++    assert.equal((await f.create()).id,row.id);
++    await f.due(); await f.requests.runDue(id(1)); await f.requests.runDue(id(1));
++    assert.equal(f.sends.length,1); assert.equal(f.sends[0].internal.employeeName,'رد آلي من فرق');
++    assert.equal((await f.requests.list({actor,params:{id:id(5)}})).requests[0].state,'SENT');
++    await assert.rejects(f.create({idempotency_key:id(9)}),e=>e.code==='DISCOUNT_ALREADY_REQUESTED');
++  } finally { await f.db.close() }
++});
++test('immediate discount uses original actor and normal inbox path', async () => {
++  const f = await fixture(); try {
++    assert.equal((await f.create({delay_minutes:0})).state,'SENT');
++    assert.equal(f.sends.length,1); assert.equal(f.sends[0].internal.employeeName,null);
++    assert.equal(f.sends[0].input.actor.requestScope,'OWN_REQUESTS');
++    await f.create({delay_minutes:0}); assert.equal(f.sends.length,1);
++  } finally { await f.db.close() }
++});
++test('cancel before due prevents dispatch and permits a new explicitly approved request', async () => {
++  const f = await fixture(); try {
++    await f.create();
++    assert.equal((await f.requests.cancel({actor,params:{id:id(5),discountId:id(8)}})).state,'CANCELLED');
++    await f.due(); await f.requests.runDue(id(1)); assert.equal(f.sends.length,0);
++    assert.equal((await f.create({idempotency_key:id(9)})).state,'SCHEDULED');
++  } finally { await f.db.close() }
++});
++for (const [name, sql] of [
++  ['revised quote',`update construction.supplier_quotes set current_version_id='${id(7)}'`],
++  ['awarded request',`insert into construction.awards values('${id(3)}','APPROVED')`],
++  ['cancelled request',"update construction.rfqs set status='CANCELLED'"],
++  ['reassigned request',`update construction.rfqs set assigned_user_id='${id(1)}'`],
++  ['revoked member',"update construction.access_users set active=false"],
++]) test(`${name} skips scheduled dispatch`,async()=> {
++  const f=await fixture(); try { await f.create(); await f.db.exec(sql); await f.due(); await f.requests.runDue(id(1));
++    assert.equal(f.sends.length,0); assert.equal((await f.requests.list({actor,params:{id:id(5)}})).requests[0].state,'SKIPPED');
++  } finally { await f.db.close() }
++});
++test('unknown provider outcome remains unknown and is never blindly retried',async()=> {
++  const f=await fixture(); try { f.uncertain(); await f.create(); await f.due(); await f.requests.runDue(id(1)); await f.requests.runDue(id(1));
++    assert.equal(f.sends.length,1); assert.equal((await f.requests.list({actor,params:{id:id(5)}})).requests[0].state,'UNKNOWN');
++  } finally { await f.db.close() }
++});
++test('unallowlisted owners and invalid scheduling inputs fail closed',()=> {
++  assert.equal(canSchedule(env,id(2)),false); assert.equal(canSchedule({},id(1)),false);
++  for (const delay_minutes of [-1,1,59,61,'60']) assert.throws(()=>validate({idempotency_key:id(8),quote_version_id:id(6),delay_minutes,text:'طلب'}));
++});
+diff --git a/api/workers/construction-inbox.js b/api/workers/construction-inbox.js
+index 37353e548..dd2536c3e 100644
+--- a/api/workers/construction-inbox.js
++++ b/api/workers/construction-inbox.js
+@@ -68,6 +68,7 @@ function createInboxWorker({ pool, env = process.env, fetchImpl = fetch, sleep =
+ 					userId: a.user_id,
+ 					role: a.role,
+ 				};
++                if (inbox.runDueDiscounts) await inbox.runDueDiscounts(a.owner_id);
+ 				results.push({
+ 					owner_id: a.owner_id,
+ 					gmail: await gmailSync(actor),
+diff --git a/docs/adr/0047-quote-discount-requests.md b/docs/adr/0047-quote-discount-requests.md
+new file mode 100644
+index 000000000..054ee5aef
+--- /dev/null
++++ b/docs/adr/0047-quote-discount-requests.md
+@@ -0,0 +1,11 @@
++# Quote-specific discount requests
++
++Approved product behavior: a buyer can request a discount on a received supplier quote now, or explicitly authorize Ahmad from Farq to send it one hour after confirmation. This is per received quote; it does not automatically enable discount requests for future quotes.
++
++Requests are persisted in construction.quote_discount_requests and linked to the exact current quote version and supplier invitation. A non-cancelled request is unique per quote version. Existing inbox correspondence handles channel selection, ownership, portal availability, provider dispatch, reply routing, audit, and idempotency. No second sender is introduced. The scheduled message records the automated persona, while retaining the authorizing colleague's user ID.
++
++The inbox worker executes due jobs only for its existing allowlisted companies. Scheduling is unavailable if worker, routing, or construction writes are disabled. Immediately before dispatch, current membership, role, request scope, correspondence ownership, quote version, RFQ version, and award/cancellation state are checked again. New inbound messages are protected by the existing parent-message guard. This may skip a scheduled discount and requires a human review.
++
++Jobs transition SCHEDULED → PROCESSING → SENT / FAILED / UNKNOWN / SKIPPED. Cancellation is atomic against claim. A stale PROCESSING job becomes UNKNOWN; it is never automatically resent. SENT means the existing correspondence path reports SENT, not that the supplier read or accepted the request. Discounts do not modify quote prices or award decisions; suppliers submit revised quote versions through the existing portal.
++
++Deployment requires the API migration, API and inbox-worker releases, and the companion farqconstraction UI. Local provider-mocked checks do not prove production delivery. No migration, message, credentials, billing, or messaging flags are changed in production by this implementation.
+diff --git a/supabase/migrations/20261005120000_construction_quote_discount_requests.sql b/supabase/migrations/20261005120000_construction_quote_discount_requests.sql
+new file mode 100644
+index 000000000..fe99b9fe5
+--- /dev/null
++++ b/supabase/migrations/20261005120000_construction_quote_discount_requests.sql
+@@ -0,0 +1,24 @@
++create table construction.quote_discount_requests (
++  id uuid primary key,
++  invite_id uuid not null references construction.rfq_invites(id),
++  quote_version_id uuid not null references construction.supplier_quote_versions(id),
++  owner_id uuid not null references auth.users(id),
++  actor_user_id uuid not null references auth.users(id),
++  parent_message_id uuid references construction.inbox_messages(id),
++  channel text not null,
++  text text not null check(length(text) between 1 and 4000),
++  delay_minutes integer not null check(delay_minutes in (0,60)),
++  send_at timestamptz not null,
++  state text not null default 'SCHEDULED' check(state in ('SCHEDULED','PROCESSING','SENT','FAILED','UNKNOWN','SKIPPED','CANCELLED')),
++  failure_code text,
++  outbox_id uuid references construction.inbox_outbox(id),
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now()
++);
++create unique index quote_discount_once_per_version on construction.quote_discount_requests(invite_id,quote_version_id) where state <> 'CANCELLED';
++create index quote_discount_due on construction.quote_discount_requests(send_at) where state='SCHEDULED';
++alter table construction.quote_discount_requests owner to construction_owner;
++alter table construction.quote_discount_requests enable row level security;
++revoke all on construction.quote_discount_requests from public, anon, authenticated;
++grant select, insert, update on construction.quote_discount_requests to farq_construction_app;
++create policy quote_discount_backend on construction.quote_discount_requests to farq_construction_app using (true) with check (true);
+-- 
+2.55.0
+

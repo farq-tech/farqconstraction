@@ -1,0 +1,2164 @@
+{
+  "version": 1,
+  "brand": "Farq",
+  "reference_only": true,
+  "families": [
+    {
+      "id": "cement_binders",
+      "name": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE"
+    },
+    {
+      "id": "aggregates_fill",
+      "name": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE"
+    },
+    {
+      "id": "masonry_blocks",
+      "name": "البلوك ومواد المباني",
+      "sector_id": "CIVIL_CONCRETE"
+    }
+  ],
+  "products": [
+    {
+      "id": "farq-material-001",
+      "name": "اسمنت اليمامة عادي",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-adi/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/yamama-adi.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/yamama-adi.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "عادي",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-adi/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-adi/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-ASTM C150 – Type I",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-adi/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-adi/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-002",
+      "name": "اسمنت المدينة عادي",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-adi/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/madina-adi.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/madina-adi.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "عادي",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-adi/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-adi/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO GSO 1914 – Type I / ASTM C150 – Type I",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-adi/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-adi/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-003",
+      "name": "اسمنت الرياض عادي",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-adi/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/riyadh-adi.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/riyadh-adi.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "عادي",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-adi/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-adi/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-GSO 1914/2009 Type I / ASTM C150M-2021 Type I / BS EN 197-1:2011 CEM I 52.5N LA",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-adi/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-adi/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-004",
+      "name": "اسمنت القصيم عادي",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-adi/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/qaseem-adi.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/qaseem-adi.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "عادي",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-adi/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-adi/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-GSO 1914/2009 – Type I",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-adi/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-adi/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-005",
+      "name": "اسمنت نجران عادي",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-adi/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/najran-adi.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/najran-adi.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "عادي",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-adi/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-adi/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "أسمنت بورتلاندي عادي OPC، عالي الصلابة والمتانة",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-adi/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-adi/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-006",
+      "name": "اسمنت السعودية (بحريني)",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-adi/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/saudi-bahraini-adi.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/saudi-bahraini-adi.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "عادي",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-adi/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-adi/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "OPC Type I – ASTM C150",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-adi/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-adi/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-007",
+      "name": "اسمنت اليمامة تشطيب",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-tashteeb/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/yamama-tashteeb.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/yamama-tashteeb.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "تشطيب",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-tashteeb/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-tashteeb/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-ASTM C595 – Type IL",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-tashteeb/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-tashteeb/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-008",
+      "name": "اسمنت المدينة تشطيب",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-tashteeb/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/madina-tashteeb.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/madina-tashteeb.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "تشطيب",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-tashteeb/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-tashteeb/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "ASTM C595 IT (يقابل «أسمنت التشطيب الأخضر»)",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-tashteeb/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-tashteeb/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-009",
+      "name": "اسمنت الرياض تشطيب",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-tashteeb/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/riyadh-tashteeb.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/riyadh-tashteeb.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "تشطيب",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-tashteeb/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-tashteeb/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "ASTM C91-2005 / ASTM C1157-2010 / BS EN 197-1:2011 CEM II/B-LL 42.5N",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-tashteeb/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-tashteeb/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-010",
+      "name": "اسمنت القصيم تشطيب",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-tashteeb/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/qaseem-tashteeb.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/qaseem-tashteeb.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "تشطيب",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-tashteeb/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-tashteeb/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-ASTM C91/2018",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-tashteeb/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-tashteeb/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-011",
+      "name": "اسمنت نجران تشطيب",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-tashteeb/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/najran-tashteeb.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/najran-tashteeb.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "تشطيب",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-tashteeb/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-tashteeb/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "أسمنت لياسة يتميز بالنعومة العالية والالتصاق",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-tashteeb/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-tashteeb/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-012",
+      "name": "اسمنت الرياض أبيض النوع الأول أزرق",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-azraq/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/riyadh-abyad-azraq.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/riyadh-abyad-azraq.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "أبيض (النوع الأول - أزرق)",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-azraq/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-azraq/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-GSO 1914/2009 + SASO 855-1994 / BS EN 197-1:2011 CEM I 52.5N",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-azraq/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-azraq/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-013",
+      "name": "اسمنت الرياض أبيض النوع الثاني أخضر",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-akhdar/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/riyadh-abyad-akhdar.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/riyadh-abyad-akhdar.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "أبيض (النوع الثاني - أخضر)",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-akhdar/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-akhdar/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-GSO 1914/2009 / BS EN 197-1:2011 CEM II/A-LL 42.5N",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-akhdar/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-abyad-akhdar/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-014",
+      "name": "اسمنت اليمامة مقاوم للكبريتات",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-moqawem/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/yamama-moqawem.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/yamama-moqawem.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "مقاوم للكبريتات",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-moqawem/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-moqawem/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-ASTM C150 – Type V",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-moqawem/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/yamama-moqawem/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-015",
+      "name": "اسمنت المدينة مقاوم للكبريتات",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-moqawem/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/madina-moqawem.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/madina-moqawem.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "مقاوم للكبريتات",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-moqawem/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-moqawem/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO GSO 1914 – Type V / ASTM C150 – Type V",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-moqawem/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/madina-moqawem/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-016",
+      "name": "اسمنت الرياض مقاوم للكبريتات",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-moqawem/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/riyadh-moqawem.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/riyadh-moqawem.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "مقاوم للكبريتات",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-moqawem/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-moqawem/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-GSO 1914/2009 Type V / ASTM C150M-2021 Type V / BS EN 197-1:2011 CEM I 52.5N SR3",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-moqawem/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/riyadh-moqawem/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-017",
+      "name": "اسمنت القصيم مقاوم للكبريتات",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-moqawem/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/qaseem-moqawem.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/qaseem-moqawem.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "مقاوم للكبريتات",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-moqawem/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-moqawem/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SASO-GSO 1914/2009 – Type V",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-moqawem/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/qaseem-moqawem/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-018",
+      "name": "اسمنت نجران مقاوم للكبريتات",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-moqawem/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/najran-moqawem.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/najran-moqawem.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "مقاوم للكبريتات",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-moqawem/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-moqawem/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "أسمنت بورتلاندي مقاوم للأملاح والكبريت SRC",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-moqawem/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/najran-moqawem/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-019",
+      "name": "اسمنت السعودية (بحريني) مقاوم للكبريتات",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-moqawem/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/saudi-bahraini-moqawem.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/saudi-bahraini-moqawem.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة"
+      ],
+      "specifications": [
+        {
+          "field": "نوع الأسمنت",
+          "value": "مقاوم للكبريتات",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-moqawem/"
+        },
+        {
+          "field": "الوزن",
+          "value": "٥٠ كجم",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-moqawem/"
+        },
+        {
+          "field": "المواصفات",
+          "value": "SRC Type V – ASTM C150",
+          "verification": "reference_only",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-moqawem/"
+        }
+      ],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [
+        {
+          "key": "weight",
+          "label": "الوزن",
+          "value": 50.0,
+          "unit": "kg",
+          "original": "٥٠ كجم",
+          "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/saudi-bahraini-moqawem/",
+          "verification": "reference_only"
+        }
+      ],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-020",
+      "name": "الاسمنت البورتلاندي العادي",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/portland-adi/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/ordinary-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/ordinary-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-021",
+      "name": "اسمنت التشطيب",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/asment-tashteeb/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/finishing-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/finishing-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-022",
+      "name": "الاسمنت الأبيض",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-asment-alabiad/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/white-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/white-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-023",
+      "name": "الاسمنت المقاوم للكبريتات",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/moqawem-lel-kabritat/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/sulfate-resistant-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/sulfate-resistant-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-024",
+      "name": "اسمنت اليمامة",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/yamama/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/yamama-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/yamama-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-025",
+      "name": "اسمنت المدينة",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-madina/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/madinah-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/madinah-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-026",
+      "name": "اسمنت الرياض",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-riyadh/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/riyadh-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/riyadh-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-027",
+      "name": "اسمنت القصيم",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/al-qaseem/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/qassim-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/qassim-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-028",
+      "name": "اسمنت نجران",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/najran/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/najran-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/najran-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-029",
+      "name": "الاسمنت السعودي (بحريني)",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/saudi-bahraini/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/bahraini-cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/groups/bahraini-cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-030",
+      "name": "الاسمنت",
+      "family_id": "cement_binders",
+      "family_label": "الأسمنت والمواد الرابطة",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-asment/",
+      "reference_image_url": "https://almabsat.com/images/products/cement.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/cement.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "المصنع",
+        "نوع الأسمنت",
+        "وزن الكيس",
+        "المواصفة",
+        "الكمية ووحدتها"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-031",
+      "name": "الرمل الأحمر",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/raml-akhamas/al-raml-al-ahmar/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-raml-al-ahmar.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-032",
+      "name": "رمل لياسة",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/raml-akhamas/raml-lyasa/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/raml-lyasa.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-033",
+      "name": "رمل أبيض مباني",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/raml-akhamas/raml-abyad/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/raml-abyad.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-034",
+      "name": "بحص زيرو",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/haas-akhamas/haas-zero/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/haas-zero.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-035",
+      "name": "بحص ٣/٨",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/haas-akhamas/haas-3-8/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/haas-3-8.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-036",
+      "name": "بحص ٣/٤",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/haas-akhamas/haas-3-4/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/haas-3-4.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-037",
+      "name": "الصبيز",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/bunya-tahtiya/al-sabeer/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-sabeer.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-038",
+      "name": "البيسكورس",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/bunya-tahtiya/al-biskors/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-biskors.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-039",
+      "name": "الرمل المخلوط",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/raml-makhloat/al-raml-almakhloat/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-raml-almakhloat.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-040",
+      "name": "الطرطشة",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/raml-makhloat/al-tartasha/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-tartasha.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "تدرج وحجم الحبيبات",
+        "أساس القياس: طن أو متر مكعب"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-041",
+      "name": "رمل بخامات وأنواع مختلفة",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/raml-akhamas/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/sand-various-grades.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-042",
+      "name": "بحص بخامات ومقاسات متعددة",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/haas-akhamas/",
+      "reference_image_url": "https://almabsat.com/images/products/sand.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-043",
+      "name": "مواد البنية التحتية",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/bunya-tahtiya/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/infrastructure-materials.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-044",
+      "name": "الرمل المخلوط والطرطشة",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/raml-makhloat/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/groups/mixed-sand-dash-coat.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-045",
+      "name": "الرمل والبحص",
+      "family_id": "aggregates_fill",
+      "family_label": "الركام ومواد الردم",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-raml-wal-hasas/",
+      "reference_image_url": "https://almabsat.com/images/products/sand.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "family_illustration",
+      "image": "images/sand-logo-large.png",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع المادة",
+        "المقاس أو التدرج",
+        "الكمية ووحدتها",
+        "سائب أو أكياس",
+        "موقع التسليم"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-046",
+      "name": "البلك الاسمنتي",
+      "family_id": "masonry_blocks",
+      "family_label": "البلوك ومواد المباني",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-blok/al-blok-al-asmenti/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-blok-al-asmenti.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/al-blok-al-asmenti.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع البلك",
+        "الأبعاد",
+        "مقاومة الضغط",
+        "الكثافة",
+        "مصمت أو مفرغ",
+        "مادة العزل",
+        "الكمية",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "الطول × العرض × الارتفاع مع الوحدة"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-047",
+      "name": "البلك البخاري",
+      "family_id": "masonry_blocks",
+      "family_label": "البلوك ومواد المباني",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-blok/al-blok-al-bukhari/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-blok-al-bukhari.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/al-blok-al-bukhari.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع البلك",
+        "الأبعاد",
+        "مقاومة الضغط",
+        "الكثافة",
+        "مصمت أو مفرغ",
+        "مادة العزل",
+        "الكمية",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "الطول × العرض × الارتفاع مع الوحدة"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-048",
+      "name": "البلك البركاني",
+      "family_id": "masonry_blocks",
+      "family_label": "البلوك ومواد المباني",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-blok/al-blok-al-burkani/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/block-volcanic.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/block-volcanic.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع البلك",
+        "الأبعاد",
+        "مقاومة الضغط",
+        "الكثافة",
+        "مصمت أو مفرغ",
+        "مادة العزل",
+        "الكمية",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "الطول × العرض × الارتفاع مع الوحدة"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-049",
+      "name": "البلك المعزول",
+      "family_id": "masonry_blocks",
+      "family_label": "البلوك ومواد المباني",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-blok/al-blok-al-maazol/",
+      "reference_image_url": "https://almabsat.com/images/products/photos/sku/al-blok-al-maazol.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/photos/sku/al-blok-al-maazol.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع البلك",
+        "الأبعاد",
+        "مقاومة الضغط",
+        "الكثافة",
+        "مصمت أو مفرغ",
+        "مادة العزل",
+        "الكمية",
+        "وحدة البيع",
+        "الكمية المطلوبة",
+        "عدد الوحدات في العبوة",
+        "الطول × العرض × الارتفاع مع الوحدة"
+      ],
+      "specifications": [],
+      "record_type": "product",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    },
+    {
+      "id": "farq-material-050",
+      "name": "البلك",
+      "family_id": "masonry_blocks",
+      "family_label": "البلوك ومواد المباني",
+      "sector_id": "CIVIL_CONCRETE",
+      "source_url": "https://almabsat.com/ar/building-materials/al-blok/",
+      "reference_image_url": "https://almabsat.com/images/products/blocks.webp",
+      "reference_image_license": "unverified",
+      "image_kind": "reference_product_photo",
+      "image": "https://almabsat.com/images/products/blocks.webp",
+      "price": null,
+      "availability": "unknown",
+      "required_fields": [
+        "نوع البلك",
+        "الأبعاد",
+        "مقاومة الضغط",
+        "الكثافة",
+        "مصمت أو مفرغ",
+        "مادة العزل",
+        "الكمية"
+      ],
+      "specifications": [],
+      "record_type": "group",
+      "source_status": "read",
+      "structured_attributes": [],
+      "sale_unit": null,
+      "units_per_pack": null,
+      "minimum_order_quantity": null,
+      "requested_quantity": null
+    }
+  ],
+  "measurement_policy": {
+    "version": 1,
+    "missing_values": null,
+    "supplier_match": "family identifies candidates; dimensions, material, standard and confirmed supplier capability establish product compatibility",
+    "quantity_policy": "requested quantity, package count and available stock are separate; no automatic mass-volume conversion without documented density"
+  }
+}
