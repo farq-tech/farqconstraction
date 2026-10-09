@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /Users/m4pro/.codex/worktrees/ahmad-upgrade
+
+ ✓ src/lib/familyRecognition.test.ts (30 tests) 2203ms
+   ✓ places Hydrophilic swelling waterbar in the correct family  1544ms
+ ✓ src/lib/procurementOntology.test.ts (1204 tests) 13945ms
+
+ Test Files  2 passed (2)
+      Tests  1234 passed (1234)
+   Start at  08:58:14
+   Duration  16.05s (transform 97ms, setup 0ms, collect 1.95s, tests 16.15s, environment 0ms, prepare 76ms)
+

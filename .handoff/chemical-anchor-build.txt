@@ -1,0 +1,24 @@
+
+> figma-make-app@1.0.0 build
+> vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 229 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/robots.txt                                    0.02 kB │ gzip:   0.04 kB
+dist/index.html                                    1.33 kB │ gzip:   0.60 kB
+dist/assets/lineResolution.worker-CIHiUSgU.js    618.84 kB
+dist/assets/pdf.worker.min-yatZIOMy.mjs        1,375.83 kB
+dist/assets/pdf.worker.min-rsCePomN.mjs        1,417.58 kB
+dist/assets/index-DN8SgEVg.css                    85.39 kB │ gzip:  15.53 kB
+dist/assets/pdf.worker.min-Crr82RAx.js             0.06 kB │ gzip:   0.08 kB
+dist/assets/pdf.worker.min-_rqPKPq-.js             0.06 kB │ gzip:   0.08 kB
+dist/assets/lineResolution-CaC51zg6.js             1.85 kB │ gzip:   1.11 kB
+dist/assets/browser-DwDChYWG.js                   52.29 kB │ gzip:  16.05 kB
+dist/assets/pdf-CqdQJzoE.js                      329.84 kB │ gzip:  97.00 kB
+dist/assets/pdf-DgtOSEHW.js                      373.59 kB │ gzip: 111.80 kB
+dist/assets/index-BgW8evX6.js                  1,810.97 kB │ gzip: 493.76 kB
+
+✓ built in 628ms

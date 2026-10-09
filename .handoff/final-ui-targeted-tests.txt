@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /Users/m4pro/.codex/worktrees/ahmad-upgrade
+
+ ✓ src/lib/autoPick.test.ts (21 tests) 4ms
+ ✓ src/lib/specCard.test.ts (7 tests) 3ms
+ ✓ src/api/constructionClient.priorQuote.test.ts (9 tests) 1ms
+ ✓ src/lib/brandEquivalence.test.ts (19 tests) 13ms
+ ✓ src/lib/attributeRuleConformance.test.ts (3 tests) 2ms
+
+ Test Files  5 passed (5)
+      Tests  59 passed (59)
+   Start at  07:46:28
+   Duration  333ms (transform 228ms, setup 0ms, collect 602ms, tests 23ms, environment 0ms, prepare 171ms)
+
