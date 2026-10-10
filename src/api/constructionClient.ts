@@ -529,6 +529,10 @@ export type BoqCatalogMatchRow = {
   learned_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
   }
+  /** «جداول الأدلة»: suppliers the evidence tables name for this material whom no list above carried (server supplier-evidence-grade.js). */
+  evidence_suggestion?: {
+    suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; why_ar?: string; out_of_city?: boolean }>
+  }
   /** «نتائج الجولات»: what suppliers did with this material in earlier rounds. */
   outcome_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }; why_ar?: string; out_of_city?: boolean }>
@@ -2976,6 +2980,18 @@ export function priorQuotesOf(s: Record<string, unknown>): number | undefined {
   return prior && Number.isFinite(n) && n > 0 ? n : undefined
 }
 
+/** The server's evidence grade (supplier-evidence-grade.js `grade`), in the screen's shape; undefined when the server sent none. */
+export function supplierGradeOf(s: Record<string, unknown>): import('../types').SupplierGrade | undefined {
+  const g = s.grade as { evidence_grade?: unknown; evidence_score?: unknown; evidence_sources?: unknown; grade_version?: unknown; filler?: unknown } | undefined
+  if (!g || typeof g !== 'object') return undefined
+  const grade = String(g.evidence_grade || '')
+  if (grade !== 'SURE' && grade !== 'LIKELY' && grade !== 'MAYBE') return undefined
+  const sources = Array.isArray(g.evidence_sources)
+    ? (g.evidence_sources as Array<Record<string, unknown>>).map((e) => ({ source: String(e.source || ''), points: Number(e.points) || 0, ...(e.detail ? { detail: String(e.detail) } : {}) }))
+    : []
+  return { evidenceGrade: grade, evidenceScore: Number(g.evidence_score) || 0, evidenceSources: sources, gradeVersion: String(g.grade_version || ''), filler: g.filler === true }
+}
+
 /**
  * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
  * product match, so `rfq_eligible` is false and the badge names the source.
@@ -3016,6 +3032,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         ...(outcome?.grade ? { round_outcome: { grade: outcome.grade, priced_lines: outcome.priced_lines, similar_by: outcome.similar_by } } : {}),
         ...(typeof s.why_ar === 'string' && s.why_ar ? { why_ar: s.why_ar } : {}),
         ...(s.out_of_city === true ? { out_of_city: true } : {}),
+        ...(supplierGradeOf(s) ? { grade: supplierGradeOf(s) } : {}),
         channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
         rfq_eligible: false,
       }
@@ -3170,6 +3187,8 @@ export async function getConstructionProductSearchQuota(): Promise<import('../li
 
 export async function matchConstructionBoqCatalog(payload: {
   delivery_city?: string
+  /** «سجل العرض»: the request this match is for, when the screen knows it (a re-match of an existing request). */
+  rfq_id?: string
   lines?: Array<{
     line_key: string
     name_ar?: string
@@ -3270,6 +3289,7 @@ export async function matchConstructionBoqCatalog(payload: {
       }>
       learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       outcome_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      evidence_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
       ai_suggestion?: {
         intent?: string
@@ -3292,7 +3312,7 @@ export async function matchConstructionBoqCatalog(payload: {
     headers: { 'Content-Type': 'application/json' },
     // `compact` asks the API to leave out the candidate items and long catalogue
     // texts this screen never renders: about a quarter of the bytes per call.
-    body: JSON.stringify({ rows, compact: true, ...(payload.delivery_city?.trim() ? { delivery_city: payload.delivery_city.trim() } : {}) }),
+    body: JSON.stringify({ rows, compact: true, ...(payload.delivery_city?.trim() ? { delivery_city: payload.delivery_city.trim() } : {}), ...(payload.rfq_id?.trim() ? { rfq_id: payload.rfq_id.trim() } : {}) }),
     timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
   })
 
@@ -3334,7 +3354,8 @@ export async function matchConstructionBoqCatalog(payload: {
       rfq_eligible_supplier_ids: [...eligibleIds],
       rfq_eligible_supplier_count:
         chosen?.rfq_eligible_supplier_count ?? eligibleIds.size,
-      suppliers: suppliersRaw.slice(0, 8).map((s) => {
+      // The server's cut (CONSTRUCTION_BOQ_MATCH_SUPPLIER_LIMIT, 20) is the list; this used to hide every seller past the eighth.
+      suppliers: suppliersRaw.slice(0, 20).map((s) => {
         const channels = (s.contact_channels || {}) as {
           email?: boolean
           whatsapp?: boolean
@@ -3359,6 +3380,7 @@ export async function matchConstructionBoqCatalog(payload: {
               : 'من الكتالوج',
           learned: s.learned_choice === true,
           prior_quotes: priorQuotesOf(s),
+          ...(supplierGradeOf(s) ? { grade: supplierGradeOf(s) } : {}),
           channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
         }
@@ -3378,6 +3400,9 @@ export async function matchConstructionBoqCatalog(payload: {
         : {}),
       ...(row.family_suggestion?.family
         ? { family_suggestion: { family: String(row.family_suggestion.family), suppliers: suggestionSuppliers(row.family_suggestion.suppliers, 'على مستوى النشاط') } }
+        : {}),
+      ...(row.evidence_suggestion?.suppliers?.length
+        ? { evidence_suggestion: { suppliers: suggestionSuppliers(row.evidence_suggestion.suppliers, 'جداول الأدلة', 20) } }
         : {}),
       ...(row.learned_suggestion?.suppliers?.length
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }

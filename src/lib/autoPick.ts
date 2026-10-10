@@ -36,9 +36,86 @@ function lanesOf(item: BOQItem): Supplier[][] {
     item.outcomeSuggestion?.suppliers || [],
     item.mapSuggestion?.suppliers || [],
     item.suppliers,
+    item.evidenceSuggestion?.suppliers || [],
     item.aiSuggestion?.suppliers || [],
     item.familySuggestion?.suppliers || [],
   ]
+}
+
+/*
+ * «درجة الدليل» — the server's one grade per supplier (types.ts SupplierGrade,
+ * api supplier-evidence-grade.js). SHADOW: the server sends it beside the old
+ * fields, and this screen keeps picking by confidenceOf() until the grade is
+ * switched on here. Measured first on 20 production lines (api
+ * docs/construction/match-baseline-2026-10.md); the switch is the owner's call.
+ *
+ *   on:  localStorage farq_grade_v2 = '1', or VITE_MATCH_GRADE_V2=1 at build
+ *   off: anything else (the default)
+ */
+export const GRADE_V2_KEY = 'farq_grade_v2'
+export function gradeV2Enabled(): boolean {
+  try {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(GRADE_V2_KEY) : null
+    if (stored === '1') return true
+    if (stored === '0') return false
+  } catch {
+    /* no storage: the build flag decides */
+  }
+  try {
+    return String((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_MATCH_GRADE_V2 || '') === '1'
+  } catch {
+    return false
+  }
+}
+
+const GRADE_RANK = { SURE: 2, LIKELY: 1, MAYBE: 0 } as const
+/** Every supplier of the line once, carrying the strongest grade any lane gave him; undefined when the server sent no grade. */
+export function gradedSuppliers(item: BOQItem): Supplier[] | undefined {
+  const best = new Map<string, { s: Supplier; index: number }>()
+  let index = 0
+  let any = false
+  for (const lane of lanesOf(item)) {
+    for (const s of lane) {
+      if (!s?.id) continue
+      index += 1
+      if (s.grade) any = true
+      const prev = best.get(s.id)
+      const g = s.grade
+      const pg = prev?.s.grade
+      if (!prev) best.set(s.id, { s, index })
+      else if (g && (!pg || GRADE_RANK[g.evidenceGrade] > GRADE_RANK[pg.evidenceGrade] || (GRADE_RANK[g.evidenceGrade] === GRADE_RANK[pg.evidenceGrade] && g.evidenceScore > pg.evidenceScore))) best.set(s.id, { s, index: prev.index })
+    }
+  }
+  if (!any) return undefined
+  const rank = (s: Supplier) => (s.grade ? GRADE_RANK[s.grade.evidenceGrade] : -1)
+  return [...best.values()]
+    .sort((a, b) => rank(b.s) - rank(a.s) || Number(Boolean(a.s.grade?.filler)) - Number(Boolean(b.s.grade?.filler)) || (b.s.grade?.evidenceScore ?? -1) - (a.s.grade?.evidenceScore ?? -1) || a.index - b.index)
+    .map((x) => x.s)
+}
+
+/** The three groups the screen shows when the grade is on: مؤكد، مرجّح، محتمل. */
+export function gradeGroups(item: BOQItem): { SURE: Supplier[]; LIKELY: Supplier[]; MAYBE: Supplier[] } | undefined {
+  const all = gradedSuppliers(item)
+  if (!all) return undefined
+  const out = { SURE: [] as Supplier[], LIKELY: [] as Supplier[], MAYBE: [] as Supplier[] }
+  for (const s of all) out[s.grade?.evidenceGrade || 'MAYBE'].push(s)
+  return out
+}
+
+/**
+ * The grade's own pick (api supplier-evidence-grade.js pickByGrade): every SURE;
+ * LIKELY only while fewer than three are SURE; never MAYBE or a filler.
+ */
+export const GRADE_SURE_FLOOR = 3
+export function autoPickByGrade(item: BOQItem): Supplier[] | undefined {
+  if (item.workOnly) return []
+  const all = gradedSuppliers(item)
+  if (!all) return undefined
+  const rejected = new Set(item.rejectedSupplierIds || [])
+  const eligible = all.filter((s) => !rejected.has(s.id) && !s.outOfCity)
+  const sure = eligible.filter((s) => s.grade?.evidenceGrade === 'SURE')
+  if (sure.length >= GRADE_SURE_FLOOR) return sure
+  return [...sure, ...eligible.filter((s) => s.grade?.evidenceGrade === 'LIKELY' && !s.grade.filler)]
 }
 
 /** «مقدّم عروض سابقاً»: he priced this material for the company before. */
@@ -138,6 +215,11 @@ export function confidenceOf(s: Supplier): Confidence {
  */
 export function autoPickConfident(item: BOQItem, context?: PickContext): Supplier[] {
   if (item.workOnly) return []
+  // The grade's rule, only once switched on (shadow until then — see gradeV2Enabled).
+  if (gradeV2Enabled()) {
+    const byGrade = autoPickByGrade(item)
+    if (byGrade) return byGrade
+  }
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
   // 5 Oct 2026: the buyer explicitly wants EVERY sure or near-certain match,
   // including the system's named suggestions, regardless of channel or count.
@@ -164,6 +246,7 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   const lanes = [
     map.filter((s) => s.evidence !== ACTIVITY_GRADE),
     item.suppliers,
+    item.evidenceSuggestion?.suppliers || [],
     item.aiSuggestion?.suppliers || [],
     map.filter((s) => s.evidence === ACTIVITY_GRADE),
     item.familySuggestion?.suppliers || [],
@@ -174,6 +257,7 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
     ...lanes.flat().filter(isPriorQuoter),
     ...specialistsFirst(map.filter((s) => s.evidence !== ACTIVITY_GRADE), context),
     ...specialistsFirst(item.suppliers, context),
+    ...specialistsFirst(item.evidenceSuggestion?.suppliers || [], context),
     ...specialistsFirst(item.aiSuggestion?.suppliers || [], context),
     ...specialistsFirst(map.filter((s) => s.evidence === ACTIVITY_GRADE), context),
     ...specialistsFirst(item.familySuggestion?.suppliers || [], context),

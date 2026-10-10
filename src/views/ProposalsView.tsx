@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { autoPickConfident, buildPickContext, isPriorQuoter } from '../lib/autoPick'
+import { autoPickConfident, buildPickContext, gradeGroups, gradeV2Enabled, isPriorQuoter } from '../lib/autoPick'
 import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
@@ -100,6 +100,7 @@ function SuggestionBox({
   emptyText,
   suppliers,
   evidence,
+  keepEvidence = false,
   selectedIds,
   onPick,
   onReject,
@@ -110,6 +111,8 @@ function SuggestionBox({
   emptyText: string
   suppliers: Supplier[]
   evidence: Supplier['evidence']
+  /** A grade group lists suppliers of every lane: each keeps the evidence label of the lane he came from. */
+  keepEvidence?: boolean
   selectedIds: string[]
   /** Tick or untick. The list never collapses: the buyer picks as many as he likes. */
   onPick: (supplier: Supplier) => void
@@ -149,7 +152,7 @@ function SuggestionBox({
                         ...s,
                         // An activity-level row keeps its own weaker grade: the box
                         // it happens to sit in must not promote it.
-                        evidence: s.learned ? 'اختيارك' : s.evidence === 'على مستوى النشاط' ? s.evidence : evidence,
+                        evidence: keepEvidence ? s.evidence : s.learned ? 'اختيارك' : s.evidence === 'على مستوى النشاط' ? s.evidence : evidence,
                         // The grade travels with the pick, so the chip stays.
                         roundOutcome: s.roundOutcome,
                       })
@@ -182,6 +185,14 @@ function SuggestionBox({
                       {s.evidence === 'على مستوى النشاط' && (
                         <span className="text-neutral-500 font-semibold" title="نشاطه المسجّل أوسع من هذه المادة: يُعرض كاحتمال، لا كترشيح">
                           {' '}· مورد محتمل
+                        </span>
+                      )}
+                      {s.grade && gradeV2Enabled() && (
+                        <span
+                          className={s.grade.evidenceGrade === 'SURE' ? 'text-[#1a7a45] font-semibold' : s.grade.evidenceGrade === 'LIKELY' ? 'text-amber-700' : 'text-neutral-400'}
+                          title={`درجة الدليل ${s.grade.evidenceScore} (${s.grade.gradeVersion}): ${s.grade.evidenceSources.map((e) => `${e.source} ${e.points > 0 ? '+' : ''}${e.points}`).join('، ')}`}
+                        >
+                          {' '}· {s.grade.evidenceGrade === 'SURE' ? 'مؤكد بالدليل' : s.grade.evidenceGrade === 'LIKELY' ? 'مرجّح' : 'محتمل'}
                         </span>
                       )}
                     </span>
@@ -265,13 +276,16 @@ function BOQCard({
         [
           ...(item.learnedSuggestion?.suppliers || []),
           ...(item.outcomeSuggestion?.suppliers || []),
+          ...(item.evidenceSuggestion?.suppliers || []),
           ...(item.mapSuggestion?.suppliers || []),
           ...(!item.mapSuggestion ? item.aiSuggestion?.suppliers || [] : []),
           ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
+    [item.learnedSuggestion, item.outcomeSuggestion, item.evidenceSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
   )
+  // «درجة الدليل»: the three groups, only once the grade is switched on (autoPick.ts gradeV2Enabled).
+  const groups = useMemo(() => (gradeV2Enabled() ? gradeGroups(item) : undefined), [item])
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
   const visible = showAll ? listed : listed.slice(0, 4)
@@ -438,6 +452,59 @@ function BOQCard({
             </div>
           )}
 
+          {groups && (
+            <>
+              <SuggestionBox
+                tone="teal"
+                title={`مؤكد بالدليل — ${groups.SURE.length} مورد`}
+                note="درجة الدليل: سعّر هذه المادة أو اختير لها من قبل، أو تشهد له جداول الأدلة واسمه ونشاطه معًا. يُختار تلقائيًا."
+                emptyText="لا مورد مؤكد بالدليل لهذه المادة."
+                suppliers={groups.SURE.filter((x) => !hiddenIds.has(x.id))}
+                evidence="دليل منتج"
+                keepEvidence
+                selectedIds={selectedIds}
+                onPick={pick}
+                onReject={reject}
+              />
+              <SuggestionBox
+                tone="teal"
+                title={`مرجّح — ${groups.LIKELY.length} مورد`}
+                note="دليل واحد فقط (الاسم، أو النشاط، أو ردّ سابق). يُختار تلقائيًا فقط حين يقلّ المؤكدون عن ثلاثة."
+                emptyText=""
+                suppliers={groups.LIKELY.filter((x) => !hiddenIds.has(x.id))}
+                evidence="خريطة فرق"
+                keepEvidence
+                selectedIds={selectedIds}
+                onPick={pick}
+                onReject={reject}
+              />
+              <SuggestionBox
+                tone="grey"
+                title={`محتمل — ${groups.MAYBE.length} مورد`}
+                note="نشاطه أوسع من هذه المادة أو لا دليل عليه، أو دليل ضدّه. لا يُختار تلقائيًا أبدًا."
+                emptyText=""
+                suppliers={groups.MAYBE.filter((x) => !hiddenIds.has(x.id))}
+                evidence="على مستوى النشاط"
+                keepEvidence
+                selectedIds={selectedIds}
+                onPick={pick}
+                onReject={reject}
+              />
+            </>
+          )}
+          {!groups && item.evidenceSuggestion && item.evidenceSuggestion.suppliers.length > 0 && (
+            <SuggestionBox
+              tone="teal"
+              title="من جداول الأدلة: موردون تشهد لهم قدرة مؤكدة أو تصنيف مؤكد لهذه المادة"
+              note="لم تحملهم القوائم الأخرى؛ جاءوا من أدلة المنتجات المخزّنة (قدرة مؤكدة، دليل منتج مدعوم، تصنيف مؤكد)."
+              emptyText=""
+              suppliers={item.evidenceSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="جداول الأدلة"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+            />
+          )}
           {item.learnedSuggestion && item.learnedSuggestion.suppliers.length > 0 && (
             <SuggestionBox
               tone="teal"
@@ -640,7 +707,7 @@ function BOQCard({
           {/* Only where nothing at all was found. Under a card that lists map
               suppliers this note said «لم نبحث له عن موردين», and under a
               work-only card it told the buyer to go and find a supplier. */}
-          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.outcomeSuggestion && (
+          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.outcomeSuggestion && !item.evidenceSuggestion && (
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'

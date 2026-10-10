@@ -38,7 +38,7 @@ export type AppView =
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
  * catalog returned the supplier and nothing says how strong the link is.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات' | 'جداول الأدلة'
 
 /**
  * What the supplier did with this material in earlier rounds (server:
@@ -71,6 +71,24 @@ export interface Supplier {
   why?: string
   /** His city is known and is not the request's city. */
   outOfCity?: boolean
+  /**
+   * «درجة الدليل» (server: supplier-evidence-grade.js): one grade for this
+   * supplier on this line from every source at once — the buyer's own choice,
+   * prior quotes, round outcomes, the evidence tables, the record's words.
+   * Shadow until measured: read by autoPick.ts only when gradeV2Enabled().
+   */
+  grade?: SupplierGrade
+}
+
+/** The evidence grade the server attaches beside `evidence` (supplier-evidence-grade.js). */
+export type SupplierGrade = {
+  evidenceGrade: 'SURE' | 'LIKELY' | 'MAYBE'
+  evidenceScore: number
+  /** Every signal counted, e.g. NAME, ACTIVITY, CAPABILITY_CONFIRMED, ROUND_PRICED, SUPPRESSED. */
+  evidenceSources: Array<{ source: string; points: number; detail?: string }>
+  gradeVersion: string
+  /** A trade/family top-up: shown as a possibility, never auto-picked. */
+  filler: boolean
 }
 
 export interface BOQItem {
@@ -105,6 +123,8 @@ export interface BOQItem {
   learnedSuggestion?: { suppliers: Supplier[] }
   /** «نتائج الجولات»: who priced this material before, then who answered, sells it alongside, or resembles them. Never preselected by the server. */
   outcomeSuggestion?: { suppliers: Supplier[] }
+  /** «دليل منتج»: suppliers the evidence tables name for this material whom no other list carried (server: supplier-evidence-grade.js). */
+  evidenceSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */
   workOnly?: boolean
   /**

@@ -56,6 +56,7 @@ function candidatesFor(item: BOQItem): Supplier[] {
     ...(item.outcomeSuggestion?.suppliers || []),
     ...(item.mapSuggestion?.suppliers || []),
     ...item.suppliers,
+    ...(item.evidenceSuggestion?.suppliers || []),
     ...(item.aiSuggestion?.suppliers || []),
     ...(item.familySuggestion?.suppliers || []),
   ]

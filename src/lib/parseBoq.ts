@@ -607,7 +607,7 @@ function mapApiSuppliers(
 }
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
-type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
+type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; evidenceSuggestion?: BOQItem['evidenceSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
 type RemoteMatch = {
   hits: Map<string, RemoteHit>
   /** Set when the request itself failed, so the screen can stop looking normal. */
@@ -746,6 +746,10 @@ async function matchViaFarqBoqApi(
         outcomeSuggestion: row.outcome_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.outcome_suggestion.suppliers, 24) }
           : undefined,
+        // «دليل منتج»: suppliers the evidence tables name whom no other list carried (supplier-evidence-grade.js).
+        evidenceSuggestion: row.evidence_suggestion?.suppliers?.length
+          ? { suppliers: mapApiSuppliers(row.evidence_suggestion.suppliers, 20) }
+          : undefined,
         // A model-named material rides alongside, never in place of, the match.
         aiSuggestion: row.ai_suggestion
           ? {
@@ -823,10 +827,11 @@ export async function matchSuppliersForItems(
       aiSuggestion: api?.aiSuggestion,
       learnedSuggestion: api?.learnedSuggestion,
       outcomeSuggestion: api?.outcomeSuggestion,
+      evidenceSuggestion: api?.evidenceSuggestion,
       familySuggestion: api?.familySuggestion,
       mapSuggestion: api?.mapSuggestion,
       workOnly:
-        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.outcomeSuggestion && !api?.familySuggestion
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.outcomeSuggestion && !api?.evidenceSuggestion && !api?.familySuggestion
           ? true
           : undefined,
       itemCode: line.itemCode,
@@ -1923,7 +1928,8 @@ async function parseBoqFileInner(
       (item.mapSuggestion?.suppliers.length ?? 0) > 0 ||
       (item.familySuggestion?.suppliers.length ?? 0) > 0 ||
       (item.learnedSuggestion?.suppliers.length ?? 0) > 0 ||
-      (item.outcomeSuggestion?.suppliers.length ?? 0) > 0
+      (item.outcomeSuggestion?.suppliers.length ?? 0) > 0 ||
+      (item.evidenceSuggestion?.suppliers.length ?? 0) > 0
     const ready = matched.items.filter(lineHasSuppliers).length
     return {
       items: matched.items,

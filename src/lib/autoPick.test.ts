@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter } from './autoPick'
+import { GRADE_V2_KEY, autoPickByGrade, autoPickConfident, autoPickFor, buildPickContext, gradeGroups, gradeV2Enabled, gradedSuppliers, isPriorQuoter } from './autoPick'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -235,4 +235,62 @@ it('keeps sibling products and broad family evidence for manual review', () => {
   expect(autoPickConfident(item).map(s => s.id)).toEqual(['ppr'])
   expect(autoPickFor(item).map(s => s.id)).toContain('steel')
   expect(autoPickConfident(line(1, 'ppr', [{ ...sibling, priorQuotes: 1 }])).map(s => s.id)).toEqual(['steel'])
+})
+
+describe('«درجة الدليل» (shadow until switched on)', () => {
+  // vitest runs in node here: a tiny localStorage so the switch can be flipped.
+  if (typeof globalThis.localStorage === 'undefined') {
+    const store = new Map<string, string>()
+    ;(globalThis as unknown as { localStorage: Storage }).localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: () => null,
+      get length() {
+        return store.size
+      },
+    } as Storage
+  }
+  const graded = (id: string, evidenceGrade: 'SURE' | 'LIKELY' | 'MAYBE', evidenceScore: number, filler = false, extra: Partial<Supplier> = {}): Supplier => ({
+    ...sup(id),
+    grade: { evidenceGrade, evidenceScore, evidenceSources: [], gradeVersion: 'eg-test', filler },
+    ...extra,
+  })
+  const item = line(9, 'hvac_equipment', [graded('a', 'LIKELY', 40), graded('b', 'SURE', 85), graded('f', 'MAYBE', 20, true), graded('m', 'MAYBE', 0)], {
+    outcomeSuggestion: { suppliers: [graded('a', 'SURE', 95)] },
+    evidenceSuggestion: { suppliers: [graded('e', 'SURE', 70)] },
+  })
+  afterEach(() => {
+    try {
+      localStorage.removeItem(GRADE_V2_KEY)
+    } catch {
+      /* no storage */
+    }
+  })
+  it('is off by default: the old rule picks, and the groups are still readable', () => {
+    expect(gradeV2Enabled()).toBe(false)
+    const picked = autoPickConfident(item, buildPickContext([item])).map((s) => s.id)
+    expect(picked).toContain('a')
+    expect(picked).toContain('m')
+    expect(gradeGroups(item)).toEqual({ SURE: expect.any(Array), LIKELY: [], MAYBE: expect.any(Array) })
+  })
+  it('one entry per supplier with the strongest grade, SURE first, fillers last', () => {
+    expect(gradedSuppliers(item)!.map((s) => s.id)).toEqual(['a', 'b', 'e', 'm', 'f'])
+    expect(gradedSuppliers(item)![0].grade?.evidenceScore).toBe(95)
+  })
+  it('switched on: every SURE; LIKELY only below three SURE; never MAYBE or a filler', () => {
+    localStorage.setItem(GRADE_V2_KEY, '1')
+    expect(gradeV2Enabled()).toBe(true)
+    expect(autoPickConfident(item).map((s) => s.id)).toEqual(['a', 'b', 'e'])
+    const thin = line(10, 'paints', [graded('s', 'SURE', 70), graded('l', 'LIKELY', 40), graded('lf', 'LIKELY', 35, true), graded('m', 'MAYBE', 0)])
+    expect(autoPickConfident(thin).map((s) => s.id)).toEqual(['s', 'l'])
+    const far = line(11, 'paints', [graded('s', 'SURE', 70, false, { outOfCity: true }), graded('l', 'LIKELY', 40)])
+    expect(autoPickConfident(far).map((s) => s.id)).toEqual(['l'])
+  })
+  it('switched on but the server sent no grade: the old rule still picks', () => {
+    localStorage.setItem(GRADE_V2_KEY, '1')
+    expect(autoPickByGrade(booklet[0])).toBeUndefined()
+    expect(autoPickConfident(booklet[0], buildPickContext(booklet)).map((s) => s.id)).toEqual(['حديد-أ', 'حديد-ب', 'عام'])
+  })
 })
