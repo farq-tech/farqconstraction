@@ -45,3 +45,12 @@ it.each([
 ])('does not promote ambiguous compound %s into the wrong product pool', (name, wrong) => {
  expect(resolveOntology(name).intent).not.toBe(wrong)
 })
+
+it.each(['Chemical anchor resin', 'chemical anchoring resin', 'epoxy anchor adhesive', 'Resin anchor', 'Chemical anchor', 'كيميكال انكر', 'انكر كيميكال'])('routes adhesive %s to chemical anchoring rather than mechanical fixings', name => {
+ const result = resolveOntology(name)
+ expect(result.intent).toBe('anchoring_epoxy')
+ expect(result.family).toBe('concrete_admixtures')
+})
+it.each(['Wedge anchor M16', 'Anchor bolt M16x200mm', 'Mechanical anchor'])('preserves mechanical product %s', name => {
+ expect(resolveOntology(name).intent).toBe('mechanical_anchor')
+})
