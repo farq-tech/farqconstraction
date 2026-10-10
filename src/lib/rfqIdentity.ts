@@ -54,6 +54,16 @@ export function toRfqSummary(r: ConstructionRfqSummary): RFQSummary {
     deadline: r.delivery?.required_date ? formatArDate(r.delivery.required_date) : undefined,
     closesLabel: r.award_id ? undefined : mapRfqUiStatus(r.status, r.award_id) === 'closed' ? 'أُغلق استلام العروض' : closing.label,
     closesUrgent: r.award_id || mapRfqUiStatus(r.status, r.award_id) === 'closed' ? false : closing.urgent,
+    booklet: r.booklet?.booklet_id
+      ? {
+          id: r.booklet.booklet_id,
+          reference: r.booklet.reference || r.booklet.booklet_id.slice(0, 8),
+          title: r.booklet.title || undefined,
+          waveNumber: r.booklet.wave_number ?? undefined,
+          waves: r.booklet.waves ?? undefined,
+          closed: r.booklet.state === 'CLOSED',
+        }
+      : undefined,
   }
 }
 

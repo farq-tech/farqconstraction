@@ -6,6 +6,7 @@ import { listBuyerRfqs } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import { toRfqSummary } from '../lib/rfqIdentity'
 import { RfqCard } from '../components/RfqCard'
+import { bookletGroupingEnabled, groupRequestsByBooklet } from '../lib/requestGroups'
 
 type Filter = 'all' | 'draft' | 'active' | 'closed' | 'awarded'
 
@@ -32,7 +33,8 @@ export function RFQListView({ navigate }: NavProps) {
   const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
   const [filter, setFilter] = useState<Filter>('all')
   const [search, setSearch] = useState('')
-  const { openRfq } = useProcurement()
+  const { openRfq, openBooklet } = useProcurement()
+  const grouped = bookletGroupingEnabled()
 
   useEffect(() => {
     let cancelled = false
@@ -69,6 +71,18 @@ export function RFQListView({ navigate }: NavProps) {
     const matchSearch = !q || r.name.toUpperCase().includes(q) || r.id.toUpperCase().includes(q) || (r.reference || '').includes(q)
     return matchFilter && matchSearch
   })
+
+  const renderCard = (rfq: RFQSummary) => (
+    <RfqCard
+      key={rfq.id}
+      rfq={rfq}
+      onOpen={() =>
+        rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
+          ? navigate(getSession().matchingCity && !getSession().boqItems.some(item => item.needsMatch) ? 'create-proposals' : 'create-upload')
+          : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
+      }
+    />
+  )
 
   return (
     <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
@@ -139,17 +153,31 @@ export function RFQListView({ navigate }: NavProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((rfq) => (
-            <RfqCard
-              key={rfq.id}
-              rfq={rfq}
-              onOpen={() =>
-                rfq.status === 'draft' && rfq.id.startsWith('RFQ-')
-                  ? navigate(getSession().matchingCity && !getSession().boqItems.some(item => item.needsMatch) ? 'create-proposals' : 'create-upload')
-                  : openRfq(rfq.id, rfq.status === 'closed' ? 'rfq-closed' : 'rfq-detail')
-              }
-            />
-          ))}
+          {grouped
+            ? groupRequestsByBooklet(filtered).map((row) =>
+                row.kind === 'rfq' ? (
+                  renderCard(row.rfq)
+                ) : (
+                  /* «الكراسة»: the same purchase request sent as several requests. */
+                  <section key={`booklet-${row.booklet.id}`} className="rounded-2xl border border-[#1a7a45]/20 bg-[#f0faf7] p-3" dir="rtl">
+                    <button
+                      onClick={() => openBooklet(row.booklet.id)}
+                      className="w-full flex items-center justify-between gap-2 mb-2 text-right"
+                      title="افتح الكراسة: مقارنة واحدة لكل الدفعات"
+                    >
+                      <span className="font-bold text-[#123F3A] truncate">
+                        كراسة <bdi>{row.booklet.reference}</bdi>
+                        {row.booklet.title && row.booklet.title !== row.booklet.reference ? ` — ${row.booklet.title}` : ''}
+                      </span>
+                      <span className="text-xs text-neutral-600 whitespace-nowrap">
+                        {row.rfqs.length} طلبات{row.booklet.closed ? ' · مغلقة' : ''}
+                      </span>
+                    </button>
+                    <div className="space-y-2">{row.rfqs.map(renderCard)}</div>
+                  </section>
+                ),
+              )
+            : filtered.map(renderCard)}
         </div>
       )}
     </div>
