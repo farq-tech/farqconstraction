@@ -90,6 +90,17 @@ export type ConstructionRfqSummary = {
   quote_deadline?: string | null
   quote_deadline_time?: string | null
   received_base_quote_total: number | null
+  /** The booklet this request is a wave of («كراسة PR-H288 — دفعة 3»). Absent on older APIs. */
+  booklet?: ConstructionRfqListBooklet | null
+}
+
+export type ConstructionRfqListBooklet = {
+  booklet_id: string
+  reference: string | null
+  title: string | null
+  wave_number: number | null
+  waves: number | null
+  state?: 'OPEN' | 'CLOSED' | null
 }
 
 export type ConstructionManagementOverview = {

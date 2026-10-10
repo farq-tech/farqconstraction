@@ -192,6 +192,8 @@ export interface RFQSummary {
   /** When quotes close, as «يغلق بعد 3 أيام»; urgent inside two days. */
   closesLabel?: string
   closesUrgent?: boolean
+  /** The booklet («الكراسة») this request is a wave of, when the API says. */
+  booklet?: { id: string; reference: string; title?: string; waveNumber?: number; waves?: number; closed?: boolean }
 }
 
 export interface SupplierEntry {
