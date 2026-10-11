@@ -1,4 +1,5 @@
 import { loadCompanyProfile } from '../lib/companyProfile'
+import { getNewSupplierLimit, setNewSupplierLimit } from '../lib/newSupplierLimit'
 import { useState, useRef, useEffect } from 'react'
 import { autoPickConfident, buildPickContext } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
@@ -346,6 +347,7 @@ export function UploadView({ navigate }: NavProps) {
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
   const [pendingCityFile, setPendingCityFile] = useState<File | null>(null)
+  const [newSupplierLimit, setNewSupplierLimitText] = useState(() => getNewSupplierLimit()?.toString() ?? '')
   const [workbookChoice, setWorkbookChoice] = useState<{
     file: File
     workbook: BoqSpreadsheetWorkbook
@@ -856,6 +858,17 @@ export function UploadView({ navigate }: NavProps) {
           const current = getBoqItems()
           if (current.length) setCartItems(current.map(item => ({ ...item, needsMatch: true })), newCartDocumentId)
         }} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2" />
+      </label>}
+      {phase === 'idle' && <label className="block mb-4 text-sm text-neutral-600">حد الموردين الجدد لكل بند
+        <input type="number" inputMode="numeric" min={0} step={1} placeholder="بلا حد" value={newSupplierLimit} disabled={continuing} onChange={e => {
+          const text = e.target.value
+          setNewSupplierLimitText(text)
+          const n = Number(text)
+          setNewSupplierLimit(text.trim() === '' || !Number.isInteger(n) || n < 0 ? null : n)
+          const current = getBoqItems()
+          if (current.length) setCartItems(current.map(item => ({ ...item, needsMatch: true })), newCartDocumentId)
+        }} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2" />
+        <span className="block mt-1 text-xs text-neutral-500">موردون ما راسلناهم قبل، ويطلعون لأن عندهم دليل إنهم يبيعون المنتج نفسه. اتركها فاضية عشان يطلعون كلهم.</span>
       </label>}
       {phase === 'idle' && pendingCityFile && <button type="button" disabled={!deliveryCity.trim()} onClick={() => {
         const file = pendingCityFile
