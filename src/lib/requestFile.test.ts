@@ -9,6 +9,7 @@ import {
   cheapestPerLineTotal,
   quoteCoverage,
   quoteDeadline,
+  invitesForMessage,
   requestProgress,
   requestState,
   supplierState,
@@ -61,6 +62,18 @@ describe('supplier state and progress', () => {
     expect(supplierState(d!).channel).toBe('البريد')
     expect(supplierState(a!).key).toBe('QUOTED')
     expect(supplierState(a!, 'a').key).toBe('AWARDED')
+  })
+
+  it('keeps a written message to the suppliers the buyer named', () => {
+    const rows = [
+      invite({ id: 'wait', supplier: { name_ar: 'العجلان' }, dispatch_attempts: [{ channel: 'EMAIL', status: 'SENT', sent_at: 't', failure_code: null }] }),
+      invite({ id: 'quote', supplier: { name_ar: 'دهانات الجزيرة' }, response_status: 'QUOTED', dispatch_attempts: [{ channel: 'EMAIL', status: 'SENT', sent_at: 't', failure_code: null }] }),
+      invite({ id: 'miss', supplier: { name_en: 'AP Tools', city: 'Riyadh' }, dispatch_attempts: [{ channel: 'EMAIL', status: 'DELIVERY_FAILED', sent_at: null, failure_code: 'HTTP_422' }] }),
+    ]
+    expect(invitesForMessage(rows, '', 'waiting').map((row) => row.id)).toEqual(['wait'])
+    expect(invitesForMessage(rows, 'الجزيرة', 'all').map((row) => row.id)).toEqual(['quote'])
+    expect(invitesForMessage(rows, 'riyadh', 'unreached').map((row) => row.id)).toEqual(['miss'])
+    expect(invitesForMessage(rows, 'العجلان', 'quoted')).toEqual([])
   })
 })
 

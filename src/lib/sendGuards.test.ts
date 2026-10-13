@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanLineName, readQty } from './sendGuards'
+import { cleanLineName, readQty, requestDateBlocker } from './sendGuards'
 import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, departmentForBoqItem, dominantEngineeringDepartment } from './rfqPackages'
 import type { BOQItem } from '../types'
 
@@ -56,5 +56,23 @@ describe('nothing on an RFQ line is invented', () => {
     const linesFor = (s: string) => packages.filter((p) => p.selected_supplier_ids.includes(s)).flatMap((p) => p.line_keys)
     expect(linesFor('a')).toEqual(['line-1'])
     expect(linesFor('b').sort()).toEqual(['line-1', 'line-2'])
+  })
+})
+
+describe('request dates', () => {
+  it('requires valid calendar dates and a future Riyadh cutoff', () => {
+    const now = Date.parse('2026-10-05T13:30:00Z')
+    expect(requestDateBlocker('2026-10-05', '2026-10-06', now)).toBeNull()
+    expect(requestDateBlocker('2026-10-05', '2026-10-06', now + 30 * 60 * 1000)).not.toBeNull()
+    expect(requestDateBlocker('2026-02-30', '2026-10-06', now)).not.toBeNull()
+    expect(requestDateBlocker('', '2026-10-06', now)).not.toBeNull()
+    expect(requestDateBlocker('2026-10-06', '2026-10-06', now)).not.toBeNull()
+    expect(requestDateBlocker('2026-10-07', '2026-10-06', now)).not.toBeNull()
+  })
+  it('uses the chosen deadline time and rejects invalid times', () => {
+    const now = Date.parse('2026-10-05T13:30:00Z')
+    expect(requestDateBlocker('2026-10-05', '2026-10-06', now, '16:00')).not.toBeNull()
+    expect(requestDateBlocker('2026-10-05', '2026-10-06', now, '18:00')).toBeNull()
+    expect(requestDateBlocker('2026-10-05', '2026-10-06', now, '25:00')).not.toBeNull()
   })
 })

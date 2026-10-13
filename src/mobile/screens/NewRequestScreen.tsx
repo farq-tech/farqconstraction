@@ -18,7 +18,7 @@ import { autoPickFor, buildPickContext } from '../../lib/autoPick'
 import { loadCompanyProfile } from '../../lib/companyProfile'
 import { matchSuppliersForItems, rowsToLines, sanitizeBoqLines, type ParsedLine } from '../../lib/parseBoq'
 import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
-import { cleanLineName, parseQty, readQty } from '../../lib/sendGuards'
+import { cleanLineName, parseQty, readQty, requestDateBlocker } from '../../lib/sendGuards'
 import type { BOQItem, Supplier, SupplierEntry } from '../../types'
 import type { Nav } from '../MobileApp'
 import { deleteDraft, getDraft, saveDraft } from '../purchaseRequests'
@@ -37,7 +37,7 @@ const AUTO_PICK = 10
 function isoIn(days: number): string {
   const d = new Date()
   d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' })
 }
 
 function toSupplier(s: SupplierEntry): Supplier {
@@ -118,6 +118,8 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   // sending
   const [progress, setProgress] = useState<{ text: string; done: number; total: number }>({ text: '', done: 0, total: 0 })
   const [waAsk, setWaAsk] = useState<{ count: number; price: number; resolve: (yes: boolean) => void } | null>(null)
+  const sendLock = useRef(false)
+  const createdIdRef = useRef<string | null>(null)
   const [createdId, setCreatedId] = useState<string | null>(null)
   const [summary, setSummary] = useState<{ sent: number; failed: number; total: number } | null>(null)
 
@@ -159,6 +161,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   async function toSuppliers() {
     const usable = lines.filter((l) => cleanLineName(l.name) && readQty(l.qty))
     if (!usable.length) return setError('أضف بندًا واحدًا على الأقل بكمية صحيحة.')
+    if (usable.length !== lines.length) return setError('راجع أسماء وكميات البنود قبل المتابعة. يوجد بند غير صالح، ولن يتم حذفه تلقائيًا.')
     setError(null)
     setBusy('نبحث عن موردين لكل بند…')
     try {
@@ -218,11 +221,16 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   if (step === 'details') {
     if (allPicked.length < 2) blockers.push('اختر موردين اثنين على الأقل.')
     if (!city.trim()) blockers.push('اكتب مدينة التسليم.')
-    if (!quoteDeadline || !requiredDate || quoteDeadline >= requiredDate) blockers.push('آخر موعد للعروض يجب أن يسبق موعد التوريد.')
+    const dateIssue = requestDateBlocker(quoteDeadline, requiredDate)
+    if (dateIssue) blockers.push(dateIssue)
+    if (!department) blockers.push('اختر القسم الهندسي.')
   }
 
   async function send() {
-    if (blockers.length) return
+    if (blockers.length || sendLock.current || createdIdRef.current) return
+    const dateIssue = requestDateBlocker(quoteDeadline, requiredDate)
+    if (dateIssue) return setError(dateIssue)
+    sendLock.current = true
     setStep('sending')
     setError(null)
     try {
@@ -250,6 +258,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       const keys = new Set(packages.flatMap((p) => p.line_keys))
       const scopedLines = rfqLines.filter((l) => keys.has(String(l.line_key)))
       const supplierIds = [...new Set(packages.flatMap((p) => p.selected_supplier_ids))]
+      if (scopedLines.length !== rfqLines.length) throw new Error('تعذر ربط موردين ببعض البنود. راجع اختيار الموردين قبل الإرسال.')
       if (supplierIds.length < 2 || !scopedLines.length) throw new Error('يلزم موردان على الأقل مربوطان ببنود الطلب.')
 
       setProgress({ text: `ننشئ الطلب لـ ${supplierIds.length} موردين…`, done: 0, total: supplierIds.length })
@@ -287,11 +296,13 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       const haraj = countHarajSupplierIds(supplierIds)
       if (haraj > 0) body.haraj_limit = haraj
       const created = await createConstructionRfq(body, { timeoutMs: 90_000 })
+      createdIdRef.current = created.id
       setCreatedId(created.id)
       if (draftKey) deleteDraft(draftKey)
 
       const detail = await getConstructionRfq(created.id)
       const invites = detail.invitations || []
+      if (!invites.length) throw new Error('أُنشئ الطلب لكن لم تُجهّز دعوات. افتح الطلب للمراجعة بدل إنشاء طلب آخر.')
       const waCount = invites.filter((i) => invitePreferredChannel(i) === 'WHATSAPP').length
       let waPaid = false
       if (waCount) {
@@ -303,6 +314,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       }
 
       await startConstructionDispatch(created.id, { whatsappPaid: waPaid, includeHaraj: true })
+      let completed = false
       let total = invites.length
       for (let guard = 0; guard < 240; guard += 1) {
         await new Promise((r) => window.setTimeout(r, 2500))
@@ -311,14 +323,22 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
         total = job.total || total
         setProgress({ text: `نرسل للموردين: ${job.processed || 0} من ${total}`, done: job.processed || 0, total })
         if (['DONE', 'FAILED', 'CANCELLED'].includes(String(job.state))) {
+          completed = true
           setSummary({ sent: job.sent || 0, failed: job.failed || 0, total })
+          if (job.state === 'CANCELLED') setError('توقف الإرسال. راجع الموردين الذين وصلهم الطلب في ملفه.')
+          else if (job.state === 'FAILED' || !job.sent) setError('لم يتأكد إرسال الطلب للموردين. راجع حالة الدعوات في ملف الطلب.')
+          else if (job.failed) setError('أُرسل الطلب جزئيًا. راجع الدعوات التي تعذر إرسالها.')
+          else if (waCount && !waPaid) setError('موردو واتساب يحتاجون إرسالًا يدويًا. افتح الطلب ثم تواصل معهم من المراسلات.')
           break
         }
       }
+      if (!completed) setError('أُنشئ الطلب، لكن متابعة الإرسال تجاوزت المهلة. قد يستمر الإرسال على الخادم؛ افتح الطلب للتحقق من حالته.')
       setStep('done')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر إرسال الطلب.')
-      setStep(createdId ? 'done' : 'details')
+      setStep(createdIdRef.current ? 'done' : 'details')
+    } finally {
+      sendLock.current = false
     }
   }
 
@@ -496,7 +516,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="text-[13px] text-neutral-500">آخر موعد للعروض</span>
+                  <span className="text-[13px] text-neutral-500">آخر موعد للعروض (5 مساءً)</span>
                   <input type="date" value={quoteDeadline} onChange={(e) => setQuoteDeadline(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-3 outline-none" />
                 </label>
                 <label className="block">
@@ -530,6 +550,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
               </div>
             </Card>
             {blockers.length > 0 && <div className="rounded-2xl bg-amber-50 text-amber-800 text-[14px] px-4 py-3 mt-3">{blockers[0]}</div>}
+            {items.length > readyItems.length && <p className="mt-3 text-xs text-amber-700">{items.length - readyItems.length} بنود لن تُرسل لأنها أعمال فقط أو بدون موردين مختارين. ارجع لاختيار الموردين إذا أردت تضمينها.</p>}
             {errorBox}
           </>
         )}
@@ -555,7 +576,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
         {step === 'done' && (
           <div className="pt-14 text-center">
             <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center text-[40px] ${error ? 'bg-amber-50' : 'bg-[#CFF5DC]'}`}>{error ? '!' : '✓'}</div>
-            <div className="mt-5 font-black text-[22px]">{error ? 'أُنشئ الطلب مع ملاحظة' : 'أُرسل طلب التسعير'}</div>
+            <div className="mt-5 font-black text-[22px]">{error ? 'الطلب محفوظ — راجع حالة الإرسال' : 'اكتملت متابعة إرسال الطلب'}</div>
             {summary && (
               <p className="mt-2 text-[15px] text-neutral-600">
                 وصل إلى {summary.sent} من {summary.total} مورد{summary.failed ? ` · تعذّر ${summary.failed}` : ''}

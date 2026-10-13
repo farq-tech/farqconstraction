@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import BusinessSummary, { ReportModeSwitch } from '../../components/reports/BusinessSummary'
 import {
   formatArDate,
   getConstructionReportLines,
@@ -57,6 +58,7 @@ function projectState(p: ConstructionReportProject): { label: string; tone: 'goo
 type SortKey = 'replied' | 'median' | 'quotes' | 'wins'
 
 export default function ReportsScreen({ nav }: { nav: Nav }) {
+  const [mode, setMode] = useState<'business' | 'operations'>('business')
   const [days, setDays] = useState<number | null>(30)
   const { data, error, loading, reload } = useLoad<ConstructionReports>(() => getConstructionReports({ days }), [days])
   const [drill, setDrill] = useState<{ title: string; lines: ConstructionReportLine[] | null } | null>(null)
@@ -98,6 +100,7 @@ export default function ReportsScreen({ nav }: { nav: Nav }) {
 
   return (
     <Screen title="التقارير" onBack={nav.back} large>
+      <ReportModeSwitch mode={mode} onChange={setMode} />
       <Chips<number | null> options={PERIODS} value={days} onChange={setDays} />
       {error && <ErrorNote message={error} onRetry={reload} />}
 
@@ -107,6 +110,7 @@ export default function ReportsScreen({ nav }: { nav: Nav }) {
         </div>
       ) : data && t ? (
         <div className={loading ? 'opacity-60 transition-opacity' : ''}>
+          {mode === 'business' ? <BusinessSummary data={data} period={PERIODS.find(([value]) => value === days)?.[1] || 'كل الفترات'} onOpenRequests={() => nav.switchTab('requests')} /> : <>
           {/* The one number that answers «are we covered?» */}
           <div className="rounded-2xl p-5 mt-4 bg-[#123F3A] text-white">
             <div className="text-[13px] text-white/70">تغطية البنود بالأسعار</div>
@@ -130,7 +134,7 @@ export default function ReportsScreen({ nav }: { nav: Nav }) {
               </div>
               <div>
                 <div className="text-[18px] font-black tabular-nums">{t.projects}</div>
-                <div className="text-[11px] text-white/65">مشروع</div>
+                <div className="text-[11px] text-white/65">طلب تسعير</div>
               </div>
             </div>
           </div>
@@ -320,6 +324,7 @@ export default function ReportsScreen({ nav }: { nav: Nav }) {
           )}
 
           <p className="text-center text-[12px] text-neutral-400 mt-6">حُدّث {formatArDate(data.generated_at)}</p>
+          </>}
         </div>
       ) : null}
 

@@ -3,7 +3,7 @@ import {
   inboxThreadSupplierLabel,
   type ConstructionInboxThread,
 } from '../../api/constructionClient'
-import { filterThreads, listTimeLabel, sortThreadsNewestFirst, threadSnippet } from '../../lib/inboxChat'
+import { filterThreads, filterUnreadThreads, listTimeLabel, sortThreadsNewestFirst, threadSnippet } from '../../lib/inboxChat'
 import { SupplierAvatar } from './SupplierAvatar'
 
 export type InboxTab = 'inbound' | 'needs_reply' | 'sent'
@@ -56,6 +56,9 @@ export type ConversationListProps = {
   emptyState: ReactNode
   /** Extra line under the tabs (the «مرسَل» explanation). */
   tabNote?: ReactNode
+  /** Server-side request reference. Empty means the whole mailbox. */
+  requestQuery: string
+  onRequestQueryChange: (value: string) => void
   /** Mark whole conversations read or unread (listed invites, or 'all'). */
   onMarkThreads?: (target: string[] | 'all', read: boolean) => Promise<void>
 }
@@ -79,8 +82,11 @@ export function ConversationList({
   emptyState,
   tabNote,
   onMarkThreads,
+  requestQuery,
+  onRequestQueryChange,
 }: ConversationListProps) {
   const [query, setQuery] = useState('')
+  const [unreadOnly, setUnreadOnly] = useState(false)
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [marking, setMarking] = useState(false)
@@ -103,8 +109,10 @@ export function ConversationList({
   const now = Date.now()
 
   const sorted = useMemo(() => sortThreadsNewestFirst(threads), [threads])
-  const visible = useMemo(() => filterThreads(sorted, query), [sorted, query])
-  const searching = query.trim().length > 0
+  const matched = useMemo(() => filterThreads(sorted, query), [sorted, query])
+  const visible = useMemo(() => (unreadOnly ? filterUnreadThreads(matched) : matched), [matched, unreadOnly])
+  const unreadInView = useMemo(() => filterUnreadThreads(matched).length, [matched])
+  const searching = query.trim().length > 0 || requestQuery.trim().length > 0 || unreadOnly
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-white">
@@ -170,6 +178,26 @@ export function ConversationList({
             </span>
           )}
         </div>
+        <div className="flex items-center gap-1.5 mt-2">
+          <button
+            type="button"
+            aria-pressed={unreadOnly}
+            onClick={() => setUnreadOnly((on) => !on)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold ${
+              unreadOnly ? 'bg-[#123F3A] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+          >
+            غير مقروء{unreadInView > 0 ? ` ${unreadInView}` : ''}
+          </button>
+          <input
+            type="search"
+            value={requestQuery}
+            onChange={(event) => onRequestQueryChange(event.target.value)}
+            placeholder="رقم الطلب"
+            aria-label="تصفية برقم الطلب"
+            className="min-w-0 flex-1 rounded-full bg-neutral-100 border border-transparent px-3 py-1.5 text-[12px] text-[#0D1F1D] placeholder:text-neutral-400 focus:bg-white focus:border-[#123F3A]/40 focus:outline-none"
+          />
+        </div>
         {tabNote}
         {onMarkThreads && threads.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px]">
@@ -225,9 +253,15 @@ export function ConversationList({
 
         {!loading && threads.length > 0 && visible.length === 0 && (
           <div className="px-5 py-12 text-center">
-            <p className="text-sm text-neutral-500 mb-1">لا محادثة تطابق «{query.trim()}».</p>
+            <p className="text-sm text-neutral-500 mb-1">
+              {unreadOnly && !query.trim() && !requestQuery.trim()
+                ? 'لا محادثة غير مقروءة في هذا التبويب.'
+                : `لا محادثة تطابق «${query.trim() || requestQuery.trim()}».`}
+            </p>
             <p className="text-xs text-neutral-400 leading-relaxed">
-              البحث يجري في المحادثات المحمّلة في هذا التبويب فقط.
+              {requestQuery.trim()
+                ? 'رقم الطلب يُصفّي الصندوق كاملًا.'
+                : 'البحث بالاسم والنص يجري في المحادثات المحمّلة في هذا التبويب فقط.'}
             </p>
           </div>
         )}

@@ -149,6 +149,8 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const [error, setError] = useState<string | null>(null)
   /** Default وارد — not «الكل» which mixes DISPATCH invite spam from the API. */
   const [tab, setTab] = useState<InboxTab>('inbound')
+  const [requestQuery, setRequestQuery] = useState('')
+  const [requestDebounced, setRequestDebounced] = useState('')
 
   const applyGmailStatus = (g: ConstructionGmailStatus) => {
     setGmail(g)
@@ -225,6 +227,11 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   }, [])
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setRequestDebounced(requestQuery.trim()), 400)
+    return () => window.clearTimeout(timer)
+  }, [requestQuery])
+
+  useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -245,7 +252,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
 
     Promise.all([
       getConstructionInboxStatus(),
-      listConstructionInboxThreads({ filter: apiFilter }),
+      listConstructionInboxThreads({
+        filter: apiFilter,
+        request_number: requestDebounced || undefined,
+      }),
     ])
       .then(([inboxStatus, threadResult]) => {
         if (cancelled) return
@@ -278,7 +288,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     return () => {
       cancelled = true
     }
-  }, [tab, reloadKey])
+  }, [tab, reloadKey, requestDebounced])
 
   const handleGmailConnect = async () => {
     if (connectInFlight.current) return
@@ -782,6 +792,8 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               </button>
             ) : null
           }
+          requestQuery={requestQuery}
+          onRequestQueryChange={setRequestQuery}
           tabNote={
             !loading && !error && tab === 'sent' ? (
               <p className="text-[11px] text-neutral-500 mt-2 leading-relaxed">

@@ -10,16 +10,18 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const alive = useRef(true)
+  const loadSequence = useRef(0)
   const run = useCallback(async () => {
+    const sequence = ++loadSequence.current
     setLoading(true)
     setError(null)
     try {
       const next = await fn()
-      if (alive.current) setData(next)
+      if (alive.current && sequence === loadSequence.current) setData(next)
     } catch (e) {
-      if (alive.current) setError(e instanceof Error ? e.message : 'تعذّر التحميل.')
+      if (alive.current && sequence === loadSequence.current) setError(e instanceof Error ? e.message : 'تعذّر التحميل.')
     } finally {
-      if (alive.current) setLoading(false)
+      if (alive.current && sequence === loadSequence.current) setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
@@ -28,6 +30,7 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
     void run()
     return () => {
       alive.current = false
+      loadSequence.current += 1
     }
   }, [run])
   return { data, error, loading, reload: run, setData }

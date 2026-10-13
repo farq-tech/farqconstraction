@@ -77,6 +77,8 @@ function initialViewFromUrl(): AppView {
 export function ProcurementProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<AppView>(initialViewFromUrl)
   const [selectedRfqId, setSelectedRfqId] = useState<string | null>(() => initialParam('rfq'))
+  const selectedRfqRef = useRef(selectedRfqId)
+  selectedRfqRef.current = selectedRfqId
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
   const [selectedQuoteVersionId, setSelectedQuoteVersionId] = useState<string | null>(null)
@@ -131,6 +133,12 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const openRfq = useCallback((id: string, next: AppView = 'rfq-detail') => {
+    if (selectedRfqRef.current !== id) {
+      setSelectedQuoteVersionId(null)
+      setSelectedOfferId(null)
+      setAwardResult(null)
+    }
+    selectedRfqRef.current = id
     setSelectedRfqId(id)
     setView(next)
     push({ farqView: next, rfqId: id })

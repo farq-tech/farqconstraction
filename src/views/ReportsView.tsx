@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import BusinessSummary, { ReportModeSwitch } from '../components/reports/BusinessSummary'
 import type { NavProps } from '../types'
 import { useProcurement } from '../procurementContext'
 import {
@@ -120,6 +121,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 
 export function ReportsView({ navigate }: NavProps) {
   const { openRfq } = useProcurement()
+  const [mode, setMode] = useState<'business' | 'operations'>('business')
   const [days, setDays] = useState<number | null>(null)
   const [rfqId, setRfqId] = useState<string | null>(null)
   const [data, setData] = useState<ConstructionReports | null>(null)
@@ -130,6 +132,7 @@ export function ReportsView({ navigate }: NavProps) {
   useEffect(() => {
     let alive = true
     setData(null)
+    setError(null)
     getConstructionReports({ days, rfqId })
       .then((r) => alive && setData(r))
       .catch((e) => alive && setError(e instanceof Error ? e.message : 'تعذّر تحميل التقارير.'))
@@ -189,12 +192,13 @@ export function ReportsView({ navigate }: NavProps) {
     <div className="max-w-6xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D]">تقارير المحفظة</h1>
-          <p className="text-sm text-neutral-500 mt-1">كل رقم هنا مأخوذ من سجل النظام وقت حدوثه، وكل رقم مهم تقدر تضغطه وتشوف مصدره.</p>
+          <h1 className="text-2xl lg:text-3xl font-black text-[#0D1F1D]">التقارير</h1>
+          <p className="text-sm text-neutral-500 mt-1">نشاط التسعير وفرص الدفع من سجلات المنصة.</p>
         </div>
         <button onClick={() => window.print()} className="px-4 py-2 rounded-xl bg-[#123F3A] text-white text-sm font-bold print:hidden">تقرير للإدارة (طباعة / PDF)</button>
       </div>
 
+      <ReportModeSwitch mode={mode} onChange={setMode} />
       <div className="flex flex-wrap items-center gap-2 mb-5 print:hidden">
         {PERIODS.map(([label, value]) => (
           <button key={label} onClick={() => setDays(value)} aria-pressed={days === value}
@@ -209,6 +213,7 @@ export function ReportsView({ navigate }: NavProps) {
         </select>
       </div>
 
+      {mode === 'business' ? <BusinessSummary data={data} period={PERIODS.find(([, value]) => value === days)?.[0] || 'كل الفترات'} onOpenRequests={() => navigate('rfq-list')} /> : <>
       {attentionCards.some(([n]) => n > 0) && (
         <Section title="يحتاج انتباهك" note="قواعد واضحة من بياناتك، لا تقديرات">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -383,6 +388,8 @@ export function ReportsView({ navigate }: NavProps) {
       <p className="text-[11px] text-neutral-400">
         حُدّث {formatArDate(data.generated_at)}. «من رفع الكراسة إلى أول عرض» غير متاح للطلبات القديمة: ربط الكراسة بالطلب بدأ تسجيله اليوم، ويظهر للطلبات الجديدة.
       </p>
+
+      </>}
 
       {drill && (
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4 print:hidden" role="dialog" aria-modal="true">

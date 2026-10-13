@@ -4,21 +4,15 @@ import { ClockIcon } from '../icons'
 import { useProcurement } from '../procurementContext'
 import {
   ConstructionApiError,
-  closeConstructionRfqSubmissions,
   constructionRateLimitWaitSec,
-  createConstructionAward,
-  createConstructionProject,
   formatRfqReference,
   formatRfqTitle,
   getConstructionComparison,
-  getConstructionProjects,
+  getConstructionInboxThread,
   getConstructionRfq,
   getConstructionSupplierOutcomes,
-  broadcastToRequestSuppliers,
-  getRequestBroadcast,
   invitePreferredChannel,
-  openConstructionRfqEnvelopes,
-  type ConstructionBroadcastStatus,
+  replyToConstructionInboxThread,
   sendConstructionRfqInvite,
   type ConstructionComparison,
   type ConstructionInvitation,
@@ -27,7 +21,6 @@ import {
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
 import {
-  CELL_LABEL,
   buildTimeline,
   formatEventTime,
   formatMoney,
@@ -35,16 +28,20 @@ import {
   cheapestPerLineTotal,
   lowestPerLine,
   matrixTotals,
-  nextLineSort,
   quoteCoverage,
-  sortLinesBySupplier,
   quoteDeadline,
   requestProgress,
+  invitesForMessage,
   requestState,
   supplierState,
+  type MessageSupplierFilter,
   taxLabel,
 } from '../lib/requestFile'
-import type { CheapestBasket, LineSort, MatrixTotal } from '../lib/requestFile'
+import type { CheapestBasket } from '../lib/requestFile'
+import LineOfferComparison from '../components/procurement/LineOfferComparison'
+import AwardDialog from '../components/procurement/AwardDialog'
+import StepDialog from '../components/procurement/StepDialog'
+import { awardBlockReason } from '../lib/awardFlow'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ChannelTag } from '../components/inbox/MessageBubble'
 
@@ -58,7 +55,6 @@ const TABS: [Tab, string][] = [
   ['history', 'السجل'],
 ]
 const TAB_IDS = new Set(TABS.map(([id]) => id))
-const REASONS = ['أفضل سعر', 'أسرع توريد', 'أفضل مطابقة للمواصفات', 'مورد مفضل', 'أفضل شروط تجارية', 'أخرى'] as const
 const POLL_MS = 30_000
 
 type Offer = ConstructionComparison['supplier_responses'][number]
@@ -101,6 +97,9 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const [tab, setTab] = useState<Tab>(initial.current.tab || initialTab || 'overview')
   const [chatSupplier, setChatSupplier] = useState<string | null>(initial.current.supplier)
   const [rfq, setRfq] = useState<ConstructionRfq | null>(null)
+  const [comparisonError, setComparisonError] = useState<string | null>(null)
+  const currentRfqId = useRef(selectedRfqId)
+  currentRfqId.current = selectedRfqId
   const [comparison, setComparison] = useState<ConstructionComparison | null>(null)
   const [outcomes, setOutcomes] = useState<ConstructionSupplierOutcomeEvent[] | null>(null)
   const [error, setError] = useState<{ status?: number; message: string } | null>(null)
@@ -108,18 +107,18 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const [notice, setNotice] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null)
   const [resending, setResending] = useState<string | null>(null)
   const [awarding, setAwarding] = useState<Offer | null>(null)
-  const [lineSort, setLineSort] = useState<LineSort | null>(null)
   const [stepping, setStepping] = useState<'close' | 'open' | null>(null)
-  const [broadcasting, setBroadcasting] = useState(false)
+  const [messaging, setMessaging] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const load = useCallback(
     async (id: string, what: { comparison?: boolean; outcomes?: boolean } = {}) => {
       const [nextRfq, nextComparison, nextOutcomes] = await Promise.all([
         getConstructionRfq(id),
-        what.comparison ? getConstructionComparison(id).catch(() => null) : Promise.resolve(undefined),
+        what.comparison ? getConstructionComparison(id).then((result) => { if (currentRfqId.current === id) setComparisonError(null); return result }).catch(() => { if (currentRfqId.current === id) setComparisonError('تعذر تحميل العروض. أعد المحاولة أو افتح المظاريف إذا كان الطلب مغلقًا.'); return null }) : Promise.resolve(undefined),
         what.outcomes ? getConstructionSupplierOutcomes(id).catch(() => null) : Promise.resolve(undefined),
       ])
+      if (currentRfqId.current !== id) return
       setRfq(nextRfq)
       if (nextComparison !== undefined) setComparison(nextComparison)
       if (nextOutcomes !== undefined) setOutcomes(nextOutcomes?.events || [])
@@ -136,6 +135,12 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
     }
     let cancelled = false
     setLoading(true)
+    setRfq(null)
+    setComparison(null)
+    setComparisonError(null)
+    setAwarding(null)
+    setStepping(null)
+    setOutcomes(null)
     setError(null)
     load(selectedRfqId, { comparison: true, outcomes: tab === 'history' })
       .catch((err: unknown) => {
@@ -191,7 +196,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const awardedInviteId = useMemo(() => {
     const qv = rfq?.award?.supplier_quote_version_id
     if (!qv) return null
-    for (const row of comparison?.supplier_responses || []) if (String(row.offer.quoteVersionId) === qv) return String(row.offer.inviteId || '')
+    for (const row of comparison?.supplier_responses || []) if (String(row.offer.quoteVersionId) === qv) return String(row.offer.inviteId || '') || null
     return null
   }, [rfq, comparison])
   const nameOfSupplier = useCallback(
@@ -254,8 +259,6 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
   const matrix = comparison?.quote_matrix || null
   const best = lowestPerLine(matrix)
   const totals = matrixTotals(matrix)
-  const totalBySupplier = new Map(totals.totals.map((t) => [t.supplier_id, t]))
-  const sortedLines = sortLinesBySupplier(matrix?.lines || [], lineSort)
   const basket = cheapestPerLineTotal(matrix, best, totals.totals)
   const offers = [...(comparison?.supplier_responses || [])].sort((a, b) => {
     const ca = summaryBySupplier.get(String(a.supplier.id))?.coverage?.complete ? 0 : 1
@@ -334,8 +337,8 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
 
       {(() => {
         const status = String(rfq.status || '').toUpperCase()
-        const canClose = !rfq.submission_closed_at && ['SENT', 'PARTIALLY_SENT'].includes(status)
-        const canOpen = Boolean(rfq.submission_closed_at) && !rfq.envelopes_opened_at && !rfq.award
+        const canClose = state.key !== 'AWARDED' && !rfq.submission_closed_at && ['SENT', 'PARTIALLY_SENT'].includes(status)
+        const canOpen = Boolean(rfq.submission_closed_at) && !rfq.envelopes_opened_at && state.key !== 'AWARDED' && state.key !== 'CANCELLED'
         if (!canClose && !canOpen) return null
         return (
           <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -381,11 +384,12 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
 
       {tab === 'overview' && (
         <div className="space-y-4">
-          {rfq.award && awardedInviteId && (
+          {state.key === 'AWARDED' && rfq.award && (
             <div className="rounded-2xl border border-[#1a7a45]/30 bg-[#f0faf7] px-4 py-3 text-sm">
               <span className="font-bold text-[#1a7a45]">الترسية: </span>
-              {nameOfSupplier(invites.find((i) => i.id === awardedInviteId)?.supplier_id || null)}
-              {formatMoney(Number(rfq.award.approved_total)) && ` — ${formatMoney(Number(rfq.award.approved_total))}`}
+              {offers.find((row) => row.offer.quoteVersionId === rfq.award?.supplier_quote_version_id)?.supplier.name_ar || offers.find((row) => row.offer.quoteVersionId === rfq.award?.supplier_quote_version_id)?.supplier.name_en || nameOfSupplier(invites.find((i) => i.id === awardedInviteId)?.supplier_id || null)}
+              {rfq.award.approved_total != null && formatMoney(Number(rfq.award.approved_total)) && ` — ${formatMoney(Number(rfq.award.approved_total))}`}
+              {rfq.award.project_name && <span className="text-neutral-600"> · المشروع: {rfq.award.project_name}</span>}
               {rfq.award.selection_reason && <span className="text-neutral-600"> · السبب: {rfq.award.selection_reason}</span>}
             </div>
           )}
@@ -399,14 +403,14 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                   row={row}
                   name={String(row.supplier.name_ar || row.supplier.name_en || 'مورد')}
                   coverage={quoteCoverage(summaryBySupplier.get(String(row.supplier.id)))}
-                  winner={String(row.offer.inviteId || '') === awardedInviteId}
+                  winner={Boolean(state.key === 'AWARDED' && rfq.award?.supplier_quote_version_id && String(row.offer.quoteVersionId || '') === rfq.award.supplier_quote_version_id)}
                 />
               ))}
             </div>
           )}
           {offers.length > 0 && (
             <button onClick={() => setTab('quotes')} className="text-sm font-bold text-[#123F3A] hover:underline">
-              المقارنة التفصيلية والترسية ←
+              {state.key === 'AWARDED' ? 'مراجعة العروض والترسية المعتمدة ←' : 'المقارنة التفصيلية والترسية ←'}
             </button>
           )}
         </div>
@@ -453,10 +457,15 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
 
       {tab === 'quotes' && (
         <div className="space-y-5">
+          <div className="rounded-xl bg-[#f0faf7] p-4"><h2 className="text-sm font-bold text-[#123F3A]">المقارنة ← اختيار المورد ← مراجعة القرار ← الترسية</h2><p className="mt-2 text-xs text-neutral-500">راجع السعر وتغطية البنود والضريبة ومدة التوريد. الترسية تحتاج اختيار المشروع وسبب القرار قبل التأكيد.</p><button onClick={() => void load(rfq.id, { comparison: true }).catch(() => setComparisonError('تعذر تحديث العروض. أعد المحاولة.'))} className="mt-3 text-xs font-bold text-[#123F3A]">تحديث العروض</button></div>
+          {comparisonError && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{comparisonError}</div>}
           {offers.length === 0 ? (
-            <Empty text="لا عروض لمقارنتها بعد." />
+            <Empty text={comparisonError ? 'العروض غير متاحة حاليًا.' : 'لا عروض لمقارنتها بعد.'} />
           ) : (
             <>
+              {comparison && matrix?.lines.length ? <LineOfferComparison key={rfq.id} comparison={comparison} onReviewOffer={state.key !== 'AWARDED' && state.key !== 'CANCELLED' ? (row) => setAwarding(row) : undefined} /> : null}
+              {basket && <details className="rounded-2xl border border-neutral-100 bg-white p-4"><summary className="text-xs font-bold text-[#123F3A] cursor-pointer">تقدير شراء الأرخص من عدة موردين</summary><div className="mt-3"><CheapestBasketCard basket={basket} nameOf={nameOfSupplier} /></div></details>}
+              <h3 className="text-sm font-bold text-[#123F3A]">ملخص عروض الموردين واختيار الترسية</h3>
               <div className="grid sm:grid-cols-2 gap-3">
                 {offers.map((row) => {
                   const cov = quoteCoverage(summaryBySupplier.get(String(row.supplier.id)))
@@ -466,11 +475,11 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                       row={row}
                       name={String(row.supplier.name_ar || row.supplier.name_en || 'مورد')}
                       coverage={cov}
-                      winner={String(row.offer.inviteId || '') === awardedInviteId}
+                      winner={Boolean(state.key === 'AWARDED' && rfq.award?.supplier_quote_version_id && String(row.offer.quoteVersionId || '') === rfq.award.supplier_quote_version_id)}
                       action={
-                        !rfq.award && state.key !== 'CANCELLED' ? (
-                          <button onClick={() => setAwarding(row)} className="w-full mt-3 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm">
-                            ترسية على هذا المورد
+                        state.key !== 'AWARDED' && state.key !== 'CANCELLED' ? (
+                          <button disabled={Boolean(awardBlockReason(rfq, row))} title={awardBlockReason(rfq, row) || undefined} onClick={() => setAwarding(row)} className="w-full mt-3 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40">
+                            {awardBlockReason(rfq, row) || 'مراجعة العرض والترسية'}
                           </button>
                         ) : null
                       }
@@ -479,114 +488,17 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
                 })}
               </div>
 
-              {matrix && matrix.lines.length > 0 && (
-                <>
-                  <h3 className="font-bold text-[#0D1F1D]">مقارنة الأسعار بندًا بندًا</h3>
-                  <p className="text-xs text-neutral-500 -mt-3">
-                    الأقل مميّز فقط حين تكون الأسعار قابلة للمقارنة (نفس أساس الضريبة والعملة). الأرخص ليس فائزًا تلقائيًا.
-                    اضغط اسم المورد لترتيب البنود حسب سعره.
-                  </p>
-                  {basket && <CheapestBasketCard basket={basket} nameOf={nameOfSupplier} />}
-                  {/* Desktop: lines × suppliers */}
-                  <div className="hidden md:block overflow-x-auto bg-white border border-neutral-100 rounded-2xl">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-neutral-50 text-xs text-neutral-500">
-                          <th className="text-right font-semibold px-3 py-2.5 min-w-[220px]">البند</th>
-                          {offers.map((row) => {
-                            const id = String(row.supplier.id)
-                            const active = lineSort?.supplierId === id
-                            return (
-                              <th
-                                key={String(row.offer.quoteVersionId)}
-                                className="text-right font-semibold px-3 py-2.5 min-w-[140px]"
-                                aria-sort={active ? (lineSort!.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => setLineSort(nextLineSort(lineSort, id))}
-                                  title={active ? 'اضغط لعكس الترتيب أو لإلغائه' : 'رتّب البنود حسب سعر هذا المورد'}
-                                  className={`flex items-center gap-1 text-right hover:text-[#123F3A] ${active ? 'text-[#123F3A] font-bold' : ''}`}
-                                >
-                                  <span>{row.supplier.name_ar || row.supplier.name_en}</span>
-                                  <span aria-hidden className={active ? '' : 'opacity-30'}>
-                                    {active ? (lineSort!.dir === 'asc' ? '▲' : '▼') : '⇅'}
-                                  </span>
-                                </button>
-                              </th>
-                            )
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100">
-                        {sortedLines.map((line) => (
-                          <tr key={line.id}>
-                            <td className="px-3 py-2.5 align-top">
-                              <div className="font-semibold text-[#0D1F1D]">{line.name_ar}</div>
-                              <div className="text-[11px] text-neutral-500">{line.quantity} {line.uom}</div>
-                            </td>
-                            {offers.map((row) => {
-                              const cell = line.offers.find((c) => c && c.supplier_id === String(row.supplier.id))
-                              return <td key={String(row.offer.quoteVersionId)} className="px-3 py-2.5 align-top"><CellView cell={cell} lowest={best.get(line.id) === String(row.supplier.id)} /></td>
-                            })}
-                          </tr>
-                        ))}
-                        <tr className="bg-neutral-50/60">
-                          <td className="px-3 py-2.5 text-xs font-semibold text-neutral-600">مدة التوريد</td>
-                          {offers.map((row) => (
-                            <td key={String(row.offer.quoteVersionId)} className="px-3 py-2.5 text-xs font-semibold text-[#0D1F1D]">{leadTimeLabel(row.offer)}</td>
-                          ))}
-                        </tr>
-                        <tr className="bg-[#f3f7f5] border-t-2 border-neutral-200">
-                          <td className="px-3 py-3 text-sm font-bold text-[#0D1F1D]">
-                            إجمالي البنود
-                            <div className="text-[11px] font-normal text-neutral-500">بدون التوصيل والتنزيل والضريبة</div>
-                          </td>
-                          {offers.map((row) => (
-                            <td key={String(row.offer.quoteVersionId)} className="px-3 py-3 align-top">
-                              <TotalCell total={totalBySupplier.get(String(row.supplier.id))} lowest={totals.lowest === String(row.supplier.id)} />
-                            </td>
-                          ))}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  {/* Mobile: one card per line */}
-                  <div className="md:hidden space-y-3">
-                    {sortedLines.map((line) => (
-                      <div key={line.id} className="bg-white border border-neutral-100 rounded-2xl p-3">
-                        <div className="font-bold text-[#0D1F1D] text-sm">{line.name_ar}</div>
-                        <div className="text-[11px] text-neutral-500 mb-2">{line.quantity} {line.uom}</div>
-                        <div className="divide-y divide-neutral-100">
-                          {offers.map((row) => {
-                            const cell = line.offers.find((c) => c && c.supplier_id === String(row.supplier.id))
-                            return (
-                              <div key={String(row.offer.quoteVersionId)} className="flex items-center justify-between gap-3 py-2">
-                                <span className="text-xs text-[#0D1F1D] truncate">{row.supplier.name_ar || row.supplier.name_en}</span>
-                                <CellView cell={cell} lowest={best.get(line.id) === String(row.supplier.id)} />
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    <div className="bg-white border-2 border-neutral-200 rounded-2xl p-3">
-                      <div className="font-bold text-[#0D1F1D] text-sm">إجمالي البنود</div>
-                      <div className="text-[11px] text-neutral-500 mb-2">بدون التوصيل والتنزيل والضريبة</div>
-                      <div className="divide-y divide-neutral-100">
-                        {offers.map((row) => (
-                          <div key={String(row.offer.quoteVersionId)} className="flex items-center justify-between gap-3 py-2">
-                            <span className="text-xs text-[#0D1F1D] truncate">{row.supplier.name_ar || row.supplier.name_en}</span>
-                            <TotalCell total={totalBySupplier.get(String(row.supplier.id))} lowest={totals.lowest === String(row.supplier.id)} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+
             </>
           )}
+        </div>
+      )}
+
+      {tab === 'suppliers' && invites.length > 0 && (
+        <div className="mb-3 flex justify-end">
+          <button type="button" onClick={() => setMessaging(true)} className="px-4 py-2 rounded-xl bg-[#123F3A] text-white text-sm font-bold hover:bg-[#1a5c54]">
+            رسالة لموردين محددين
+          </button>
         </div>
       )}
 
@@ -628,11 +540,11 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         </div>
       )}
 
-      {tab === 'messages' && invites.length > 1 && (
+      {tab === 'messages' && invites.length > 0 && (
         <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-          <span className="text-xs text-neutral-500">رسالة واحدة تصل لكل موردي الطلب، كلٌّ في محادثته وعلى قناته.</span>
-          <button onClick={() => setBroadcasting(true)} className="px-4 py-2 rounded-xl bg-[#123F3A] text-white text-sm font-bold hover:bg-[#1a5c54]">
-            رسالة لكل الموردين ({invites.length})
+          <span className="text-xs text-neutral-500">اكتب رسالة واحدة، ثم اختر الموردين الذين تصلهم.</span>
+          <button type="button" onClick={() => setMessaging(true)} className="px-4 py-2 rounded-xl bg-[#123F3A] text-white text-sm font-bold hover:bg-[#1a5c54]">
+            رسالة لموردين محددين
           </button>
         </div>
       )}
@@ -683,7 +595,13 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
         </div>
       )}
 
-      {broadcasting && <BroadcastDialog rfqId={rfq.id} count={invites.length} onClose={() => setBroadcasting(false)} />}
+      {messaging && (
+        <MessageSuppliersDialog
+          invites={invites}
+          awardedInviteId={awardedInviteId}
+          onClose={() => setMessaging(false)}
+        />
+      )}
 
       {stepping && (
         <StepDialog
@@ -704,6 +622,7 @@ export function RequestFileView({ navigate, initialTab }: NavProps & { initialTa
       {awarding && (
         <AwardDialog
           rfq={rfq}
+          comparison={comparison!}
           offer={awarding}
           coverage={quoteCoverage(summaryBySupplier.get(String(awarding.supplier.id)))}
           onClose={() => setAwarding(null)}
@@ -775,22 +694,6 @@ function QuoteCard({ row, name, coverage, winner, action }: {
   )
 }
 
-type Cell = NonNullable<ConstructionComparison['quote_matrix']>['lines'][number]['offers'][number] | undefined
-
-function CellView({ cell, lowest }: { cell: Cell; lowest: boolean }) {
-  if (!cell || cell.status !== 'PRICED') {
-    return <span className="text-xs text-neutral-400">{CELL_LABEL[String(cell?.status || 'NOT_QUOTED')] || 'لم يسعّر'}</span>
-  }
-  return (
-    <div className={`inline-block rounded-lg px-2 py-1 ${lowest ? 'bg-[#CFF5DC]' : ''}`}>
-      <div className="text-sm font-bold text-[#0D1F1D] tabular-nums">{formatMoney(cell.line_total, cell.currency)}</div>
-      <div className="text-[10px] text-neutral-500 tabular-nums">
-        {formatMoney(cell.unit_price, cell.currency)} للوحدة{lowest ? ' · الأقل' : ''}
-      </div>
-    </div>
-  )
-}
-
 /**
  * What the request costs if each line is bought from whoever is cheapest on it —
  * the buyer's alternative to awarding the whole request to one supplier.
@@ -828,82 +731,167 @@ function CheapestBasketCard({ basket, nameOf }: { basket: CheapestBasket; nameOf
 }
 
 /** A supplier's column total at the foot of the comparison. */
-function TotalCell({ total, lowest }: { total?: MatrixTotal; lowest: boolean }) {
-  if (!total || total.priced === 0) return <span className="text-xs text-neutral-400">لم يسعّر</span>
-  return (
-    <div className={`inline-block rounded-lg px-2 py-1 ${lowest ? 'bg-[#CFF5DC]' : ''}`}>
-      <div className="text-sm font-black text-[#0D1F1D] tabular-nums">{formatMoney(total.total, total.currency)}</div>
-      <div className="text-[10px] text-neutral-500 tabular-nums">
-        {total.complete ? 'كل البنود' : `${total.priced} من ${total.requested} بنود`}{lowest ? ' · الأقل' : ''}
-      </div>
-    </div>
-  )
+const SUPPLIER_FILTERS: { key: MessageSupplierFilter; label: string }[] = [
+  { key: 'all', label: 'الكل' },
+  { key: 'waiting', label: 'بانتظار الرد' },
+  { key: 'quoted', label: 'وصل عرض' },
+  { key: 'unreached', label: 'لم يصل' },
+]
+
+function supplierLabel(invite: ConstructionInvitation) {
+  return invite.supplier?.name_ar || invite.supplier?.name_en || 'مورد'
 }
 
-const BROADCAST_REASON: Record<string, string> = {
-  MANUAL_WHATSAPP_REQUIRED: 'محادثته على واتساب — أرسلها يدويًا',
-  NO_REPLY_CHANNEL: 'لا قناة رد متاحة',
-  INBOX_NEW_MESSAGE: 'وصلت منه رسالة جديدة أثناء الإرسال — أعد المحاولة',
-}
-
-/** One message to every supplier; the server sends it and the dialog shows how far it got. */
-function BroadcastDialog({ rfqId, count, onClose }: { rfqId: string; count: number; onClose: () => void }) {
+/** One message, sent only to the suppliers the buyer checks. */
+function MessageSuppliersDialog({
+  invites,
+  awardedInviteId,
+  onClose,
+}: {
+  invites: ConstructionInvitation[]
+  awardedInviteId: string | null
+  onClose: () => void
+}) {
   const [text, setText] = useState('')
-  const [status, setStatus] = useState<ConstructionBroadcastStatus | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState<MessageSupplierFilter>('all')
+  const [picked, setPicked] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
-  const idRef = useRef<string>(crypto.randomUUID())
+  const [error, setError] = useState<string | null>(null)
+  const [results, setResults] = useState<Array<{ id: string; name: string; ok: boolean; detail: string }> | null>(null)
+  const visible = useMemo(
+    () => invitesForMessage(invites, query, status, awardedInviteId),
+    [invites, query, status, awardedInviteId],
+  )
+  const visibleIds = visible.map((invite) => invite.id)
+  const allVisiblePicked = visibleIds.length > 0 && visibleIds.every((id) => picked.has(id))
 
-  useEffect(() => {
-    if (!status || (!status.running && status.pending === 0)) return
-    const timer = window.setTimeout(() => {
-      getRequestBroadcast(rfqId, idRef.current).then(setStatus).catch(() => {})
-    }, 4000)
-    return () => window.clearTimeout(timer)
-  }, [status, rfqId])
-
-  const start = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      setStatus(await broadcastToRequestSuppliers(rfqId, idRef.current, text.trim()))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر بدء الإرسال')
-    } finally {
-      setBusy(false)
-    }
+  const toggle = (id: string) => {
+    setPicked((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
-  const done = status && !status.running && status.pending === 0
-  const reasons = status ? status.items.filter((i) => i.state === 'SKIPPED' || i.state === 'FAILED' || i.state === 'UNKNOWN') : []
+  const send = async () => {
+    const body = text.trim()
+    const targets = invites.filter((invite) => picked.has(invite.id))
+    if (!body || targets.length === 0 || busy) return
+    setBusy(true)
+    setError(null)
+    const next: Array<{ id: string; name: string; ok: boolean; detail: string }> = []
+    for (const invite of targets) {
+      const name = supplierLabel(invite)
+      try {
+        const thread = await getConstructionInboxThread(invite.id)
+        if (thread.reply_channel === 'WHATSAPP') {
+          next.push({ id: invite.id, name, ok: false, detail: 'محادثته على واتساب — أرسلها يدويًا من محادثته' })
+          continue
+        }
+        const channel = thread.reply_channel === 'HARAJ' ? 'HARAJ' : 'EMAIL'
+        await replyToConstructionInboxThread(invite.id, {
+          idempotency_key: crypto.randomUUID(),
+          text: body,
+          parent_message_id: thread.last_message_id ?? null,
+          channel,
+        })
+        next.push({ id: invite.id, name, ok: true, detail: 'أُرسلت' })
+      } catch (err) {
+        next.push({ id: invite.id, name, ok: false, detail: err instanceof Error ? err.message : 'تعذر الإرسال' })
+      }
+    }
+    setResults(next)
+    setBusy(false)
+    if (next.every((row) => !row.ok)) setError('لم تصل الرسالة لأي مورد')
+  }
+
+  const sentCount = results?.filter((row) => row.ok).length ?? 0
   return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-black text-[#0D1F1D] mb-1">رسالة لكل الموردين</h2>
-        <p className="text-sm text-neutral-600 mb-3">تصل لـ{count} موردين، كل مورد في محادثته وعلى نفس قناته (محادثة أو بريد). الخادم يرسلها واحدة واحدة، ويمكنك إغلاق النافذة.</p>
-        {!status ? (
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={(event) => event.stopPropagation()}>
+        <h2 className="text-lg font-black text-[#0D1F1D] mb-1">رسالة لموردين محددين</h2>
+        <p className="text-sm text-neutral-600 mb-3">النص نفسه يصل فقط لمن تحدده، كل واحد في محادثته.</p>
+        {results ? (
           <>
-            <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={4000} className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm min-h-32" placeholder="اكتب الرسالة…" />
-            {error && <div className="mt-2 rounded-xl bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
-            <div className="flex gap-2 mt-3">
-              <button disabled={!text.trim() || busy} onClick={start} className="flex-1 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40">{busy ? 'جارٍ البدء…' : `إرسال لـ${count} موردين`}</button>
-              <button onClick={onClose} className="px-5 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إلغاء</button>
+            <div className="rounded-xl bg-neutral-50 px-4 py-3 text-sm font-bold text-[#0D1F1D]">
+              وصلت إلى {sentCount} من {results.length}
             </div>
+            <ul className="mt-2 space-y-1">
+              {results.map((row) => (
+                <li key={row.id} className={`text-xs rounded-lg px-3 py-2 ${row.ok ? 'bg-[#f0faf7] text-[#123F3A]' : 'bg-amber-50 text-amber-800'}`}>
+                  <span className="font-bold">{row.name}</span>
+                  <span className="text-neutral-600"> — {row.detail}</span>
+                </li>
+              ))}
+            </ul>
+            <button type="button" onClick={onClose} className="w-full mt-3 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إغلاق</button>
           </>
         ) : (
           <>
-            <div className="rounded-xl bg-neutral-50 px-4 py-3 text-sm space-y-1">
-              <div className="font-bold text-[#0D1F1D]">{done ? 'اكتمل الإرسال' : 'جارٍ الإرسال…'}</div>
-              <div>أُرسلت: <b>{status.sent}</b> من {status.total}</div>
-              {status.pending > 0 && <div className="text-neutral-500">متبقٍّ: {status.pending}</div>}
-              {status.skipped + status.failed > 0 && <div className="text-amber-700">لم تُرسل: {status.skipped + status.failed}</div>}
+            <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={4000} className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm min-h-28" placeholder="اكتب الرسالة…" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="ابحث باسم المورد"
+              aria-label="بحث باسم المورد"
+              className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+            />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {SUPPLIER_FILTERS.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  aria-pressed={status === filter.key}
+                  onClick={() => setStatus(filter.key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold ${status === filter.key ? 'bg-[#123F3A] text-white' : 'bg-neutral-100 text-neutral-600'}`}
+                >
+                  {filter.label}
+                </button>
+              ))}
             </div>
-            {done && reasons.length > 0 && (
-              <ul className="mt-2 text-xs text-neutral-600 space-y-0.5">
-                {Object.entries(reasons.reduce<Record<string, number>>((m, r) => { const k = BROADCAST_REASON[r.failure_code || ''] || 'تعذر الإرسال'; m[k] = (m[k] || 0) + 1; return m }, {})).map(([k, n]) => <li key={k}>{k}: {n}</li>)}
-              </ul>
-            )}
-            <button onClick={onClose} className="w-full mt-3 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إغلاق</button>
+            <label className="mt-3 flex items-center gap-2 text-xs font-bold text-[#0D1F1D]">
+              <input
+                type="checkbox"
+                checked={allVisiblePicked}
+                onChange={() => {
+                  setPicked((current) => {
+                    const next = new Set(current)
+                    if (allVisiblePicked) visibleIds.forEach((id) => next.delete(id))
+                    else visibleIds.forEach((id) => next.add(id))
+                    return next
+                  })
+                }}
+              />
+              تحديد الظاهر ({visible.length})
+            </label>
+            <div className="mt-2 space-y-1">
+              {visible.map((invite) => {
+                const state = supplierState(invite, awardedInviteId)
+                return (
+                  <label key={invite.id} className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-neutral-50">
+                    <input type="checkbox" checked={picked.has(invite.id)} onChange={() => toggle(invite.id)} />
+                    <span className="min-w-0 flex-1 text-sm text-[#0D1F1D] truncate">{supplierLabel(invite)}</span>
+                    <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${state.cls}`}>{state.label}</span>
+                  </label>
+                )
+              })}
+              {visible.length === 0 && <div className="text-[11px] text-neutral-400 py-3 text-center">لا مورد يطابق التصفية</div>}
+            </div>
+            {error && <div className="mt-2 rounded-xl bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                disabled={!text.trim() || picked.size === 0 || busy}
+                onClick={() => void send()}
+                className="flex-1 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40"
+              >
+                {busy ? 'جارٍ الإرسال…' : `إرسال لـ ${picked.size}`}
+              </button>
+              <button type="button" onClick={onClose} className="px-5 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إلغاء</button>
+            </div>
           </>
         )}
       </div>
@@ -911,147 +899,5 @@ function BroadcastDialog({ rfqId, count, onClose }: { rfqId: string; count: numb
   )
 }
 
-/** Close submissions, or open envelopes, with the reason the server asks for when it needs one. */
-function StepDialog({ step, rfq, deadlinePassed, quoted, onClose, onDone }: {
-  step: 'close' | 'open'
-  rfq: ConstructionRfq
-  deadlinePassed: boolean
-  quoted: number
-  onClose: () => void
-  onDone: (rfq: ConstructionRfq) => void
-}) {
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const needsReason = step === 'close' ? !deadlinePassed : quoted < 2
-  const ready = !needsReason || reason.trim().length >= 5
-
-  const confirm = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const updated = step === 'close'
-        ? await closeConstructionRfqSubmissions(rfq.id, reason.trim())
-        : await openConstructionRfqEnvelopes(rfq.id, reason.trim())
-      onDone(updated)
-    } catch (err) {
-      const status = err instanceof ConstructionApiError ? err.status : 0
-      setError(status === 403 ? (step === 'open' ? 'فتح المظاريف يحتاج صلاحية مدير أو معتمد.' : 'الإغلاق يحتاج صلاحية مشتريات أو مدير.') : err instanceof Error ? err.message : 'تعذر التنفيذ')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-black text-[#0D1F1D] mb-2">{step === 'close' ? 'إغلاق استلام العروض' : 'فتح المظاريف'}</h2>
-        <p className="text-sm text-neutral-600 mb-4">
-          {step === 'close'
-            ? `وصل ${quoted} ${quoted === 1 ? 'عرض' : 'عروض'}. بعد الإغلاق لا يُقبل عرض جديد ولا تعديل.`
-            : `${quoted} ${quoted === 1 ? 'عرض' : 'عروض'} في الظرف. يُسجَّل الفتح باسمك ووقته.`}
-        </p>
-        {needsReason && (
-          <label className="block text-sm font-bold text-[#0D1F1D] mb-3">
-            {step === 'close' ? 'سبب الإغلاق قبل الموعد' : 'سبب فتح المظاريف بأقل من عرضين'}
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm min-h-20" placeholder="خمسة أحرف على الأقل" />
-          </label>
-        )}
-        {error && <div className="mb-3 rounded-xl bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
-        <div className="flex gap-2">
-          <button disabled={!ready || busy} onClick={confirm} className="flex-1 py-2.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40">
-            {busy ? 'جارٍ التنفيذ…' : 'تأكيد'}
-          </button>
-          <button onClick={onClose} className="px-5 py-2.5 border border-neutral-200 rounded-xl text-sm font-semibold">إلغاء</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AwardDialog({ rfq, offer, coverage, onClose, onDone }: {
-  rfq: ConstructionRfq
-  offer: Offer
-  coverage: ReturnType<typeof quoteCoverage>
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [reason, setReason] = useState<(typeof REASONS)[number] | ''>('')
-  const [other, setOther] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const name = String(offer.supplier.name_ar || offer.supplier.name_en || 'مورد')
-  const money = formatMoney(offer.offer.totals?.total ?? null, String(offer.offer.currency || 'SAR'))
-  const text = reason === 'أخرى' ? other.trim() : reason
-  const ready = Boolean(reason) && (reason !== 'أخرى' || other.trim().length >= 5)
-
-  const confirm = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      let projects = (await getConstructionProjects()).projects || []
-      if (!projects.length) {
-        const delivery = rfq.current_version?.payload?.delivery
-        projects = [await createConstructionProject({ name: formatRfqTitle({ id: rfq.id, delivery, engineering_department: rfq.engineering_department, buyer: undefined }), site_address: delivery?.site_address || delivery?.city || undefined })]
-      }
-      await createConstructionAward({
-        rfq_id: rfq.id,
-        project_id: projects[0]!.id,
-        supplier_quote_version_id: String(offer.offer.quoteVersionId || ''),
-        selection_reason: text,
-        awarded_line_ids: [],
-        approval_note: text,
-      })
-      onDone()
-    } catch (err) {
-      const status = err instanceof ConstructionApiError ? err.status : 0
-      setError(status === 403 ? 'الترسية تحتاج صلاحية مدير أو معتمد في شركتك.' : err instanceof Error ? err.message : 'تعذرت الترسية')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-black text-[#0D1F1D] mb-3">تأكيد الترسية</h2>
-        <div className="rounded-xl bg-neutral-50 px-4 py-3 text-sm space-y-1 mb-4">
-          <div><span className="text-neutral-500">المورد: </span><span className="font-bold">{name}</span></div>
-          <div><span className="text-neutral-500">قيمة العرض: </span><span className="font-bold">{money || 'غير مكتملة'}</span></div>
-          {coverage && <div className="text-xs text-neutral-600">{coverage.label} · {taxLabel(offer.offer.prices_include_tax)}</div>}
-          <div className="text-xs text-neutral-600">مدة التوريد: {leadTimeLabel(offer.offer)}</div>
-        </div>
-        <div className="text-sm font-bold text-[#0D1F1D] mb-2">سبب الترسية</div>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {REASONS.map((r) => (
-            <button
-              key={r}
-              onClick={() => setReason(r)}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border ${reason === r ? 'border-[#123F3A] bg-[#f0faf7] text-[#123F3A]' : 'border-neutral-200 text-neutral-700'}`}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-        {reason === 'أخرى' && (
-          <textarea
-            value={other}
-            onChange={(e) => setOther(e.target.value)}
-            placeholder="اكتب سبب الترسية (5 أحرف على الأقل)"
-            className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm mb-3 min-h-[70px]"
-          />
-        )}
-        {error && <div className="mb-3 rounded-xl bg-red-50 text-red-700 text-xs px-3 py-2">{error}</div>}
-        <div className="flex gap-2">
-          <button disabled={!ready || busy} onClick={confirm} className="flex-1 py-3 bg-[#123F3A] text-white font-bold rounded-xl text-sm disabled:opacity-40">
-            {busy ? 'جارٍ التأكيد…' : 'تأكيد الترسية'}
-          </button>
-          <button onClick={onClose} className="px-5 py-3 border border-neutral-200 rounded-xl text-sm font-semibold">إلغاء</button>
-        </div>
-        <p className="text-[11px] text-neutral-500 mt-3">بعد التأكيد يُغلق استلام العروض ويُرسل إشعار الترسية للمورد، ويُسجَّل ذلك في سجل الطلب.</p>
-      </div>
-    </div>
-  )
-}
 
 export default RequestFileView

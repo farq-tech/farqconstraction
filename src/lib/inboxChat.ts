@@ -105,6 +105,13 @@ export function filterThreads(
   })
 }
 
+/** A conversation still waiting on the buyer: an unread inbound, or one flagged needs-reply. */
+export function filterUnreadThreads(
+  threads: readonly ConstructionInboxThread[],
+): ConstructionInboxThread[] {
+  return threads.filter((thread) => Number(thread.unread_count || 0) > 0 || thread.needs_reply === true)
+}
+
 /** Legal-form words that would give every supplier the same first letter. */
 const GENERIC_NAME_WORDS = new Set(
   [

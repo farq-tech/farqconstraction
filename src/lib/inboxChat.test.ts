@@ -5,6 +5,7 @@ import {
   avatarTone,
   chatDayLabel,
   filterThreads,
+  filterUnreadThreads,
   listTimeLabel,
   normalizeForSearch,
   sortThreadsNewestFirst,
@@ -114,6 +115,15 @@ describe('filterThreads', () => {
   it('does not search text hidden behind a sealed envelope', () => {
     expect(ids('سرية')).toEqual([])
     expect(ids('مختوم')).toEqual(['4'])
+  })
+
+  it('keeps only conversations still waiting on the buyer', () => {
+    const rows = [
+      thread({ invite_id: 'read', unread_count: 0, needs_reply: false }),
+      thread({ invite_id: 'fresh', unread_count: 2 }),
+      thread({ invite_id: 'flagged', unread_count: 0, needs_reply: true }),
+    ]
+    expect(filterUnreadThreads(rows).map((row) => row.invite_id)).toEqual(['fresh', 'flagged'])
   })
 })
 

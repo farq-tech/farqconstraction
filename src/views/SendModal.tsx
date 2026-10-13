@@ -29,7 +29,7 @@ import { useProcurement } from '../procurementContext'
 import { farqSession } from '../api/farqSession'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
-import { cleanLineName, parseQty, readQty } from '../lib/sendGuards'
+import { cleanLineName, parseQty, readQty, requestDateBlocker } from '../lib/sendGuards'
 
 interface SendModalProps {
   items: BOQItem[]
@@ -166,12 +166,12 @@ export function SendModal({
   const [deadline, setDeadline] = useState(() => {
     const d = new Date()
     d.setDate(d.getDate() + loadCompanyProfile().defaultDeadlineDays)
-    return d.toISOString().slice(0, 10)
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' })
   })
   const [site, setSite] = useState(() => loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
   // Suppliers asked when quotes close and whether installation is included.
   const [quoteDeadline, setQuoteDeadline] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10)
+    const d = new Date(); d.setDate(d.getDate() + 5); return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' })
   })
   const [quoteDeadlineTime, setQuoteDeadlineTime] = useState('17:00')
   const [requestType, setRequestType] = useState<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>('SUPPLY_ONLY')
@@ -187,6 +187,7 @@ export function SendModal({
   const [rows, setRows] = useState<InviteProgressRow[]>([])
   const [live, setLive] = useState<LiveProgress | null>(null)
   const [nowTick, setNowTick] = useState(() => Date.now())
+  const createLock = useRef(false)
   const cancelRef = useRef(false)
   const activeAbortsRef = useRef(new Set<AbortController>())
   const [cancelRequested, setCancelRequested] = useState(false)
@@ -239,8 +240,8 @@ export function SendModal({
     )
   if (badNameItems.length) sendBlockers.push(`اسم غير مقروء في ${badNameItems.length} بندًا (رقم ${badNameItems.slice(0, 5).map((i) => i.id).join('، ')}).`)
   if (!department) sendBlockers.push('اختر القسم الهندسي لهذا الطلب: لم نستطع تحديده من البنود.')
-  if (!quoteDeadline) sendBlockers.push('حدّد آخر موعد لاستلام العروض.')
-  else if (deadline && quoteDeadline >= deadline) sendBlockers.push('آخر موعد لاستلام العروض يجب أن يسبق موعد التوريد.')
+  const dateIssue = requestDateBlocker(quoteDeadline, deadline, Date.now(), quoteDeadlineTime)
+  if (dateIssue) sendBlockers.push(dateIssue)
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
 
@@ -619,7 +620,8 @@ export function SendModal({
     let finalState = 'RUNNING'
     let sent = 0
     let failed = 0
-    for (;;) {
+    for (let poll = 0; ; poll += 1) {
+      if (poll >= 240) throw new Error('تجاوزت متابعة الإرسال المهلة. الطلب محفوظ وقد يستمر الإرسال على الخادم؛ افتح ملف الطلب للتحقق.')
       if (cancelRef.current) {
         await cancelConstructionDispatch(createdId).catch(() => undefined)
         finalState = 'CANCELLED'
@@ -862,6 +864,8 @@ export function SendModal({
   }
 
   const handleSend = async () => {
+    if (createLock.current || busy || rfqId) return
+    createLock.current = true
     cancelRef.current = false
     setCancelRequested(false)
     setBusy(true)
@@ -968,6 +972,7 @@ export function SendModal({
       }
       const packageLineKeys = new Set(packages.flatMap((entry) => entry.line_keys))
       const scopedLines = lines.filter((line) => packageLineKeys.has(String(line.line_key)))
+      if (scopedLines.length !== lines.length) throw new Error('بعض البنود لم يعد لها مورد قابل للتواصل. راجع اختيار الموردين قبل الإرسال.')
       const packageSupplierIds = [
         ...new Set(packages.flatMap((entry) => entry.selected_supplier_ids)),
       ]
@@ -1124,6 +1129,7 @@ export function SendModal({
           : prev,
       )
     } finally {
+      createLock.current = false
       setBusy(false)
       setCancelRequested(false)
       activeAbortsRef.current.clear()
@@ -1134,7 +1140,7 @@ export function SendModal({
   const failedCount = rows.filter((r) => r.status === 'failed').length
   const waCount = rows.filter((r) => r.status === 'wa_ready').length
   const deferredCount = rows.filter((r) => r.code === 'DEFERRED_FAST_MODE').length
-  const canContinue = Boolean(rfqId) && phase === 'done' && (sentCount > 0 || waCount > 0)
+  const canContinue = Boolean(rfqId) && phase === 'done'
 
   const idleMs = live ? nowTick - live.lastActivityAt : 0
   const inviteMs = live?.inviteStartedAt != null ? nowTick - live.inviteStartedAt : null
@@ -1505,7 +1511,7 @@ export function SendModal({
                 onClick={() => onSent(rfqId!)}
                 className="w-full py-3.5 bg-[#123F3A] text-white font-bold rounded-xl text-sm"
               >
-                متابعة إلى المراسلات
+                افتح الطلب وتابع حالة الإرسال
               </button>
             )}
             {phase === 'done' && !canContinue && (
