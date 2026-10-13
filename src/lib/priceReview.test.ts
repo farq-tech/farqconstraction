@@ -11,7 +11,9 @@ import {
   followupsLabel,
   heldSummaryLabel,
   isHeldOffer,
+  meaningReasons,
   priceReviewErrorText,
+  priceReviewSummary,
   priceReviewText,
   scoreBadgeText,
   scoreBreakdown,
@@ -96,6 +98,7 @@ describe('priceReviewText', () => {
       badge: 'يحتاج مراجعة',
       reason: 'يبدو أن السعر إجمالي البند وليس سعر الوحدة',
       suggestion: 'التصحيح المقترح: 40 ر.س',
+      details: [],
     })
     expect(priceReviewText(review({ suggestion_ar: 'سعر الوحدة غالبًا 40 ريال' }))!.suggestion).toBe('سعر الوحدة غالبًا 40 ريال')
     expect(priceReviewText(review({ suggested_unit_price: null }))!.suggestion).toBeNull()
@@ -109,9 +112,44 @@ describe('priceReviewText', () => {
       suggested_unit_price: null,
       suggestion_ar: null,
     })
-    expect(priceReviewText(held)).toEqual({ badge: 'تحتاج تأكيد', reason: 'السعر يبدو للعلبة وليس للحبة', suggestion: null })
+    expect(priceReviewText(held)).toEqual({ badge: 'تحتاج تأكيد', reason: 'السعر يبدو للعلبة وليس للحبة', suggestion: null, details: [] })
     expect(canApplySuggestion(held)).toBe(false)
     expect(priceReviewText(review({ code: 'NEEDS_CONFIRMATION', reason_ar: '' }))!.badge).toBe('تحتاج تأكيد')
+  })
+
+  it('a price held for what it means: each code in plain Arabic, the others listed under it, no correction offered', () => {
+    const doors = review({
+      code: 'SINGLE_PRICE_MULTI_LINE',
+      reason_ar: 'سعر واحد انطبق على أكثر من بند، السعر يشمل التركيب والطلب توريد فقط',
+      suggested_unit_price: null,
+      reference_unit_price: null,
+      reference_basis: null,
+      ratio: null,
+      checks: [
+        { code: 'SINGLE_PRICE_MULTI_LINE', reason_ar: 'x' },
+        { code: 'SCOPE_INCLUDES_INSTALLATION', reason_ar: 'x' },
+      ],
+    })
+    expect(priceReviewText(doors)).toEqual({
+      badge: 'يحتاج مراجعة',
+      reason: 'سعر واحد انطبق على أكثر من بند',
+      suggestion: null,
+      details: ['السعر يشمل التركيب والطلب توريد فقط'],
+    })
+    expect(canApplySuggestion(doors)).toBe(false)
+    expect(priceReviewSummary(doors)).toBe('سعر واحد انطبق على أكثر من بند، السعر يشمل التركيب والطلب توريد فقط')
+    // Without `checks` (one finding): the code alone gives the reason.
+    expect(priceReviewText(review({ code: 'SUPPLIER_CONFUSED', reason_ar: '', checks: undefined, suggested_unit_price: null }))!.reason).toBe('المورد قال إنه ما فهم الطلب')
+    expect(priceReviewText(review({ code: 'VAT_BASIS_UNSTATED', reason_ar: '', suggested_unit_price: null }))!.reason).toContain('لم يذكر الضريبة')
+    // VAT_BASIS_CONFLICT has two directions; the server's words say which.
+    expect(priceReviewText(review({ code: 'VAT_BASIS_CONFLICT', reason_ar: 'المورد كتب «غير شامل الضريبة» والسعر مسجّل شاملًا للضريبة' }))!.reason).toBe(
+      'المورد كتب «غير شامل الضريبة» والسعر مسجّل شاملًا للضريبة',
+    )
+    expect(priceReviewText(review({ code: 'VAT_BASIS_CONFLICT', reason_ar: '' }))!.reason).toBe('المورد كتب «شامل» والسعر مسجّل بدون ضريبة')
+    // A magnitude hold keeps its reason and correction; the meaning findings ride along.
+    const both = priceReviewText(review({ code: 'PER_THOUSAND', reason_ar: 'السعر 2300 يبدو سعر الألف', checks: [{ code: 'VAT_BASIS_CONFLICT', reason_ar: 'المورد كتب «شامل» والسعر مسجّل بدون ضريبة' }] }))
+    expect(both).toEqual({ badge: 'يحتاج مراجعة', reason: 'السعر 2300 يبدو سعر الألف', suggestion: 'التصحيح المقترح: 40 ر.س', details: ['المورد كتب «شامل» والسعر مسجّل بدون ضريبة'] })
+    expect(meaningReasons(null)).toEqual([])
   })
 
   it('offers the suggestion only when there is one', () => {

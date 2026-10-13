@@ -52,6 +52,11 @@ export default function PriceReviewNote({ review, currency, rfqId, quoteVersionI
     <div className="mt-1 max-w-[220px] text-right">
       <span className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">{text.badge}</span>
       <div className="text-[10px] leading-relaxed text-amber-800 mt-0.5">{text.reason}</div>
+      {text.details.map((detail) => (
+        <div key={detail} className="text-[10px] leading-relaxed text-amber-800">
+          {detail}
+        </div>
+      ))}
       {text.suggestion && <div className="text-[10px] leading-relaxed text-neutral-600">{text.suggestion}</div>}
       {actionable && (
         <div className="flex flex-wrap gap-1 mt-1">

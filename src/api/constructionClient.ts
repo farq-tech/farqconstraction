@@ -236,6 +236,18 @@ export type PriceReviewCode =
   | 'OUTLIER_LOW'
   /** Held by hand until the supplier confirms the price («تحتاج تأكيد»). */
   | 'NEEDS_CONFIRMATION'
+  /**
+   * What the price means against the supplier's own words (API
+   * price-verify.js, CONSTRUCTION_QUOTE_VERIFY=1): held the same way.
+   */
+  | 'VAT_BASIS_CONFLICT'
+  | 'VAT_BASIS_UNSTATED'
+  | 'SCOPE_INCLUDES_INSTALLATION'
+  | 'SINGLE_PRICE_MULTI_LINE'
+  | 'SUPPLIER_CONFUSED'
+
+/** One finding of the meaning check; a held line may carry several. */
+export type PriceReviewCheck = { code: PriceReviewCode | string; reason_ar: string }
 
 export type PriceReview = {
   code: PriceReviewCode | string
@@ -247,6 +259,8 @@ export type PriceReview = {
   suggestion_ar: string | null
   quote_version_id: string
   line_id: string
+  /** Meaning-check findings on this line (newer APIs; absent otherwise). */
+  checks?: PriceReviewCheck[] | null
 }
 
 /** How a supplier's offer scores out of 100 (newer APIs; absent otherwise). */
