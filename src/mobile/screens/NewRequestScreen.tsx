@@ -18,7 +18,9 @@ import { autoPickConfident, buildPickContext } from '../../lib/autoPick'
 import { loadCompanyProfile } from '../../lib/companyProfile'
 import { matchSuppliersForItems, rowsToLines, sanitizeBoqLines, type ParsedLine } from '../../lib/parseBoq'
 import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
-import { cleanLineName, parseQty, readQty } from '../../lib/sendGuards'
+import { cleanLineName, parseQty, readQty, requestTermsBlockers, suggestedRequestType, type RequestType } from '../../lib/sendGuards'
+import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../../lib/quoteDeadline'
+import { REQUEST_TYPES } from '../../lib/specCard'
 import type { BOQItem, Supplier, SupplierEntry } from '../../types'
 import type { Nav } from '../MobileApp'
 import { deleteDraft, getDraft, saveDraft } from '../purchaseRequests'
@@ -33,8 +35,8 @@ const DEPARTMENTS: Array<[string, string]> = [
   ['MECHANICAL', 'ميكانيكا'],
 ]
 
-function isoIn(days: number): string {
-  const d = new Date()
+function isoIn(days: number, from?: string): string {
+  const d = from ? new Date(`${from}T12:00:00Z`) : new Date()
   d.setDate(d.getDate() + days)
   return d.toISOString().slice(0, 10)
 }
@@ -111,9 +113,17 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, project])
   const [city, setCity] = useState(profile.defaultDeliveryCity || 'الرياض')
-  const [requiredDate, setRequiredDate] = useState(isoIn(profile.defaultDeadlineDays || 14))
-  const [quoteDeadline, setQuoteDeadline] = useState(isoIn(5))
-  const [requestType, setRequestType] = useState<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>('SUPPLY_ONLY')
+  // Quotes get at least 5 Saudi business days (lib/quoteDeadline); delivery is never before that.
+  const [quoteDeadline, setQuoteDeadline] = useState(() => minimumQuoteDeadline())
+  const [requiredDate, setRequiredDate] = useState(() => {
+    const saved = isoIn(profile.defaultDeadlineDays || 14)
+    const minimum = minimumQuoteDeadline()
+    return saved <= minimum ? isoIn(1, minimum) : saved
+  })
+  const [quoteUrgent, setQuoteUrgent] = useState(false)
+  const [quoteUrgentReason, setQuoteUrgentReason] = useState('')
+  // The buyer chooses; no silent «توريد فقط».
+  const [requestType, setRequestType] = useState<RequestType | ''>('')
   const [department, setDepartment] = useState<string>('')
 
   // sending
@@ -186,6 +196,8 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       setSelected(picks)
       setKnown(book)
       setDepartment((d) => d || dominantEngineeringDepartment(next) || 'CIVIL')
+      // A suggestion only when every line says «توريد وتركيب»; still shown and changeable.
+      setRequestType((t) => t || suggestedRequestType(usable.map((l) => l.name)))
       setStep('suppliers')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر البحث عن موردين.')
@@ -223,10 +235,11 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
 
   /* ---------- step 3: send ---------- */
 
+  const deadlineCheck = checkQuoteDeadline({ deadline: quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason })
   const blockers: string[] = []
   if (step === 'details') {
     if (allPicked.length < 2) blockers.push('اختر موردين اثنين على الأقل.')
-    if (!city.trim()) blockers.push('اكتب مدينة التسليم.')
+    blockers.push(...requestTermsBlockers({ requestType, city, quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason }))
     if (!quoteDeadline || !requiredDate || quoteDeadline >= requiredDate) blockers.push('آخر موعد للعروض يجب أن يسبق موعد التوريد.')
   }
 
@@ -278,6 +291,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
         commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER' },
         quote_deadline: quoteDeadline,
         quote_deadline_time: '17:00',
+        ...quoteUrgencyPayload({ deadline: quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason }),
         request_type: requestType,
         buyer: {
           company_name: profile.name,
@@ -510,24 +524,45 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
                   <span className="text-[13px] text-neutral-500">آخر موعد للعروض</span>
-                  <input type="date" value={quoteDeadline} onChange={(e) => setQuoteDeadline(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-3 outline-none" />
+                  <input type="date" value={quoteDeadline} min={riyadhToday()} onChange={(e) => setQuoteDeadline(e.target.value)} className={`mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-3 outline-none ${deadlineCheck.ok ? '' : 'ring-1 ring-red-300'}`} />
                 </label>
                 <label className="block">
                   <span className="text-[13px] text-neutral-500">موعد التوريد</span>
                   <input type="date" value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} className="mt-1 w-full h-12 rounded-xl bg-black/[0.04] px-3 outline-none" />
                 </label>
               </div>
+              <div className="text-[12px] text-neutral-500">أقل مهلة للعروض {arabicDayMonth(deadlineCheck.minimum)} (5 أيام عمل).</div>
+              {deadlineCheck.early && deadlineCheck.code !== 'PAST' && (
+                <div className="rounded-xl bg-amber-50 px-3 py-3">
+                  <label className="flex items-center gap-2 text-[15px] font-bold">
+                    <input type="checkbox" className="w-5 h-5 accent-[#123F3A]" checked={quoteUrgent} onChange={(e) => setQuoteUrgent(e.target.checked)} />
+                    طلب مستعجل
+                  </label>
+                  {quoteUrgent ? (
+                    <>
+                      <input
+                        value={quoteUrgentReason}
+                        maxLength={URGENT_REASON_MAX}
+                        onChange={(e) => setQuoteUrgentReason(e.target.value)}
+                        placeholder="سبب الاستعجال"
+                        className="mt-2 w-full h-12 rounded-xl bg-white px-4 outline-none"
+                      />
+                      <div className="text-[12px] text-neutral-600 mt-1">يظهر للموردين: مستعجل: {cleanUrgentReason(quoteUrgentReason) || '…'}</div>
+                    </>
+                  ) : (
+                    <div className="text-[12px] text-amber-800 mt-1">{deadlineCheck.message_ar}</div>
+                  )}
+                </div>
+              )}
             </Card>
 
             <SectionTitle>نوع الطلب</SectionTitle>
-            <Chips<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>
-              options={[
-                ['SUPPLY_ONLY', 'توريد فقط'],
-                ['SUPPLY_AND_INSTALL', 'توريد وتركيب'],
-              ]}
+            <Chips<RequestType | ''>
+              options={REQUEST_TYPES.map((t) => [t.value, t.label] as [RequestType, string])}
               value={requestType}
               onChange={setRequestType}
             />
+            {!requestType && <div className="text-[12px] text-amber-700 mt-1">اختر نوع الطلب قبل الإرسال.</div>}
             <SectionTitle>القسم الهندسي</SectionTitle>
             <Chips<string> options={DEPARTMENTS} value={department} onChange={setDepartment} />
 

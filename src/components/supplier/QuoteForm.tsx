@@ -12,7 +12,7 @@
 import { useState, type ReactNode } from 'react'
 import { ProductReferencePhoto } from './ProductReferencePhoto'
 import { submitPublicSupplierQuote, type PublicSupplierInvite } from '../../api/constructionClient'
-import { deadlineChip, formatDateTimeAr, linesAr, type LineRef } from '../../lib/supplierPortal'
+import { deadlineChip, formatDateTimeAr, linesAr, offerTermsRows, type LineRef } from '../../lib/supplierPortal'
 import { ChatIcon, Chip, ClockIcon, PrimaryButton } from './PortalChrome'
 import { SALE_UNITS, SALE_UNIT_NOTE, perUnitFromSaleUnit, type SaleUnit } from '../../lib/specCard'
 import {
@@ -131,15 +131,14 @@ export function QuoteForm({
   const site = invite.site_supply || {}
   const siteFacts = (
     [
-      ['المدينة', site.city],
-      ['الحي', site.district],
       ['الخريطة', site.map_url && /^https?:\/\//.test(site.map_url) ? site.map_url : null],
       ['التوصيل', site.delivery_mode_ar],
       ['تكلفة التوصيل', site.shipping_ar],
       ['الدفع', site.payment_ar],
-      ['نوع الطلب', site.request_type_ar],
     ] as Array<[string, string | null | undefined]>
   ).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  // Scope, price basis, place and deadline: stated once, at the top.
+  const terms = offerTermsRows(invite, deadline)
   const company = String(invite.buyer?.company_name || 'المشتري')
   const countdown = deadlineChip(deadline, now, closed)
 
@@ -265,6 +264,18 @@ export function QuoteForm({
             {closed ? '.' : ' — يمكنك تعديله وإرساله من جديد.'}
           </div>
         )}
+      </div>
+
+      <div className="bg-white border border-[#cfe3de] rounded-2xl p-4">
+        <div className="text-sm font-black text-[#0D1F1D] mb-2">شروط العرض</div>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px]">
+          {terms.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className={label === 'مستعجل' ? 'text-amber-800 font-bold' : 'text-neutral-500'}>{label}</dt>
+              <dd className={`font-semibold break-words ${label === 'مستعجل' ? 'text-amber-900' : 'text-[#0D1F1D]'}`}>{value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       {siteFacts.length > 0 && (
@@ -462,15 +473,16 @@ export function QuoteForm({
       {!closed && (
         <div className="space-y-3 rounded-xl border border-neutral-200 bg-white px-4 py-3">
           <div>
-            <div className="text-xs font-bold text-[#0D1F1D] mb-1.5">الأسعار التي أدخلتها</div>
+            <div className="text-xs font-bold text-[#0D1F1D] mb-0.5">الأسعار التي أدخلتها</div>
+            <div className="text-[11px] text-neutral-500 mb-1.5">المطلوب سعر الوحدة قبل الضريبة. إذا كتبت أسعارك شاملة الضريبة، اختر «شاملة» ونحسبها.</div>
             <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="tax-basis" className="accent-[#123F3A]" checked={pricesIncludeTax === false} onChange={() => setPricesIncludeTax(false)} />
+                قبل الضريبة (الـ15% لحالها)
+              </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="tax-basis" className="accent-[#123F3A]" checked={pricesIncludeTax === true} onChange={() => setPricesIncludeTax(true)} />
                 شاملة ضريبة القيمة المضافة 15%
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="tax-basis" className="accent-[#123F3A]" checked={pricesIncludeTax === false} onChange={() => setPricesIncludeTax(false)} />
-                غير شاملة الضريبة
               </label>
             </div>
           </div>

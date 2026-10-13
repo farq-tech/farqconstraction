@@ -116,6 +116,14 @@ export function OfferDetailView({ navigate }: NavProps) {
       buyerCompany: payload?.buyer?.company_name,
       deliverySite: payload?.delivery?.site_address || payload?.delivery?.city,
       requiredDate: payload?.delivery?.required_date,
+      terms: {
+        requestType: payload?.request_type,
+        city: payload?.delivery?.city,
+        district: (payload?.delivery as { district?: string } | undefined)?.district,
+        quoteDeadline: payload?.quote_deadline,
+        quoteDeadlineTime: payload?.quote_deadline_time,
+        urgentReason: payload?.quote_urgent ? payload?.quote_urgent_reason : null,
+      },
       lines: lines.map((line) => ({
         // Pass both through unmerged: the preview prefers the line's own text,
         // and merging them here is what hid the real description.
