@@ -3906,3 +3906,51 @@ export const getProcurementConversationState = (id:string) => request<Procuremen
 export const setProcurementConversationMode = (id:string,mode:'AI'|'HUMAN',revision:number) => procurementPost<ProcurementConversationState>(`/api/construction/inbox/threads/${encodeURIComponent(id)}/assistant-mode`,{mode,revision})
 export type ProcurementShadowCase = {message_id:string;invite_id:string;supplier_message:string;received_at:string;old_reply:string|null;new_decision:{decision:string;reply:string|null;reason?:string|null;intents?:Array<{intent:string;confidence:number}>;facts?:Array<{attribute:string;value:unknown}>;action?:string;context?:{history:Array<{from:string;text:string}>;lines?:Array<{line_key:string;name:string;quantity?:number;uom?:string;technical_specification?:Record<string,unknown>}>};validation?:{ok:boolean;failures:string[]}}}
 export const listProcurementShadows = () => request<{mode:string;cases:ProcurementShadowCase[]}>('/api/construction/procurement/shadow')
+
+// «أبلغ الموردين بالنتيجة»: a result note per supplier who quoted, shown in full and
+// sent only when the buyer approves it (API: CONSTRUCTION_OUTCOME_NOTICES=1).
+export type OutcomeNoticeOutcome = 'AWARDED' | 'NOT_SELECTED' | 'CLOSED_NO_AWARD'
+export type OutcomeNotice = {
+  supplier_id: string
+  supplier_name: string
+  invite_id: string
+  outcome: OutcomeNoticeOutcome
+  state: 'READY' | 'BLOCKED' | 'SENT'
+  channel: 'PORTAL' | 'EMAIL' | 'WHATSAPP' | null
+  channel_label_ar: string | null
+  text: string
+  content_hash: string | null
+  reason?: string
+  reason_label_ar?: string
+  send_state?: 'SENT' | 'SENDING' | 'UNKNOWN'
+  sent_at?: string | null
+  awarded_items?: string[]
+  prior_award_message?: Array<{ channel: string; sent_at: string | null }> | null
+  last_failure?: string | null
+}
+export type OutcomeNoticesPreview = {
+  rfq_id: string
+  mode: 'AWARD' | 'CLOSED_NO_AWARD' | 'NEEDS_CONFIRMATION' | 'OPEN'
+  can_send: boolean
+  owner_name: string | null
+  quoted_count: number
+  unavailable?: string
+  notices: OutcomeNotice[]
+}
+export type OutcomeNoticeResult = { supplier_id: string; state: 'SENT' | 'FAILED' | 'UNKNOWN' | 'SKIPPED'; channel?: string; reason?: string | null; reason_label_ar?: string | null }
+
+/** The client switch: VITE_CONSTRUCTION_OUTCOME_NOTICES=1 (default off). */
+export function outcomeNoticesEnabled(): boolean {
+  const viteEnv = (import.meta as { env?: Record<string, unknown> }).env
+  const raw = viteEnv?.VITE_CONSTRUCTION_OUTCOME_NOTICES
+    ?? (typeof process !== 'undefined' ? process.env?.VITE_CONSTRUCTION_OUTCOME_NOTICES : undefined)
+  return String(raw ?? '').trim() === '1'
+}
+export function getOutcomeNotices(rfqId: string, options: { confirmNoPurchase?: boolean } = {}) {
+  const query = options.confirmNoPurchase ? '?confirm_no_purchase=1' : ''
+  return request<OutcomeNoticesPreview>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/outcome-notices${query}`)
+}
+/** Sends exactly the approved texts: each entry carries the content_hash of the text the buyer saw. */
+export function sendOutcomeNotices(rfqId: string, body: { notices: Array<{ supplier_id: string; content_hash: string }>; confirm_no_purchase?: boolean }) {
+  return request<{ rfq_id: string; results: OutcomeNoticeResult[] }>(`/api/construction/rfqs/${encodeURIComponent(rfqId)}/outcome-notices/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}

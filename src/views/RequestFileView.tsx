@@ -10,6 +10,7 @@ import PrewarmRelease from '../components/procurement/PrewarmRelease'
 import PrewarmIntelligence from '../components/procurement/PrewarmIntelligence'
 import { requestCreatorLabel } from "../lib/rfqIdentity"
 import AwardDialog from '../components/procurement/AwardDialog'
+import OutcomeNoticesPanel from '../components/procurement/OutcomeNoticesPanel'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { NavProps } from "../types"
 import { ClockIcon } from "../icons"
@@ -662,6 +663,10 @@ export function RequestFileView({
       <SupplierPriceMemory rfqId={rfq.id} />
       {tab === "overview" && (
         <div className="space-y-4">
+          {/* «أبلغ الموردين بالنتيجة»: after an award, a closure or a cancellation only. */}
+          {(rfq.award || ["CLOSED", "CANCELLED"].includes(String(rfq.status || "").toUpperCase())) && (
+            <OutcomeNoticesPanel rfqId={rfq.id} />
+          )}
           {rfq.award && awardedInviteId && (
             <div className="rounded-2xl border border-[#1a7a45]/30 bg-[#f0faf7] px-4 py-3 text-sm">
               <span className="font-bold text-[#1a7a45]">الترسية: </span>
