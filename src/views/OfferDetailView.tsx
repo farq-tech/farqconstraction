@@ -25,7 +25,7 @@ import { RfqEmailPreviewModal } from '../components/RfqEmailPreviewModal'
 import BrandChips from '../components/brand/BrandChips'
 import { brandFromLine } from '../lib/brandEquivalence'
 import { cleanSupplierName } from '../lib/supplierName'
-import { isHeldOffer, vatNotStated, vatStatusLabel } from '../lib/priceReview'
+import { isHeldOffer, priceReviewSummary, vatNotStated, vatStatusLabel } from '../lib/priceReview'
 
 export function OfferDetailView({ navigate }: NavProps) {
   const { selectedRfqId, selectedOfferId, openRfq } = useProcurement()
@@ -84,7 +84,7 @@ export function OfferDetailView({ navigate }: NavProps) {
           const cell = requested?.offers.find(o => String(o.supplier_id) === supplierId)
           return { ...line, original_name: requested?.market_name_ar || requested?.name_ar || line.original_name,
             requested_quantity: requested?.quantity, requested_uom: requested?.uom,
-            held: cell ? isHeldOffer(cell) : false, review_reason: cell?.price_review?.reason_ar }
+            held: cell ? isHeldOffer(cell) : false, review_reason: priceReviewSummary(cell?.price_review) }
         }))
         if (!found) setError('الدعوة غير موجودة في هذا الطلب')
       })

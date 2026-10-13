@@ -36,7 +36,42 @@ function money(value: number | null | undefined, currency?: string | null): stri
   return `${n} ${c === 'SAR' ? 'ر.س' : c}`
 }
 
-export type PriceReviewText = { badge: string; reason: string; suggestion: string | null }
+/** `details`: further reasons on the same price (the meaning check's other findings). */
+export type PriceReviewText = { badge: string; reason: string; suggestion: string | null; details: string[] }
+
+/**
+ * The meaning check (API price-verify.js): the price is the right size but may
+ * not be what the supplier said. Each code's reason in plain Arabic; the
+ * server's reason_ar is the fallback for a code this screen does not know.
+ */
+export const MEANING_REASON_AR: Record<string, string> = {
+  VAT_BASIS_CONFLICT: 'المورد كتب «شامل» والسعر مسجّل بدون ضريبة',
+  VAT_BASIS_UNSTATED: 'المورد لم يذكر الضريبة والسعر مسجّل على أساس محدد — أساس الضريبة غير معروف',
+  SCOPE_INCLUDES_INSTALLATION: 'السعر يشمل التركيب والطلب توريد فقط',
+  SINGLE_PRICE_MULTI_LINE: 'سعر واحد انطبق على أكثر من بند',
+  SUPPLIER_CONFUSED: 'المورد قال إنه ما فهم الطلب',
+}
+
+export function isMeaningCode(code: string | null | undefined): boolean {
+  return Object.prototype.hasOwnProperty.call(MEANING_REASON_AR, String(code || '').toUpperCase())
+}
+
+/** One finding in Arabic. VAT_BASIS_CONFLICT has two directions: the server's wording says which. */
+function meaningReason(check: { code?: string | null; reason_ar?: string | null }): string {
+  const code = String(check.code || '').toUpperCase()
+  const server = String(check.reason_ar || '').trim()
+  if (code === 'VAT_BASIS_CONFLICT' && server) return server
+  return MEANING_REASON_AR[code] || server
+}
+
+/** Every meaning finding on a held price, in Arabic, without repeats. */
+export function meaningReasons(review: Pick<PriceReview, 'code' | 'reason_ar' | 'checks'> | null | undefined): string[] {
+  if (!review) return []
+  const checks = Array.isArray(review.checks) && review.checks.length
+    ? review.checks
+    : isMeaningCode(review.code) ? [{ code: review.code, reason_ar: review.reason_ar }] : []
+  return [...new Set(checks.map(meaningReason).filter(Boolean))]
+}
 
 /** Held by hand until the supplier confirms: labelled «تحتاج تأكيد», not «يحتاج مراجعة». */
 export const NEEDS_CONFIRMATION_CODE = 'NEEDS_CONFIRMATION'
@@ -53,7 +88,12 @@ export function priceReviewText(review: PriceReview | null | undefined, currency
     const why = String(review.reason_ar || '').replace(CONFIRM_PREFIX, '').trim()
     const s = money(review.suggested_unit_price, currency)
     const suggestion = String(review.suggestion_ar || '').trim() || (s ? `التصحيح المقترح: ${s}` : null)
-    return { badge: 'تحتاج تأكيد', reason: why || 'السعر بانتظار تأكيد المورد', suggestion }
+    return { badge: 'تحتاج تأكيد', reason: why || 'السعر بانتظار تأكيد المورد', suggestion, details: [] }
+  }
+  const meaning = meaningReasons(review)
+  // Held for what it means: the first finding is the reason, the rest are listed under it.
+  if (isMeaningCode(review.code) && meaning.length) {
+    return { badge: 'يحتاج مراجعة', reason: meaning[0], suggestion: null, details: meaning.slice(1) }
   }
   const reason = String(review.reason_ar || '').trim() || 'السعر بعيد عن المتوقع لهذا البند'
   let suggestion = String(review.suggestion_ar || '').trim() || null
@@ -61,7 +101,13 @@ export function priceReviewText(review: PriceReview | null | undefined, currency
     const s = money(review.suggested_unit_price, currency)
     if (s) suggestion = `التصحيح المقترح: ${s}`
   }
-  return { badge: 'يحتاج مراجعة', reason, suggestion }
+  return { badge: 'يحتاج مراجعة', reason, suggestion, details: meaning }
+}
+
+/** The reasons of a held price on one line, for places with room for a single sentence. */
+export function priceReviewSummary(review: PriceReview | null | undefined): string | null {
+  const text = priceReviewText(review)
+  return text ? [text.reason, ...text.details].join('، ') : null
 }
 
 export function canApplySuggestion(review: PriceReview | null | undefined): boolean {
