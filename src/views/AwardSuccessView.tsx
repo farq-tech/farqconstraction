@@ -1,6 +1,7 @@
 import type { NavProps } from '../types'
 import { useProcurement } from '../procurementContext'
 import { formatSar } from '../api/constructionClient'
+import OutcomeNoticesPanel from '../components/procurement/OutcomeNoticesPanel'
 
 export function AwardSuccessView({ navigate }: NavProps) {
   const { awardResult, selectedRfqId } = useProcurement()
@@ -27,6 +28,7 @@ export function AwardSuccessView({ navigate }: NavProps) {
           <div className="text-2xl font-black text-[#123F3A]">{formatSar(total)}</div>
         </div>
       )}
+      {selectedRfqId && <OutcomeNoticesPanel rfqId={selectedRfqId} />}
       <div className="space-y-2">
         <button
           onClick={() => navigate(selectedRfqId ? 'rfq-detail' : 'rfq-list')}

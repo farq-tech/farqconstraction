@@ -7,6 +7,7 @@ import {
   getConstructionRfq,
   type ConstructionRfq,
 } from '../api/constructionClient'
+import OutcomeNoticesPanel from '../components/procurement/OutcomeNoticesPanel'
 
 export function RFQClosedView({ navigate }: NavProps) {
   const { selectedRfqId, openRfq } = useProcurement()
@@ -105,6 +106,8 @@ export function RFQClosedView({ navigate }: NavProps) {
           </div>
         ))}
       </div>
+
+      <OutcomeNoticesPanel rfqId={rfq.id} />
 
       <div className="space-y-3">
         <button
