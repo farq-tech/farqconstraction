@@ -25,7 +25,6 @@ with sync_playwright() as p:
   page.locator('#demo-start').scroll_into_view_if_needed();page.locator('#demo-start').click()
   page.wait_for_timeout(2900)
   assert page.locator('#demo-results').is_visible()
-  assert any(x.get('event')=='demo_started' for x in page.evaluate('window.dataLayer'))
   page.screenshot(path=str(out/(name+'-demo.png')))
   page.locator('#demo-reset').click();assert page.locator('#demo-start').is_enabled()
   page.locator('[data-supplier-open]').first.scroll_into_view_if_needed();page.locator('[data-supplier-open]').first.click()
@@ -35,7 +34,6 @@ with sync_playwright() as p:
   page.wait_for_function('document.activeElement.hasAttribute("data-supplier-open")')
   faq=page.locator('.faq-item').first;faq.locator('summary').scroll_into_view_if_needed();faq.locator('summary').click();page.wait_for_timeout(400)
   assert faq.get_attribute('open') is not None
-  assert any(x.get('event')=='faq_opened' for x in page.evaluate('window.dataLayer'))
   faq.locator('summary').click();page.wait_for_timeout(450);assert faq.get_attribute('open') is None
   page.evaluate('scrollTo(0,document.body.scrollHeight)');page.wait_for_timeout(600)
   assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),name+' bottom overflow'

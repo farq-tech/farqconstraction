@@ -29,31 +29,6 @@
   ).observe($("#final"));
 
 
-  function track(event, location, detail = {}) {
-    const payload = {
-      event,
-      location,
-      page: "construction_landing",
-      ...detail,
-    };
-    window.dataLayer = window.dataLayer || [];
-    if (typeof window.gtag === "function") {
-      const { event: name, ...params } = payload;
-      window.gtag("event", name, params);
-    } else {
-      window.dataLayer.push(payload);
-    }
-    window.dispatchEvent(
-      new CustomEvent("farq:analytics", { detail: payload }),
-    );
-  }
-  $$("[data-event]").forEach((control) =>
-    control.addEventListener("click", () => {
-      if (control.id !== "demo-start")
-        track(control.dataset.event, control.dataset.location);
-    }),
-  );
-
   const menuToggle = $(".menu-toggle");
   const menu = $("#mobile-menu");
   function closeMenu() {
@@ -347,7 +322,6 @@
     activity.hidden = false;
     demoButton.disabled = true;
     demoButton.textContent = "نشغّل التجربة التوضيحية…";
-    track("demo_started", "demo");
     if (reduced.matches) finishDemo();
     else advanceDemo();
   });
@@ -364,7 +338,7 @@
     demoStatus.textContent = "جاهز للتجربة — عروض وأسماء افتراضية.";
     demoButton.focus({ preventScroll: true });
   });
-  $$(".faq-item").forEach((item, index) => {
+  $$(".faq-item").forEach((item) => {
     const summary = $("summary", item);
     let closeTimer = 0;
     summary.addEventListener("click", (event) => {
@@ -380,7 +354,6 @@
       } else {
         item.open = true;
         requestAnimationFrame(() => item.classList.add("is-open"));
-        track("faq_opened", "faq", { faq_index: index + 1 });
       }
     });
   });
@@ -399,7 +372,6 @@
       document.body.classList.add("dialog-open");
       bottomCta.hidden = true;
       $("#supplier-form-status").textContent = "";
-      track("supplier_signup", button.dataset.location || "supplier");
     }),
   );
   $(".dialog-close", dialog).addEventListener("click", () => dialog.close());
@@ -434,9 +406,6 @@
     const status = $("#supplier-form-status");
     status.textContent =
       "إذا ما فتح تطبيق البريد، راسل info@farq.sa لطلب الانضمام. لم تُرسل الرسالة تلقائيًا.";
-    track("supplier_signup", "supplier_email_prepared", {
-      action: "email_prepared",
-    });
   });
 
   function onMotionChange() {
