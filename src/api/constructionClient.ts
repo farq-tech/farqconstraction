@@ -1945,6 +1945,8 @@ export type ConstructionInboxStatus = {
   attachments_download_enabled?: boolean
   worker_enabled?: boolean
   unresolved_available?: boolean
+  /** «بريد يحتاج ربط» (CONSTRUCTION_EMAIL_SMART_ROUTING=1): mailbox owner only. */
+  email_link_available?: boolean
   work_global_available?: boolean
   work_view_available?: boolean
   replying_allowed?: boolean
@@ -2212,6 +2214,75 @@ export async function setConstructionInboxThreadsVisibility(inviteIds: string[],
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ invite_ids: inviteIds, hidden }),
   })
+}
+
+/** An email the server could not tie to a request, but that reads like a supplier's answer. */
+export type ConstructionEmailLink = {
+  id: string
+  provider: 'GMAIL' | 'RESEND' | string
+  state: 'NO_MATCH' | 'AMBIGUOUS' | string
+  revision: number
+  ingested_at: string
+  evidence?: { reason?: string; smart?: { method?: string; sender_domain?: string | null; free_mail?: boolean } } | null
+  preview: {
+    sender: string | null
+    subject: string | null
+    text?: string | null
+    snippet?: string | null
+    files?: { filename: string }[]
+  } | null
+  candidates: { id: string; rfq_id: string; supplier_name_ar?: string | null; locked?: boolean }[]
+}
+
+export type ConstructionEmailLinkTargets = {
+  sender_domain: string | null
+  requests: {
+    rfq_id: string
+    reference: string
+    project_name: string | null
+    suggested: boolean
+    suppliers: {
+      invite_id: string
+      supplier_id: string
+      name_ar: string | null
+      name_en: string | null
+      response_status: string | null
+      suggested: boolean
+    }[]
+  }[]
+}
+
+/** «بريد يحتاج ربط»: supplier-looking email the server could not route. */
+export async function listConstructionEmailLinks(cursor?: string) {
+  const q = new URLSearchParams({ kind: 'email' })
+  if (cursor) q.set('cursor', cursor)
+  return request<{ arrivals: ConstructionEmailLink[]; next_cursor: string | null }>(
+    `/api/construction/inbox/unresolved?${q.toString()}`,
+  )
+}
+
+/** Open requests (and their invited suppliers) an email may be linked to. */
+export async function getConstructionEmailLinkTargets(arrivalId: string, q = '') {
+  const query = q.trim() ? `?${new URLSearchParams({ q: q.trim() }).toString()}` : ''
+  return request<ConstructionEmailLinkTargets>(
+    `/api/construction/inbox/unresolved/${encodeURIComponent(arrivalId)}/targets${query}`,
+  )
+}
+
+/** «اربطه بالطلب»: the email joins that supplier's conversation on that request. */
+export async function linkConstructionEmail(arrivalId: string, inviteId: string, expectedRevision: number) {
+  return request<{ resolved: boolean; pending_import: boolean; contact_added?: string | null }>(
+    `/api/construction/inbox/unresolved/${encodeURIComponent(arrivalId)}/resolve`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        invite_id: inviteId,
+        expected_revision: expectedRevision,
+        reason: 'ربط بريد مورد بطلبه من الوارد',
+      }),
+    },
+  )
 }
 
 export async function markConstructionInboxMessageUnread(messageId: string) {
