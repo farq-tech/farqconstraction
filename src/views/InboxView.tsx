@@ -13,9 +13,11 @@ import {
   type ConstructionInboxStatus,
   type ConstructionInboxThread,
   type ConstructionInboxThreadDetail,
+  listConstructionEmailLinks,
   markConstructionInboxThreads,
   setConstructionInboxThreadsVisibility,
 } from '../api/constructionClient'
+import EmailLinkPanel from '../components/inbox/EmailLinkPanel'
 import { useProcurement } from '../procurementContext'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
@@ -158,6 +160,9 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const [activeId, setActiveId] = useState<string | null>(initialThreadId)
   /** The mailbox/Gmail status panel takes the chat pane's place while open. */
   const [showStatus, setShowStatus] = useState(false)
+  /** «بريد يحتاج ربط» takes the chat pane's place while open (owner only). */
+  const [showEmailLinks, setShowEmailLinks] = useState(false)
+  const [emailLinks, setEmailLinks] = useState<{ count: number; more: boolean } | null>(null)
   /** Bumped by «إعادة المحاولة»: re-runs the same reads, adds no new ones. */
   const [reloadKey, setReloadKey] = useState(0)
   // Live refresh: the list re-reads itself every 30 s while the tab is visible,
@@ -441,6 +446,20 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
     }
   }
 
+  const emailLinkAvailable = Boolean(status?.email_link_available)
+  // One read for the count when the server offers it; the panel re-reads on open.
+  useEffect(() => {
+    if (!emailLinkAvailable) return
+    let alive = true
+    listConstructionEmailLinks()
+      .then((page) => alive && setEmailLinks({ count: page.arrivals.length, more: Boolean(page.next_cursor) }))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [emailLinkAvailable])
+  const emailLinkLabel = emailLinks?.count ? `${emailLinks.count}${emailLinks.more ? '+' : ''}` : null
+
   const enabled = Boolean(status?.enabled)
   const receiving = Boolean(status?.receiving_configured)
   const correspondence = Boolean(status?.correspondence_enabled)
@@ -599,6 +618,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
       setSelectedOfferId(thread.invite_id)
       setActiveId(String(thread.invite_id))
       setShowStatus(false)
+      setShowEmailLinks(false)
     } else if (rfqId) {
       openRfq(rfqId, 'offers')
     }
@@ -719,9 +739,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const closeDetail = () => {
     setActiveId(null)
     setShowStatus(false)
+    setShowEmailLinks(false)
   }
 
-  const detailOpen = showStatus || activeId != null
+  const detailOpen = showStatus || showEmailLinks || activeId != null
   const mailboxWarning = gmailDiagnosis?.tone === 'warn' ? gmailDiagnosis.title : null
 
   const statusPanel = (
@@ -1029,11 +1050,35 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               >
                 العروض
               </button>
+              {emailLinkAvailable && (
+                <button
+                  type="button"
+                  aria-pressed={showEmailLinks}
+                  onClick={() => {
+                    setShowEmailLinks((open) => !open)
+                    setShowStatus(false)
+                    setActiveId(null)
+                  }}
+                  className={`relative text-[11px] font-bold rounded-full px-2.5 py-1.5 border ${
+                    showEmailLinks
+                      ? 'bg-[#123F3A] text-white border-[#123F3A]'
+                      : 'text-[#123F3A] border-neutral-200 hover:border-[#123F3A]/40'
+                  }`}
+                >
+                  بريد يحتاج ربط
+                  {emailLinkLabel && (
+                    <span className="ms-1 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-amber-500 text-white text-[10px]">
+                      {emailLinkLabel}
+                    </span>
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 aria-pressed={showStatus}
                 onClick={() => {
                   setShowStatus((open) => !open)
+                  setShowEmailLinks(false)
                   setActiveId(null)
                 }}
                 className={`relative text-[11px] font-bold rounded-full px-2.5 py-1.5 border ${
@@ -1050,7 +1095,20 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
             </>
           }
           alert={
-            mailboxWarning && !showStatus ? (
+            emailLinkLabel && !showEmailLinks && !(mailboxWarning && !showStatus) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmailLinks(true)
+                  setShowStatus(false)
+                  setActiveId(null)
+                }}
+                className="w-full text-start rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-[11px] text-amber-900 leading-relaxed hover:border-amber-300"
+              >
+                <span className="font-bold">بريد يحتاج ربط: </span>
+                {emailLinkLabel} رسالة من موردين لم نعرف طلبها — افتحها واربطها.
+              </button>
+            ) : mailboxWarning && !showStatus ? (
               <button
                 type="button"
                 onClick={() => {
@@ -1133,6 +1191,11 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
       >
         {showStatus ? (
           statusPanel
+        ) : showEmailLinks ? (
+          <EmailLinkPanel
+            onBack={closeDetail}
+            onCount={(count, more) => setEmailLinks({ count, more })}
+          />
         ) : activeId ? (
           <ChatPane
             key={activeId}
