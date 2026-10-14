@@ -675,7 +675,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
                       <div className="font-semibold text-[15px] truncate">{s.name}</div>
                       <div className="text-[12px] text-neutral-500">
                         {[s.city, s.channel].filter(Boolean).join(' · ')}
-                        {s.preferred && <span className="text-[#123F3A] font-bold"> · المفضّلون</span>}
+                        {s.preferred && <span className="text-[#123F3A] font-bold"> · من قائمتك</span>}
                       </div>
                     </div>
                     <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[14px] font-bold ${on ? 'bg-[#123F3A] text-white' : 'bg-black/[0.06] text-transparent'}`}>✓</span>

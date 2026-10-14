@@ -161,8 +161,8 @@ function SuggestionBox({
                     <span className="block text-xs text-neutral-400">
                       {s.city}
                       {s.preferred && (
-                        <span className="text-[#123F3A] font-bold" title="من قائمتك المفضلة لهذا النوع من البنود — يظهر أولًا ويُختار تلقائيًا">
-                          {' '}· المفضّلون
+                        <span className="text-[#123F3A] font-bold" title="من قائمتك الخاصة لهذا النوع من البنود — تختاره بنفسك">
+                          {' '}· من قائمتك
                         </span>
                       )}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
@@ -447,8 +447,8 @@ function BOQCard({
           {item.preferredSuggestion && item.preferredSuggestion.suppliers.length > 0 && (
             <SuggestionBox
               tone="teal"
-              title="من قائمتك المفضلة"
-              note="موردوك المفضّلون لهذا النوع من البنود: يظهرون أولًا ومحدَّدون تلقائيًا. من اعتذر عن هذه المادة أو رقمه موقوف لا يظهر هنا."
+              title={item.preferredSuggestion.label || 'قائمتك الخاصة'}
+              note="موردون من قائمتك لهذا النوع من البنود، تختار منهم بنفسك. اقتراحات فرق تحتها كالمعتاد. من اعتذر عن هذه المادة أو رقمه موقوف لا يظهر هنا."
               emptyText=""
               suppliers={item.preferredSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
               evidence="اختيارك"

@@ -30,9 +30,10 @@ function materialKeyOf(item: BOQItem): string | null {
   )
 }
 
+// The person's own list («قائمة بدر») is shown for him to choose from and is
+// never ticked automatically (owner 14-10), so it is not a lane here.
 function lanesOf(item: BOQItem): Supplier[][] {
   return [
-    item.preferredSuggestion?.suppliers || [],
     item.learnedSuggestion?.suppliers || [],
     item.outcomeSuggestion?.suppliers || [],
     item.mapSuggestion?.suppliers || [],
@@ -117,8 +118,7 @@ export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 
 export function confidenceOf(s: Supplier): Confidence {
   if (s.outOfCity) return 'MAYBE'
-  // «من قائمتك المفضلة»: the buyer's own list for this kind of line.
-  if (s.preferred || s.learned || isPriorQuoter(s)) return 'SURE'
+  if (s.learned || isPriorQuoter(s)) return 'SURE'
   // A question or clarification also counts as ANSWERED; a reply alone
   // does not establish that the supplier sells the requested material.
   if (s.roundOutcome?.grade === 'PRICED') return 'SURE'
@@ -171,7 +171,6 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
     item.familySuggestion?.suppliers || [],
   ]
   const ordered = [
-    ...(item.preferredSuggestion?.suppliers || []),
     ...(item.learnedSuggestion?.suppliers || []),
     ...(item.outcomeSuggestion?.suppliers || []),
     ...lanes.flat().filter(isPriorQuoter),

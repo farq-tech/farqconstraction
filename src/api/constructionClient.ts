@@ -570,6 +570,7 @@ export type BoqCatalogMatchRow = {
   }
   /** «من قائمتك المفضلة»: this person's own pinned suppliers for this kind of line (preferred-suppliers.js). */
   preferred_suggestion?: {
+    label_ar?: string
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; preferred?: boolean }>
   }
   /** Suppliers the buyer chose for this same line before and that no list above contains. */
@@ -3430,7 +3431,7 @@ export async function matchConstructionBoqCatalog(payload: {
         suppliers?: Array<Record<string, unknown>>
       }>
       learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
-      preferred_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      preferred_suggestion?: { label_ar?: string; suppliers?: Array<Record<string, unknown>> } | null
       outcome_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
       ai_suggestion?: {
@@ -3542,7 +3543,7 @@ export async function matchConstructionBoqCatalog(payload: {
         ? { family_suggestion: { family: String(row.family_suggestion.family), suppliers: suggestionSuppliers(row.family_suggestion.suppliers, 'على مستوى النشاط') } }
         : {}),
       ...(row.preferred_suggestion?.suppliers?.length
-        ? { preferred_suggestion: { suppliers: suggestionSuppliers(row.preferred_suggestion.suppliers, 'اختيارك', Number.POSITIVE_INFINITY) } }
+        ? { preferred_suggestion: { ...(row.preferred_suggestion.label_ar ? { label_ar: String(row.preferred_suggestion.label_ar) } : {}), suppliers: suggestionSuppliers(row.preferred_suggestion.suppliers, 'اختيارك', Number.POSITIVE_INFINITY) } }
         : {}),
       ...(row.learned_suggestion?.suppliers?.length
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }

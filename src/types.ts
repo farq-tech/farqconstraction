@@ -109,7 +109,8 @@ export interface BOQItem {
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
   learnedSuggestion?: { suppliers: Supplier[] }
   /** «من قائمتك المفضلة»: the buyer's own pinned suppliers for this kind of line. First, and ticked by default. */
-  preferredSuggestion?: { suppliers: Supplier[] }
+  /** The person's own list («قائمة بدر»): shown, chosen by him, never auto-ticked. */
+  preferredSuggestion?: { suppliers: Supplier[]; label?: string }
   /** «نتائج الجولات»: who priced this material before, then who answered, sells it alongside, or resembles them. Never preselected by the server. */
   outcomeSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */
