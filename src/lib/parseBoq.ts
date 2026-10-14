@@ -745,9 +745,9 @@ async function matchViaFarqBoqApi(
         learnedSuggestion: row.learned_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
           : undefined,
-        // «من قائمتك المفضلة»: the whole pinned list, uncut.
+        // The person's own list («قائمة بدر»), uncut, with its name.
         preferredSuggestion: row.preferred_suggestion?.suppliers?.length
-          ? { suppliers: mapApiSuppliers(row.preferred_suggestion.suppliers, Number.POSITIVE_INFINITY) }
+          ? { suppliers: mapApiSuppliers(row.preferred_suggestion.suppliers, Number.POSITIVE_INFINITY), ...(row.preferred_suggestion.label_ar ? { label: String(row.preferred_suggestion.label_ar) } : {}) }
           : undefined,
         outcomeSuggestion: row.outcome_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.outcome_suggestion.suppliers, 24) }

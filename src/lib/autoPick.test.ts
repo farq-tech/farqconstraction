@@ -243,14 +243,11 @@ describe('«من قائمتك المفضلة» (preferred suppliers)', () => {
     preferredSuggestion: { suppliers: [pinned('مفضل-1'), pinned('مفضل-2'), { ...pinned('مفضل-خارج'), outOfCity: true }] },
   })
 
-  it('pinned suppliers come first and are ticked, whatever their evidence', () => {
+  it('the person\'s own list is shown for him to choose, never ticked; Farq\'s picks are as before', () => {
     const order = autoPickFor(item, Number.POSITIVE_INFINITY).map((s) => s.id)
-    expect(order.slice(0, 2)).toEqual(['مفضل-1', 'مفضل-2'])
+    expect(order).not.toContain('مفضل-1')
     const ticked = autoPickConfident(item).map((s) => s.id)
-    expect(ticked).toEqual(expect.arrayContaining(['مفضل-1', 'مفضل-2', 'خريطة-1']))
-    // City still wins over a pin; an activity-level row without a pin stays unticked.
-    expect(ticked).not.toContain('مفضل-خارج')
-    expect(ticked).not.toContain('محتمل')
+    expect(ticked).toEqual(['خريطة-1'])
   })
 
   it('a line without a preferred lane picks exactly as before', () => {
