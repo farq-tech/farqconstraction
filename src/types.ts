@@ -71,6 +71,11 @@ export interface Supplier {
   why?: string
   /** His city is known and is not the request's city. */
   outOfCity?: boolean
+  /**
+   * «المفضّلون»: on the buyer's own pinned list for this kind of line (server:
+   * preferred-suppliers.js). Listed first and ticked by default.
+   */
+  preferred?: boolean
 }
 
 export interface BOQItem {
@@ -103,6 +108,8 @@ export interface BOQItem {
   familySuggestion?: { family: string; suppliers: Supplier[] }
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
   learnedSuggestion?: { suppliers: Supplier[] }
+  /** «من قائمتك المفضلة»: the buyer's own pinned suppliers for this kind of line. First, and ticked by default. */
+  preferredSuggestion?: { suppliers: Supplier[] }
   /** «نتائج الجولات»: who priced this material before, then who answered, sells it alongside, or resembles them. Never preselected by the server. */
   outcomeSuggestion?: { suppliers: Supplier[] }
   /** Pure work (excavation, backfill…): nothing to buy, so no supplier is sought. */

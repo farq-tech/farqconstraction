@@ -54,6 +54,7 @@ function toSupplier(s: SupplierEntry): Supplier {
 /** Every supplier the item knows about, de-duplicated, picked ones first. */
 function candidatesFor(item: BOQItem): Supplier[] {
   const all = [
+    ...(item.preferredSuggestion?.suppliers || []),
     ...(item.learnedSuggestion?.suppliers || []),
     ...(item.outcomeSuggestion?.suppliers || []),
     ...(item.mapSuggestion?.suppliers || []),
@@ -672,7 +673,10 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
                     <Avatar name={s.name} size={38} />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-[15px] truncate">{s.name}</div>
-                      <div className="text-[12px] text-neutral-500">{[s.city, s.channel].filter(Boolean).join(' · ')}</div>
+                      <div className="text-[12px] text-neutral-500">
+                        {[s.city, s.channel].filter(Boolean).join(' · ')}
+                        {s.preferred && <span className="text-[#123F3A] font-bold"> · المفضّلون</span>}
+                      </div>
                     </div>
                     <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[14px] font-bold ${on ? 'bg-[#123F3A] text-white' : 'bg-black/[0.06] text-transparent'}`}>✓</span>
                   </button>

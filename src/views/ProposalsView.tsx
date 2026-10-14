@@ -160,6 +160,11 @@ function SuggestionBox({
                     <span className="block text-sm font-semibold text-[#0D1F1D] truncate">{s.name}</span>
                     <span className="block text-xs text-neutral-400">
                       {s.city}
+                      {s.preferred && (
+                        <span className="text-[#123F3A] font-bold" title="من قائمتك المفضلة لهذا النوع من البنود — يظهر أولًا ويُختار تلقائيًا">
+                          {' '}· المفضّلون
+                        </span>
+                      )}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
                       {!s.roundOutcome && s.why && (
                         <span className="text-neutral-500" title="لماذا يقترحه فرق لهذه المادة">
@@ -263,6 +268,7 @@ function BOQCard({
     () =>
       new Set(
         [
+          ...(item.preferredSuggestion?.suppliers || []),
           ...(item.learnedSuggestion?.suppliers || []),
           ...(item.outcomeSuggestion?.suppliers || []),
           ...(item.mapSuggestion?.suppliers || []),
@@ -270,7 +276,7 @@ function BOQCard({
           ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
+    [item.preferredSuggestion, item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
   )
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
@@ -438,6 +444,19 @@ function BOQCard({
             </div>
           )}
 
+          {item.preferredSuggestion && item.preferredSuggestion.suppliers.length > 0 && (
+            <SuggestionBox
+              tone="teal"
+              title="من قائمتك المفضلة"
+              note="موردوك المفضّلون لهذا النوع من البنود: يظهرون أولًا ومحدَّدون تلقائيًا. من اعتذر عن هذه المادة أو رقمه موقوف لا يظهر هنا."
+              emptyText=""
+              suppliers={item.preferredSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="اختيارك"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+            />
+          )}
           {item.learnedSuggestion && item.learnedSuggestion.suppliers.length > 0 && (
             <SuggestionBox
               tone="teal"
@@ -640,7 +659,7 @@ function BOQCard({
           {/* Only where nothing at all was found. Under a card that lists map
               suppliers this note said «لم نبحث له عن موردين», and under a
               work-only card it told the buyer to go and find a supplier. */}
-          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.outcomeSuggestion && (
+          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.preferredSuggestion && !item.outcomeSuggestion && (
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'
