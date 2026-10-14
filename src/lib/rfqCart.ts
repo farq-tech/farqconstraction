@@ -328,6 +328,7 @@ export function mergeMatched(items: BOQItem[], matched: BOQItem[], retainedSelec
       autoPickedSupplierIds: [],
       aiSuggestion: m.aiSuggestion,
       learnedSuggestion: m.learnedSuggestion,
+      preferredSuggestion: m.preferredSuggestion,
       familySuggestion: m.familySuggestion,
       mapSuggestion: m.mapSuggestion,
     }

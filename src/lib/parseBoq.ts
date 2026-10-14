@@ -570,6 +570,7 @@ function mapApiSuppliers(
     round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }
     why_ar?: string
     out_of_city?: boolean
+    preferred?: boolean
   }>,
   limit = MATCH_SUPPLIERS_PER_LINE,
 ): Supplier[] {
@@ -601,13 +602,14 @@ function mapApiSuppliers(
         roundOutcome: roundOutcomeOf(s.round_outcome),
         why: typeof s.why_ar === 'string' && s.why_ar ? s.why_ar : undefined,
         outOfCity: s.out_of_city === true ? true : undefined,
+        ...(s.preferred === true ? { preferred: true } : {}),
         channel,
       }
     })
 }
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
-type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
+type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; preferredSuggestion?: BOQItem['preferredSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
 type RemoteMatch = {
   hits: Map<string, RemoteHit>
   /** Set when the request itself failed, so the screen can stop looking normal. */
@@ -743,6 +745,10 @@ async function matchViaFarqBoqApi(
         learnedSuggestion: row.learned_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
           : undefined,
+        // «من قائمتك المفضلة»: the whole pinned list, uncut.
+        preferredSuggestion: row.preferred_suggestion?.suppliers?.length
+          ? { suppliers: mapApiSuppliers(row.preferred_suggestion.suppliers, Number.POSITIVE_INFINITY) }
+          : undefined,
         outcomeSuggestion: row.outcome_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.outcome_suggestion.suppliers, 24) }
           : undefined,
@@ -822,11 +828,12 @@ export async function matchSuppliersForItems(
       ...(api?.exposureId ? { exposureId: api.exposureId } : {}),
       aiSuggestion: api?.aiSuggestion,
       learnedSuggestion: api?.learnedSuggestion,
+      ...(api?.preferredSuggestion ? { preferredSuggestion: api.preferredSuggestion } : {}),
       outcomeSuggestion: api?.outcomeSuggestion,
       familySuggestion: api?.familySuggestion,
       mapSuggestion: api?.mapSuggestion,
       workOnly:
-        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.outcomeSuggestion && !api?.familySuggestion
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.preferredSuggestion && !api?.outcomeSuggestion && !api?.familySuggestion
           ? true
           : undefined,
       itemCode: line.itemCode,
@@ -1923,6 +1930,7 @@ async function parseBoqFileInner(
       (item.mapSuggestion?.suppliers.length ?? 0) > 0 ||
       (item.familySuggestion?.suppliers.length ?? 0) > 0 ||
       (item.learnedSuggestion?.suppliers.length ?? 0) > 0 ||
+      (item.preferredSuggestion?.suppliers.length ?? 0) > 0 ||
       (item.outcomeSuggestion?.suppliers.length ?? 0) > 0
     const ready = matched.items.filter(lineHasSuppliers).length
     return {
