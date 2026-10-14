@@ -3,11 +3,15 @@
  * would price: the district and map pin (a block price depends on distance),
  * delivery or pickup and who pays for it, payment terms, and supply only or
  * with installation. Optional fields; only a malformed link or incomplete
- * credit terms block sending (siteSupplyProblems).
+ * credit terms block sending (siteSupplyProblems). The request type is chosen
+ * by the buyer (no default) and the city must be filled — see
+ * requestTermsBlockers in sendGuards.
  */
 import {
   DELIVERY_MODES,
   PAYMENT_TERMS,
+  PRICE_BASIS_AR,
+  REQUEST_TYPES,
   SHIPPING_OPTIONS,
   siteSupplyProblems,
   type DeliveryMode,
@@ -29,9 +33,23 @@ export default function SiteSupplySection({
   city: string
   value: SiteSupply
   onChange: (next: SiteSupply) => void
-  requestType: 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'
+  /** Empty until the buyer chooses: a request never goes out as «توريد فقط» by default. */
+  requestType: 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL' | ''
   onRequestType: (next: 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL') => void
 }) {
+  const typeSelect = (
+    <select
+      className={`${field} ${requestType ? '' : 'border-amber-300'}`}
+      value={requestType}
+      aria-invalid={!requestType || undefined}
+      onChange={(e) => onRequestType(e.target.value as 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL')}
+    >
+      {!requestType && <option value="">— اختر —</option>}
+      {REQUEST_TYPES.map((t) => (
+        <option key={t.value} value={t.value}>{t.label}</option>
+      ))}
+    </select>
+  )
   const set = (patch: Partial<SiteSupply>) => onChange({ ...value, ...patch })
   const problems = siteSupplyProblems(value)
   return (
@@ -45,7 +63,13 @@ export default function SiteSupplySection({
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs text-neutral-500">
           المدينة
-          <input className={`${field} bg-neutral-50`} value={city || 'الرياض'} readOnly aria-readonly />
+          <input
+            className={`${field} bg-neutral-50 ${city.trim() ? '' : 'border-amber-300'}`}
+            value={city}
+            placeholder="اكتب مدينة التسليم"
+            readOnly
+            aria-readonly
+          />
         </label>
         <label className="text-xs text-neutral-500">
           الحي
@@ -100,20 +124,14 @@ export default function SiteSupplySection({
         ) : (
           <label className="text-xs text-neutral-500">
             نوع الطلب
-            <select className={field} value={requestType} onChange={(e) => onRequestType(e.target.value as 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL')}>
-              <option value="SUPPLY_ONLY">توريد فقط</option>
-              <option value="SUPPLY_AND_INSTALL">توريد وتركيب</option>
-            </select>
+            {typeSelect}
           </label>
         )}
       </div>
       {value.paymentCode === 'CREDIT' && (
         <label className="text-xs text-neutral-500 block">
           نوع الطلب
-          <select className={field} value={requestType} onChange={(e) => onRequestType(e.target.value as 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL')}>
-            <option value="SUPPLY_ONLY">توريد فقط</option>
-            <option value="SUPPLY_AND_INSTALL">توريد وتركيب</option>
-          </select>
+          {typeSelect}
         </label>
       )}
       {value.paymentCode && (
@@ -122,6 +140,7 @@ export default function SiteSupplySection({
           <input className={field} value={value.paymentNote} placeholder="مثال: الدفع بعد استلام كامل الكمية" onChange={(e) => set({ paymentNote: e.target.value })} />
         </label>
       )}
+      <div className="text-[11px] text-neutral-500">السعر المطلوب من المورد: {PRICE_BASIS_AR}.</div>
       {problems.length > 0 && (
         <ul className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2 list-disc pr-5">
           {problems.map((p) => (

@@ -61,6 +61,22 @@ export const PAYMENT_TERMS: Array<{ value: PaymentTermsCode; label: string }> = 
   { value: 'OTHER', label: 'أخرى' },
 ]
 
+/**
+ * Scope and price basis exactly as the API words them for suppliers
+ * (rfq-spec-card.js): suppliers kept asking «توريد فقط أو توريد وتركيب؟» and
+ * «شامل الضريبة؟», so every surface uses these same strings.
+ */
+export const REQUEST_TYPES: Array<{ value: 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'; label: string }> = [
+  { value: 'SUPPLY_ONLY', label: 'توريد فقط — بدون تركيب' },
+  { value: 'SUPPLY_AND_INSTALL', label: 'توريد وتركيب' },
+]
+
+export function requestTypeLabel(value: string | null | undefined): string {
+  return REQUEST_TYPES.find((t) => t.value === value)?.label || ''
+}
+
+export const PRICE_BASIS_AR = 'سعر الوحدة قبل الضريبة، واذكر ضريبة القيمة المضافة 15% لحالها'
+
 export const SALE_UNIT_NOTE = 'نقبل السعر بالوحدة اللي تبيع فيها (علبة/كرتون) مع ذكر العدد'
 
 const clean = (value: unknown, max = 160): string =>

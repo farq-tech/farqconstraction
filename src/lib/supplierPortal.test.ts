@@ -11,6 +11,7 @@ import {
   formatDateTimeAr,
   hoursAr,
   lineRefLabel,
+  offerTermsRows,
   outboxReducer,
   requestFromLegacyInvite,
   requestStatusChip,
@@ -262,5 +263,44 @@ describe('superseded invite («تم تحديث الطلب»)', () => {
   it('builds the link of the new version', () => {
     expect(currentVersionHref('/Construction', 'abc_DEF-123')).toBe('/Construction?supplier_token=abc_DEF-123')
     expect(currentVersionHref('', 'tok')).toBe('/?supplier_token=tok')
+  })
+})
+
+describe('offerTermsRows: «شروط العرض» on the offer page', () => {
+  const base = {
+    invite_id: 'inv-1',
+    rfq_id: 'r',
+    rfq_version_id: 'v',
+    supplier: { name_ar: 'مصنع' },
+    lines: [{ id: 'l1', quantity: 1, uom: 'حبة' }],
+  }
+  it('states scope, price basis, place, deadline and urgency with the API strings', () => {
+    const rows = offerTermsRows({
+      ...base,
+      site_supply: {
+        city: 'الرياض',
+        district: 'حي النرجس',
+        request_type_ar: 'توريد فقط — بدون تركيب',
+        effective_request_type_ar: 'توريد وتركيب',
+        price_basis_ar: 'سعر الوحدة قبل الضريبة، واذكر ضريبة القيمة المضافة 15% لحالها',
+        quote_deadline: '2026-10-14',
+        quote_deadline_time: '17:00',
+        urgent_reason: 'صب يوم الأحد',
+      },
+    } as PublicSupplierInvite)
+    expect(rows).toEqual([
+      ['نوع الطلب', 'توريد وتركيب'],
+      ['التسعير', 'سعر الوحدة قبل الضريبة، واذكر ضريبة القيمة المضافة 15% لحالها'],
+      ['التسليم', 'الرياض — حي النرجس'],
+      ['آخر موعد للعرض', '14 أكتوبر الساعة 17:00'],
+      ['مستعجل', 'صب يوم الأحد'],
+    ])
+  })
+  it('still states the price basis for an older response', () => {
+    const rows = offerTermsRows({ ...base, request_type: 'SUPPLY_ONLY' } as PublicSupplierInvite, '2026-10-14T17:00:00+03:00')
+    expect(rows[0]).toEqual(['نوع الطلب', 'توريد فقط — بدون تركيب'])
+    expect(rows[1]).toEqual(['التسعير', 'سعر الوحدة قبل الضريبة، واذكر ضريبة القيمة المضافة 15% لحالها'])
+    expect(rows.find((r) => r[0] === 'آخر موعد للعرض')).toBeTruthy()
+    expect(rows.find((r) => r[0] === 'مستعجل')).toBeUndefined()
   })
 })

@@ -2,6 +2,39 @@
  * Client-side preview of Farq construction RFQ invite email.
  * Mirrors api/lib/construction/rfq-dispatch.js → rfqEmail() (layout + wording).
  */
+import { arabicDayMonth } from './quoteDeadline'
+import { PRICE_BASIS_AR, requestTypeLabel } from './specCard'
+
+/** The request terms every invite carries (same wording as the API's invite text). */
+export type RfqInviteTerms = {
+  requestType?: string | null
+  city?: string | null
+  district?: string | null
+  quoteDeadline?: string | null
+  quoteDeadlineTime?: string | null
+  urgentReason?: string | null
+}
+
+/**
+ * «نوع الطلب / التسعير / التسليم / آخر موعد للعرض / مستعجل» — one line each,
+ * so a supplier never has to ask about scope, VAT, place or deadline.
+ */
+export function rfqTermsLines(terms: RfqInviteTerms): string[] {
+  const out: string[] = []
+  const scope = requestTypeLabel(terms.requestType)
+  if (scope) out.push(`نوع الطلب: ${scope}`)
+  out.push(`التسعير: ${PRICE_BASIS_AR}`)
+  const place = [terms.city, terms.district].map((v) => String(v ?? '').trim()).filter(Boolean).join(' — ')
+  if (place) out.push(`التسليم: ${place}`)
+  const day = String(terms.quoteDeadline ?? '').trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(day)) {
+    const time = String(terms.quoteDeadlineTime ?? '').trim()
+    out.push(`آخر موعد للعرض: ${arabicDayMonth(day)}${/^\d{2}:\d{2}$/.test(time) ? ` الساعة ${time}` : ''}`)
+  }
+  const urgent = String(terms.urgentReason ?? '').trim()
+  if (urgent) out.push(`مستعجل: ${urgent}`)
+  return out
+}
 
 export type RfqEmailPreviewInput = {
   rfqId: string
@@ -32,6 +65,8 @@ export type RfqEmailPreviewInput = {
   }>
   /** Optional portal token; preview uses a placeholder when missing. */
   portalToken?: string | null
+  /** Scope, price basis, place, deadline, urgency. Omitted on older previews. */
+  terms?: RfqInviteTerms | null
 }
 
 const DEPT: Record<string, { code: string; label_ar: string }> = {
@@ -135,6 +170,10 @@ export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPrevi
   const bodyAr = inviteBodyAr(lines, replyUrl)
   const site = String(input.deliverySite || 'غير محدد')
   const when = arabicDeliveryDate(input.requiredDate)
+  const termsLines = input.terms ? rfqTermsLines(input.terms) : []
+  const termsHtml = termsLines
+    .map((t) => `<div style="color:#${t.startsWith('مستعجل:') ? '8a4b00;font-weight:800' : '2f5650;font-weight:700'};font-size:15px;line-height:1.8">${escapeHtml(t)}</div>`)
+    .join('')
 
   const rows = lines
     .map((line, index) => {
@@ -173,6 +212,8 @@ export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPrevi
             <span style="white-space:pre-line">${escapeHtml(bodyAr)}</span>
           </div>
 
+          ${termsHtml ? `<div style="margin-top:22px;border:1px solid #cfe3de;border-radius:18px;padding:16px 22px">${termsHtml}</div>` : ''}
+
           <div style="margin-top:26px;border-radius:18px;background:#eff8f4;padding:24px 28px">
             <div style="color:#6b817c;font-size:15px">المواد المطلوبة</div>
             <table role="presentation" style="width:100%;border-collapse:collapse"><tbody>${rows}</tbody></table>
@@ -192,6 +233,6 @@ export function buildRfqEmailPreview(input: RfqEmailPreviewInput): RfqEmailPrevi
     from,
     to,
     html,
-    text: `طلب عرض سعر ${reference}\nالقسم: ${department?.label_ar || 'غير محدد'}\nالشركة: ${company}\nالموقع: ${site}\nالبنود: ${lines.length}\n${replyUrl}`,
+    text: `طلب عرض سعر ${reference}\nالقسم: ${department?.label_ar || 'غير محدد'}\nالشركة: ${company}\nالموقع: ${site}\nالبنود: ${lines.length}\n${termsLines.map((t) => `${t}\n`).join('')}${replyUrl}`,
   }
 }

@@ -37,9 +37,10 @@ import { farqSession } from '../api/farqSession'
 import { companyBrand } from '../lib/companyBranding'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
-import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty } from '../lib/sendGuards'
+import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty, requestTermsBlockers, suggestedRequestType, type RequestType } from '../lib/sendGuards'
+import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../lib/quoteDeadline'
 import SiteSupplySection from '../components/SiteSupplySection'
-import { EMPTY_SITE_SUPPLY, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
+import { EMPTY_SITE_SUPPLY, REQUEST_TYPES, requestTypeLabel, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
 
 interface SendModalProps {
   items: BOQItem[]
@@ -176,7 +177,10 @@ export function SendModal({
   const [deadline, setDeadline] = useState(() => {
     const d = new Date()
     d.setDate(d.getDate() + loadCompanyProfile().defaultDeadlineDays)
-    return d.toISOString().slice(0, 10)
+    const saved = d.toISOString().slice(0, 10)
+    // Delivery can never be before the quotes close (see quoteDeadline below).
+    const minimum = minimumQuoteDeadline()
+    return saved < minimum ? minimum : saved
   })
   const [senderCompany, setSenderCompany] = useState(() => loadCompanyProfile().name)
   useEffect(() => {
@@ -189,11 +193,15 @@ export function SendModal({
   }, [])
   const [site, setSite] = useState(() => getSession().matchingCity || loadCompanyProfile().defaultDeliveryCity || DEFAULT_DELIVERY_CITY)
   // Suppliers asked when quotes close and whether installation is included.
-  const [quoteDeadline, setQuoteDeadline] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10)
-  })
+  // At least 5 Saudi business days (lib/quoteDeadline); earlier only as «طلب مستعجل» with a reason.
+  const [quoteDeadline, setQuoteDeadline] = useState(() => minimumQuoteDeadline())
   const [quoteDeadlineTime, setQuoteDeadlineTime] = useState('17:00')
-  const [requestType, setRequestType] = useState<'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'>('SUPPLY_ONLY')
+  const [quoteUrgent, setQuoteUrgent] = useState(false)
+  const [quoteUrgentReason, setQuoteUrgentReason] = useState('')
+  // No silent «توريد فقط»: the buyer chooses. Pre-selected only when every line says «توريد وتركيب».
+  const [requestType, setRequestType] = useState<RequestType | ''>(() =>
+    suggestedRequestType(items.filter((i) => !i.workOnly).map((i) => i.name)),
+  )
   // «الموقع والتوريد»: district, map pin, delivery vs pickup, payment — what
   // suppliers asked back before they would price.
   const [siteSupply, setSiteSupply] = useState<SiteSupply>(EMPTY_SITE_SUPPLY)
@@ -279,8 +287,9 @@ export function SendModal({
     )
   if (badNameItems.length) sendBlockers.push(`اسم غير مقروء في ${badNameItems.length} بندًا (رقم ${badNameItems.slice(0, 5).map((i) => i.id).join('، ')}).`)
   if (!department) sendBlockers.push('اختر القسم الهندسي لهذا الطلب: لم نستطع تحديده من البنود.')
-  if (!quoteDeadline) sendBlockers.push('حدّد آخر موعد لاستلام العروض.')
-  else if (deliveryBeforeDeadline(deadline, quoteDeadline)) sendBlockers.push(DELIVERY_BEFORE_DEADLINE_AR)
+  const deadlineCheck = checkQuoteDeadline({ deadline: quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason })
+  sendBlockers.push(...requestTermsBlockers({ requestType, city: site, quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason }))
+  if (quoteDeadline && deliveryBeforeDeadline(deadline, quoteDeadline)) sendBlockers.push(DELIVERY_BEFORE_DEADLINE_AR)
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
   sendBlockers.push(...siteSupplyProblems(siteSupply))
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
@@ -1065,6 +1074,8 @@ export function SendModal({
         commercial_terms: { currency: 'SAR', payment_terms: 'BANK_TRANSFER', ...siteExtras.commercial_terms },
         quote_deadline: quoteDeadline,
         quote_deadline_time: quoteDeadlineTime,
+        // Only when the deadline is under the minimum and the buyer marked it urgent with a reason.
+        ...quoteUrgencyPayload({ deadline: quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason }),
         request_type: requestType,
         // The person sending is the person signed in. This block used to carry
         // «عميل تجريبي» on every real request.
@@ -1291,12 +1302,15 @@ export function SendModal({
                 </div>
                 <div className="flex items-center justify-between gap-3 px-4 py-2.5">
                   <span className="text-neutral-500">آخر موعد للعروض</span>
-                  <span className="font-semibold text-[#0D1F1D]">{quoteDeadline ? formatArDate(quoteDeadline) : '—'} · <span dir="ltr">{quoteDeadlineTime}</span></span>
+                  <span className={`font-semibold ${deadlineCheck.ok ? 'text-[#0D1F1D]' : 'text-red-700'}`}>
+                    {quoteDeadline ? formatArDate(quoteDeadline) : '—'} · <span dir="ltr">{quoteDeadlineTime}</span>
+                    {deadlineCheck.ok && deadlineCheck.early ? ' · مستعجل' : ''}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 px-4 py-2.5">
                   <span className="text-neutral-500">النوع والقسم</span>
                   <span className="font-semibold text-[#0D1F1D] text-left">
-                    {requestType === 'SUPPLY_ONLY' ? 'توريد فقط' : 'توريد وتركيب'} ·{' '}
+                    <span className={requestType ? '' : 'text-amber-800'}>{requestTypeLabel(requestType) || 'اختر نوع الطلب'}</span> ·{' '}
                     {DEPARTMENT_CHOICES.find((d) => d.key === department)?.label || 'اختر القسم'}
                   </span>
                 </div>
@@ -1321,7 +1335,7 @@ export function SendModal({
                 onRequestType={setRequestType}
               />
 
-              {(showDetails || !department || !quoteDeadline || deliveryBeforeDeadline(deadline, quoteDeadline)) && (
+              {(showDetails || !department || !site.trim() || !requestType || !deadlineCheck.ok || deadlineCheck.early || deliveryBeforeDeadline(deadline, quoteDeadline)) && (
                 <div className="mb-4 rounded-2xl border border-neutral-100 bg-white px-4 pt-4">
               <div className="space-y-3 mb-4">
                 <div>
@@ -1353,18 +1367,60 @@ export function SendModal({
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="text-xs text-neutral-500 mb-1 block">آخر موعد لاستلام العروض</label>
-                  <input type="date" value={quoteDeadline} onChange={(e) => setQuoteDeadline(e.target.value)} className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]" />
+                  <input
+                    type="date"
+                    value={quoteDeadline}
+                    min={riyadhToday()}
+                    onChange={(e) => setQuoteDeadline(e.target.value)}
+                    aria-invalid={!deadlineCheck.ok || undefined}
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] ${deadlineCheck.ok ? 'border-neutral-200' : 'border-red-300'}`}
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-neutral-500 mb-1 block">الساعة</label>
                   <input type="time" value={quoteDeadlineTime} onChange={(e) => setQuoteDeadlineTime(e.target.value)} className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]" />
                 </div>
               </div>
+              <div className="-mt-2 mb-4 text-[11px] text-neutral-500">
+                أقل مهلة للعروض {arabicDayMonth(deadlineCheck.minimum)} (5 أيام عمل، الجمعة والسبت عطلة).
+              </div>
+              {deadlineCheck.early && deadlineCheck.code !== 'PAST' && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                  <label className="flex items-start gap-2 text-sm font-bold text-[#0D1F1D] cursor-pointer">
+                    <input type="checkbox" className="mt-1 accent-[#123F3A]" checked={quoteUrgent} onChange={(e) => setQuoteUrgent(e.target.checked)} />
+                    طلب مستعجل
+                  </label>
+                  {quoteUrgent ? (
+                    <>
+                      <input
+                        value={quoteUrgentReason}
+                        maxLength={URGENT_REASON_MAX}
+                        onChange={(e) => setQuoteUrgentReason(e.target.value)}
+                        placeholder="سبب الاستعجال، مثال: صب الخرسانة يوم الأحد"
+                        className="mt-2 w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] bg-white"
+                      />
+                      <div className="text-[11px] text-neutral-600 mt-1">
+                        يظهر للموردين: مستعجل: {cleanUrgentReason(quoteUrgentReason) || '…'}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-[11px] text-amber-900 mt-1 leading-relaxed">{deadlineCheck.message_ar}</div>
+                  )}
+                </div>
+              )}
+              {deadlineCheck.code === 'PAST' && <div className="-mt-2 mb-4 text-[11px] text-red-700">{deadlineCheck.message_ar}</div>}
               <div className="mb-4">
                 <label className="text-xs text-neutral-500 mb-1 block">نوع الطلب</label>
-                <select value={requestType} onChange={(e) => setRequestType(e.target.value as 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL')} className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] bg-white">
-                  <option value="SUPPLY_ONLY">توريد مواد فقط — دون تركيب</option>
-                  <option value="SUPPLY_AND_INSTALL">توريد وتركيب</option>
+                <select
+                  value={requestType}
+                  onChange={(e) => setRequestType(e.target.value as RequestType)}
+                  aria-invalid={!requestType || undefined}
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A] bg-white ${requestType ? 'border-neutral-200' : 'border-amber-300'}`}
+                >
+                  {!requestType && <option value="">اختر نوع الطلب…</option>}
+                  {REQUEST_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
                 </select>
               </div>
               <div className="mb-4">

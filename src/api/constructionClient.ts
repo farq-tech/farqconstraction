@@ -24,6 +24,7 @@ import {
   supplierPortalHeaders,
 } from './constructionAuth'
 import { CONSTRUCTION_READ_ONLY, isBlockedWrite, READ_ONLY_MESSAGE } from './readOnlyMode'
+import { MIN_QUOTE_BUSINESS_DAYS, PAST_DEADLINE_AR, URGENT_REASON_REQUIRED_AR, tooSoonMessageAr } from '../lib/quoteDeadline'
 import { farqSession } from './farqSession'
 import { cleanSupplierName } from '../lib/supplierName'
 
@@ -187,6 +188,11 @@ export type ConstructionRfq = {
       engineering_department?: unknown
       commercial_terms?: { currency?: string; payment_terms?: string }
       packages?: Array<Record<string, unknown>>
+      quote_deadline?: string | null
+      quote_deadline_time?: string | null
+      request_type?: string | null
+      quote_urgent?: boolean | null
+      quote_urgent_reason?: string | null
     }
   }
   award?: {
@@ -462,7 +468,19 @@ export type PublicSupplierInvite = {
     delivery_mode_ar?: string | null
     shipping_ar?: string | null
     payment_ar?: string | null
+    request_type?: 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL' | string | null
     request_type_ar?: string | null
+    /** The scope the lines actually ask for (prefer over request_type_ar when present). */
+    effective_request_type?: 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL' | string | null
+    effective_request_type_ar?: string | null
+    /** «UNIT_PRICE_EXCL_VAT»: unit price before VAT, the 15% stated separately. */
+    price_basis?: string | null
+    price_basis_ar?: string | null
+    /** Riyadh date «YYYY-MM-DD» and «HH:MM» the quotes close. */
+    quote_deadline?: string | null
+    quote_deadline_time?: string | null
+    /** Set only for a request the buyer marked urgent: «مستعجل: …». */
+    urgent_reason?: string | null
   }
   /** «نقبل السعر بالوحدة اللي تبيع فيها…» */
   sale_unit_note?: string
@@ -872,6 +890,42 @@ async function rawFetch(
   }
 }
 
+export const CONSTRUCTION_QUOTE_DEADLINE_TOO_SOON = 'CONSTRUCTION_QUOTE_DEADLINE_TOO_SOON'
+export const CONSTRUCTION_QUOTE_URGENT_REASON_REQUIRED = 'CONSTRUCTION_QUOTE_URGENT_REASON_REQUIRED'
+export const CONSTRUCTION_QUOTE_DEADLINE_PAST = 'CONSTRUCTION_QUOTE_DEADLINE_PAST'
+export const CONSTRUCTION_REQUEST_TYPE_REQUIRED = 'CONSTRUCTION_REQUEST_TYPE_REQUIRED'
+export const CONSTRUCTION_DELIVERY_CITY_REQUIRED = 'CONSTRUCTION_DELIVERY_CITY_REQUIRED'
+
+/** Friendly Arabic for the request-terms refusals; null for any other code. */
+export function requestTermsErrorAr(code: string, payload?: unknown): string | null {
+  switch (code) {
+    case CONSTRUCTION_QUOTE_DEADLINE_TOO_SOON: {
+      const p = (payload || {}) as { details?: { minimum_quote_deadline?: unknown }; errors?: Array<{ message?: string; details?: { minimum_quote_deadline?: unknown } }>; message?: unknown }
+      const candidates = [
+        p.details?.minimum_quote_deadline,
+        p.errors?.[0]?.details?.minimum_quote_deadline,
+        p.errors?.[0]?.message,
+        p.message,
+      ]
+      for (const c of candidates) {
+        const m = String(c ?? '').match(/\d{4}-\d{2}-\d{2}/)
+        if (m) return tooSoonMessageAr(m[0])
+      }
+      return `أقل مهلة للعروض ${MIN_QUOTE_BUSINESS_DAYS} أيام عمل. إذا الطلب مستعجل فعلاً، فعّل «طلب مستعجل» واكتب السبب.`
+    }
+    case CONSTRUCTION_QUOTE_URGENT_REASON_REQUIRED:
+      return URGENT_REASON_REQUIRED_AR
+    case CONSTRUCTION_QUOTE_DEADLINE_PAST:
+      return PAST_DEADLINE_AR
+    case CONSTRUCTION_REQUEST_TYPE_REQUIRED:
+      return 'اختر نوع الطلب: توريد فقط أو توريد وتركيب'
+    case CONSTRUCTION_DELIVERY_CITY_REQUIRED:
+      return 'اكتب مدينة التسليم'
+    default:
+      return null
+  }
+}
+
 function unwrap<T>(
   response: Response,
   payload: Awaited<ReturnType<typeof parsePayload>>,
@@ -918,6 +972,12 @@ function unwrap<T>(
         response.status,
         String(code),
       )
+    }
+    // The request terms the API now requires before a send (deadline of at
+    // least 5 business days unless urgent, scope, delivery city).
+    const termsMessage = requestTermsErrorAr(String(code), payload)
+    if (termsMessage) {
+      throw new ConstructionApiError(termsMessage, response.status, String(code))
     }
     // Ownership transfer names its own two refusals; the generic 403 below
     // talks about supplier roles, which is not what happened here.

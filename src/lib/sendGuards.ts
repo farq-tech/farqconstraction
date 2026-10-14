@@ -1,5 +1,7 @@
 /** Checks a line must pass before it is put in front of a real supplier. */
 
+import { checkQuoteDeadline } from './quoteDeadline'
+
 /**
  * The quantity as a positive number, or null.
  *
@@ -49,4 +51,43 @@ export function deliveryBeforeDeadline(deliveryDate: string | null | undefined, 
   const deadline = dayOf(quoteDeadline)
   if (!delivery || !deadline) return false
   return delivery < deadline
+}
+
+export type RequestType = 'SUPPLY_ONLY' | 'SUPPLY_AND_INSTALL'
+
+export const REQUEST_TYPE_REQUIRED_AR = 'اختر نوع الطلب: توريد فقط أو توريد وتركيب'
+export const DELIVERY_CITY_REQUIRED_AR = 'اكتب مدينة التسليم'
+
+/**
+ * «توريد وتركيب» as a suggestion, only when every line says so. Anything else
+ * is left for the buyer to choose: suppliers kept quoting on the wrong basis
+ * when the request silently went out as supply only.
+ */
+export function suggestedRequestType(lineTexts: Array<string | null | undefined>): RequestType | '' {
+  const texts = lineTexts.map((t) => String(t ?? '').trim()).filter(Boolean)
+  if (!texts.length) return ''
+  return texts.every((t) => /توريد\s*و\s*تركيب/.test(t)) ? 'SUPPLY_AND_INSTALL' : ''
+}
+
+/**
+ * The request-level terms every supplier asked about before pricing: the
+ * scope, where it goes, and enough time to answer. One message per problem,
+ * in the order the buyer meets the fields.
+ */
+export function requestTermsBlockers(
+  input: {
+    requestType: RequestType | '' | null | undefined
+    city: string | null | undefined
+    quoteDeadline: string | null | undefined
+    urgent?: boolean
+    urgentReason?: string | null
+  },
+  now: Date = new Date(),
+): string[] {
+  const out: string[] = []
+  if (!String(input.city ?? '').trim()) out.push(DELIVERY_CITY_REQUIRED_AR)
+  if (input.requestType !== 'SUPPLY_ONLY' && input.requestType !== 'SUPPLY_AND_INSTALL') out.push(REQUEST_TYPE_REQUIRED_AR)
+  const check = checkQuoteDeadline({ deadline: input.quoteDeadline, urgent: input.urgent, urgentReason: input.urgentReason }, now)
+  if (!check.ok && check.message_ar) out.push(check.message_ar)
+  return out
 }

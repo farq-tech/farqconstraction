@@ -15,6 +15,7 @@ import type {
   TimelineKind,
   TimelineStep,
 } from '../api/supplierPortalClient'
+import { PRICE_BASIS_AR, requestTypeLabel } from './specCard'
 
 // ─── Dates: Riyadh time, Arabic months, Latin digits (as the design) ─────
 
@@ -542,4 +543,42 @@ export function supersededNotice(invite: Pick<PublicSupplierInvite, 'revision'> 
 /** Where «افتح النسخة الجديدة» goes: this page with the new link token. */
 export function currentVersionHref(pathname: string, token: string): string {
   return `${pathname || '/'}?supplier_token=${encodeURIComponent(token)}`
+}
+
+// ─── «شروط العرض»: what the supplier is pricing, stated once ─────────────
+
+/**
+ * The terms suppliers kept asking about before they priced — supply only or
+ * with installation, VAT in or out, where it goes, and by when — as label and
+ * value rows for the top of the offer page. Older API responses have no price
+ * basis or deadline under `site_supply`; the same price basis string and the
+ * request's own deadline stand in for them.
+ */
+export function offerTermsRows(invite: PublicSupplierInvite, deadline?: string | null): Array<[string, string]> {
+  const site = invite.site_supply || {}
+  const rows: Array<[string, string]> = []
+  // effective_*: «توريد وتركيب» when the lines say so, whatever the request-level choice.
+  const scope = pickString(
+    site.effective_request_type_ar,
+    requestTypeLabel(site.effective_request_type),
+    site.request_type_ar,
+    requestTypeLabel(site.request_type || invite.request_type),
+  )
+  if (scope) rows.push(['نوع الطلب', scope])
+  rows.push(['التسعير', pickString(site.price_basis_ar) || PRICE_BASIS_AR])
+  const place = [pickString(site.city), pickString(site.district)].filter(Boolean).join(' — ')
+  if (place) rows.push(['التسليم', place])
+  const day = pickString(site.quote_deadline)
+  const time = pickString(site.quote_deadline_time)
+  let due = ''
+  if (day && /^\d{4}-\d{2}-\d{2}/.test(day)) {
+    const iso = `${day.slice(0, 10)}T${time && /^\d{2}:\d{2}$/.test(time) ? time : '12:00'}:00+03:00`
+    due = time ? `${formatDayMonthAr(iso)} الساعة ${time}` : formatDayMonthAr(iso)
+  } else if (deadline) {
+    due = formatDateTimeAr(deadline)
+  }
+  if (due) rows.push(['آخر موعد للعرض', due])
+  const urgent = pickString(site.urgent_reason)
+  if (urgent) rows.push(['مستعجل', urgent])
+  return rows
 }
