@@ -1,5 +1,5 @@
 {
- "version": "cpo-v24",
+ "version": "cpo-v27",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -5414,8 +5414,7 @@
         "zinc",
         "مواسير",
         "pipe",
-        "resin anchor",
-        "تثبيت"
+          "تثبيت"
        ],
        "note": "Bare epoxy names a floor system only when no other epoxy PRODUCT (adhesive, grout, anchor, injection, primer, mortar) is named."
       }
@@ -5476,7 +5475,6 @@
       "zinc",
       "مواسير",
       "pipe",
-      "resin anchor",
       "تثبيت"
      ],
      "note": "Mirrored from epoxy_floor_coating: the ancestor decides «ايبوكسي» too, so it must decline the same lines."
@@ -21230,7 +21228,6 @@
     "مسامير",
     "anchor bolt",
     "مسمار تثبيت",
-    "chemical anchor",
     "برشام",
     "rivet",
     "صاموله",
@@ -21308,7 +21305,6 @@
       "مثبتات ميكانيكيه",
       "sleeve anchor",
       "drop-in anchor",
-      "chemical anchor",
       "through bolt anchor",
       "expansion anchor",
       "انكر تثبيت",
@@ -21319,9 +21315,6 @@
       "انكر بولتات",
       "انكر ميكانيكي",
       "anchor bolts",
-      "كيميكال انكر",
-      "انكر كيميكال",
-      "resin anchor",
       "anchor bolt",
       "anchor stud",
       "anchor bolts M16",
@@ -28708,7 +28701,17 @@
       "مثبت كيميايي",
       "رزين تثبيت",
       "hilti re 500",
-      "هيلتي ri 500"
+      "هيلتي ri 500",
+      "chemical anchor resin",
+      "chemical anchoring resin",
+      "resin anchor adhesive",
+      "resin anchor",
+      "chemical anchor",
+      "كيميكال انكر",
+      "انكر كيميكال",
+      "epoxy anchor adhesive",
+      "راتنج تثبيت كيميائي",
+      "ايبوكسي انكر كيميكال"
      ]
     },
     {
