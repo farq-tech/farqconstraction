@@ -255,12 +255,18 @@ export function ComparisonView({ navigate }: NavProps) {
                     const quoteVersionId = String(cell?.quote_version_id || '')
                     const supplierId = String(r.supplier.id || '')
                     const reviewKey = `${line.line_key}|${supplierId}|${quoteVersionId}`
-                    const lastFitReview = [...fitReviews].reverse().find((event) =>
-                      ['QUOTE_MATCHED', 'QUOTE_MISMATCHED'].includes(event.event_type)
-                      && String(event.supplier_id || '') === supplierId
-                      && String(event.details?.line_key || '') === String(line.line_key || '')
-                      && String(event.details?.quote_version_id || '') === quoteVersionId,
-                    )
+                    const lastFitReview = fitReviews.reduce<ConstructionSupplierOutcomeEvent | undefined>((latest, event) => {
+                      const matches = ['QUOTE_MATCHED', 'QUOTE_MISMATCHED'].includes(event.event_type)
+                        && String(event.supplier_id || '') === supplierId
+                        && String(event.details?.line_key || '') === String(line.line_key || '')
+                        && String(event.details?.quote_version_id || '') === quoteVersionId
+                      if (!matches) return latest
+                      const eventTime = Date.parse(event.created_at || '')
+                      const latestTime = Date.parse(latest?.created_at || '')
+                      return !latest || (Number.isFinite(eventTime) && (!Number.isFinite(latestTime) || eventTime > latestTime))
+                        ? event
+                        : latest
+                    }, undefined)
                     return (
                       <td key={String(r.supplier.id)} className={`px-4 py-3 ${held ? 'bg-amber-50/50' : ''}`}>
                         {held ? (
