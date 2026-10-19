@@ -2693,3 +2693,15 @@ describe('cpo-v16: fuel tanks, indoor signage, parking sensors, and a ceiling th
     expect(resolve('بكابلات مثبت فوق السقف المستعار').intent).not.toBe('acoustic_ceiling_tile')
   })
 })
+
+/** cpo-v34: the Saudi colloquial BOQ noun «بلك» names concrete block. */
+describe('cpo-v34: bare colloquial concrete-block name', () => {
+  it('resolves «بلك» to the concrete-block supplier pool', () => {
+    expect(resolveOntology('بلك').intent).toBe('concrete_block')
+  })
+  it('keeps more specific block types in their own pools', () => {
+    expect(resolveOntology('بلك خفيف سيبوركس').intent).toBe('lightweight_block')
+    expect(resolveOntology('بلك عازل').intent).toBe('insulated_block')
+    expect(resolveOntology('بلك بركاني').intent).toBe('lightweight_block')
+  })
+})
