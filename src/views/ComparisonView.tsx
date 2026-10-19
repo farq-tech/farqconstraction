@@ -290,8 +290,20 @@ export function ComparisonView({ navigate }: NavProps) {
                         {priced && quoteVersionId && line.line_key && (canReviewFit || lastFitReview) && (
                           <div className="mt-2 border-t border-neutral-100 pt-2">
                             {lastFitReview ? (
-                              <div className={`text-[11px] font-semibold ${lastFitReview.event_type === 'QUOTE_MATCHED' ? 'text-olive-700' : 'text-amber-800'}`}>
-                                {lastFitReview.event_type === 'QUOTE_MATCHED' ? 'راجعه المشتري: مناسب للبند' : 'راجعه المشتري: غير مناسب'}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className={`text-[11px] font-semibold ${lastFitReview.event_type === 'QUOTE_MATCHED' ? 'text-olive-700' : 'text-amber-800'}`}>
+                                  {lastFitReview.event_type === 'QUOTE_MATCHED' ? 'راجعه المشتري: مناسب للبند' : 'راجعه المشتري: غير مناسب'}
+                                </div>
+                                {canReviewFit && (
+                                  <button
+                                    disabled={Boolean(reviewBusyKey)}
+                                    onClick={() => {
+                                      setReviewingKey(reviewKey)
+                                      setReviewReason(lastFitReview.event_type === 'QUOTE_MISMATCHED' ? String(lastFitReview.details?.reason || '') : '')
+                                    }}
+                                    className="text-[10px] font-semibold text-[#45645f] underline underline-offset-2 disabled:opacity-40"
+                                  >تصحيح الحكم</button>
+                                )}
                               </div>
                             ) : canReviewFit ? (
                               <div className="flex flex-wrap gap-1.5">
@@ -309,8 +321,18 @@ export function ComparisonView({ navigate }: NavProps) {
                             ) : <div className="text-[10px] text-neutral-400">مراجعة الملاءمة غير متاحة لحسابك</div>}
                             {reviewingKey === reviewKey && (
                               <div className="mt-2 space-y-1.5">
+                                {lastFitReview && (
+                                  <div className="flex items-center justify-between gap-2 text-[10px] text-neutral-500">
+                                    <span>سيُحفظ التصحيح كسجل جديد ويعتمد التقرير أحدث حكم.</span>
+                                    <button
+                                      disabled={reviewBusyKey === reviewKey}
+                                      onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MATCHED', 'صحح المشتري مراجعته وأكد ملاءمة العرض للبند.')}
+                                      className="shrink-0 rounded-lg border border-olive-200 px-2 py-1 font-bold text-olive-700 disabled:opacity-40"
+                                    >احفظ كمناسب</button>
+                                  </div>
+                                )}
                                 <label className="block text-[10px] font-semibold text-neutral-600" htmlFor={`fit-reason-${line.id}-${supplierId}`}>
-                                  ما سبب عدم ملاءمته؟
+                                  {lastFitReview ? 'سبب عدم الملاءمة (عدّله إذا لزم)' : 'ما سبب عدم ملاءمته؟'}
                                 </label>
                                 <input
                                   id={`fit-reason-${line.id}-${supplierId}`}
@@ -325,7 +347,7 @@ export function ComparisonView({ navigate }: NavProps) {
                                     disabled={reviewReason.trim().length < 2 || reviewBusyKey === reviewKey}
                                     onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MISMATCHED', reviewReason)}
                                     className="rounded-lg bg-olive-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40"
-                                  >{reviewBusyKey === reviewKey ? 'جارٍ الحفظ…' : 'احفظ المراجعة'}</button>
+                                  >{reviewBusyKey === reviewKey ? 'جارٍ الحفظ…' : lastFitReview ? 'احفظ كغير مناسب' : 'احفظ المراجعة'}</button>
                                   <button onClick={() => setReviewingKey(null)} className="px-2 py-1 text-[10px] font-semibold text-neutral-500">إلغاء</button>
                                 </div>
                               </div>
