@@ -48,6 +48,9 @@ function num(value: unknown): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
 }
+function matchIntervalLabel(interval?: { low: number; high: number } | null): string | null {
+  return interval ? `فاصل 95%: ${interval.low}–${interval.high}%` : null
+}
 function money(value: unknown): string {
   const n = num(value)
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 0 })} ريال`
@@ -313,7 +316,9 @@ export function ReportsView({ navigate }: NavProps) {
           <Kpi
             value={matchingQuality?.fit_review.match_rate == null ? '—' : `${matchingQuality.fit_review.match_rate}%`}
             label="ملاءمة العروض التي راجعها المشتري"
-            hint={matchingQuality?.fit_review.reviewed ? `من ${matchingQuality.fit_review.reviewed} مراجعة صريحة` : 'ابدأ من مقارنة العروض واضغط «مناسب» أو «غير مناسب»'}
+            hint={matchingQuality?.fit_review.reviewed
+              ? [`من ${matchingQuality.fit_review.reviewed} مراجعة صريحة`, matchIntervalLabel(matchingQuality.fit_review.match_rate_interval_95)].filter(Boolean).join(' · ')
+              : 'ابدأ من مقارنة العروض واضغط «مناسب» أو «غير مناسب»'}
           />
           <Kpi value={matchingQuality?.fit_review.matched ?? '—'} label="مراجعات أكدت الملاءمة" />
           <Kpi value={matchingQuality?.fit_review.mismatched ?? '—'} label="مراجعات رفضت الملاءمة" hint={matchingQuality?.fit_review.mismatched ? 'استخدم أسباب الرفض لتحسين قواعد الموردين والتغطية' : undefined} />
@@ -373,7 +378,7 @@ export function ReportsView({ navigate }: NavProps) {
                     <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
                     <td className="px-3 py-2 tabular-nums">{row.matched}</td>
                     <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
-                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}{matchIntervalLabel(row.match_rate_interval_95) ? <span className="block text-[10px] text-neutral-500">{matchIntervalLabel(row.match_rate_interval_95)}</span> : null}</td>
                   </tr>
                 ))}
               </tbody>
@@ -394,7 +399,7 @@ export function ReportsView({ navigate }: NavProps) {
                     <td className="px-3 py-2 font-semibold text-olive-900">{row.category}</td>
                     <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
                     <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
-                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}{matchIntervalLabel(row.match_rate_interval_95) ? <span className="block text-[10px] text-neutral-500">{matchIntervalLabel(row.match_rate_interval_95)}</span> : null}</td>
                   </tr>
                 ))}
               </tbody>
@@ -419,7 +424,7 @@ export function ReportsView({ navigate }: NavProps) {
                     </td>
                     <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
                     <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
-                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}{matchIntervalLabel(row.match_rate_interval_95) ? <span className="block text-[10px] text-neutral-500">{matchIntervalLabel(row.match_rate_interval_95)}</span> : null}</td>
                   </tr>
                 ))}
               </tbody>
