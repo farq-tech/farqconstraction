@@ -3323,7 +3323,7 @@ export type ConstructionMatchingQuality = {
     by_lane: Array<{ lane: string; confidence: string; ontology_version: string | null; grade_version: string | null; map_hash: string | null; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
     categories: Array<{ category: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
     suppliers?: Array<{ supplier_id: string; supplier_name: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
-    mismatch_reasons: Array<{ reason: string | null; reports: number }>
+    mismatch_reasons: Array<{ reason_code: string; reason: string | null; reports: number }>
   }
   note: string
 }
@@ -3337,11 +3337,12 @@ export async function getConstructionMatchingQuality(options: { days?: number | 
 }
 
 export type ConstructionSupplierFitVerdict = 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED'
+export type ConstructionSupplierFitMismatchReason = 'PRODUCT_MISMATCH' | 'SPECIFICATION_MISMATCH' | 'SUPPLIER_CAPABILITY' | 'SERVICE_AREA' | 'OTHER'
 
 /** Record the buyer's fit review against a current supplier quote version and request line. */
 export async function recordConstructionSupplierFitReview(
   rfqId: string,
-  body: { supplier_id: string; quote_version_id: string; line_key: string; event_type: ConstructionSupplierFitVerdict; reason: string },
+  body: { supplier_id: string; quote_version_id: string; line_key: string; event_type: ConstructionSupplierFitVerdict; reason: string; reason_code?: ConstructionSupplierFitMismatchReason },
 ) {
   return request<{ id: string; event_type: ConstructionSupplierFitVerdict; created_at: string; snapshot: Record<string, unknown> }>(
     `/api/construction/rfqs/${encodeURIComponent(rfqId)}/supplier-outcomes`,

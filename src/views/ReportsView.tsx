@@ -35,6 +35,7 @@ const BUCKET_TONE: Record<string, string> = { H1: 'bg-olive-700', H4: 'bg-olive-
 const SUPPLIERS_SHOWN = 25
 const STATUS_AR: Record<string, string> = { SENT: 'بانتظار العروض', PARTIALLY_SENT: 'أُرسل جزئيًا', CLOSED: 'مغلق', DRAFT_NOT_SENT: 'لم يُرسل', DISPATCHING: 'جارٍ الإرسال', CANCELLED: 'ملغى' }
 const MATCH_LANE_AR: Record<string, string> = { PREFERRED: 'مورد مفضّل', LEARNED: 'اختيار سابق', OUTCOME: 'نتيجة جولة سابقة', MATCH: 'مطابقة الكتالوج', MAP: 'مطابقة المادة', MAP_FAMILY: 'نشاط المادة', PLAN: 'خطة الموردين', AI: 'اقتراح ذكي', FAMILY: 'نشاط عام', EVIDENCE: 'دليل منتج' }
+const MATCH_REASON_AR: Record<string, string> = { PRODUCT_MISMATCH: 'منتج مختلف عن البند', SPECIFICATION_MISMATCH: 'المواصفات أو المقاس لا يطابق', SUPPLIER_CAPABILITY: 'قدرة المورد لا تغطي المطلوب', SERVICE_AREA: 'الموقع خارج نطاق الخدمة', OTHER: 'سبب آخر أو مراجعة قديمة' }
 
 function num(value: unknown): number {
   const n = Number(value)
@@ -315,8 +316,11 @@ export function ReportsView({ navigate }: NavProps) {
             <h3 className="text-sm font-bold text-olive-900 mb-2">أسباب عدم الملاءمة المتكررة</h3>
             <div className="space-y-2">
               {matchingQuality.fit_review.mismatch_reasons.map((row, index) => (
-                <div key={`${row.reason}-${index}`} className="flex items-start justify-between gap-4 text-xs">
-                  <span className="text-neutral-700">{row.reason || 'لم يُذكر السبب'}</span>
+                <div key={`${row.reason_code}-${index}`} className="flex items-start justify-between gap-4 text-xs">
+                  <span className="text-neutral-700">
+                    <span className="font-semibold">{MATCH_REASON_AR[row.reason_code] || row.reason_code}</span>
+                    {row.reason ? <span className="block mt-0.5 text-[10px] text-neutral-500">مثال: {row.reason}</span> : null}
+                  </span>
                   <span className="font-bold tabular-nums text-amber-800">{row.reports}</span>
                 </div>
               ))}

@@ -7,6 +7,7 @@ import {
   listBuyerRfqs,
   recordConstructionSupplierFitReview,
   type ConstructionComparison,
+  type ConstructionSupplierFitMismatchReason,
   type ConstructionSupplierOutcomeEvent,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
@@ -45,6 +46,7 @@ export function ComparisonView({ navigate }: NavProps) {
   const [fitReviews, setFitReviews] = useState<ConstructionSupplierOutcomeEvent[]>([])
   const [reviewingKey, setReviewingKey] = useState<string | null>(null)
   const [reviewReason, setReviewReason] = useState('')
+  const [reviewReasonCode, setReviewReasonCode] = useState<ConstructionSupplierFitMismatchReason | ''>('')
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null)
   const [reviewError, setReviewError] = useState<string | null>(null)
   const [canReviewFit, setCanReviewFit] = useState(false)
@@ -144,6 +146,7 @@ export function ComparisonView({ navigate }: NavProps) {
     quoteVersionId: string,
     eventType: 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED',
     reason: string,
+    reasonCode?: ConstructionSupplierFitMismatchReason,
   ) => {
     if (!selectedRfqId || !line.line_key || !supplierId || !quoteVersionId) return
     const key = `${line.line_key}|${supplierId}|${quoteVersionId}`
@@ -156,16 +159,18 @@ export function ComparisonView({ navigate }: NavProps) {
         line_key: line.line_key,
         event_type: eventType,
         reason: reason.trim(),
+        ...(eventType === 'QUOTE_MISMATCHED' ? { reason_code: reasonCode || 'OTHER' } : {}),
       })
       setFitReviews((previous) => [...previous, {
         id: saved.id,
         event_type: saved.event_type,
         created_at: saved.created_at,
         supplier_id: supplierId,
-        details: { line_key: line.line_key, quote_version_id: quoteVersionId, reason: reason.trim() },
+        details: { line_key: line.line_key, quote_version_id: quoteVersionId, reason: reason.trim(), ...(eventType === 'QUOTE_MISMATCHED' ? { reason_code: reasonCode || 'OTHER' } : {}) },
       }])
       setReviewingKey(null)
       setReviewReason('')
+      setReviewReasonCode('')
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : 'تعذّر حفظ مراجعة المطابقة')
     } finally {
@@ -300,6 +305,7 @@ export function ComparisonView({ navigate }: NavProps) {
                                     onClick={() => {
                                       setReviewingKey(reviewKey)
                                       setReviewReason(lastFitReview.event_type === 'QUOTE_MISMATCHED' ? String(lastFitReview.details?.reason || '') : '')
+                                      setReviewReasonCode(lastFitReview.event_type === 'QUOTE_MISMATCHED' ? String(lastFitReview.details?.reason_code || 'OTHER') as ConstructionSupplierFitMismatchReason : '')
                                     }}
                                     className="text-[10px] font-semibold text-[#45645f] underline underline-offset-2 disabled:opacity-40"
                                   >تصحيح الحكم</button>
@@ -314,7 +320,7 @@ export function ComparisonView({ navigate }: NavProps) {
                                 >مناسب</button>
                                 <button
                                   disabled={Boolean(reviewBusyKey)}
-                                  onClick={() => { setReviewingKey(reviewKey); setReviewReason('') }}
+                                  onClick={() => { setReviewingKey(reviewKey); setReviewReason(''); setReviewReasonCode('') }}
                                   className="rounded-lg border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-800 disabled:opacity-40"
                                 >غير مناسب</button>
                               </div>
@@ -331,8 +337,24 @@ export function ComparisonView({ navigate }: NavProps) {
                                     >احفظ كمناسب</button>
                                   </div>
                                 )}
+                                <label className="block text-[10px] font-semibold text-neutral-600" htmlFor={`fit-reason-code-${line.id}-${supplierId}`}>
+                                  {lastFitReview ? 'تصنيف سبب عدم الملاءمة' : 'صنّف سبب عدم الملاءمة'}
+                                </label>
+                                <select
+                                  id={`fit-reason-code-${line.id}-${supplierId}`}
+                                  value={reviewReasonCode}
+                                  onChange={(event) => setReviewReasonCode(event.target.value as ConstructionSupplierFitMismatchReason | '')}
+                                  className="w-full rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-[11px] outline-none focus:border-olive-500"
+                                >
+                                  <option value="">اختر التصنيف</option>
+                                  <option value="PRODUCT_MISMATCH">منتج مختلف عن البند</option>
+                                  <option value="SPECIFICATION_MISMATCH">المواصفات أو المقاس لا يطابق</option>
+                                  <option value="SUPPLIER_CAPABILITY">قدرة المورد لا تغطي المطلوب</option>
+                                  <option value="SERVICE_AREA">الموقع خارج نطاق الخدمة</option>
+                                  <option value="OTHER">سبب آخر</option>
+                                </select>
                                 <label className="block text-[10px] font-semibold text-neutral-600" htmlFor={`fit-reason-${line.id}-${supplierId}`}>
-                                  {lastFitReview ? 'سبب عدم الملاءمة (عدّله إذا لزم)' : 'ما سبب عدم ملاءمته؟'}
+                                  {lastFitReview ? 'تفاصيل السبب (عدّلها إذا لزم)' : 'تفاصيل إضافية'}
                                 </label>
                                 <input
                                   id={`fit-reason-${line.id}-${supplierId}`}
@@ -344,8 +366,8 @@ export function ComparisonView({ navigate }: NavProps) {
                                 />
                                 <div className="flex gap-1.5">
                                   <button
-                                    disabled={reviewReason.trim().length < 2 || reviewBusyKey === reviewKey}
-                                    onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MISMATCHED', reviewReason)}
+                                    disabled={!reviewReasonCode || reviewReason.trim().length < 2 || reviewBusyKey === reviewKey}
+                                    onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MISMATCHED', reviewReason, reviewReasonCode as ConstructionSupplierFitMismatchReason)}
                                     className="rounded-lg bg-olive-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40"
                                   >{reviewBusyKey === reviewKey ? 'جارٍ الحفظ…' : lastFitReview ? 'احفظ كغير مناسب' : 'احفظ المراجعة'}</button>
                                   <button onClick={() => setReviewingKey(null)} className="px-2 py-1 text-[10px] font-semibold text-neutral-500">إلغاء</button>
