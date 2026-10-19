@@ -141,6 +141,7 @@ export function ReportsView({ navigate }: NavProps) {
   const [rfqId, setRfqId] = useState<string | null>(null)
   const [data, setData] = useState<ConstructionReports | null>(null)
   const [matchingQuality, setMatchingQuality] = useState<ConstructionMatchingQuality | null>(null)
+  const [matchingQualityUnavailable, setMatchingQualityUnavailable] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [drill, setDrill] = useState<{ title: string; lines: ConstructionReportLine[] } | null>(null)
   const [sortKey, setSortKey] = useState<'replied' | 'median' | 'quotes' | 'wins' | 'rfqs'>('replied')
@@ -163,6 +164,7 @@ export function ReportsView({ navigate }: NavProps) {
     let alive = true
     setData(null)
     setMatchingQuality(null)
+    setMatchingQualityUnavailable(false)
     setError(null)
     getConstructionReports({ days, rfqId })
       .then((r) => alive && setData(r))
@@ -173,7 +175,11 @@ export function ReportsView({ navigate }: NavProps) {
       ))
     getConstructionMatchingQuality({ days, rfqId })
       .then((r) => alive && setMatchingQuality(r))
-      .catch(() => alive && setMatchingQuality(null))
+      .catch(() => {
+        if (!alive) return
+        setMatchingQuality(null)
+        setMatchingQualityUnavailable(true)
+      })
     return () => {
       alive = false
     }
@@ -293,6 +299,8 @@ export function ReportsView({ navigate }: NavProps) {
       </Section>
 
       <Section title="جودة مطابقة الموردين" note="الملاءمة البشرية فقط هي مقياس الصحة؛ الرد أو الصمت ليس حكمًا على المطابقة">
+        {matchingQuality ? (
+          <>
         <div className="grid sm:grid-cols-3 gap-3 mb-3">
           <Kpi
             value={matchingQuality?.fit_review.match_rate == null ? '—' : `${matchingQuality.fit_review.match_rate}%`}
@@ -404,6 +412,14 @@ export function ReportsView({ navigate }: NavProps) {
           <p className="rounded-2xl border border-neutral-100 bg-white p-4 text-xs text-neutral-500">سجل الاقتراحات غير متاح في هذه البيئة؛ تظهر مراجعات الملاءمة عند توفرها.</p>
         ) : null}
         {matchingQuality && <p className="mt-2 text-[11px] text-neutral-500">{matchingQuality.note}</p>}
+          </>
+        ) : matchingQualityUnavailable ? (
+          <p className="rounded-2xl border border-amber-100 bg-white p-4 text-xs text-neutral-600">
+            تعذّر تحميل قياس جودة المطابقة في هذه البيئة. أُبقيت التقارير الأخرى كما هي؛ أعد المحاولة بعد توفر خدمة المطابقة.
+          </p>
+        ) : (
+          <p className="rounded-2xl border border-neutral-100 bg-white p-4 text-xs text-neutral-500">جارٍ تحميل قياس جودة المطابقة…</p>
+        )}
       </Section>
 
       <Section title="طلبات التسعير" note="كل صف طلب أو دفعة تسعير، وقد تتبع عدة طلبات الكراسة نفسها. اضغط الطلب لفتح ملفه.">
