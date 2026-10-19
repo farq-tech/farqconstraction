@@ -36,6 +36,13 @@ const SUPPLIERS_SHOWN = 25
 const STATUS_AR: Record<string, string> = { SENT: 'بانتظار العروض', PARTIALLY_SENT: 'أُرسل جزئيًا', CLOSED: 'مغلق', DRAFT_NOT_SENT: 'لم يُرسل', DISPATCHING: 'جارٍ الإرسال', CANCELLED: 'ملغى' }
 const MATCH_LANE_AR: Record<string, string> = { PREFERRED: 'مورد مفضّل', LEARNED: 'اختيار سابق', OUTCOME: 'نتيجة جولة سابقة', MATCH: 'مطابقة الكتالوج', MAP: 'مطابقة المادة', MAP_FAMILY: 'نشاط المادة', PLAN: 'خطة الموردين', AI: 'اقتراح ذكي', FAMILY: 'نشاط عام', EVIDENCE: 'دليل منتج' }
 const MATCH_REASON_AR: Record<string, string> = { PRODUCT_MISMATCH: 'منتج مختلف عن البند', SPECIFICATION_MISMATCH: 'المواصفات أو المقاس لا يطابق', SUPPLIER_CAPABILITY: 'قدرة المورد لا تغطي المطلوب', SERVICE_AREA: 'الموقع خارج نطاق الخدمة', OTHER: 'سبب آخر أو مراجعة قديمة' }
+const MATCH_ACTION_AR: Record<string, string> = {
+  PRODUCT_MISMATCH: 'راجع تصنيف البند أو قاعدة المطابقة',
+  SPECIFICATION_MISMATCH: 'راجع مطابقة المواصفات',
+  SUPPLIER_CAPABILITY: 'راجع تغطية قدرة المورد',
+  SERVICE_AREA: 'راجع تغطية المنطقة',
+  OTHER: 'تحقق من الحالة يدويًا',
+}
 
 function num(value: unknown): number {
   const n = Number(value)
@@ -332,7 +339,7 @@ export function ReportsView({ navigate }: NavProps) {
             <div className="px-4 pt-3 text-xs font-bold text-olive-900">أنماط تحتاج مراجعة في قواعد المطابقة أو تغطية الموردين</div>
             <table className="w-full text-sm">
               <thead><tr className="text-[11px] text-olive-700">
-                {['الفئة', 'المورد', 'سبب عدم الملاءمة', 'حالات عدم الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+                {['الفئة', 'المورد', 'سبب عدم الملاءمة', 'مسار المراجعة المقترح', 'حالات عدم الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
               </tr></thead>
               <tbody className="divide-y divide-olive-50">
                 {matchingQuality.fit_review.repeated_patterns?.map((row) => (
@@ -340,6 +347,7 @@ export function ReportsView({ navigate }: NavProps) {
                     <td className="px-3 py-2 text-xs font-semibold text-olive-900">{categoryLabel(row.category)}</td>
                     <td className="px-3 py-2 text-xs">{row.supplier_name}</td>
                     <td className="px-3 py-2 text-xs">{MATCH_REASON_AR[row.reason_code] || row.reason_code}</td>
+                    <td className="px-3 py-2 text-xs text-olive-700">{MATCH_ACTION_AR[row.reason_code] || MATCH_ACTION_AR.OTHER}</td>
                     <td className="px-3 py-2 tabular-nums text-amber-800">{row.reports}</td>
                   </tr>
                 ))}
