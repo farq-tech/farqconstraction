@@ -98,8 +98,23 @@ export function ComparisonView({ navigate }: NavProps) {
         if (!cancelled) {
           setData(result)
           getConstructionSupplierOutcomes(rfqId)
-            .then((outcomes) => { if (!cancelled) setFitReviews(outcomes.events || []) })
-            .catch(() => { if (!cancelled) setFitReviews([]) })
+            .then((outcomes) => {
+              if (cancelled) return
+              // A buyer can save a review while this initial read is still in
+              // flight. Keep those optimistic POST results when the older GET
+              // response arrives, while deduplicating events already present.
+              setFitReviews((previous) => {
+                const merged = new Map((outcomes.events || []).map((event) => [event.id, event]))
+                for (const event of previous) {
+                  if (!merged.has(event.id)) merged.set(event.id, event)
+                }
+                return [...merged.values()]
+              })
+            })
+            .catch(() => {
+              // The effect already cleared stale RFQ data; preserve any local
+              // reviews saved while this read was in flight.
+            })
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'تعذّر تحميل المقارنة')
