@@ -49,6 +49,7 @@ export function ComparisonView({ navigate }: NavProps) {
   const [reviewReasonCode, setReviewReasonCode] = useState<ConstructionSupplierFitMismatchReason | ''>('')
   const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null)
   const [reviewError, setReviewError] = useState<string | null>(null)
+  const [reviewErrorKey, setReviewErrorKey] = useState<string | null>(null)
   const [canReviewFit, setCanReviewFit] = useState(false)
   const isAdmin = useConstructionAdmin()
   // «بدائل مكافئة» is an add-on: off unless the server says this account has it.
@@ -167,6 +168,7 @@ export function ComparisonView({ navigate }: NavProps) {
     const key = `${line.line_key}|${supplierId}|${quoteVersionId}`
     setReviewBusyKey(key)
     setReviewError(null)
+    setReviewErrorKey(null)
     try {
       const saved = await recordConstructionSupplierFitReview(selectedRfqId, {
         supplier_id: supplierId,
@@ -188,6 +190,7 @@ export function ComparisonView({ navigate }: NavProps) {
       setReviewReasonCode('')
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : 'تعذّر حفظ مراجعة المطابقة')
+      setReviewErrorKey(key)
     } finally {
       setReviewBusyKey(null)
     }
@@ -395,7 +398,7 @@ export function ComparisonView({ navigate }: NavProps) {
                                 </div>
                               </div>
                             )}
-                            {reviewError && reviewingKey === reviewKey && <div className="mt-1 text-[10px] text-red-700">{reviewError}</div>}
+                            {reviewError && reviewErrorKey === reviewKey && <div className="mt-1 text-[10px] text-red-700">{reviewError}</div>}
                           </div>
                         )}
                       </td>
