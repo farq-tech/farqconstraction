@@ -19,6 +19,7 @@ import {
   type ConstructionReportSupplier,
   type ConstructionMatchingQuality,
 } from '../api/constructionClient'
+import { intentLabelAr } from '../lib/intentLabels'
 
 /**
  * Procurement intelligence. Every number on this page is counted from a record
@@ -312,6 +313,55 @@ export function ReportsView({ navigate }: NavProps) {
       <Section title="جودة مطابقة الموردين" note="الملاءمة البشرية فقط هي مقياس الصحة؛ الرد أو الصمت ليس حكمًا على المطابقة">
         {matchingQuality ? (
           <>
+        {matchingQuality.buyer_choice && (
+          <div className="bg-white border border-olive-100 rounded-2xl p-4 mb-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-sm font-bold text-olive-900">تصحيحات اختيار الموردين</h3>
+                <p className="text-[11px] text-neutral-500 mt-1">اختيار المورد أو استبعاده يعلّم تفضيل شركتك، لكنه لا يثبت ملاءمة عرضه للبند.</p>
+              </div>
+              {matchingQuality.buyer_choice.status === 'AVAILABLE' && (
+                <div className="flex gap-2 text-[11px] font-semibold">
+                  <span className="rounded-full bg-olive-50 px-2.5 py-1 text-olive-800">اختيار {matchingQuality.buyer_choice.chosen ?? 0}</span>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-800">استبعاد {matchingQuality.buyer_choice.rejected ?? 0}</span>
+                  <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-neutral-700">إجمالي {matchingQuality.buyer_choice.decisions ?? 0}</span>
+                </div>
+              )}
+            </div>
+            {matchingQuality.buyer_choice.status !== 'AVAILABLE' ? (
+              <p className="text-xs text-neutral-500">
+                {matchingQuality.buyer_choice.status === 'NOT_FILTERABLE_BY_RFQ'
+                  ? 'تصحيحات الموردين لا تُفلتر حسب طلب التسعير؛ اعرض التقرير على مستوى الشركة.'
+                  : 'سجل تصحيحات اختيار الموردين غير متاح في هذا الإصدار.'}
+              </p>
+            ) : matchingQuality.buyer_choice.repeated_patterns.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-[11px] text-olive-700">
+                    {['المادة أو البند', 'مرات التصحيح', 'اختير', 'استُبعد', 'موردون', 'آخر تصحيح'].map((label) => <th key={label} className="text-right font-semibold px-2 py-2 whitespace-nowrap">{label}</th>)}
+                  </tr></thead>
+                  <tbody className="divide-y divide-olive-50">
+                    {matchingQuality.buyer_choice.repeated_patterns.map((row) => (
+                      <tr key={`${row.subject_kind}-${row.subject_key}`}>
+                        <td className="px-2 py-2 font-semibold text-olive-900">
+                          <span className="block text-[10px] text-neutral-400">{row.subject_kind === 'INTENT' ? 'مادة' : row.subject_kind === 'SPEC' ? 'منتج كتالوج' : 'نص البند'}</span>
+                          {row.subject_kind === 'INTENT' ? intentLabelAr(row.subject_key) || row.subject_key : row.subject_key}
+                        </td>
+                        <td className="px-2 py-2 tabular-nums">{row.decisions}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.chosen}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.rejected}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.suppliers}</td>
+                        <td className="px-2 py-2 text-xs text-neutral-500">{row.latest_update ? formatArDate(row.latest_update) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-500">لا توجد تصحيحات موردين في الفترة المحددة.</p>
+            )}
+          </div>
+        )}
         <div className="grid sm:grid-cols-3 gap-3 mb-3">
           <Kpi
             value={matchingQuality?.fit_review.match_rate == null ? '—' : `${matchingQuality.fit_review.match_rate}%`}

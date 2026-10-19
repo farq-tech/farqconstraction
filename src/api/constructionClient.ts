@@ -3314,6 +3314,14 @@ export type ConstructionMatchingQuality = {
       selection_rate: number | null
     }>
   }
+  buyer_choice?: {
+    status: 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_FILTERABLE_BY_RFQ'
+    decisions: number | null
+    chosen: number | null
+    rejected: number | null
+    by_subject: Array<{ subject_kind: 'SPEC' | 'INTENT' | 'LINE_TEXT'; verdict: 'CHOSEN' | 'REJECTED'; decisions: number; subjects: number; suppliers: number }>
+    repeated_patterns: Array<{ subject_kind: 'SPEC' | 'INTENT' | 'LINE_TEXT'; subject_key: string; decisions: number; chosen: number; rejected: number; suppliers: number; latest_update: string | null }>
+  }
   fit_review: {
     basis: 'BUYER_REVIEWED_CURRENT_QUOTE_LINES'
     reviewed: number
