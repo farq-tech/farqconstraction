@@ -3323,7 +3323,7 @@ export type ConstructionMatchingQuality = {
     by_lane: Array<{ lane: string; confidence: string; ontology_version: string | null; grade_version: string | null; map_hash: string | null; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
     categories: Array<{ category: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
     suppliers?: Array<{ supplier_id: string; supplier_name: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
-    repeated_patterns?: Array<{ category: string; supplier_id: string; supplier_name: string; reason_code: string; reports: number }>
+    repeated_patterns?: Array<{ category: string; supplier_id: string; supplier_name: string; reason_code: string; reports: number; example_rfq_id: string; example_line_key: string }>
     mismatch_reasons: Array<{ reason_code: string; reason: string | null; reports: number }>
   }
   note: string
