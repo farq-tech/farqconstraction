@@ -343,11 +343,12 @@ const PURE_SERVICE =
  * fill at Level A on the strength of «ردم», and a sand supplier was asked to
  * price an excavation. A line that names earthwork and no material or supply
  * word is refused like any other labour-only line. «توريد رمل ردم» still buys
- * sand: it names the material.
+ * sand: it names the material. «تراب ردم» is also a material line, not the
+ * earthwork service «ردم» on its own.
  */
 const EARTHWORK =
   /(?:^|\s)(?:اعمال\s+)?(?:حفر|حفريات|ردم|دك|هدم|ازاله|ازالات|تسويه|excavation|excavating|backfill|backfilling|compaction|demolition|earthworks?)(?:\s|$)/
-const NAMES_A_MATERIAL = /(?:توريد|supply|رمل|بحص|تربه|مواد|خرسانه|اسفلت|بلوك|حجر|sand|gravel|aggregate|soil|material)/
+const NAMES_A_MATERIAL = /(?:توريد|supply|رمل|بحص|تربه|تراب|مواد|خرسانه|اسفلت|بلوك|حجر|sand|gravel|aggregate|soil|material)/
 function isWorkOnly(normalized: string): boolean {
   return PURE_SERVICE.test(normalized) || (EARTHWORK.test(normalized) && !NAMES_A_MATERIAL.test(normalized))
 }
