@@ -332,7 +332,7 @@ export function ReportsView({ navigate }: NavProps) {
             <div className="px-4 pt-3 text-xs font-bold text-olive-900">أنماط تحتاج مراجعة في قواعد المطابقة أو تغطية الموردين</div>
             <table className="w-full text-sm">
               <thead><tr className="text-[11px] text-olive-700">
-                {['الفئة', 'المورد', 'سبب عدم الملاءمة', 'مراجعات', 'غير مناسب'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+                {['الفئة', 'المورد', 'سبب عدم الملاءمة', 'حالات عدم الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
               </tr></thead>
               <tbody className="divide-y divide-olive-50">
                 {matchingQuality.fit_review.repeated_patterns?.map((row) => (
@@ -340,8 +340,7 @@ export function ReportsView({ navigate }: NavProps) {
                     <td className="px-3 py-2 text-xs font-semibold text-olive-900">{categoryLabel(row.category)}</td>
                     <td className="px-3 py-2 text-xs">{row.supplier_name}</td>
                     <td className="px-3 py-2 text-xs">{MATCH_REASON_AR[row.reason_code] || row.reason_code}</td>
-                    <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
-                    <td className="px-3 py-2 tabular-nums text-amber-800">{row.mismatched}</td>
+                    <td className="px-3 py-2 tabular-nums text-amber-800">{row.reports}</td>
                   </tr>
                 ))}
               </tbody>
