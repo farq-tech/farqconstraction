@@ -9,6 +9,7 @@ import {
   ConstructionApiError,
   formatArDate,
   getConstructionMe,
+  getConstructionMatchingQuality,
   formatRfqReference,
   getConstructionReportLines,
   getConstructionReports,
@@ -16,6 +17,7 @@ import {
   type ConstructionReportProject,
   type ConstructionReports,
   type ConstructionReportSupplier,
+  type ConstructionMatchingQuality,
 } from '../api/constructionClient'
 
 /**
@@ -32,6 +34,7 @@ const BUCKET_ORDER = ['H1', 'H4', 'H12', 'H24', 'D3', 'D3P', 'AUTO', 'NONE']
 const BUCKET_TONE: Record<string, string> = { H1: 'bg-olive-700', H4: 'bg-olive-600', H12: 'bg-olive-500', H24: 'bg-olive-400', D3: 'bg-olive-300', D3P: 'bg-olive-200', AUTO: 'bg-neutral-300', NONE: 'bg-neutral-200' }
 const SUPPLIERS_SHOWN = 25
 const STATUS_AR: Record<string, string> = { SENT: 'بانتظار العروض', PARTIALLY_SENT: 'أُرسل جزئيًا', CLOSED: 'مغلق', DRAFT_NOT_SENT: 'لم يُرسل', DISPATCHING: 'جارٍ الإرسال', CANCELLED: 'ملغى' }
+const MATCH_LANE_AR: Record<string, string> = { PREFERRED: 'مورد مفضّل', LEARNED: 'اختيار سابق', OUTCOME: 'نتيجة جولة سابقة', MATCH: 'مطابقة الكتالوج', MAP: 'مطابقة المادة', MAP_FAMILY: 'نشاط المادة', PLAN: 'خطة الموردين', AI: 'اقتراح ذكي', FAMILY: 'نشاط عام', EVIDENCE: 'دليل منتج' }
 
 function num(value: unknown): number {
   const n = Number(value)
@@ -137,6 +140,7 @@ export function ReportsView({ navigate }: NavProps) {
   const [days, setDays] = useState<number | null>(null)
   const [rfqId, setRfqId] = useState<string | null>(null)
   const [data, setData] = useState<ConstructionReports | null>(null)
+  const [matchingQuality, setMatchingQuality] = useState<ConstructionMatchingQuality | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [drill, setDrill] = useState<{ title: string; lines: ConstructionReportLine[] } | null>(null)
   const [sortKey, setSortKey] = useState<'replied' | 'median' | 'quotes' | 'wins' | 'rfqs'>('replied')
@@ -158,6 +162,7 @@ export function ReportsView({ navigate }: NavProps) {
   useEffect(() => {
     let alive = true
     setData(null)
+    setMatchingQuality(null)
     setError(null)
     getConstructionReports({ days, rfqId })
       .then((r) => alive && setData(r))
@@ -166,6 +171,9 @@ export function ReportsView({ navigate }: NavProps) {
           ? 'خدمة التقارير غير متاحة على الخادم حاليًا. لم يتغيّر شيء في بياناتك؛ أعد المحاولة بعد قليل.'
           : e instanceof Error ? e.message : 'تعذّر تحميل التقارير.',
       ))
+    getConstructionMatchingQuality({ days, rfqId })
+      .then((r) => alive && setMatchingQuality(r))
+      .catch(() => alive && setMatchingQuality(null))
     return () => {
       alive = false
     }
@@ -282,6 +290,98 @@ export function ReportsView({ navigate }: NavProps) {
           <Kpi value={t.replied} label="ردود فعلية من الموردين" hint={[t.reply_rate != null ? `${t.reply_rate}% ممن وصلهم` : '', num(t.auto_only) ? `${num(t.auto_only)} رد آلي لا يُحتسب` : ''].filter(Boolean).join(' · ') || undefined} />
           <Kpi value={t.suppliers_participating} label="موردون شاركوا فعليًا" />
         </div>
+      </Section>
+
+      <Section title="جودة مطابقة الموردين" note="الملاءمة البشرية فقط هي مقياس الصحة؛ الرد أو الصمت ليس حكمًا على المطابقة">
+        <div className="grid sm:grid-cols-3 gap-3 mb-3">
+          <Kpi
+            value={matchingQuality?.fit_review.match_rate == null ? '—' : `${matchingQuality.fit_review.match_rate}%`}
+            label="ملاءمة العروض التي راجعها المشتري"
+            hint={matchingQuality?.fit_review.reviewed ? `من ${matchingQuality.fit_review.reviewed} مراجعة صريحة` : 'ابدأ من مقارنة العروض واضغط «مناسب» أو «غير مناسب»'}
+          />
+          <Kpi value={matchingQuality?.fit_review.matched ?? '—'} label="مراجعات أكدت الملاءمة" />
+          <Kpi value={matchingQuality?.fit_review.mismatched ?? '—'} label="مراجعات رفضت الملاءمة" hint={matchingQuality?.fit_review.mismatched ? 'استخدم أسباب الرفض لتحسين قواعد الموردين والتغطية' : undefined} />
+        </div>
+        {matchingQuality?.fit_review.mismatch_reasons.length ? (
+          <div className="bg-white border border-amber-100 rounded-2xl p-4 mb-3">
+            <h3 className="text-sm font-bold text-olive-900 mb-2">أسباب عدم الملاءمة المتكررة</h3>
+            <div className="space-y-2">
+              {matchingQuality.fit_review.mismatch_reasons.map((row, index) => (
+                <div key={`${row.reason}-${index}`} className="flex items-start justify-between gap-4 text-xs">
+                  <span className="text-neutral-700">{row.reason || 'لم يُذكر السبب'}</span>
+                  <span className="font-bold tabular-nums text-amber-800">{row.reports}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {matchingQuality?.fit_review.suppliers?.length ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl mb-3">
+            <div className="px-4 pt-3 text-xs font-bold text-olive-900">ملاءمة المطابقة حسب المورد</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-olive-700">
+                {['المورد', 'مراجعات', 'مناسب', 'غير مناسب', 'نسبة الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.fit_review.suppliers?.map((row) => (
+                  <tr key={row.supplier_id}>
+                    <td className="px-3 py-2 font-semibold text-olive-900">{row.supplier_name}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.matched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="px-3 pb-3 text-[10px] text-neutral-500">تعامل مع النسب ذات العينات القليلة كمؤشر للمراجعة فقط.</p>
+          </div>
+        ) : null}
+        {matchingQuality?.fit_review.categories.length ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl mb-3">
+            <div className="px-4 pt-3 text-xs font-bold text-olive-900">ملاءمة المطابقة حسب الفئة</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-olive-700">
+                {['الفئة', 'مراجعات', 'غير مناسب', 'نسبة الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.fit_review.categories.map((row) => (
+                  <tr key={row.category}>
+                    <td className="px-3 py-2 font-semibold text-olive-900">{row.category}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        {matchingQuality?.exposure.status === 'AVAILABLE' && matchingQuality.exposure.by_lane.length > 0 ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-olive-50 text-xs text-olive-700">
+                {['مصدر الاقتراح', 'الثقة', 'عُرض', 'اختاره المشتري', 'اختيار آلي بقي محددًا', 'سعّر البند', 'رفض البند'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2.5 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.exposure.by_lane.map((row) => (
+                  <tr key={`${row.lane}-${row.confidence}`}>
+                    <td className="px-3 py-2.5 font-semibold text-olive-900">{MATCH_LANE_AR[row.lane] || row.lane}</td>
+                    <td className="px-3 py-2.5 text-xs">{row.confidence === 'SURE' ? 'قوي' : row.confidence === 'LIKELY' ? 'مرجّح' : 'محتمل'}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.shown}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.selected}{row.selection_rate != null ? <span className="ms-1 text-[10px] text-neutral-400">({row.selection_rate}%)</span> : null}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.auto_picked_selected}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.quoted_line}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.line_declined}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : matchingQuality?.exposure.status === 'UNAVAILABLE' ? (
+          <p className="rounded-2xl border border-neutral-100 bg-white p-4 text-xs text-neutral-500">سجل الاقتراحات غير متاح في هذه البيئة؛ تظهر مراجعات الملاءمة عند توفرها.</p>
+        ) : null}
+        {matchingQuality && <p className="mt-2 text-[11px] text-neutral-500">{matchingQuality.note}</p>}
       </Section>
 
       <Section title="طلبات التسعير" note="كل صف طلب أو دفعة تسعير، وقد تتبع عدة طلبات الكراسة نفسها. اضغط الطلب لفتح ملفه.">

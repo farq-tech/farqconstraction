@@ -323,6 +323,8 @@ export type ConstructionComparison = {
     complete_quote_count: number
     lines: Array<{
       id: string
+      /** Stable procurement line identity used to attach buyer fit reviews. */
+      line_key?: string
       /** The booklet's own text (Arabic when the booklet had it). */
       name_ar: string
       name_en?: string
@@ -3292,6 +3294,58 @@ export async function getConstructionReportLines(filter: 'no_offer' | 'single_of
   if (rfqId) qs.set('rfq_id', rfqId)
   if (days) qs.set('days', String(days))
   return request<{ filter: string; rfq_id: string | null; lines: ConstructionReportLine[] }>(`/api/construction/reports/lines?${qs}`)
+}
+
+export type ConstructionMatchingQuality = {
+  generated_at: string
+  filters: { days: number | null; rfq_id: string | null }
+  exposure: {
+    status: 'AVAILABLE' | 'UNAVAILABLE'
+    total_shown: number | null
+    linked_shown: number | null
+    by_lane: Array<{
+      lane: string
+      confidence: string
+      shown: number
+      selected: number
+      auto_picked_selected: number
+      quoted_line: number
+      line_declined: number
+      selection_rate: number | null
+    }>
+  }
+  fit_review: {
+    basis: 'BUYER_REVIEWED_CURRENT_QUOTE_LINES'
+    reviewed: number
+    matched: number
+    mismatched: number
+    match_rate: number | null
+    categories: Array<{ category: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
+    suppliers?: Array<{ supplier_id: string; supplier_name: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
+    mismatch_reasons: Array<{ reason: string | null; reports: number }>
+  }
+  note: string
+}
+
+/** The visible recommendations and explicit buyer reviews behind match-quality reporting. */
+export async function getConstructionMatchingQuality(options: { days?: number | null; rfqId?: string | null } = {}) {
+  const qs = new URLSearchParams()
+  if (options.days) qs.set('days', String(options.days))
+  if (options.rfqId) qs.set('rfq_id', options.rfqId)
+  return request<ConstructionMatchingQuality>(`/api/construction/reports/matching-quality${qs.toString() ? `?${qs}` : ''}`)
+}
+
+export type ConstructionSupplierFitVerdict = 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED'
+
+/** Record the buyer's fit review against a current supplier quote version and request line. */
+export async function recordConstructionSupplierFitReview(
+  rfqId: string,
+  body: { supplier_id: string; quote_version_id: string; line_key: string; event_type: ConstructionSupplierFitVerdict; reason: string },
+) {
+  return request<{ id: string; event_type: ConstructionSupplierFitVerdict; created_at: string; snapshot: Record<string, unknown> }>(
+    `/api/construction/rfqs/${encodeURIComponent(rfqId)}/supplier-outcomes`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
 }
 
 /**

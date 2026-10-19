@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import type { NavProps } from '../types'
 import {
   getConstructionComparison,
+  getConstructionMe,
+  getConstructionSupplierOutcomes,
   listBuyerRfqs,
+  recordConstructionSupplierFitReview,
   type ConstructionComparison,
+  type ConstructionSupplierOutcomeEvent,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import MarketNameNote from '../components/MarketNameNote'
@@ -38,10 +42,26 @@ export function ComparisonView({ navigate }: NavProps) {
   const [data, setData] = useState<ConstructionComparison | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [fitReviews, setFitReviews] = useState<ConstructionSupplierOutcomeEvent[]>([])
+  const [reviewingKey, setReviewingKey] = useState<string | null>(null)
+  const [reviewReason, setReviewReason] = useState('')
+  const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null)
+  const [reviewError, setReviewError] = useState<string | null>(null)
+  const [canReviewFit, setCanReviewFit] = useState(false)
   const isAdmin = useConstructionAdmin()
   // «بدائل مكافئة» is an add-on: off unless the server says this account has it.
   const services = useServices()
   const showEquivalents = services.has(EQUIVALENTS_SERVICE)
+
+  useEffect(() => {
+    let cancelled = false
+    getConstructionMe()
+      .then((me) => {
+        if (!cancelled) setCanReviewFit(['ADMIN', 'PROCUREMENT', 'APPROVER'].includes(String(me?.role || '').toUpperCase()))
+      })
+      .catch(() => { if (!cancelled) setCanReviewFit(false) })
+    return () => { cancelled = true }
+  }, [])
 
   // After an admin confirms or corrects a held price: re-read in place.
   const reload = async () => {
@@ -55,6 +75,9 @@ export function ComparisonView({ navigate }: NavProps) {
 
   useEffect(() => {
     let cancelled = false
+    setFitReviews([])
+    setReviewingKey(null)
+    setReviewError(null)
     ;(async () => {
       setLoading(true)
       setError(null)
@@ -70,7 +93,12 @@ export function ComparisonView({ navigate }: NavProps) {
           return
         }
         const result = await getConstructionComparison(rfqId)
-        if (!cancelled) setData(result)
+        if (!cancelled) {
+          setData(result)
+          getConstructionSupplierOutcomes(rfqId)
+            .then((outcomes) => { if (!cancelled) setFitReviews(outcomes.events || []) })
+            .catch(() => { if (!cancelled) setFitReviews([]) })
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'تعذّر تحميل المقارنة')
       } finally {
@@ -108,6 +136,41 @@ export function ComparisonView({ navigate }: NavProps) {
   const award = (quoteVersionId: string) => {
     setSelectedQuoteVersionId(quoteVersionId)
     navigate('award')
+  }
+
+  const saveFitReview = async (
+    line: NonNullable<ConstructionComparison['quote_matrix']>['lines'][number],
+    supplierId: string,
+    quoteVersionId: string,
+    eventType: 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED',
+    reason: string,
+  ) => {
+    if (!selectedRfqId || !line.line_key || !supplierId || !quoteVersionId) return
+    const key = `${line.line_key}|${supplierId}|${quoteVersionId}`
+    setReviewBusyKey(key)
+    setReviewError(null)
+    try {
+      const saved = await recordConstructionSupplierFitReview(selectedRfqId, {
+        supplier_id: supplierId,
+        quote_version_id: quoteVersionId,
+        line_key: line.line_key,
+        event_type: eventType,
+        reason: reason.trim(),
+      })
+      setFitReviews((previous) => [...previous, {
+        id: saved.id,
+        event_type: saved.event_type,
+        created_at: saved.created_at,
+        supplier_id: supplierId,
+        details: { line_key: line.line_key, quote_version_id: quoteVersionId, reason: reason.trim() },
+      }])
+      setReviewingKey(null)
+      setReviewReason('')
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : 'تعذّر حفظ مراجعة المطابقة')
+    } finally {
+      setReviewBusyKey(null)
+    }
   }
 
   return (
@@ -184,6 +247,15 @@ export function ComparisonView({ navigate }: NavProps) {
                     const cell = line.offers.find((o) => String(o.supplier_id) === String(r.supplier.id))
                     const held = isHeldOffer(cell)
                     const priced = cell && cell.unit_price != null
+                    const quoteVersionId = String(cell?.quote_version_id || '')
+                    const supplierId = String(r.supplier.id || '')
+                    const reviewKey = `${line.line_key}|${supplierId}|${quoteVersionId}`
+                    const lastFitReview = [...fitReviews].reverse().find((event) =>
+                      ['QUOTE_MATCHED', 'QUOTE_MISMATCHED'].includes(event.event_type)
+                      && String(event.supplier_id || '') === supplierId
+                      && String(event.details?.line_key || '') === String(line.line_key || '')
+                      && String(event.details?.quote_version_id || '') === quoteVersionId,
+                    )
                     return (
                       <td key={String(r.supplier.id)} className={`px-4 py-3 ${held ? 'bg-amber-50/50' : ''}`}>
                         {held ? (
@@ -214,6 +286,52 @@ export function ComparisonView({ navigate }: NavProps) {
                           </>
                         ) : (
                           <span className="text-xs text-neutral-400">لم يسعّره</span>
+                        )}
+                        {priced && quoteVersionId && line.line_key && (canReviewFit || lastFitReview) && (
+                          <div className="mt-2 border-t border-neutral-100 pt-2">
+                            {lastFitReview ? (
+                              <div className={`text-[11px] font-semibold ${lastFitReview.event_type === 'QUOTE_MATCHED' ? 'text-olive-700' : 'text-amber-800'}`}>
+                                {lastFitReview.event_type === 'QUOTE_MATCHED' ? 'راجعه المشتري: مناسب للبند' : 'راجعه المشتري: غير مناسب'}
+                              </div>
+                            ) : canReviewFit ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  disabled={Boolean(reviewBusyKey)}
+                                  onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MATCHED', 'راجع المشتري عرض المورد وأكد ملاءمته للبند.')}
+                                  className="rounded-lg border border-olive-200 px-2 py-1 text-[10px] font-bold text-olive-700 disabled:opacity-40"
+                                >مناسب</button>
+                                <button
+                                  disabled={Boolean(reviewBusyKey)}
+                                  onClick={() => { setReviewingKey(reviewKey); setReviewReason('') }}
+                                  className="rounded-lg border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-800 disabled:opacity-40"
+                                >غير مناسب</button>
+                              </div>
+                            ) : <div className="text-[10px] text-neutral-400">مراجعة الملاءمة غير متاحة لحسابك</div>}
+                            {reviewingKey === reviewKey && (
+                              <div className="mt-2 space-y-1.5">
+                                <label className="block text-[10px] font-semibold text-neutral-600" htmlFor={`fit-reason-${line.id}-${supplierId}`}>
+                                  ما سبب عدم ملاءمته؟
+                                </label>
+                                <input
+                                  id={`fit-reason-${line.id}-${supplierId}`}
+                                  value={reviewReason}
+                                  onChange={(event) => setReviewReason(event.target.value)}
+                                  maxLength={500}
+                                  placeholder="مثال: نشاط المورد لا يغطي هذا المنتج"
+                                  className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-[11px] outline-none focus:border-olive-500"
+                                />
+                                <div className="flex gap-1.5">
+                                  <button
+                                    disabled={reviewReason.trim().length < 2 || reviewBusyKey === reviewKey}
+                                    onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MISMATCHED', reviewReason)}
+                                    className="rounded-lg bg-olive-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40"
+                                  >{reviewBusyKey === reviewKey ? 'جارٍ الحفظ…' : 'احفظ المراجعة'}</button>
+                                  <button onClick={() => setReviewingKey(null)} className="px-2 py-1 text-[10px] font-semibold text-neutral-500">إلغاء</button>
+                                </div>
+                              </div>
+                            )}
+                            {reviewError && reviewingKey === reviewKey && <div className="mt-1 text-[10px] text-red-700">{reviewError}</div>}
+                          </div>
                         )}
                       </td>
                     )
