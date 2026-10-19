@@ -357,6 +357,28 @@ export function ReportsView({ navigate }: NavProps) {
             </table>
           </div>
         ) : null}
+        {matchingQuality?.fit_review.by_lane.length ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl mb-3">
+            <div className="px-4 pt-3 text-xs font-bold text-olive-900">دقة المطابقة حسب مصدر الترشيح</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-olive-700">
+                {['مصدر الترشيح', 'الثقة', 'مراجعات صريحة', 'غير مناسب', 'نسبة الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.fit_review.by_lane.map((row) => (
+                  <tr key={`${row.lane}-${row.confidence}`}>
+                    <td className="px-3 py-2 font-semibold text-olive-900">{MATCH_LANE_AR[row.lane] || row.lane}</td>
+                    <td className="px-3 py-2 text-xs">{row.confidence === 'SURE' ? 'قوي' : row.confidence === 'LIKELY' ? 'مرجّح' : 'محتمل'}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="px-3 pb-3 text-[10px] text-neutral-500">تُربط المراجعة بمصدر الترشيح الذي وصل عبره المورد المختار. البنود التي بلا سجل عرض لا تدخل هذا الجدول.</p>
+          </div>
+        ) : null}
         {matchingQuality?.exposure.status === 'AVAILABLE' && matchingQuality.exposure.by_lane.length > 0 ? (
           <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl">
             <table className="w-full text-sm">

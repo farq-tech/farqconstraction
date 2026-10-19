@@ -3320,6 +3320,7 @@ export type ConstructionMatchingQuality = {
     matched: number
     mismatched: number
     match_rate: number | null
+    by_lane: Array<{ lane: string; confidence: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
     categories: Array<{ category: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
     suppliers?: Array<{ supplier_id: string; supplier_name: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null }>
     mismatch_reasons: Array<{ reason: string | null; reports: number }>
