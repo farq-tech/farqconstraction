@@ -1953,6 +1953,11 @@ describe('the attribute clause is a construction, not a keyword list', () => {
     })
   }
 
+  it('uses steel-door supplier vocabulary for gate ranking without reclassifying a steel door', () => {
+    expect(resolveOntology('بوابة حديد').intent).toBe('entrance_gate')
+    expect(resolveOntology('أبواب حديد').intent).toBe('metal_door')
+  })
+
   it('a clause still yields Level B recovery rather than a false unknown', () => {
     const r = resolveOntology('ربط Solvent Cement للمواسير')
     expect(r.level_code).not.toBe('C')
