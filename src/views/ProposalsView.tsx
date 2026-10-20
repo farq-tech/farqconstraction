@@ -15,6 +15,7 @@ import { resolveBoqCardFields } from '../lib/parseBoq'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
+import { drainSupplierFeedbackQueue } from '../lib/supplierFeedbackQueue'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
 import MarketNameField from '../components/MarketNameField'
@@ -811,21 +812,37 @@ export function ProposalsView({ navigate }: NavProps) {
   // and the buyer is told once if learning is not being saved.
   const learnQueue = useRef<SupplierFeedbackItem[]>([])
   const learnTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const learnFlushInFlight = useRef(false)
+  const learnRetryCount = useRef(0)
+  const learnMounted = useRef(false)
   const [learnError, setLearnError] = useState<string | null>(null)
   const [learnedCount, setLearnedCount] = useState(0)
   const flushLearning = useCallback(() => {
+    if (learnTimer.current) clearTimeout(learnTimer.current)
     learnTimer.current = null
-    const batch = learnQueue.current.splice(0, 400)
-    if (!batch.length) return
-    recordConstructionSupplierFeedback(batch)
-      .then((res) => {
+    if (learnFlushInFlight.current || !learnQueue.current.length) return
+    learnFlushInFlight.current = true
+    void drainSupplierFeedbackQueue(
+      learnQueue.current,
+      recordConstructionSupplierFeedback,
+      (count) => {
+        if (!learnMounted.current) return
         setLearnError(null)
-        setLearnedCount((n) => n + (res?.recorded ?? batch.length))
-      })
-      .catch((err) => {
-        learnQueue.current.unshift(...batch)
-        setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
-      })
+        setLearnedCount((n) => n + count)
+      },
+      (err) => {
+        if (learnMounted.current) setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
+      },
+    ).then((completed) => {
+      if (completed) learnRetryCount.current = 0
+      else learnRetryCount.current += 1
+    }).finally(() => {
+      learnFlushInFlight.current = false
+      if (learnQueue.current.length && learnRetryCount.current <= 2) {
+        const delay = learnRetryCount.current === 0 ? 0 : 1000 * learnRetryCount.current
+        learnTimer.current = setTimeout(flushLearning, delay)
+      }
+    })
   }, [])
   const learn = useCallback(
     (item: BOQItem | undefined, supplierIds: string[], verdict: SupplierFeedbackItem['verdict']) => {
@@ -837,14 +854,20 @@ export function ProposalsView({ navigate }: NavProps) {
       if (item.name.trim().length >= 3) subjects.push({ subject_kind: 'LINE_TEXT', subject_key: item.name })
       for (const supplier_id of supplierIds)
         for (const subject of subjects) learnQueue.current.push({ ...subject, supplier_id, verdict, line_text: item.name.slice(0, 300) })
+      learnRetryCount.current = 0
       if (learnTimer.current) clearTimeout(learnTimer.current)
       learnTimer.current = setTimeout(flushLearning, 900)
     },
     [flushLearning],
   )
-  useEffect(() => () => {
-    if (learnTimer.current) clearTimeout(learnTimer.current)
-    flushLearning()
+  useEffect(() => {
+    learnMounted.current = true
+    return () => {
+      learnMounted.current = false
+      if (learnTimer.current) clearTimeout(learnTimer.current)
+      learnTimer.current = null
+      flushLearning()
+    }
   }, [flushLearning])
 
   // Deleting a line is the buyer's call and must be reversible: the line goes

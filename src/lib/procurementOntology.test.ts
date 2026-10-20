@@ -2705,3 +2705,15 @@ describe('cpo-v34: bare colloquial concrete-block name', () => {
     expect(resolveOntology('بلك بركاني').intent).toBe('lightweight_block')
   })
 })
+
+describe('cpo-v36: measured BOQ spellings reach supplier intent pools', () => {
+  it.each([
+    ['وحدة باكج', 'package_unit'],
+    ['بولي يوريثان عزل أسطح رش', 'spray_foam_insulation'],
+    ['مطبخ أكريليك', 'kitchen_cabinet'],
+  ])('%s resolves to %s', (line, intent) => {
+    const resolution = resolveOntology(line)
+    expect(resolution.intent).toBe(intent)
+    expect(resolution.poolable).toBe(true)
+  })
+})
