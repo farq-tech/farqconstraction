@@ -165,6 +165,8 @@ function SuggestionBox({
                           {' '}· من قائمتك
                         </span>
                       )}
+                      {s.fitReview?.verdict === 'QUOTE_MATCHED' && <span className="text-olive-700 font-semibold"> · أكدت ملاءمته سابقًا</span>}
+                      {s.fitReview?.verdict === 'QUOTE_MISMATCHED' && <span className="text-amber-800 font-semibold"> · سبق أن راجعت عرضه ووجدته غير مناسب</span>}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
                       {!s.roundOutcome && s.why && (
                         <span className="text-neutral-500" title="لماذا يقترحه فرق لهذه المادة">
@@ -269,6 +271,7 @@ function BOQCard({
       new Set(
         [
           ...(item.preferredSuggestion?.suppliers || []),
+          ...(item.fitReviewSuggestion?.suppliers || []),
           ...(item.learnedSuggestion?.suppliers || []),
           ...(item.outcomeSuggestion?.suppliers || []),
           ...(item.mapSuggestion?.suppliers || []),
@@ -276,7 +279,7 @@ function BOQCard({
           ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.preferredSuggestion, item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
+    [item.preferredSuggestion, item.fitReviewSuggestion, item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
   )
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
@@ -465,6 +468,19 @@ function BOQCard({
               emptyText=""
               suppliers={item.learnedSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
               evidence="اختيارك"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+            />
+          )}
+          {item.fitReviewSuggestion && item.fitReviewSuggestion.suppliers.length > 0 && (
+            <SuggestionBox
+              tone="teal"
+              title="مراجعاتك السابقة على عروض هذا البند"
+              note="المورد الذي أكدت ملاءمته يظهر ضمن الترشيحات تلقائيًا. المورد الذي سبق أن رفضت ملاءمته لا يُختار آليًا، ويمكنك مراجعته يدويًا."
+              emptyText=""
+              suppliers={item.fitReviewSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="مراجعة سابقة"
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}

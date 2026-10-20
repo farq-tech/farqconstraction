@@ -3164,6 +3164,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
       const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
       const id = String(s.id || '')
       const outcome = s.round_outcome as { grade?: string; priced_lines?: number; similar_by?: string } | undefined
+      const fitReview = s.fit_review as { verdict?: 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED'; reason_code?: string; reviewed_at?: string } | undefined
       const isHaraj =
         isHarajSellerExternalKey(id) ||
         String(s.source_system || s.source || '') === 'HARAJ' ||
@@ -3175,6 +3176,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         city: (s.city as string | undefined) || undefined,
         evidence,
         learned: s.learned_choice === true,
+        ...(fitReview?.verdict ? { fitReview: { verdict: fitReview.verdict, ...(fitReview.reason_code ? { reasonCode: fitReview.reason_code } : {}), ...(fitReview.reviewed_at ? { reviewedAt: fitReview.reviewed_at } : {}) } } : {}),
         prior_quotes: priorQuotesOf(s),
         ...(outcome?.grade ? { round_outcome: { grade: outcome.grade, priced_lines: outcome.priced_lines, similar_by: outcome.similar_by } } : {}),
         ...(typeof s.why_ar === 'string' && s.why_ar ? { why_ar: s.why_ar } : {}),
@@ -3497,6 +3499,7 @@ export async function matchConstructionBoqCatalog(payload: {
         suppliers?: Array<Record<string, unknown>>
       }>
       learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      fit_review_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       preferred_suggestion?: { label_ar?: string; suppliers?: Array<Record<string, unknown>> } | null
       outcome_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
@@ -3574,6 +3577,7 @@ export async function matchConstructionBoqCatalog(payload: {
           isHarajSellerExternalKey(id) ||
           String(s.source_system || s.source || '') === 'HARAJ' ||
           Boolean(channels.haraj)
+        const fitReview = s.fit_review as { verdict?: unknown; reason_code?: unknown; reviewed_at?: unknown } | undefined
         return {
           id,
           name_ar: s.name_ar as string | undefined,
@@ -3587,6 +3591,7 @@ export async function matchConstructionBoqCatalog(payload: {
               ? 'دليل منتج'
               : 'من الكتالوج',
           learned: s.learned_choice === true,
+          ...(fitReview?.verdict === 'QUOTE_MATCHED' || fitReview?.verdict === 'QUOTE_MISMATCHED' ? { fitReview: { verdict: fitReview.verdict, ...(fitReview.reason_code ? { reasonCode: String(fitReview.reason_code) } : {}), ...(fitReview.reviewed_at ? { reviewedAt: String(fitReview.reviewed_at) } : {}) } } : {}),
           prior_quotes: priorQuotesOf(s),
           channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
@@ -3613,6 +3618,9 @@ export async function matchConstructionBoqCatalog(payload: {
         : {}),
       ...(row.learned_suggestion?.suppliers?.length
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }
+        : {}),
+      ...(row.fit_review_suggestion?.suppliers?.length
+        ? { fit_review_suggestion: { suppliers: suggestionSuppliers(row.fit_review_suggestion.suppliers, 'مراجعة سابقة', Number.POSITIVE_INFINITY) } }
         : {}),
       ...(row.outcome_suggestion?.suppliers?.length
         ? { outcome_suggestion: { suppliers: suggestionSuppliers(row.outcome_suggestion.suppliers, 'نتائج الجولات', 24) } }

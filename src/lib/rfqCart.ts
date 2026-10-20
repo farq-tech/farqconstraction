@@ -324,6 +324,7 @@ export function mergeMatched(items: BOQItem[], matched: BOQItem[], retainedSelec
       farqSpecId: m.farqSpecId,
       lineKey: m.lineKey || item.lineKey,
       outcomeSuggestion: m.outcomeSuggestion,
+      fitReviewSuggestion: m.fitReviewSuggestion,
       exposureId: m.exposureId,
       autoPickedSupplierIds: [],
       aiSuggestion: m.aiSuggestion,
