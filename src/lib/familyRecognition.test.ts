@@ -7,7 +7,7 @@ it.each([
  ['شريط مانع تسرب متمدد لفواصل الخرسانة', 'movement_joint_systems'],
  ['PVC waterstop for concrete construction joints', 'movement_joint_systems'],
  ['Intumescent firestop collar for pipe penetrations', 'fire_fighting'],
- ['Firestop sealant for wall penetrations', 'fire_fighting'],
+ ['Firestop sealant for wall penetrations', 'sealants_adhesives'],
  ['HDPE electrofusion coupling', 'pipes_fittings'],
  ['HDPE drainage pipe', 'pipes_fittings'],
  ['Circulator pump for hot water', 'pumps'],
@@ -23,6 +23,12 @@ it.each([
 it('does not suggest video projector sellers for a sound projector', () => {
  expect(resolveOntology('Network sound projector PoE').intent).toBe('pa_speaker')
  expect(resolveOntology('Laser projector 5000 lumens').intent).toBe('projector')
+})
+
+it('keeps firestop sealant in its specific sealant product pool', () => {
+ const result = resolveOntology('Firestop sealant for wall penetrations')
+ expect(result.intent).toBe('construction_sealant')
+ expect(result.family).toBe('sealants_adhesives')
 })
 
 it.each([
