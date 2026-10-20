@@ -1,5 +1,5 @@
 {
- "version": "cpo-v46",
+ "version": "cpo-v47",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -20554,44 +20554,6 @@
     }
    ],
    "intents": [
-    {
-     "id": "passive_fire_protection",
-     "label_ar": "مواد الحماية السلبية ومانعات انتشار الحريق",
-     "strong_terms": [
-      "مواد مقاومه للحريق",
-      "مواد مانعه لانتشار الحريق",
-      "مانع انتشار حريق",
-      "مانع انتشار الحريق",
-      "فوم مانع انتشار الحريق",
-      "firestop",
-      "fire stop",
-      "fire stopping",
-      "firestop sealant",
-      "fire stop sealant",
-      "firestop collar",
-      "fire collar",
-      "firestop pillow",
-      "firestop block",
-      "fire barrier",
-      "intumescent sealant",
-      "حشوه فواصل حريق",
-      "حشو فواصل مقاوم للحريق",
-      "fire batt",
-      "passive fire protection",
-      "سد اختراقات الحريق",
-      "الواح مقاومه للحريق",
-      "الواح عازله مقاومه للحريق"
-     ],
-     "context_terms": [
-      "حريق",
-      "ساعه",
-      "ساعتين",
-      "fire rated",
-      "دقيقه"
-     ],
-     "note": "Firestopping is its own trade (specialist applicators). «fire rated sealant/foam» stay with sealants_adhesives where cpo-v18 put them.",
-     "facets": []
-    },
     {
      "id": "special_hazard_suppression",
      "label_ar": "أنظمة الإطفاء الثابتة للمخاطر الخاصة (رذاذ مائي/بودرة/مركبات)",
@@ -55994,6 +55956,31 @@
     }
    ],
    "intents": [
+    {
+     "id": "passive_fire_protection",
+     "label_ar": "مواد الحماية السلبية ومانعات انتشار الحريق",
+     "strong_terms": [
+      "مواد مقاومه للحريق",
+      "مواد مانعه لانتشار الحريق",
+      "مانع انتشار حريق",
+      "مانع انتشار الحريق",
+      "firestop",
+      "fire stop",
+      "fire stopping",
+      "fire barrier",
+      "passive fire protection",
+      "سد اختراقات الحريق"
+     ],
+     "context_terms": [
+      "حريق",
+      "ساعه",
+      "ساعتين",
+      "fire rated",
+      "دقيقه"
+     ],
+     "note": "General passive fire protection intent. Specific firestop products resolve to their dedicated intents; fire-rated sealants and foams retain the sealants_adhesives rule.",
+     "facets": []
+    },
     {
      "id": "firestop_sealant",
      "label_ar": "معاجين ومواد سد مقاومة للحريق",
