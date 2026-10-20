@@ -579,6 +579,19 @@ export type BoqCatalogMatchRow = {
   learned_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
   }
+  /** Suppliers the buyer explicitly rated as fitting this same normalized BOQ line. */
+  fit_review_suggestion?: {
+    suppliers?: Array<{
+      id: string
+      name_ar?: string
+      name_en?: string
+      city?: string
+      evidence?: string
+      channel?: string
+      rfq_eligible?: boolean
+      prior_quotes?: number
+    }>
+  } | null
   /** «نتائج الجولات»: what suppliers did with this material in earlier rounds. */
   outcome_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }; why_ar?: string; out_of_city?: boolean }>

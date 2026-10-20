@@ -14,8 +14,13 @@ import {
 import { resolveBoqCardFields } from '../lib/parseBoq'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
+import { farqSession } from '../api/farqSession'
 import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
-import { drainSupplierFeedbackQueue } from '../lib/supplierFeedbackQueue'
+import {
+  drainSupplierFeedbackQueue,
+  loadSupplierFeedbackQueue,
+  persistSupplierFeedbackQueue,
+} from '../lib/supplierFeedbackQueue'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
 import MarketNameField from '../components/MarketNameField'
@@ -810,7 +815,13 @@ export function ProposalsView({ navigate }: NavProps) {
   // Every tick, untick and «غير مناسب» is a verdict the API replays on the next
   // booklet. Sent in small batches; a failed batch is retried with the next one,
   // and the buyer is told once if learning is not being saved.
+  const learnOwnerId = useRef<string | null>(farqSession.getUser()?.id ?? null)
   const learnQueue = useRef<SupplierFeedbackItem[]>([])
+  const learnQueueInitialized = useRef(false)
+  if (!learnQueueInitialized.current) {
+    learnQueue.current = loadSupplierFeedbackQueue(learnOwnerId.current)
+    learnQueueInitialized.current = true
+  }
   const learnTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const learnFlushInFlight = useRef(false)
   const learnRetryCount = useRef(0)
@@ -821,9 +832,12 @@ export function ProposalsView({ navigate }: NavProps) {
     if (learnTimer.current) clearTimeout(learnTimer.current)
     learnTimer.current = null
     if (learnFlushInFlight.current || !learnQueue.current.length) return
+    const ownerId = learnOwnerId.current
+    if (!ownerId || farqSession.getUser()?.id !== ownerId) return
     learnFlushInFlight.current = true
+    const queue = learnQueue.current
     void drainSupplierFeedbackQueue(
-      learnQueue.current,
+      queue,
       recordConstructionSupplierFeedback,
       (count) => {
         if (!learnMounted.current) return
@@ -834,12 +848,19 @@ export function ProposalsView({ navigate }: NavProps) {
         if (learnMounted.current) setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
       },
     ).then((completed) => {
+      const persisted = persistSupplierFeedbackQueue(ownerId, queue)
+      if (!persisted && queue.length && learnMounted.current) {
+        setLearnError('تعذّر حفظ بعض اختياراتك محليًا؛ أبقِ الصفحة مفتوحة حتى يكتمل إرسالها')
+      }
       if (completed) learnRetryCount.current = 0
       else learnRetryCount.current += 1
     }).finally(() => {
       learnFlushInFlight.current = false
-      if (learnQueue.current.length && learnRetryCount.current <= 2) {
-        const delay = learnRetryCount.current === 0 ? 0 : 1000 * learnRetryCount.current
+      const activeOwnerId = learnOwnerId.current
+      if (learnQueue.current.length && activeOwnerId && farqSession.getUser()?.id === activeOwnerId) {
+        const changedOwner = activeOwnerId !== ownerId
+        if (!changedOwner && learnRetryCount.current > 2) return
+        const delay = changedOwner || learnRetryCount.current === 0 ? 0 : 1000 * learnRetryCount.current
         learnTimer.current = setTimeout(flushLearning, delay)
       }
     })
@@ -847,6 +868,8 @@ export function ProposalsView({ navigate }: NavProps) {
   const learn = useCallback(
     (item: BOQItem | undefined, supplierIds: string[], verdict: SupplierFeedbackItem['verdict']) => {
       if (!item || !supplierIds.length) return
+      const ownerId = farqSession.getUser()?.id ?? null
+      if (!ownerId || ownerId !== learnOwnerId.current) return
       const subjects: Array<Pick<SupplierFeedbackItem, 'subject_kind' | 'subject_key'>> = []
       if (item.farqSpecId) subjects.push({ subject_kind: 'SPEC', subject_key: item.farqSpecId })
       const intent = item.mapSuggestion?.intent || item.aiSuggestion?.intent
@@ -854,6 +877,9 @@ export function ProposalsView({ navigate }: NavProps) {
       if (item.name.trim().length >= 3) subjects.push({ subject_kind: 'LINE_TEXT', subject_key: item.name })
       for (const supplier_id of supplierIds)
         for (const subject of subjects) learnQueue.current.push({ ...subject, supplier_id, verdict, line_text: item.name.slice(0, 300) })
+      if (!persistSupplierFeedbackQueue(ownerId, learnQueue.current)) {
+        setLearnError('تعذّر حفظ اختياراتك محليًا؛ سيحاول التطبيق إرسالها الآن')
+      }
       learnRetryCount.current = 0
       if (learnTimer.current) clearTimeout(learnTimer.current)
       learnTimer.current = setTimeout(flushLearning, 900)
@@ -862,8 +888,24 @@ export function ProposalsView({ navigate }: NavProps) {
   )
   useEffect(() => {
     learnMounted.current = true
+    const unsubscribe = farqSession.subscribe((event, session) => {
+      if (event !== 'IDENTITY_CHANGED') return
+      if (learnTimer.current) clearTimeout(learnTimer.current)
+      learnTimer.current = null
+      const nextOwnerId = session?.user.id ?? null
+      learnOwnerId.current = nextOwnerId
+      learnQueue.current = loadSupplierFeedbackQueue(nextOwnerId)
+      learnRetryCount.current = 0
+      if (nextOwnerId && learnQueue.current.length) {
+        learnTimer.current = setTimeout(flushLearning, 0)
+      }
+    })
+    if (learnOwnerId.current && learnQueue.current.length) {
+      learnTimer.current = setTimeout(flushLearning, 0)
+    }
     return () => {
       learnMounted.current = false
+      unsubscribe()
       if (learnTimer.current) clearTimeout(learnTimer.current)
       learnTimer.current = null
       flushLearning()
