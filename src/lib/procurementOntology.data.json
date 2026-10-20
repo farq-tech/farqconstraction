@@ -1,5 +1,5 @@
 {
- "version": "cpo-v50",
+ "version": "cpo-v52",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -53355,6 +53355,7 @@
     {
      "id": "piling_drilling_rig",
      "label_ar": "معدات الحفر والخوازيق",
+     "supplier_evidence_rule": "intent_strong_required",
      "strong_terms": [
       "معدات الحفر والخوازيق",
       "معدات الخوازيق",
@@ -53377,7 +53378,7 @@
       "pile driver",
       "piling equipment"
      ],
-     "note": "cpo-v25 (YouMats owner taxonomy): YouMats «معدات الحفر والخوازيق»: bare «خوازيق» (piling work) not added"
+     "note": "cpo-v51: supplier pools require a direct intent-specific signal; family-wide heavy-equipment and rental terms alone do not qualify. YouMats «معدات الحفر والخوازيق»: bare «خوازيق» (piling work) not added"
     },
     {
      "id": "heavy_equipment_parts",

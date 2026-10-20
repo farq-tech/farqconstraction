@@ -1,5 +1,5 @@
 {
-  "ontology_version": "cpo-v50",
+  "ontology_version": "cpo-v52",
   "fixtures": [
     {
       "fixture": "fixtures/boq/warehouse-ops-02.flat.txt",
