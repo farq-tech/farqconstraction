@@ -129,7 +129,7 @@ function withLocalOwnerLock<T>(ownerUserId: string, operation: () => Promise<T>)
 function withOwnerQueueLock<T>(ownerUserId: string, operation: () => Promise<T>): Promise<T> {
   const lockManager = typeof navigator === "undefined"
     ? undefined
-    : (navigator as Navigator & {
+    : (navigator as unknown as {
         locks?: {
           request<R>(name: string, options: { mode: "exclusive" }, callback: () => Promise<R>): Promise<R>
         }

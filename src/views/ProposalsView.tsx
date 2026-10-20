@@ -613,6 +613,7 @@ function BOQCard({
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
+              registerViewedRow={registerViewedRow}
             />
           )}
           {item.outcomeSuggestion && item.outcomeSuggestion.suppliers.length > 0 && (
