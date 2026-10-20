@@ -17,6 +17,17 @@ function storageKey(ownerUserId: string): string {
   return `${STORAGE_PREFIX}${encodeURIComponent(ownerUserId)}`
 }
 
+function mergeFeedbackItems(...queues: SupplierFeedbackItem[][]): SupplierFeedbackItem[] {
+  const latest = new Map<string, SupplierFeedbackItem>()
+  for (const queue of queues) {
+    for (const item of queue) {
+      const key = [item.subject_kind, item.subject_key, item.supplier_id].join("\u0000")
+      latest.set(key, item)
+    }
+  }
+  return [...latest.values()]
+}
+
 function isFeedbackItem(value: unknown): value is SupplierFeedbackItem {
   if (!value || typeof value !== "object") return false
   const item = value as Partial<SupplierFeedbackItem>
@@ -71,7 +82,7 @@ export async function drainSupplierFeedbackQueue<T>(
   send: (items: T[]) => Promise<{ recorded?: number }>,
   onSaved: (count: number) => void,
   onError: (error: unknown) => void,
-  onBatchAcknowledged?: () => boolean,
+  onBatchAcknowledged?: (acknowledged: T[]) => boolean,
 ): Promise<boolean> {
   while (queue.length) {
     const batch = queue.splice(0, SUPPLIER_FEEDBACK_BATCH_SIZE)
@@ -88,7 +99,7 @@ export async function drainSupplierFeedbackQueue<T>(
         ? Number(result.recorded)
         : batch.length,
     )
-    if (onBatchAcknowledged && !onBatchAcknowledged()) {
+    if (onBatchAcknowledged && !onBatchAcknowledged(batch)) {
       onError(new Error("Saved supplier feedback, but the remaining queue could not be persisted"))
       return false
     }
@@ -104,6 +115,7 @@ export type SupplierFeedbackDrainResult = {
 
 const activeOwnerDrains = new Map<string, Promise<{ completed: boolean; persisted: boolean }>>()
 const localOwnerLocks = new Map<string, Promise<unknown>>()
+const volatileOwnerQueues = new WeakMap<SupplierFeedbackItem[], SupplierFeedbackItem[]>()
 
 function withLocalOwnerLock<T>(ownerUserId: string, operation: () => Promise<T>): Promise<T> {
   const previous = localOwnerLocks.get(ownerUserId) || Promise.resolve()
@@ -136,9 +148,19 @@ export async function enqueueSupplierFeedbackForOwner(
   storage = defaultStorage(),
 ): Promise<boolean> {
   return withOwnerQueueLock(ownerUserId, async () => {
-    const next = [...loadSupplierFeedbackQueue(ownerUserId, storage), ...items]
+    // Storage can temporarily fail after a previous choice was queued. Keep
+    // only choices known to have failed persistence; the live queue may be
+    // stale after another tab has already drained its durable entries.
+    const next = mergeFeedbackItems(
+      loadSupplierFeedbackQueue(ownerUserId, storage),
+      volatileOwnerQueues.get(queue) || [],
+      items,
+    )
     queue.splice(0, queue.length, ...next)
-    return persistSupplierFeedbackQueue(ownerUserId, queue, storage)
+    const persisted = persistSupplierFeedbackQueue(ownerUserId, queue, storage)
+    if (persisted) volatileOwnerQueues.delete(queue)
+    else volatileOwnerQueues.set(queue, [...queue])
+    return persisted
   })
 }
 
@@ -153,22 +175,32 @@ export async function drainSupplierFeedbackQueueForOwner(
 ): Promise<SupplierFeedbackDrainResult> {
   const active = activeOwnerDrains.get(ownerUserId)
   if (active) {
-    await active
-    return { claimed: false, completed: false, persisted: true }
+    const result = await active
+    return { claimed: false, ...result }
   }
 
   const operation = (async () => {
     return withOwnerQueueLock(ownerUserId, async () => {
       // Another tab may have drained this component's stale in-memory copy while
       // we waited for the lock. The durable queue is authoritative.
-      queue.splice(0, queue.length, ...loadSupplierFeedbackQueue(ownerUserId, storage))
+      queue.splice(0, queue.length, ...mergeFeedbackItems(
+        loadSupplierFeedbackQueue(ownerUserId, storage),
+        volatileOwnerQueues.get(queue) || [],
+      ))
       let persisted = true
       const completed = await drainSupplierFeedbackQueue(queue, send, onSaved, onError, () => {
         const saved = persistSupplierFeedbackQueue(ownerUserId, queue, storage)
         persisted = persisted && saved
+        if (saved) volatileOwnerQueues.delete(queue)
+        else if (queue.length) volatileOwnerQueues.set(queue, [...queue])
+        else volatileOwnerQueues.delete(queue)
         return saved
       })
-      persisted = persistSupplierFeedbackQueue(ownerUserId, queue, storage) && persisted
+      const saved = persistSupplierFeedbackQueue(ownerUserId, queue, storage)
+      persisted = saved && persisted
+      if (saved) volatileOwnerQueues.delete(queue)
+      else if (queue.length) volatileOwnerQueues.set(queue, [...queue])
+      else volatileOwnerQueues.delete(queue)
       return { completed, persisted }
     })
   })().catch((error) => {

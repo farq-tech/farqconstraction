@@ -179,6 +179,9 @@ export function ComparisonView({ navigate }: NavProps) {
   ) => {
     if (!selectedRfqId || !line.line_key || !supplierId || !quoteVersionId) return
     const key = `${line.line_key}|${supplierId}|${quoteVersionId}`
+    // Also reveals a save failure for the one-click «مناسب» action, whose
+    // inline error is rendered in the review editor.
+    setReviewingKey(key)
     setReviewBusyKey(key)
     setReviewError(null)
     setReviewErrorKey(null)

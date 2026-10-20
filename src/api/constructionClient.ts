@@ -2212,6 +2212,24 @@ export async function recordConstructionSupplierFeedback(items: SupplierFeedback
   })
 }
 
+export type SupplierExposureViewItem = {
+  exposure_ids: string[]
+  line_keys: string[]
+  supplier_ids: string[]
+}
+
+/** Record the supplier candidates that the buyer actually brought into view. */
+export async function recordConstructionSupplierExposureViews(items: SupplierExposureViewItem[]) {
+  return request<{ received: number; updated: number; ignored: number; status: string }>(
+    '/api/construction/suppliers/match/exposure-viewed',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    },
+  )
+}
+
 /** Back to unread for the signed-in member only; colleagues keep their own state. */
 /** Read or unread for whole conversations: the listed invites, or every conversation of the company. */
 export async function markConstructionInboxThreads(target: string[] | 'all', read: boolean) {

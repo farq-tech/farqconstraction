@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefCallback } from 'react'
 import { autoPickConfident, buildPickContext, isPriorQuoter } from '../lib/autoPick'
 import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
@@ -15,7 +15,11 @@ import { resolveBoqCardFields } from '../lib/parseBoq'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
-import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
+import {
+  recordConstructionSupplierExposureViews,
+  recordConstructionSupplierFeedback,
+  type SupplierFeedbackItem,
+} from '../api/constructionClient'
 import {
   drainSupplierFeedbackQueueForOwner,
   enqueueSupplierFeedbackForOwner,
@@ -109,6 +113,7 @@ function SuggestionBox({
   selectedIds,
   onPick,
   onReject,
+  registerViewedRow,
 }: {
   tone: keyof typeof SUGGESTION_TONE
   title: string
@@ -121,6 +126,7 @@ function SuggestionBox({
   onPick: (supplier: Supplier) => void
   /** «غير مناسب»: gone from this material's suggestions from now on. */
   onReject: (supplier: Supplier) => void
+  registerViewedRow: (rowKey: string, supplierId: string) => RefCallback<HTMLDivElement>
 }) {
   const t = SUGGESTION_TONE[tone]
   const picked = suppliers.filter((s) => selectedIds.includes(s.id)).length
@@ -144,6 +150,7 @@ function SuggestionBox({
             return (
               <div
                 key={`${evidence}-${s.id}`}
+                ref={registerViewedRow(`${title}:${s.id}`, s.id)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg bg-white border ${checked ? 'border-[#123F3A]/40' : t.row}`}
               >
                 <label className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer">
@@ -290,6 +297,120 @@ function BOQCard({
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
   const visible = showAll ? listed : listed.slice(0, 4)
+  const exposureObserver = useRef<IntersectionObserver | null>(null)
+  const observedSupplierRows = useRef(new Map<Element, string>())
+  const reportedSupplierIds = useRef(new Set<string>())
+  const queuedSupplierIds = useRef(new Set<string>())
+  const pendingSupplierIds = useRef(new Set<string>())
+  const rowRefCallbacks = useRef(new Map<string, RefCallback<HTMLDivElement>>())
+  const exposureFlushTimer = useRef<number | null>(null)
+  const exposureFlushInFlight = useRef(false)
+  const exposureFlushRef = useRef<() => void>(() => {})
+  const exposureScopeRef = useRef(`${item.exposureId || ''}\u0000${item.lineKey || ''}`)
+  const currentExposureScope = `${item.exposureId || ''}\u0000${item.lineKey || ''}`
+  if (exposureScopeRef.current !== currentExposureScope) {
+    exposureScopeRef.current = currentExposureScope
+    reportedSupplierIds.current.clear()
+    queuedSupplierIds.current.clear()
+    pendingSupplierIds.current.clear()
+  }
+
+  const flushExposureViews = useCallback(async () => {
+    const exposureId = item.exposureId
+    const lineKey = item.lineKey
+    if (exposureFlushInFlight.current || !exposureId || !lineKey || !pendingSupplierIds.current.size) return
+    const scope = `${exposureId}\u0000${lineKey}`
+    const supplierIds = [...pendingSupplierIds.current]
+    pendingSupplierIds.current.clear()
+    exposureFlushInFlight.current = true
+    try {
+      const items = []
+      for (let index = 0; index < supplierIds.length; index += 20) {
+        items.push({
+          exposure_ids: [exposureId],
+          line_keys: [lineKey],
+          supplier_ids: supplierIds.slice(index, index + 20),
+        })
+      }
+      const result = await recordConstructionSupplierExposureViews(items)
+      if (result.status === 'AVAILABLE' && exposureScopeRef.current === scope) {
+        for (const supplierId of supplierIds) reportedSupplierIds.current.add(supplierId)
+        const recorded = new Set(supplierIds)
+        for (const [element, supplierId] of observedSupplierRows.current) {
+          if (!recorded.has(supplierId)) continue
+          exposureObserver.current?.unobserve(element)
+        }
+      }
+    } catch {
+      // Exposure collection must never interrupt supplier selection.
+    } finally {
+      exposureFlushInFlight.current = false
+      if (exposureScopeRef.current === scope) {
+        for (const supplierId of supplierIds) queuedSupplierIds.current.delete(supplierId)
+      }
+      if (pendingSupplierIds.current.size && exposureFlushTimer.current === null) {
+        exposureFlushTimer.current = window.setTimeout(() => {
+          exposureFlushTimer.current = null
+          exposureFlushRef.current()
+        }, 180)
+      }
+    }
+  }, [item.exposureId, item.lineKey])
+  exposureFlushRef.current = () => { void flushExposureViews() }
+
+  const queueViewedSupplier = useCallback((supplierId: string) => {
+    if (!item.exposureId || !item.lineKey || reportedSupplierIds.current.has(supplierId) || queuedSupplierIds.current.has(supplierId)) return
+    queuedSupplierIds.current.add(supplierId)
+    pendingSupplierIds.current.add(supplierId)
+    if (exposureFlushTimer.current !== null) return
+    exposureFlushTimer.current = window.setTimeout(() => {
+      exposureFlushTimer.current = null
+      exposureFlushRef.current()
+    }, 180)
+  }, [item.exposureId, item.lineKey])
+
+  const registerViewedRow = useCallback((rowKey: string, supplierId: string) => {
+    const cached = rowRefCallbacks.current.get(rowKey)
+    if (cached) return cached
+    let currentElement: HTMLDivElement | null = null
+    const ref: RefCallback<HTMLDivElement> = (nextElement) => {
+      if (currentElement) {
+        exposureObserver.current?.unobserve(currentElement)
+        observedSupplierRows.current.delete(currentElement)
+      }
+      currentElement = nextElement
+      if (nextElement) {
+        observedSupplierRows.current.set(nextElement, supplierId)
+        exposureObserver.current?.observe(nextElement)
+      }
+    }
+    rowRefCallbacks.current.set(rowKey, ref)
+    return ref
+  }, [])
+
+  useEffect(() => {
+    if (!expanded || !item.exposureId || !item.lineKey || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver((entries) => {
+      if (document.visibilityState !== 'visible') return
+      for (const entry of entries) {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue
+        const supplierId = observedSupplierRows.current.get(entry.target)
+        if (supplierId) queueViewedSupplier(supplierId)
+      }
+    }, { threshold: 0.5 })
+    exposureObserver.current = observer
+    for (const element of observedSupplierRows.current.keys()) observer.observe(element)
+    return () => {
+      observer.disconnect()
+      if (exposureObserver.current === observer) exposureObserver.current = null
+    }
+  }, [expanded, item.exposureId, item.lineKey, queueViewedSupplier])
+
+  useEffect(() => () => {
+    exposureObserver.current?.disconnect()
+    exposureObserver.current = null
+  }, [])
+
   const pick = (supplier: Supplier) => (alreadyIds.has(supplier.id) ? onToggle(supplier.id) : onAddSupplier(supplier))
   const reject = (supplier: Supplier) => {
     setHiddenIds((prev) => new Set(prev).add(supplier.id))
@@ -464,6 +585,7 @@ function BOQCard({
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
+              registerViewedRow={registerViewedRow}
             />
           )}
           {item.learnedSuggestion && item.learnedSuggestion.suppliers.length > 0 && (
@@ -477,6 +599,7 @@ function BOQCard({
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
+              registerViewedRow={registerViewedRow}
             />
           )}
           {item.fitReviewSuggestion && item.fitReviewSuggestion.suppliers.length > 0 && (
@@ -503,6 +626,7 @@ function BOQCard({
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
+              registerViewedRow={registerViewedRow}
             />
           )}
           {item.mapSuggestion && (
@@ -516,6 +640,7 @@ function BOQCard({
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
+              registerViewedRow={registerViewedRow}
             />
           )}
           {!item.mapSuggestion && !item.aiSuggestion && item.familySuggestion && (
@@ -529,6 +654,7 @@ function BOQCard({
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
+              registerViewedRow={registerViewedRow}
             />
           )}
           {!item.mapSuggestion && item.aiSuggestion && (
@@ -542,6 +668,7 @@ function BOQCard({
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
+              registerViewedRow={registerViewedRow}
             />
           )}
 
@@ -549,33 +676,34 @@ function BOQCard({
             {visible.map((s) => {
               const checked = selectedIds.includes(s.id)
               return (
-                <label
-                  key={s.id}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${
-                    checked
-                      ? 'border-[#123F3A]/30 bg-[#f0faf7]'
-                      : 'border-neutral-100 hover:border-neutral-200'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => onToggle(s.id)}
-                    className="accent-[#123F3A]"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-[#0D1F1D] truncate">
-                      {s.name}
-                    </div>
-                    <div className="text-xs text-neutral-400">{s.city}</div>
-                  </div>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${EVIDENCE_STYLE[s.evidence]}`}
+                <div key={s.id} ref={registerViewedRow(`direct:${s.id}`, s.id)}>
+                  <label
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${
+                      checked
+                        ? 'border-[#123F3A]/30 bg-[#f0faf7]'
+                        : 'border-neutral-100 hover:border-neutral-200'
+                    }`}
                   >
-                    {s.evidence}
-                  </span>
-                  <span className="text-xs">{CHANNEL_ICON[s.channel]}</span>
-                </label>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => onToggle(s.id)}
+                      className="accent-[#123F3A]"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-[#0D1F1D] truncate">
+                        {s.name}
+                      </div>
+                      <div className="text-xs text-neutral-400">{s.city}</div>
+                    </div>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${EVIDENCE_STYLE[s.evidence]}`}
+                    >
+                      {s.evidence}
+                    </span>
+                    <span className="text-xs">{CHANNEL_ICON[s.channel]}</span>
+                  </label>
+                </div>
               )
             })}
           </div>
@@ -849,9 +977,6 @@ export function ProposalsView({ navigate }: NavProps) {
         if (learnMounted.current) setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
       },
     ).then(({ claimed, completed, persisted }) => {
-      if (!claimed) {
-        queue.splice(0, queue.length, ...loadSupplierFeedbackQueue(ownerId))
-      }
       if (!persisted && queue.length && learnMounted.current) {
         setLearnError('تعذّر حفظ بعض اختياراتك محليًا؛ أبقِ الصفحة مفتوحة حتى يكتمل إرسالها')
       }
