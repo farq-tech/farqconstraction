@@ -355,7 +355,7 @@ const EARTHWORK_SERVICE_ACTION =
 // service. Keep it eligible for the ontology's equipment intent before the
 // service veto runs (for example, «توريد معدات حفر الآبار»).
 const SUPPLIED_EARTHWORK_EQUIPMENT =
-  /(?:^|\s)(?:و?توريد|supply)\s+(?:معدات|معده)\s+.*(?:حفر|حفريات|خوازيق|ابار|piling|drilling)(?:\s|$)|(?:^|\s)(?:معدات|معده)\s+(?:حفر|دق)\s+(?:ال)?(?:خوازيق|ابار)(?:\s|$)/
+  /^\s*(?:(?:و?توريد|supply)(?:\s+(?:وتركيب|and\s+install|&\s*install))?\s+)?(?:معدات|معده|حفاره|حفارات|ماكينه|ماكينات|drilling\s+rigs?|piling\s+rigs?|drilling\s+machines?)\s+.*(?:حفر|حفريات|خوازيق|ابار|piling|drilling)(?:\s|$)/
 const NAMES_A_MATERIAL = /(?:توريد|supply|رمل|بحص|مواد|خرسانه|اسفلت|بلوك|حجر|sand|gravel|aggregate|soil|material)/
 const SOIL_FILL_MATERIAL = /^(?:تراب|تربه)\s+ردم(?:\s+(?:نظيف|منخول))?(?:\s|$)/
 function isWorkOnly(normalized: string): boolean {

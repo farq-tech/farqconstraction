@@ -1,5 +1,5 @@
 {
-  "ontology_version": "cpo-v49",
+  "ontology_version": "cpo-v50",
   "fixtures": [
     {
       "fixture": "fixtures/boq/warehouse-ops-02.flat.txt",
@@ -21,7 +21,7 @@
       "ancestor_derived": 131,
       "pools": 104,
       "pool_reduction_pct": 28.8,
-      "avg_resolve_ms": 63.235,
+      "avg_resolve_ms": 51.946,
       "by_sector": {
         "ELECTRICAL": 46,
         "MEP_WATER": 43,
@@ -88,7 +88,7 @@
       "ancestor_derived": 145,
       "pools": 99,
       "pool_reduction_pct": 37.3,
-      "avg_resolve_ms": 25.167,
+      "avg_resolve_ms": 27.853,
       "by_sector": {
         "TOOLS_WORKSHOP": 54,
         "SAFETY_PPE": 46,
@@ -154,7 +154,7 @@
       "ancestor_derived": 32,
       "pools": 84,
       "pool_reduction_pct": 46.8,
-      "avg_resolve_ms": 27.254,
+      "avg_resolve_ms": 30.884,
       "by_sector": {
         "DATACENTER_ICT": 116,
         "ELECTRICAL": 1,
