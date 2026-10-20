@@ -3330,7 +3330,7 @@ export type ConstructionMatchingQuality = {
     }>
   }
   buyer_choice?: {
-    status: 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_FILTERABLE_BY_RFQ'
+    status: 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_FILTERABLE_BY_RFQ' | 'NOT_FILTERABLE_BY_SCOPE'
     decisions: number | null
     chosen: number | null
     rejected: number | null

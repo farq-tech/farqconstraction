@@ -332,7 +332,9 @@ export function ReportsView({ navigate }: NavProps) {
               <p className="text-xs text-neutral-500">
                 {matchingQuality.buyer_choice.status === 'NOT_FILTERABLE_BY_RFQ'
                   ? 'تصحيحات الموردين لا تُفلتر حسب طلب التسعير؛ اعرض التقرير على مستوى الشركة.'
-                  : 'سجل تصحيحات اختيار الموردين غير متاح في هذا الإصدار.'}
+                  : matchingQuality.buyer_choice.status === 'NOT_FILTERABLE_BY_SCOPE'
+                    ? 'إحصاءات اختيار الموردين غير متاحة ضمن صلاحية الطلبات المخصصة لك فقط.'
+                    : 'سجل تصحيحات اختيار الموردين غير متاح في هذا الإصدار.'}
               </p>
             ) : matchingQuality.buyer_choice.repeated_patterns.length ? (
               <div className="overflow-x-auto">

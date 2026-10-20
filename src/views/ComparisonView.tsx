@@ -137,6 +137,19 @@ export function ComparisonView({ navigate }: NavProps) {
     () => new Map((data?.quote_matrix?.supplier_summaries || []).map((s) => [String(s.supplier_id), s])),
     [data],
   )
+  const latestFitReviewByCell = useMemo(() => {
+    const latest = new Map<string, ConstructionSupplierOutcomeEvent>()
+    for (const event of fitReviews) {
+      if (event.event_type !== 'QUOTE_MATCHED' && event.event_type !== 'QUOTE_MISMATCHED') continue
+      const details = event.details || {}
+      const key = `${String(details.line_key || '')}|${String(event.supplier_id || '')}|${String(details.quote_version_id || '')}`
+      const previous = latest.get(key)
+      const eventTime = Date.parse(event.created_at || '')
+      const previousTime = Date.parse(previous?.created_at || '')
+      if (!previous || (Number.isFinite(eventTime) && (!Number.isFinite(previousTime) || eventTime > previousTime))) latest.set(key, event)
+    }
+    return latest
+  }, [fitReviews])
   // A quote with a price held for review, or with VAT unstated, is not «الأقل».
   const comparable = (r: (typeof responses)[number]) => {
     const s = summaries.get(String(r.supplier.id))
@@ -273,18 +286,7 @@ export function ComparisonView({ navigate }: NavProps) {
                     const quoteVersionId = String(cell?.quote_version_id || '')
                     const supplierId = String(r.supplier.id || '')
                     const reviewKey = `${line.line_key}|${supplierId}|${quoteVersionId}`
-                    const lastFitReview = fitReviews.reduce<ConstructionSupplierOutcomeEvent | undefined>((latest, event) => {
-                      const matches = ['QUOTE_MATCHED', 'QUOTE_MISMATCHED'].includes(event.event_type)
-                        && String(event.supplier_id || '') === supplierId
-                        && String(event.details?.line_key || '') === String(line.line_key || '')
-                        && String(event.details?.quote_version_id || '') === quoteVersionId
-                      if (!matches) return latest
-                      const eventTime = Date.parse(event.created_at || '')
-                      const latestTime = Date.parse(latest?.created_at || '')
-                      return !latest || (Number.isFinite(eventTime) && (!Number.isFinite(latestTime) || eventTime > latestTime))
-                        ? event
-                        : latest
-                    }, undefined)
+                    const lastFitReview = latestFitReviewByCell.get(`${String(line.line_key || '')}|${supplierId}|${quoteVersionId}`)
                     return (
                       <td key={String(r.supplier.id)} className={`px-4 py-3 ${held ? 'bg-amber-50/50' : ''}`}>
                         {held ? (
