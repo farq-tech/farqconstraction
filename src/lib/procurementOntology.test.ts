@@ -45,6 +45,23 @@ const resolve = (name: string) => resolveOntology(name)
  * Strings are real lines from the catalogue, kept verbatim.
  */
 describe('confident-wrong: a term must not decide against its own context', () => {
+  it('keeps explicit piling and drilling equipment purchase lines eligible without a supply prefix', () => {
+    for (const line of [
+      'معدات حفر الخوازيق',
+      'معدات حفر الآبار',
+      'توريد معدات حفر الخوازيق',
+      'توريد معدات حفر الآبار',
+    ]) {
+      const result = resolve(line)
+      expect(result.intent).toBe('piling_drilling_rig')
+      expect(result.family).toBe('construction_equipment')
+      expect(result.poolable).toBe(true)
+    }
+    for (const line of ['حفر خوازيق', 'حفر الآبار', 'حفر ورفع تراب']) {
+      expect(resolve(line).poolable).toBe(false)
+    }
+  })
+
   it('a 0.45 mm gypsum stud is not structural steel', () => {
     for (const line of [
       'توريد قطاع Stud مجلفن عرض 100 مم سماكة 0.45 مم',

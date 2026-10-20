@@ -28,6 +28,7 @@ import {
 } from '../api/constructionClient'
 import { resolveRfqSupplierIds } from '../api/constructionSuppliers'
 import {
+  attachMatchExposureIds,
   buildRfqLinesFromItems,
   buildRfqPackagesFromSelection,
   dominantEngineeringDepartment,
@@ -1012,10 +1013,10 @@ export function SendModal({
       // Per-supplier packages: each invite receives only lines the buyer picked
       // that supplier for — never the full booklet (Jazeera Paints leak).
       const contactable = new Set(rfqSupplierIds)
-      const packageItems = readyItems.filter((item) => {
+      const packageItems = attachMatchExposureIds(readyItems.filter((item) => {
         const key = item.lineKey || `line-${item.id}`
         return lines.some((line) => line.line_key === key)
-      })
+      }), matched || undefined)
       const selectedForPackages: Record<number, string[]> = {}
       for (const item of packageItems) {
         selectedForPackages[item.id] = (selectedByItem[item.id] || []).filter((id) =>
