@@ -588,7 +588,7 @@ function mapApiSuppliers(
         s.evidence === 'تسمية آلية' ||
         s.evidence === 'خريطة فرق' ||
         s.evidence === 'نتائج الجولات' ||
-        s.evidence === 'مراجعة سابقة'
+        s.evidence === 'تأكيد سابق'
           ? s.evidence
           : // Never grade a supplier by its position in the list.
             'من الكتالوج'

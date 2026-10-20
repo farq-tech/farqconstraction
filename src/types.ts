@@ -38,7 +38,7 @@ export type AppView =
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
  * catalog returned the supplier and nothing says how strong the link is.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات' | 'مراجعة سابقة'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات' | 'تأكيد سابق'
 
 /**
  * What the supplier did with this material in earlier rounds (server:

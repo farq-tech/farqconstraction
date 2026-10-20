@@ -41,6 +41,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
   'من الكتالوج': 'bg-neutral-100 text-neutral-600',
   'على مستوى النشاط': 'bg-neutral-100 text-neutral-500',
   'اختيارك': 'bg-amber-50 text-amber-700',
+  'تأكيد سابق': 'bg-amber-50 text-amber-700',
   'تسمية آلية': 'bg-purple-50 text-purple-700',
   'خريطة فرق': 'bg-teal-50 text-teal-700',
 }
@@ -605,11 +606,11 @@ function BOQCard({
           {item.fitReviewSuggestion && item.fitReviewSuggestion.suppliers.length > 0 && (
             <SuggestionBox
               tone="teal"
-              title="مراجعاتك السابقة على عروض هذا البند"
-              note="المورد الذي أكدت ملاءمته يظهر ضمن الترشيحات تلقائيًا. المورد الذي سبق أن رفضت ملاءمته لا يُختار آليًا، ويمكنك مراجعته يدويًا."
+              title="تأكيداتك السابقة على عروض هذا البند"
+              note="تأكيدك السابق يساعد في إظهار المورد ضمن الترشيحات، لكنه لا يختاره تلقائيًا. المورد الذي سبق أن حددته كغير مناسب لا يُختار آليًا، ويمكنك الاطلاع عليه عند الحاجة."
               emptyText=""
               suppliers={item.fitReviewSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
-              evidence="مراجعة سابقة"
+              evidence="تأكيد سابق"
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}

@@ -367,13 +367,13 @@ export function ReportsView({ navigate }: NavProps) {
         <div className="grid sm:grid-cols-3 gap-3 mb-3">
           <Kpi
             value={matchingQuality?.fit_review.match_rate == null ? '—' : `${matchingQuality.fit_review.match_rate}%`}
-            label="ملاءمة العروض التي راجعها المشتري"
+            label="ملاءمة العروض التي أكدها المشتري"
             hint={matchingQuality?.fit_review.reviewed
-              ? [`من ${matchingQuality.fit_review.reviewed} مراجعة صريحة`, matchIntervalLabel(matchingQuality.fit_review.match_rate_interval_95)].filter(Boolean).join(' · ')
+              ? [`من ${matchingQuality.fit_review.reviewed} تأكيد أو تصحيح صريح`, matchIntervalLabel(matchingQuality.fit_review.match_rate_interval_95)].filter(Boolean).join(' · ')
               : 'ابدأ من مقارنة العروض واضغط «مناسب» أو «غير مناسب»'}
           />
-          <Kpi value={matchingQuality?.fit_review.matched ?? '—'} label="مراجعات أكدت الملاءمة" />
-          <Kpi value={matchingQuality?.fit_review.mismatched ?? '—'} label="مراجعات رفضت الملاءمة" hint={matchingQuality?.fit_review.mismatched ? 'استخدم أسباب الرفض لتحسين قواعد الموردين والتغطية' : undefined} />
+          <Kpi value={matchingQuality?.fit_review.matched ?? '—'} label="تأكيدات ملاءمة" />
+          <Kpi value={matchingQuality?.fit_review.mismatched ?? '—'} label="تصحيحات عدم ملاءمة" hint={matchingQuality?.fit_review.mismatched ? 'استخدم أسباب الرفض لتحسين قواعد الموردين والتغطية' : undefined} />
         </div>
         {matchingQuality?.fit_review.mismatch_reasons.length ? (
           <div className="bg-white border border-amber-100 rounded-2xl p-4 mb-3">

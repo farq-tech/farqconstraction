@@ -123,8 +123,9 @@ export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 
 export function confidenceOf(s: Supplier): Confidence {
   if (s.outOfCity) return 'MAYBE'
-  if (s.fitReview?.verdict === 'QUOTE_MISMATCHED') return 'MAYBE'
-  if (s.fitReview?.verdict === 'QUOTE_MATCHED') return 'SURE'
+  // A buyer's prior quote-fit confirmation is useful context, but it does not
+  // confirm today's availability or authorize a new RFQ without selection.
+  if (s.fitReview?.verdict === 'QUOTE_MISMATCHED' || s.fitReview?.verdict === 'QUOTE_MATCHED') return 'MAYBE'
   if (s.learned || isPriorQuoter(s)) return 'SURE'
   // A question or clarification also counts as ANSWERED; a reply alone
   // does not establish that the supplier sells the requested material.

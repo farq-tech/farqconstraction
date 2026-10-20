@@ -205,7 +205,7 @@ export function ComparisonView({ navigate }: NavProps) {
       setReviewReason('')
       setReviewReasonCode('')
     } catch (err) {
-      setReviewError(err instanceof Error ? err.message : 'تعذّر حفظ مراجعة المطابقة')
+      setReviewError(err instanceof Error ? err.message : 'تعذّر حفظ نتيجة المطابقة')
       setReviewErrorKey(key)
     } finally {
       setReviewBusyKey(null)
@@ -326,7 +326,7 @@ export function ComparisonView({ navigate }: NavProps) {
                             {lastFitReview ? (
                               <div className="flex items-center justify-between gap-2">
                                 <div className={`text-[11px] font-semibold ${lastFitReview.event_type === 'QUOTE_MATCHED' ? 'text-olive-700' : 'text-amber-800'}`}>
-                                  {lastFitReview.event_type === 'QUOTE_MATCHED' ? 'راجعه المشتري: مناسب للبند' : 'راجعه المشتري: غير مناسب'}
+                                  {lastFitReview.event_type === 'QUOTE_MATCHED' ? 'تأكيدك السابق: مناسب للبند' : 'تصحيحك السابق: غير مناسب للبند'}
                                 </div>
                                 {canReviewFit && (
                                   <button
@@ -353,7 +353,7 @@ export function ComparisonView({ navigate }: NavProps) {
                                   className="rounded-lg border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-800 disabled:opacity-40"
                                 >غير مناسب</button>
                               </div>
-                            ) : <div className="text-[10px] text-neutral-400">مراجعة الملاءمة غير متاحة لحسابك</div>}
+                            ) : <div className="text-[10px] text-neutral-400">تأكيد ملاءمة العرض غير متاح لحسابك</div>}
                             {reviewingKey === reviewKey && (
                               <div className="mt-2 space-y-1.5">
                                 {lastFitReview && (
@@ -398,7 +398,7 @@ export function ComparisonView({ navigate }: NavProps) {
                                     disabled={!reviewReasonCode || reviewReason.trim().length < 2 || reviewBusyKey === reviewKey}
                                     onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MISMATCHED', reviewReason, reviewReasonCode as ConstructionSupplierFitMismatchReason)}
                                     className="rounded-lg bg-olive-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40"
-                                  >{reviewBusyKey === reviewKey ? 'جارٍ الحفظ…' : lastFitReview ? 'احفظ كغير مناسب' : 'احفظ المراجعة'}</button>
+                                  >{reviewBusyKey === reviewKey ? 'جارٍ الحفظ…' : lastFitReview ? 'احفظ كغير مناسب' : 'احفظ النتيجة'}</button>
                                   <button onClick={() => setReviewingKey(null)} className="px-2 py-1 text-[10px] font-semibold text-neutral-500">إلغاء</button>
                                 </div>
                               </div>

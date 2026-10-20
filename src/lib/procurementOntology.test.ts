@@ -420,7 +420,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v45')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v52')
     expect(listIntentIds()).toHaveLength(834)
   })
 
@@ -1985,8 +1985,9 @@ describe('the attribute clause is a construction, not a keyword list', () => {
   }
 
   it('uses steel-door supplier vocabulary for gate ranking without reclassifying a steel door', () => {
-    expect(resolveOntology('بوابة حديد').intent).toBe('entrance_gate')
+    expect(resolveOntology('بوابة حديد').intent).toBe('steel_gate')
     expect(resolveOntology('أبواب حديد').intent).toBe('metal_door')
+    expect(resolveOntology('بوابة منزلقة كهربائية').intent).toBe('entrance_gate')
   })
 
   it('a clause still yields Level B recovery rather than a false unknown', () => {

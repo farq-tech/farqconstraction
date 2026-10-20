@@ -3651,7 +3651,7 @@ export async function matchConstructionBoqCatalog(payload: {
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }
         : {}),
       ...(row.fit_review_suggestion?.suppliers?.length
-        ? { fit_review_suggestion: { suppliers: suggestionSuppliers(row.fit_review_suggestion.suppliers, 'مراجعة سابقة', Number.POSITIVE_INFINITY) } }
+        ? { fit_review_suggestion: { suppliers: suggestionSuppliers(row.fit_review_suggestion.suppliers, 'تأكيد سابق', Number.POSITIVE_INFINITY) } }
         : {}),
       ...(row.outcome_suggestion?.suppliers?.length
         ? { outcome_suggestion: { suppliers: suggestionSuppliers(row.outcome_suggestion.suppliers, 'نتائج الجولات', 24) } }
