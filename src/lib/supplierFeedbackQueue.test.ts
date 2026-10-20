@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   drainSupplierFeedbackQueue,
+  drainSupplierFeedbackQueueForOwner,
   loadSupplierFeedbackQueue,
   persistSupplierFeedbackQueue,
   SUPPLIER_FEEDBACK_BATCH_SIZE,
@@ -38,6 +39,25 @@ describe('supplier feedback queue', () => {
     expect(saved).toEqual([400, 1])
     expect(queue).toEqual([])
     expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('allows only one screen instance to drain a buyer queue at a time', async () => {
+    const storage = storageFixture()
+    const feedback = { subject_kind: 'INTENT' as const, subject_key: 'stone_slab', supplier_id: 'supplier-a', verdict: 'CHOSEN' as const }
+    const queueA = [feedback]
+    const queueB = [feedback]
+    let releaseSend!: (value: { recorded: number }) => void
+    const send = vi.fn(() => new Promise<{ recorded: number }>((resolve) => { releaseSend = resolve }))
+    const first = drainSupplierFeedbackQueueForOwner('buyer-a', queueA, send, vi.fn(), vi.fn(), storage)
+    const second = drainSupplierFeedbackQueueForOwner('buyer-a', queueB, send, vi.fn(), vi.fn(), storage)
+
+    expect(send).toHaveBeenCalledTimes(1)
+    releaseSend({ recorded: 1 })
+    await expect(first).resolves.toMatchObject({ claimed: true, completed: true, persisted: true })
+    await expect(second).resolves.toMatchObject({ claimed: false })
+    expect(queueA).toEqual([])
+    expect(loadSupplierFeedbackQueue('buyer-a', storage)).toEqual([])
+    expect(send).toHaveBeenCalledTimes(1)
   })
 
   it('puts the failed batch back at the front for a later retry', async () => {

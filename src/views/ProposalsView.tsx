@@ -17,7 +17,7 @@ import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
 import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
 import {
-  drainSupplierFeedbackQueue,
+  drainSupplierFeedbackQueueForOwner,
   loadSupplierFeedbackQueue,
   persistSupplierFeedbackQueue,
 } from '../lib/supplierFeedbackQueue'
@@ -836,7 +836,8 @@ export function ProposalsView({ navigate }: NavProps) {
     if (!ownerId || farqSession.getUser()?.id !== ownerId) return
     learnFlushInFlight.current = true
     const queue = learnQueue.current
-    void drainSupplierFeedbackQueue(
+    void drainSupplierFeedbackQueueForOwner(
+      ownerId,
       queue,
       recordConstructionSupplierFeedback,
       (count) => {
@@ -847,13 +848,17 @@ export function ProposalsView({ navigate }: NavProps) {
       (err) => {
         if (learnMounted.current) setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
       },
-    ).then((completed) => {
-      const persisted = persistSupplierFeedbackQueue(ownerId, queue)
+    ).then(({ claimed, completed, persisted }) => {
+      if (!claimed) {
+        queue.splice(0, queue.length, ...loadSupplierFeedbackQueue(ownerId))
+      }
       if (!persisted && queue.length && learnMounted.current) {
         setLearnError('تعذّر حفظ بعض اختياراتك محليًا؛ أبقِ الصفحة مفتوحة حتى يكتمل إرسالها')
       }
-      if (completed) learnRetryCount.current = 0
-      else learnRetryCount.current += 1
+      if (claimed) {
+        if (completed) learnRetryCount.current = 0
+        else learnRetryCount.current += 1
+      }
     }).finally(() => {
       learnFlushInFlight.current = false
       const activeOwnerId = learnOwnerId.current

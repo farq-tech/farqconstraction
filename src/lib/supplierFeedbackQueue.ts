@@ -90,3 +90,38 @@ export async function drainSupplierFeedbackQueue<T>(
   }
   return true
 }
+
+export type SupplierFeedbackDrainResult = {
+  claimed: boolean
+  completed: boolean
+  persisted: boolean
+}
+
+const activeOwnerDrains = new Map<string, Promise<{ completed: boolean; persisted: boolean }>>()
+
+/** Serialize drains across proposals-screen mounts for one buyer in this app runtime. */
+export async function drainSupplierFeedbackQueueForOwner(
+  ownerUserId: string,
+  queue: SupplierFeedbackItem[],
+  send: (items: SupplierFeedbackItem[]) => Promise<{ recorded?: number }>,
+  onSaved: (count: number) => void,
+  onError: (error: unknown) => void,
+  storage = defaultStorage(),
+): Promise<SupplierFeedbackDrainResult> {
+  const active = activeOwnerDrains.get(ownerUserId)
+  if (active) {
+    await active
+    return { claimed: false, completed: false, persisted: true }
+  }
+
+  const operation = (async () => {
+    const completed = await drainSupplierFeedbackQueue(queue, send, onSaved, onError)
+    return { completed, persisted: persistSupplierFeedbackQueue(ownerUserId, queue, storage) }
+  })()
+  activeOwnerDrains.set(ownerUserId, operation)
+  try {
+    return { claimed: true, ...await operation }
+  } finally {
+    if (activeOwnerDrains.get(ownerUserId) === operation) activeOwnerDrains.delete(ownerUserId)
+  }
+}
