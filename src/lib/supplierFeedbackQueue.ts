@@ -71,6 +71,7 @@ export async function drainSupplierFeedbackQueue<T>(
   send: (items: T[]) => Promise<{ recorded?: number }>,
   onSaved: (count: number) => void,
   onError: (error: unknown) => void,
+  onBatchAcknowledged?: () => boolean,
 ): Promise<boolean> {
   while (queue.length) {
     const batch = queue.splice(0, SUPPLIER_FEEDBACK_BATCH_SIZE)
@@ -87,6 +88,10 @@ export async function drainSupplierFeedbackQueue<T>(
         ? Number(result.recorded)
         : batch.length,
     )
+    if (onBatchAcknowledged && !onBatchAcknowledged()) {
+      onError(new Error("Saved supplier feedback, but the remaining queue could not be persisted"))
+      return false
+    }
   }
   return true
 }
@@ -98,6 +103,44 @@ export type SupplierFeedbackDrainResult = {
 }
 
 const activeOwnerDrains = new Map<string, Promise<{ completed: boolean; persisted: boolean }>>()
+const localOwnerLocks = new Map<string, Promise<unknown>>()
+
+function withLocalOwnerLock<T>(ownerUserId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = localOwnerLocks.get(ownerUserId) || Promise.resolve()
+  const current = previous.then(operation, operation)
+  localOwnerLocks.set(ownerUserId, current)
+  return current.finally(() => {
+    if (localOwnerLocks.get(ownerUserId) === current) localOwnerLocks.delete(ownerUserId)
+  })
+}
+
+function withOwnerQueueLock<T>(ownerUserId: string, operation: () => Promise<T>): Promise<T> {
+  const lockManager = typeof navigator === "undefined"
+    ? undefined
+    : (navigator as Navigator & {
+        locks?: {
+          request<R>(name: string, options: { mode: "exclusive" }, callback: () => Promise<R>): Promise<R>
+        }
+      }).locks
+  if (lockManager) {
+    return lockManager.request(`farq:supplier-feedback:${encodeURIComponent(ownerUserId)}`, { mode: "exclusive" }, operation)
+  }
+  return withLocalOwnerLock(ownerUserId, operation)
+}
+
+/** Add a buyer choice while holding the same cross-tab lock used by queue drains. */
+export async function enqueueSupplierFeedbackForOwner(
+  ownerUserId: string,
+  queue: SupplierFeedbackItem[],
+  items: SupplierFeedbackItem[],
+  storage = defaultStorage(),
+): Promise<boolean> {
+  return withOwnerQueueLock(ownerUserId, async () => {
+    const next = [...loadSupplierFeedbackQueue(ownerUserId, storage), ...items]
+    queue.splice(0, queue.length, ...next)
+    return persistSupplierFeedbackQueue(ownerUserId, queue, storage)
+  })
+}
 
 /** Serialize drains across proposals-screen mounts for one buyer in this app runtime. */
 export async function drainSupplierFeedbackQueueForOwner(
@@ -115,9 +158,23 @@ export async function drainSupplierFeedbackQueueForOwner(
   }
 
   const operation = (async () => {
-    const completed = await drainSupplierFeedbackQueue(queue, send, onSaved, onError)
-    return { completed, persisted: persistSupplierFeedbackQueue(ownerUserId, queue, storage) }
-  })()
+    return withOwnerQueueLock(ownerUserId, async () => {
+      // Another tab may have drained this component's stale in-memory copy while
+      // we waited for the lock. The durable queue is authoritative.
+      queue.splice(0, queue.length, ...loadSupplierFeedbackQueue(ownerUserId, storage))
+      let persisted = true
+      const completed = await drainSupplierFeedbackQueue(queue, send, onSaved, onError, () => {
+        const saved = persistSupplierFeedbackQueue(ownerUserId, queue, storage)
+        persisted = persisted && saved
+        return saved
+      })
+      persisted = persistSupplierFeedbackQueue(ownerUserId, queue, storage) && persisted
+      return { completed, persisted }
+    })
+  })().catch((error) => {
+    onError(error)
+    return { completed: false, persisted: false }
+  })
   activeOwnerDrains.set(ownerUserId, operation)
   try {
     return { claimed: true, ...await operation }

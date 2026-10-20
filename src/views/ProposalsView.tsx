@@ -18,8 +18,8 @@ import { farqSession } from '../api/farqSession'
 import { recordConstructionSupplierFeedback, type SupplierFeedbackItem } from '../api/constructionClient'
 import {
   drainSupplierFeedbackQueueForOwner,
+  enqueueSupplierFeedbackForOwner,
   loadSupplierFeedbackQueue,
-  persistSupplierFeedbackQueue,
 } from '../lib/supplierFeedbackQueue'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
@@ -880,14 +880,20 @@ export function ProposalsView({ navigate }: NavProps) {
       const intent = item.mapSuggestion?.intent || item.aiSuggestion?.intent
       if (intent) subjects.push({ subject_kind: 'INTENT', subject_key: intent })
       if (item.name.trim().length >= 3) subjects.push({ subject_kind: 'LINE_TEXT', subject_key: item.name })
-      for (const supplier_id of supplierIds)
-        for (const subject of subjects) learnQueue.current.push({ ...subject, supplier_id, verdict, line_text: item.name.slice(0, 300) })
-      if (!persistSupplierFeedbackQueue(ownerId, learnQueue.current)) {
-        setLearnError('تعذّر حفظ اختياراتك محليًا؛ سيحاول التطبيق إرسالها الآن')
-      }
-      learnRetryCount.current = 0
-      if (learnTimer.current) clearTimeout(learnTimer.current)
-      learnTimer.current = setTimeout(flushLearning, 900)
+      const feedback = supplierIds.flatMap((supplier_id) =>
+        subjects.map((subject) => ({ ...subject, supplier_id, verdict, line_text: item.name.slice(0, 300) })),
+      )
+      void enqueueSupplierFeedbackForOwner(ownerId, learnQueue.current, feedback).then((persisted) => {
+        if (!persisted) {
+          if (learnMounted.current) setLearnError('تعذّر حفظ اختياراتك محليًا؛ أعد المحاولة بعد استعادة التخزين')
+          return
+        }
+        learnRetryCount.current = 0
+        if (learnTimer.current) clearTimeout(learnTimer.current)
+        learnTimer.current = setTimeout(flushLearning, 900)
+      }).catch((err) => {
+        if (learnMounted.current) setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
+      })
     },
     [flushLearning],
   )
