@@ -323,6 +323,8 @@ export type ConstructionComparison = {
     complete_quote_count: number
     lines: Array<{
       id: string
+      /** Stable procurement line identity used to attach buyer fit reviews. */
+      line_key?: string
       /** The booklet's own text (Arabic when the booklet had it). */
       name_ar: string
       name_en?: string
@@ -577,6 +579,19 @@ export type BoqCatalogMatchRow = {
   learned_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number }>
   }
+  /** Suppliers the buyer explicitly rated as fitting this same normalized BOQ line. */
+  fit_review_suggestion?: {
+    suppliers?: Array<{
+      id: string
+      name_ar?: string
+      name_en?: string
+      city?: string
+      evidence?: string
+      channel?: string
+      rfq_eligible?: boolean
+      prior_quotes?: number
+    }>
+  } | null
   /** «نتائج الجولات»: what suppliers did with this material in earlier rounds. */
   outcome_suggestion?: {
     suppliers: Array<{ id: string; name_ar?: string; name_en?: string; city?: string; evidence?: string; channel?: string; learned?: boolean; prior_quotes?: number; round_outcome?: { grade: string; priced_lines?: number; similar_by?: string }; why_ar?: string; out_of_city?: boolean }>
@@ -3180,6 +3195,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
       const channels = (s.contact_channels || {}) as { email?: boolean; whatsapp?: boolean; haraj?: boolean }
       const id = String(s.id || '')
       const outcome = s.round_outcome as { grade?: string; priced_lines?: number; similar_by?: string } | undefined
+      const fitReview = s.fit_review as { verdict?: 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED'; reason_code?: string; reviewed_at?: string } | undefined
       const isHaraj =
         isHarajSellerExternalKey(id) ||
         String(s.source_system || s.source || '') === 'HARAJ' ||
@@ -3191,6 +3207,7 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         city: (s.city as string | undefined) || undefined,
         evidence,
         learned: s.learned_choice === true,
+        ...(fitReview?.verdict ? { fitReview: { verdict: fitReview.verdict, ...(fitReview.reason_code ? { reasonCode: fitReview.reason_code } : {}), ...(fitReview.reviewed_at ? { reviewedAt: fitReview.reviewed_at } : {}) } } : {}),
         prior_quotes: priorQuotesOf(s),
         ...(outcome?.grade ? { round_outcome: { grade: outcome.grade, priced_lines: outcome.priced_lines, similar_by: outcome.similar_by } } : {}),
         ...(typeof s.why_ar === 'string' && s.why_ar ? { why_ar: s.why_ar } : {}),
@@ -3310,6 +3327,70 @@ export async function getConstructionReportLines(filter: 'no_offer' | 'single_of
   if (rfqId) qs.set('rfq_id', rfqId)
   if (days) qs.set('days', String(days))
   return request<{ filter: string; rfq_id: string | null; lines: ConstructionReportLine[] }>(`/api/construction/reports/lines?${qs}`)
+}
+
+export type ConstructionMatchingQuality = {
+  generated_at: string
+  filters: { days: number | null; rfq_id: string | null }
+  exposure: {
+    status: 'AVAILABLE' | 'UNAVAILABLE'
+    total_shown: number | null
+    linked_shown: number | null
+    by_lane: Array<{
+      lane: string
+      confidence: string
+      shown: number
+      selected: number
+      auto_picked_selected: number
+      quoted_line: number
+      line_declined: number
+      selection_rate: number | null
+    }>
+  }
+  buyer_choice?: {
+    status: 'AVAILABLE' | 'UNAVAILABLE' | 'NOT_FILTERABLE_BY_RFQ' | 'NOT_FILTERABLE_BY_SCOPE'
+    decisions: number | null
+    chosen: number | null
+    rejected: number | null
+    by_subject: Array<{ subject_kind: 'SPEC' | 'INTENT' | 'LINE_TEXT'; verdict: 'CHOSEN' | 'REJECTED'; decisions: number; subjects: number; suppliers: number }>
+    repeated_patterns: Array<{ subject_kind: 'SPEC' | 'INTENT' | 'LINE_TEXT'; subject_key: string; decisions: number; chosen: number; rejected: number; suppliers: number; latest_update: string | null }>
+  }
+  fit_review: {
+    basis: 'BUYER_REVIEWED_CURRENT_QUOTE_LINES'
+    reviewed: number
+    matched: number
+    mismatched: number
+    match_rate: number | null
+    match_rate_interval_95?: { low: number; high: number } | null
+    by_lane: Array<{ lane: string; confidence: string; ontology_version: string | null; grade_version: string | null; map_hash: string | null; reviewed: number; matched: number; mismatched: number; match_rate: number | null; match_rate_interval_95?: { low: number; high: number } | null }>
+    categories: Array<{ category: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null; match_rate_interval_95?: { low: number; high: number } | null }>
+    suppliers?: Array<{ supplier_id: string; supplier_name: string; reviewed: number; matched: number; mismatched: number; match_rate: number | null; match_rate_interval_95?: { low: number; high: number } | null }>
+    repeated_patterns?: Array<{ category: string; supplier_id: string; supplier_name: string; reason_code: string; reports: number; example_rfq_id: string; example_line_key: string }>
+    mismatch_reasons: Array<{ reason_code: string; reason: string | null; reports: number }>
+  }
+  note: string
+}
+
+/** The visible recommendations and explicit buyer reviews behind match-quality reporting. */
+export async function getConstructionMatchingQuality(options: { days?: number | null; rfqId?: string | null } = {}) {
+  const qs = new URLSearchParams()
+  if (options.days) qs.set('days', String(options.days))
+  if (options.rfqId) qs.set('rfq_id', options.rfqId)
+  return request<ConstructionMatchingQuality>(`/api/construction/reports/matching-quality${qs.toString() ? `?${qs}` : ''}`)
+}
+
+export type ConstructionSupplierFitVerdict = 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED'
+export type ConstructionSupplierFitMismatchReason = 'PRODUCT_MISMATCH' | 'SPECIFICATION_MISMATCH' | 'SUPPLIER_CAPABILITY' | 'SERVICE_AREA' | 'OTHER'
+
+/** Record the buyer's fit review against a current supplier quote version and request line. */
+export async function recordConstructionSupplierFitReview(
+  rfqId: string,
+  body: { supplier_id: string; quote_version_id: string; line_key: string; event_type: ConstructionSupplierFitVerdict; reason: string; reason_code?: ConstructionSupplierFitMismatchReason },
+) {
+  return request<{ id: string; event_type: ConstructionSupplierFitVerdict; created_at: string; snapshot: Record<string, unknown> }>(
+    `/api/construction/rfqs/${encodeURIComponent(rfqId)}/supplier-outcomes`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
 }
 
 /**
@@ -3449,6 +3530,7 @@ export async function matchConstructionBoqCatalog(payload: {
         suppliers?: Array<Record<string, unknown>>
       }>
       learned_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
+      fit_review_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       preferred_suggestion?: { label_ar?: string; suppliers?: Array<Record<string, unknown>> } | null
       outcome_suggestion?: { suppliers?: Array<Record<string, unknown>> } | null
       family_suggestion?: { family?: string; suppliers?: Array<Record<string, unknown>> } | null
@@ -3526,6 +3608,7 @@ export async function matchConstructionBoqCatalog(payload: {
           isHarajSellerExternalKey(id) ||
           String(s.source_system || s.source || '') === 'HARAJ' ||
           Boolean(channels.haraj)
+        const fitReview = s.fit_review as { verdict?: unknown; reason_code?: unknown; reviewed_at?: unknown } | undefined
         return {
           id,
           name_ar: s.name_ar as string | undefined,
@@ -3539,6 +3622,7 @@ export async function matchConstructionBoqCatalog(payload: {
               ? 'دليل منتج'
               : 'من الكتالوج',
           learned: s.learned_choice === true,
+          ...(fitReview?.verdict === 'QUOTE_MATCHED' || fitReview?.verdict === 'QUOTE_MISMATCHED' ? { fitReview: { verdict: fitReview.verdict, ...(fitReview.reason_code ? { reasonCode: String(fitReview.reason_code) } : {}), ...(fitReview.reviewed_at ? { reviewedAt: String(fitReview.reviewed_at) } : {}) } } : {}),
           prior_quotes: priorQuotesOf(s),
           channel: channels.email ? 'بريد' : isHaraj ? 'محادثة' : 'واتساب',
           rfq_eligible: eligibleIds.size ? eligibleIds.has(id) : true,
@@ -3565,6 +3649,9 @@ export async function matchConstructionBoqCatalog(payload: {
         : {}),
       ...(row.learned_suggestion?.suppliers?.length
         ? { learned_suggestion: { suppliers: suggestionSuppliers(row.learned_suggestion.suppliers, 'اختيارك') } }
+        : {}),
+      ...(row.fit_review_suggestion?.suppliers?.length
+        ? { fit_review_suggestion: { suppliers: suggestionSuppliers(row.fit_review_suggestion.suppliers, 'تأكيد سابق', Number.POSITIVE_INFINITY) } }
         : {}),
       ...(row.outcome_suggestion?.suppliers?.length
         ? { outcome_suggestion: { suppliers: suggestionSuppliers(row.outcome_suggestion.suppliers, 'نتائج الجولات', 24) } }

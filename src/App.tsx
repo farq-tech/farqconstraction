@@ -143,7 +143,7 @@ function AppRoutes() {
       {(view === 'rfq-detail' || view === 'rfq-closed') && <RequestFileView key={view} navigate={navigate} />}
       {view === 'offers' && <RequestFileView key="offers" navigate={navigate} initialTab="quotes" />}
       {view === 'offer-detail' && <OfferDetailView navigate={navigate} />}
-      {view === 'comparison' && <RequestFileView key="comparison" navigate={navigate} initialTab="quotes" />}
+      {view === 'comparison' && <ComparisonView navigate={navigate} />}
       {view === 'award' && <AwardView navigate={navigate} />}
       {view === 'award-success' && <AwardSuccessView navigate={navigate} />}
       {view === 'supplier-management' && (

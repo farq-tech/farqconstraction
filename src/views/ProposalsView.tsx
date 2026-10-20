@@ -14,11 +14,17 @@ import {
 import { resolveBoqCardFields } from '../lib/parseBoq'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
+import { farqSession } from '../api/farqSession'
 import {
   recordConstructionSupplierExposureViews,
   recordConstructionSupplierFeedback,
   type SupplierFeedbackItem,
 } from '../api/constructionClient'
+import {
+  drainSupplierFeedbackQueueForOwner,
+  enqueueSupplierFeedbackForOwner,
+  loadSupplierFeedbackQueue,
+} from '../lib/supplierFeedbackQueue'
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '../icons'
 import { SendModal } from './SendModal'
 import MarketNameField from '../components/MarketNameField'
@@ -35,6 +41,7 @@ const EVIDENCE_STYLE: Record<string, string> = {
   'من الكتالوج': 'bg-neutral-100 text-neutral-600',
   'على مستوى النشاط': 'bg-neutral-100 text-neutral-500',
   'اختيارك': 'bg-amber-50 text-amber-700',
+  'تأكيد سابق': 'bg-amber-50 text-amber-700',
   'تسمية آلية': 'bg-purple-50 text-purple-700',
   'خريطة فرق': 'bg-teal-50 text-teal-700',
 }
@@ -172,6 +179,8 @@ function SuggestionBox({
                           {' '}· من قائمتك
                         </span>
                       )}
+                      {s.fitReview?.verdict === 'QUOTE_MATCHED' && <span className="text-olive-700 font-semibold"> · أكدت ملاءمته سابقًا</span>}
+                      {s.fitReview?.verdict === 'QUOTE_MISMATCHED' && <span className="text-amber-800 font-semibold"> · سبق أن راجعت عرضه ووجدته غير مناسب</span>}
                       {s.learned && <span className="text-amber-700 font-semibold"> · اخترته سابقًا</span>}
                       {!s.roundOutcome && s.why && (
                         <span className="text-neutral-500" title="لماذا يقترحه فرق لهذه المادة">
@@ -276,6 +285,7 @@ function BOQCard({
       new Set(
         [
           ...(item.preferredSuggestion?.suppliers || []),
+          ...(item.fitReviewSuggestion?.suppliers || []),
           ...(item.learnedSuggestion?.suppliers || []),
           ...(item.outcomeSuggestion?.suppliers || []),
           ...(item.mapSuggestion?.suppliers || []),
@@ -283,7 +293,7 @@ function BOQCard({
           ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.preferredSuggestion, item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
+    [item.preferredSuggestion, item.fitReviewSuggestion, item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
   )
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
@@ -587,6 +597,20 @@ function BOQCard({
               emptyText=""
               suppliers={item.learnedSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
               evidence="اختيارك"
+              selectedIds={selectedIds}
+              onPick={pick}
+              onReject={reject}
+              registerViewedRow={registerViewedRow}
+            />
+          )}
+          {item.fitReviewSuggestion && item.fitReviewSuggestion.suppliers.length > 0 && (
+            <SuggestionBox
+              tone="teal"
+              title="تأكيداتك السابقة على عروض هذا البند"
+              note="تأكيدك السابق يساعد في إظهار المورد ضمن الترشيحات، لكنه لا يختاره تلقائيًا. المورد الذي سبق أن حددته كغير مناسب لا يُختار آليًا، ويمكنك الاطلاع عليه عند الحاجة."
+              emptyText=""
+              suppliers={item.fitReviewSuggestion.suppliers.filter((x) => !hiddenIds.has(x.id))}
+              evidence="تأكيد سابق"
               selectedIds={selectedIds}
               onPick={pick}
               onReject={reject}
@@ -921,42 +945,109 @@ export function ProposalsView({ navigate }: NavProps) {
   // Every tick, untick and «غير مناسب» is a verdict the API replays on the next
   // booklet. Sent in small batches; a failed batch is retried with the next one,
   // and the buyer is told once if learning is not being saved.
+  const learnOwnerId = useRef<string | null>(farqSession.getUser()?.id ?? null)
   const learnQueue = useRef<SupplierFeedbackItem[]>([])
+  const learnQueueInitialized = useRef(false)
+  if (!learnQueueInitialized.current) {
+    learnQueue.current = loadSupplierFeedbackQueue(learnOwnerId.current)
+    learnQueueInitialized.current = true
+  }
   const learnTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const learnFlushInFlight = useRef(false)
+  const learnRetryCount = useRef(0)
+  const learnMounted = useRef(false)
   const [learnError, setLearnError] = useState<string | null>(null)
   const [learnedCount, setLearnedCount] = useState(0)
   const flushLearning = useCallback(() => {
+    if (learnTimer.current) clearTimeout(learnTimer.current)
     learnTimer.current = null
-    const batch = learnQueue.current.splice(0, 400)
-    if (!batch.length) return
-    recordConstructionSupplierFeedback(batch)
-      .then((res) => {
+    if (learnFlushInFlight.current || !learnQueue.current.length) return
+    const ownerId = learnOwnerId.current
+    if (!ownerId || farqSession.getUser()?.id !== ownerId) return
+    learnFlushInFlight.current = true
+    const queue = learnQueue.current
+    void drainSupplierFeedbackQueueForOwner(
+      ownerId,
+      queue,
+      recordConstructionSupplierFeedback,
+      (count) => {
+        if (!learnMounted.current) return
         setLearnError(null)
-        setLearnedCount((n) => n + (res?.recorded ?? batch.length))
-      })
-      .catch((err) => {
-        learnQueue.current.unshift(...batch)
-        setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
-      })
+        setLearnedCount((n) => n + count)
+      },
+      (err) => {
+        if (learnMounted.current) setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
+      },
+    ).then(({ claimed, completed, persisted }) => {
+      if (!persisted && queue.length && learnMounted.current) {
+        setLearnError('تعذّر حفظ بعض اختياراتك محليًا؛ أبقِ الصفحة مفتوحة حتى يكتمل إرسالها')
+      }
+      if (claimed) {
+        if (completed) learnRetryCount.current = 0
+        else learnRetryCount.current += 1
+      }
+    }).finally(() => {
+      learnFlushInFlight.current = false
+      const activeOwnerId = learnOwnerId.current
+      if (learnQueue.current.length && activeOwnerId && farqSession.getUser()?.id === activeOwnerId) {
+        const changedOwner = activeOwnerId !== ownerId
+        if (!changedOwner && learnRetryCount.current > 2) return
+        const delay = changedOwner || learnRetryCount.current === 0 ? 0 : 1000 * learnRetryCount.current
+        learnTimer.current = setTimeout(flushLearning, delay)
+      }
+    })
   }, [])
   const learn = useCallback(
     (item: BOQItem | undefined, supplierIds: string[], verdict: SupplierFeedbackItem['verdict']) => {
       if (!item || !supplierIds.length) return
+      const ownerId = farqSession.getUser()?.id ?? null
+      if (!ownerId || ownerId !== learnOwnerId.current) return
       const subjects: Array<Pick<SupplierFeedbackItem, 'subject_kind' | 'subject_key'>> = []
       if (item.farqSpecId) subjects.push({ subject_kind: 'SPEC', subject_key: item.farqSpecId })
       const intent = item.mapSuggestion?.intent || item.aiSuggestion?.intent
       if (intent) subjects.push({ subject_kind: 'INTENT', subject_key: intent })
       if (item.name.trim().length >= 3) subjects.push({ subject_kind: 'LINE_TEXT', subject_key: item.name })
-      for (const supplier_id of supplierIds)
-        for (const subject of subjects) learnQueue.current.push({ ...subject, supplier_id, verdict, line_text: item.name.slice(0, 300) })
-      if (learnTimer.current) clearTimeout(learnTimer.current)
-      learnTimer.current = setTimeout(flushLearning, 900)
+      const feedback = supplierIds.flatMap((supplier_id) =>
+        subjects.map((subject) => ({ ...subject, supplier_id, verdict, line_text: item.name.slice(0, 300) })),
+      )
+      void enqueueSupplierFeedbackForOwner(ownerId, learnQueue.current, feedback).then((persisted) => {
+        if (!persisted) {
+          if (learnMounted.current) setLearnError('تعذّر حفظ اختياراتك محليًا؛ أعد المحاولة بعد استعادة التخزين')
+          return
+        }
+        learnRetryCount.current = 0
+        if (learnTimer.current) clearTimeout(learnTimer.current)
+        learnTimer.current = setTimeout(flushLearning, 900)
+      }).catch((err) => {
+        if (learnMounted.current) setLearnError(err instanceof Error ? err.message : 'تعذّر حفظ اختياراتك للتعلّم')
+      })
     },
     [flushLearning],
   )
-  useEffect(() => () => {
-    if (learnTimer.current) clearTimeout(learnTimer.current)
-    flushLearning()
+  useEffect(() => {
+    learnMounted.current = true
+    const unsubscribe = farqSession.subscribe((event, session) => {
+      if (event !== 'IDENTITY_CHANGED') return
+      if (learnTimer.current) clearTimeout(learnTimer.current)
+      learnTimer.current = null
+      const nextOwnerId = session?.user.id ?? null
+      learnOwnerId.current = nextOwnerId
+      learnQueue.current = loadSupplierFeedbackQueue(nextOwnerId)
+      learnRetryCount.current = 0
+      if (nextOwnerId && learnQueue.current.length) {
+        learnTimer.current = setTimeout(flushLearning, 0)
+      }
+    })
+    if (learnOwnerId.current && learnQueue.current.length) {
+      learnTimer.current = setTimeout(flushLearning, 0)
+    }
+    return () => {
+      learnMounted.current = false
+      unsubscribe()
+      if (learnTimer.current) clearTimeout(learnTimer.current)
+      learnTimer.current = null
+      flushLearning()
+    }
   }, [flushLearning])
 
   // Deleting a line is the buyer's call and must be reversible: the line goes

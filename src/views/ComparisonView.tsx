@@ -2,8 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import type { NavProps } from '../types'
 import {
   getConstructionComparison,
+  getConstructionMe,
+  getConstructionSupplierOutcomes,
   listBuyerRfqs,
+  recordConstructionSupplierFitReview,
   type ConstructionComparison,
+  type ConstructionSupplierFitMismatchReason,
+  type ConstructionSupplierOutcomeEvent,
 } from '../api/constructionClient'
 import { useProcurement } from '../procurementContext'
 import MarketNameNote from '../components/MarketNameNote'
@@ -38,10 +43,28 @@ export function ComparisonView({ navigate }: NavProps) {
   const [data, setData] = useState<ConstructionComparison | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [fitReviews, setFitReviews] = useState<ConstructionSupplierOutcomeEvent[]>([])
+  const [reviewingKey, setReviewingKey] = useState<string | null>(null)
+  const [reviewReason, setReviewReason] = useState('')
+  const [reviewReasonCode, setReviewReasonCode] = useState<ConstructionSupplierFitMismatchReason | ''>('')
+  const [reviewBusyKey, setReviewBusyKey] = useState<string | null>(null)
+  const [reviewError, setReviewError] = useState<string | null>(null)
+  const [reviewErrorKey, setReviewErrorKey] = useState<string | null>(null)
+  const [canReviewFit, setCanReviewFit] = useState(false)
   const isAdmin = useConstructionAdmin()
   // «بدائل مكافئة» is an add-on: off unless the server says this account has it.
   const services = useServices()
   const showEquivalents = services.has(EQUIVALENTS_SERVICE)
+
+  useEffect(() => {
+    let cancelled = false
+    getConstructionMe()
+      .then((me) => {
+        if (!cancelled) setCanReviewFit(['ADMIN', 'PROCUREMENT', 'APPROVER'].includes(String(me?.role || '').toUpperCase()))
+      })
+      .catch(() => { if (!cancelled) setCanReviewFit(false) })
+    return () => { cancelled = true }
+  }, [])
 
   // After an admin confirms or corrects a held price: re-read in place.
   const reload = async () => {
@@ -55,6 +78,9 @@ export function ComparisonView({ navigate }: NavProps) {
 
   useEffect(() => {
     let cancelled = false
+    setFitReviews([])
+    setReviewingKey(null)
+    setReviewError(null)
     ;(async () => {
       setLoading(true)
       setError(null)
@@ -70,7 +96,27 @@ export function ComparisonView({ navigate }: NavProps) {
           return
         }
         const result = await getConstructionComparison(rfqId)
-        if (!cancelled) setData(result)
+        if (!cancelled) {
+          setData(result)
+          getConstructionSupplierOutcomes(rfqId)
+            .then((outcomes) => {
+              if (cancelled) return
+              // A buyer can save a review while this initial read is still in
+              // flight. Keep those optimistic POST results when the older GET
+              // response arrives, while deduplicating events already present.
+              setFitReviews((previous) => {
+                const merged = new Map((outcomes.events || []).map((event) => [event.id, event]))
+                for (const event of previous) {
+                  if (!merged.has(event.id)) merged.set(event.id, event)
+                }
+                return [...merged.values()]
+              })
+            })
+            .catch(() => {
+              // The effect already cleared stale RFQ data; preserve any local
+              // reviews saved while this read was in flight.
+            })
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'تعذّر تحميل المقارنة')
       } finally {
@@ -91,6 +137,19 @@ export function ComparisonView({ navigate }: NavProps) {
     () => new Map((data?.quote_matrix?.supplier_summaries || []).map((s) => [String(s.supplier_id), s])),
     [data],
   )
+  const latestFitReviewByCell = useMemo(() => {
+    const latest = new Map<string, ConstructionSupplierOutcomeEvent>()
+    for (const event of fitReviews) {
+      if (event.event_type !== 'QUOTE_MATCHED' && event.event_type !== 'QUOTE_MISMATCHED') continue
+      const details = event.details || {}
+      const key = `${String(details.line_key || '')}|${String(event.supplier_id || '')}|${String(details.quote_version_id || '')}`
+      const previous = latest.get(key)
+      const eventTime = Date.parse(event.created_at || '')
+      const previousTime = Date.parse(previous?.created_at || '')
+      if (!previous || (Number.isFinite(eventTime) && (!Number.isFinite(previousTime) || eventTime > previousTime))) latest.set(key, event)
+    }
+    return latest
+  }, [fitReviews])
   // A quote with a price held for review, or with VAT unstated, is not «الأقل».
   const comparable = (r: (typeof responses)[number]) => {
     const s = summaries.get(String(r.supplier.id))
@@ -108,6 +167,49 @@ export function ComparisonView({ navigate }: NavProps) {
   const award = (quoteVersionId: string) => {
     setSelectedQuoteVersionId(quoteVersionId)
     navigate('award')
+  }
+
+  const saveFitReview = async (
+    line: NonNullable<ConstructionComparison['quote_matrix']>['lines'][number],
+    supplierId: string,
+    quoteVersionId: string,
+    eventType: 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED',
+    reason: string,
+    reasonCode?: ConstructionSupplierFitMismatchReason,
+  ) => {
+    if (!selectedRfqId || !line.line_key || !supplierId || !quoteVersionId) return
+    const key = `${line.line_key}|${supplierId}|${quoteVersionId}`
+    // Also reveals a save failure for the one-click «مناسب» action, whose
+    // inline error is rendered in the review editor.
+    setReviewingKey(key)
+    setReviewBusyKey(key)
+    setReviewError(null)
+    setReviewErrorKey(null)
+    try {
+      const saved = await recordConstructionSupplierFitReview(selectedRfqId, {
+        supplier_id: supplierId,
+        quote_version_id: quoteVersionId,
+        line_key: line.line_key,
+        event_type: eventType,
+        reason: reason.trim(),
+        ...(eventType === 'QUOTE_MISMATCHED' ? { reason_code: reasonCode || 'OTHER' } : {}),
+      })
+      setFitReviews((previous) => [...previous, {
+        id: saved.id,
+        event_type: saved.event_type,
+        created_at: saved.created_at,
+        supplier_id: supplierId,
+        details: { line_key: line.line_key, quote_version_id: quoteVersionId, reason: reason.trim(), ...(eventType === 'QUOTE_MISMATCHED' ? { reason_code: reasonCode || 'OTHER' } : {}) },
+      }])
+      setReviewingKey(null)
+      setReviewReason('')
+      setReviewReasonCode('')
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : 'تعذّر حفظ نتيجة المطابقة')
+      setReviewErrorKey(key)
+    } finally {
+      setReviewBusyKey(null)
+    }
   }
 
   return (
@@ -184,6 +286,10 @@ export function ComparisonView({ navigate }: NavProps) {
                     const cell = line.offers.find((o) => String(o.supplier_id) === String(r.supplier.id))
                     const held = isHeldOffer(cell)
                     const priced = cell && cell.unit_price != null
+                    const quoteVersionId = String(cell?.quote_version_id || '')
+                    const supplierId = String(r.supplier.id || '')
+                    const reviewKey = `${line.line_key}|${supplierId}|${quoteVersionId}`
+                    const lastFitReview = latestFitReviewByCell.get(`${String(line.line_key || '')}|${supplierId}|${quoteVersionId}`)
                     return (
                       <td key={String(r.supplier.id)} className={`px-4 py-3 ${held ? 'bg-amber-50/50' : ''}`}>
                         {held ? (
@@ -214,6 +320,91 @@ export function ComparisonView({ navigate }: NavProps) {
                           </>
                         ) : (
                           <span className="text-xs text-neutral-400">لم يسعّره</span>
+                        )}
+                        {priced && quoteVersionId && line.line_key && (canReviewFit || lastFitReview) && (
+                          <div className="mt-2 border-t border-neutral-100 pt-2">
+                            {lastFitReview ? (
+                              <div className="flex items-center justify-between gap-2">
+                                <div className={`text-[11px] font-semibold ${lastFitReview.event_type === 'QUOTE_MATCHED' ? 'text-olive-700' : 'text-amber-800'}`}>
+                                  {lastFitReview.event_type === 'QUOTE_MATCHED' ? 'تأكيدك السابق: مناسب للبند' : 'تصحيحك السابق: غير مناسب للبند'}
+                                </div>
+                                {canReviewFit && (
+                                  <button
+                                    disabled={Boolean(reviewBusyKey)}
+                                    onClick={() => {
+                                      setReviewingKey(reviewKey)
+                                      setReviewReason(lastFitReview.event_type === 'QUOTE_MISMATCHED' ? String(lastFitReview.details?.reason || '') : '')
+                                      setReviewReasonCode(lastFitReview.event_type === 'QUOTE_MISMATCHED' ? String(lastFitReview.details?.reason_code || 'OTHER') as ConstructionSupplierFitMismatchReason : '')
+                                    }}
+                                    className="text-[10px] font-semibold text-[#45645f] underline underline-offset-2 disabled:opacity-40"
+                                  >تصحيح الحكم</button>
+                                )}
+                              </div>
+                            ) : canReviewFit ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  disabled={Boolean(reviewBusyKey)}
+                                  onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MATCHED', 'راجع المشتري عرض المورد وأكد ملاءمته للبند.')}
+                                  className="rounded-lg border border-olive-200 px-2 py-1 text-[10px] font-bold text-olive-700 disabled:opacity-40"
+                                >مناسب</button>
+                                <button
+                                  disabled={Boolean(reviewBusyKey)}
+                                  onClick={() => { setReviewingKey(reviewKey); setReviewReason(''); setReviewReasonCode('') }}
+                                  className="rounded-lg border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-800 disabled:opacity-40"
+                                >غير مناسب</button>
+                              </div>
+                            ) : <div className="text-[10px] text-neutral-400">تأكيد ملاءمة العرض غير متاح لحسابك</div>}
+                            {reviewingKey === reviewKey && (
+                              <div className="mt-2 space-y-1.5">
+                                {lastFitReview && (
+                                  <div className="flex items-center justify-between gap-2 text-[10px] text-neutral-500">
+                                    <span>سيُحفظ التصحيح كسجل جديد ويعتمد التقرير أحدث حكم.</span>
+                                    <button
+                                      disabled={reviewBusyKey === reviewKey}
+                                      onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MATCHED', 'صحح المشتري مراجعته وأكد ملاءمة العرض للبند.')}
+                                      className="shrink-0 rounded-lg border border-olive-200 px-2 py-1 font-bold text-olive-700 disabled:opacity-40"
+                                    >احفظ كمناسب</button>
+                                  </div>
+                                )}
+                                <label className="block text-[10px] font-semibold text-neutral-600" htmlFor={`fit-reason-code-${line.id}-${supplierId}`}>
+                                  {lastFitReview ? 'تصنيف سبب عدم الملاءمة' : 'صنّف سبب عدم الملاءمة'}
+                                </label>
+                                <select
+                                  id={`fit-reason-code-${line.id}-${supplierId}`}
+                                  value={reviewReasonCode}
+                                  onChange={(event) => setReviewReasonCode(event.target.value as ConstructionSupplierFitMismatchReason | '')}
+                                  className="w-full rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-[11px] outline-none focus:border-olive-500"
+                                >
+                                  <option value="">اختر التصنيف</option>
+                                  <option value="PRODUCT_MISMATCH">منتج مختلف عن البند</option>
+                                  <option value="SPECIFICATION_MISMATCH">المواصفات أو المقاس لا يطابق</option>
+                                  <option value="SUPPLIER_CAPABILITY">قدرة المورد لا تغطي المطلوب</option>
+                                  <option value="SERVICE_AREA">الموقع خارج نطاق الخدمة</option>
+                                  <option value="OTHER">سبب آخر</option>
+                                </select>
+                                <label className="block text-[10px] font-semibold text-neutral-600" htmlFor={`fit-reason-${line.id}-${supplierId}`}>
+                                  {lastFitReview ? 'تفاصيل السبب (عدّلها إذا لزم)' : 'تفاصيل إضافية'}
+                                </label>
+                                <input
+                                  id={`fit-reason-${line.id}-${supplierId}`}
+                                  value={reviewReason}
+                                  onChange={(event) => setReviewReason(event.target.value)}
+                                  maxLength={500}
+                                  placeholder="مثال: نشاط المورد لا يغطي هذا المنتج"
+                                  className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-[11px] outline-none focus:border-olive-500"
+                                />
+                                <div className="flex gap-1.5">
+                                  <button
+                                    disabled={!reviewReasonCode || reviewReason.trim().length < 2 || reviewBusyKey === reviewKey}
+                                    onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MISMATCHED', reviewReason, reviewReasonCode as ConstructionSupplierFitMismatchReason)}
+                                    className="rounded-lg bg-olive-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40"
+                                  >{reviewBusyKey === reviewKey ? 'جارٍ الحفظ…' : lastFitReview ? 'احفظ كغير مناسب' : 'احفظ النتيجة'}</button>
+                                  <button onClick={() => setReviewingKey(null)} className="px-2 py-1 text-[10px] font-semibold text-neutral-500">إلغاء</button>
+                                </div>
+                              </div>
+                            )}
+                            {reviewError && reviewErrorKey === reviewKey && <div className="mt-1 text-[10px] text-red-700">{reviewError}</div>}
+                          </div>
                         )}
                       </td>
                     )

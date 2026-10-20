@@ -17,7 +17,7 @@ import { farqSession } from '../../api/farqSession'
 import { autoPickConfident, buildPickContext } from '../../lib/autoPick'
 import { loadCompanyProfile } from '../../lib/companyProfile'
 import { matchSuppliersForItems, rowsToLines, sanitizeBoqLines, type ParsedLine } from '../../lib/parseBoq'
-import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
+import { attachMatchExposureIds, buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
 import { cleanLineName, parseQty, readQty, requestTermsBlockers, suggestedRequestType, type RequestType } from '../../lib/sendGuards'
 import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../../lib/quoteDeadline'
 import { REQUEST_TYPES } from '../../lib/specCard'
@@ -55,6 +55,7 @@ function toSupplier(s: SupplierEntry): Supplier {
 function candidatesFor(item: BOQItem): Supplier[] {
   const all = [
     ...(item.preferredSuggestion?.suppliers || []),
+    ...(item.fitReviewSuggestion?.suppliers || []),
     ...(item.learnedSuggestion?.suppliers || []),
     ...(item.outcomeSuggestion?.suppliers || []),
     ...(item.mapSuggestion?.suppliers || []),
@@ -268,7 +269,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
       if (contactable.size < 2) throw new Error('يلزم موردان على الأقل يمكن التواصل معهم.')
       const scoped: Record<number, string[]> = {}
       for (const i of readyItems) scoped[i.id] = (selected[i.id] || []).filter((id) => contactable.has(String(id)))
-      const { packages: draft } = buildRfqPackagesFromSelection({ items: readyItems, selectedByItem: scoped, fallbackDepartment: department })
+      const { packages: draft } = buildRfqPackagesFromSelection({ items: attachMatchExposureIds(readyItems, matched || undefined), selectedByItem: scoped, fallbackDepartment: department })
       const packages = draft.filter((p) => p.selected_supplier_ids.length > 0)
       const keys = new Set(packages.flatMap((p) => p.line_keys))
       const scopedLines = rfqLines.filter((l) => keys.has(String(l.line_key)))

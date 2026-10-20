@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  attachMatchExposureIds,
   buildRfqPackagesFromSelection,
   departmentForBoqItem,
   dominantEngineeringDepartment,
@@ -64,6 +65,21 @@ describe('buildRfqPackagesFromSelection', () => {
       { name: 'عازل' },
       { name: 'كيبل' },
     ])).toBe('ARCHITECTURAL')
+  })
+})
+
+describe('attachMatchExposureIds', () => {
+  it('attaches an exposure to rows returned by that call and preserves existing ids', () => {
+    const items = [
+      item({ id: 1, name: 'رمل', lineKey: 'line-1' }),
+      item({ id: 2, name: 'اسمنت', lineKey: 'line-2', exposureId: 'earlier' }),
+      item({ id: 3, name: 'بلوك', lineKey: 'line-3' }),
+    ]
+    const result = attachMatchExposureIds(items, {
+      exposure_id: 'exposure-current',
+      rows: [{ line_key: 'line-1' }, { line_key: 'line-2' }],
+    })
+    expect(result.map((entry) => entry.exposureId)).toEqual(['exposure-current', 'earlier', undefined])
   })
 })
 

@@ -45,6 +45,23 @@ const resolve = (name: string) => resolveOntology(name)
  * Strings are real lines from the catalogue, kept verbatim.
  */
 describe('confident-wrong: a term must not decide against its own context', () => {
+  it('keeps explicit piling and drilling equipment purchase lines eligible without a supply prefix', () => {
+    for (const line of [
+      'معدات حفر الخوازيق',
+      'معدات حفر الآبار',
+      'توريد معدات حفر الخوازيق',
+      'توريد معدات حفر الآبار',
+    ]) {
+      const result = resolve(line)
+      expect(result.intent).toBe('piling_drilling_rig')
+      expect(result.family).toBe('construction_equipment')
+      expect(result.poolable).toBe(true)
+    }
+    for (const line of ['حفر خوازيق', 'حفر الآبار', 'حفر ورفع تراب']) {
+      expect(resolve(line).poolable).toBe(false)
+    }
+  })
+
   it('a 0.45 mm gypsum stud is not structural steel', () => {
     for (const line of [
       'توريد قطاع Stud مجلفن عرض 100 مم سماكة 0.45 مم',
@@ -403,7 +420,21 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v24')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v52')
+    expect(listIntentIds()).toHaveLength(834)
+  })
+
+  it('separates steel entrance gates from powered entrance-gate equipment', () => {
+    for (const line of ['بوابة حديد', 'بوابات حديد', 'steel gate', 'wrought iron gate']) {
+      expect(resolve(line).intent).toBe('steel_gate')
+      expect(resolve(line).family).toBe('industrial_doors')
+    }
+    expect(resolve('بوابة منزلقة كهربائية').intent).toBe('entrance_gate')
+  })
+
+  it('separates manual interior sliding doors from automatic doors', () => {
+    expect(resolve('باب سحاب داخلي (جرار)').intent).toBe('interior_sliding_door')
+    expect(resolve('باب سحاب أوتوماتيكي').intent).toBe('automatic_door')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
@@ -1953,6 +1984,12 @@ describe('the attribute clause is a construction, not a keyword list', () => {
     })
   }
 
+  it('uses steel-door supplier vocabulary for gate ranking without reclassifying a steel door', () => {
+    expect(resolveOntology('بوابة حديد').intent).toBe('steel_gate')
+    expect(resolveOntology('أبواب حديد').intent).toBe('metal_door')
+    expect(resolveOntology('بوابة منزلقة كهربائية').intent).toBe('entrance_gate')
+  })
+
   it('a clause still yields Level B recovery rather than a false unknown', () => {
     const r = resolveOntology('ربط Solvent Cement للمواسير')
     expect(r.level_code).not.toBe('C')
@@ -2686,5 +2723,29 @@ describe('cpo-v16: fuel tanks, indoor signage, parking sensors, and a ceiling th
   for (const [line, intent] of cases) it(`${line} → ${intent}`, () => expect(resolve(line).intent, line).toBe(intent))
   it('a fragment that only locates something above the ceiling does not buy a ceiling', () => {
     expect(resolve('بكابلات مثبت فوق السقف المستعار').intent).not.toBe('acoustic_ceiling_tile')
+  })
+})
+
+/** cpo-v34: the Saudi colloquial BOQ noun «بلك» names concrete block. */
+describe('cpo-v34: bare colloquial concrete-block name', () => {
+  it('resolves «بلك» to the concrete-block supplier pool', () => {
+    expect(resolveOntology('بلك').intent).toBe('concrete_block')
+  })
+  it('keeps more specific block types in their own pools', () => {
+    expect(resolveOntology('بلك خفيف سيبوركس').intent).toBe('lightweight_block')
+    expect(resolveOntology('بلك عازل').intent).toBe('insulated_block')
+    expect(resolveOntology('بلك بركاني').intent).toBe('lightweight_block')
+  })
+})
+
+describe('cpo-v36: measured BOQ spellings reach supplier intent pools', () => {
+  it.each([
+    ['وحدة باكج', 'package_unit'],
+    ['بولي يوريثان عزل أسطح رش', 'spray_foam_insulation'],
+    ['مطبخ أكريليك', 'kitchen_cabinet'],
+  ])('%s resolves to %s', (line, intent) => {
+    const resolution = resolveOntology(line)
+    expect(resolution.intent).toBe(intent)
+    expect(resolution.poolable).toBe(true)
   })
 })

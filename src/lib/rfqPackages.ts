@@ -172,3 +172,16 @@ export function buildRfqPackagesFromSelection(input: {
 
   return { packages, lineKeys }
 }
+
+/** Attach a match call's exposure id only to the lines returned by that call. */
+export function attachMatchExposureIds<T extends { id: number; lineKey?: string; exposureId?: string }>(
+  items: T[],
+  match?: { rows?: Array<{ line_key?: string }>; matches?: Array<{ line_key?: string }>; exposure_id?: string },
+): T[] {
+  if (!match?.exposure_id) return items
+  const matchedKeys = new Set((match.rows || match.matches || []).map((row) => String(row.line_key || '')))
+  return items.map((item) => {
+    const key = String(item.lineKey || `line-${item.id}`)
+    return item.exposureId || !matchedKeys.has(key) ? item : { ...item, exposureId: match.exposure_id }
+  })
+}

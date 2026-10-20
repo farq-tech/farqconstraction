@@ -185,6 +185,15 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
     expect(autoPickConfident(item).map(s => s.id)).toEqual(['chosen'])
     expect(autoPickConfident({ ...item, rejectedSupplierIds: ['chosen'] })).toEqual([])
   })
+  it('keeps exact-line fit confirmations as suggestions without auto-picking them', () => {
+    const matched = { ...wa('confirmed'), fitReview: { verdict: 'QUOTE_MATCHED' as const } }
+    const mismatched = { ...wa('mismatch'), fitReview: { verdict: 'QUOTE_MISMATCHED' as const } }
+    const item = line(24, 'cement', [matched, mismatched], {
+      fitReviewSuggestion: { suppliers: [matched, mismatched] },
+    })
+    expect(autoPickConfident(item)).toEqual([])
+    expect(autoPickFor(item).map(s => s.id)).toEqual(['confirmed'])
+  })
   it('keeps historical evidence outside the delivery city for manual review', () => {
     const item = line(6, 'cement', [
       wa('historical-away', { outOfCity: true, priorQuotes: 5 }),

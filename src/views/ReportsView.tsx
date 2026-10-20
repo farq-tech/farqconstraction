@@ -9,6 +9,7 @@ import {
   ConstructionApiError,
   formatArDate,
   getConstructionMe,
+  getConstructionMatchingQuality,
   formatRfqReference,
   getConstructionReportLines,
   getConstructionReports,
@@ -16,7 +17,9 @@ import {
   type ConstructionReportProject,
   type ConstructionReports,
   type ConstructionReportSupplier,
+  type ConstructionMatchingQuality,
 } from '../api/constructionClient'
+import { intentLabelAr } from '../lib/intentLabels'
 
 /**
  * Procurement intelligence. Every number on this page is counted from a record
@@ -32,10 +35,22 @@ const BUCKET_ORDER = ['H1', 'H4', 'H12', 'H24', 'D3', 'D3P', 'AUTO', 'NONE']
 const BUCKET_TONE: Record<string, string> = { H1: 'bg-olive-700', H4: 'bg-olive-600', H12: 'bg-olive-500', H24: 'bg-olive-400', D3: 'bg-olive-300', D3P: 'bg-olive-200', AUTO: 'bg-neutral-300', NONE: 'bg-neutral-200' }
 const SUPPLIERS_SHOWN = 25
 const STATUS_AR: Record<string, string> = { SENT: 'بانتظار العروض', PARTIALLY_SENT: 'أُرسل جزئيًا', CLOSED: 'مغلق', DRAFT_NOT_SENT: 'لم يُرسل', DISPATCHING: 'جارٍ الإرسال', CANCELLED: 'ملغى' }
+const MATCH_LANE_AR: Record<string, string> = { PREFERRED: 'مورد مفضّل', LEARNED: 'اختيار سابق', OUTCOME: 'نتيجة جولة سابقة', MATCH: 'مطابقة الكتالوج', MAP: 'مطابقة المادة', MAP_FAMILY: 'نشاط المادة', PLAN: 'خطة الموردين', AI: 'اقتراح ذكي', FAMILY: 'نشاط عام', EVIDENCE: 'دليل منتج' }
+const MATCH_REASON_AR: Record<string, string> = { PRODUCT_MISMATCH: 'منتج مختلف عن البند', SPECIFICATION_MISMATCH: 'المواصفات أو المقاس لا يطابق', SUPPLIER_CAPABILITY: 'قدرة المورد لا تغطي المطلوب', SERVICE_AREA: 'الموقع خارج نطاق الخدمة', OTHER: 'سبب آخر أو مراجعة قديمة' }
+const MATCH_ACTION_AR: Record<string, string> = {
+  PRODUCT_MISMATCH: 'راجع تصنيف البند أو قاعدة المطابقة',
+  SPECIFICATION_MISMATCH: 'راجع مطابقة المواصفات',
+  SUPPLIER_CAPABILITY: 'راجع تغطية قدرة المورد',
+  SERVICE_AREA: 'راجع تغطية المنطقة',
+  OTHER: 'تحقق من الحالة يدويًا',
+}
 
 function num(value: unknown): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
+}
+function matchIntervalLabel(interval?: { low: number; high: number } | null): string | null {
+  return interval ? `فاصل 95%: ${interval.low}–${interval.high}%` : null
 }
 function money(value: unknown): string {
   const n = num(value)
@@ -137,6 +152,8 @@ export function ReportsView({ navigate }: NavProps) {
   const [days, setDays] = useState<number | null>(null)
   const [rfqId, setRfqId] = useState<string | null>(null)
   const [data, setData] = useState<ConstructionReports | null>(null)
+  const [matchingQuality, setMatchingQuality] = useState<ConstructionMatchingQuality | null>(null)
+  const [matchingQualityUnavailable, setMatchingQualityUnavailable] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [drill, setDrill] = useState<{ title: string; lines: ConstructionReportLine[] } | null>(null)
   const [sortKey, setSortKey] = useState<'replied' | 'median' | 'quotes' | 'wins' | 'rfqs'>('replied')
@@ -158,6 +175,8 @@ export function ReportsView({ navigate }: NavProps) {
   useEffect(() => {
     let alive = true
     setData(null)
+    setMatchingQuality(null)
+    setMatchingQualityUnavailable(false)
     setError(null)
     getConstructionReports({ days, rfqId })
       .then((r) => alive && setData(r))
@@ -166,6 +185,13 @@ export function ReportsView({ navigate }: NavProps) {
           ? 'خدمة التقارير غير متاحة على الخادم حاليًا. لم يتغيّر شيء في بياناتك؛ أعد المحاولة بعد قليل.'
           : e instanceof Error ? e.message : 'تعذّر تحميل التقارير.',
       ))
+    getConstructionMatchingQuality({ days, rfqId })
+      .then((r) => alive && setMatchingQuality(r))
+      .catch(() => {
+        if (!alive) return
+        setMatchingQuality(null)
+        setMatchingQualityUnavailable(true)
+      })
     return () => {
       alive = false
     }
@@ -282,6 +308,215 @@ export function ReportsView({ navigate }: NavProps) {
           <Kpi value={t.replied} label="ردود فعلية من الموردين" hint={[t.reply_rate != null ? `${t.reply_rate}% ممن وصلهم` : '', num(t.auto_only) ? `${num(t.auto_only)} رد آلي لا يُحتسب` : ''].filter(Boolean).join(' · ') || undefined} />
           <Kpi value={t.suppliers_participating} label="موردون شاركوا فعليًا" />
         </div>
+      </Section>
+
+      <Section title="جودة مطابقة الموردين" note="الملاءمة البشرية فقط هي مقياس الصحة؛ الرد أو الصمت ليس حكمًا على المطابقة">
+        {matchingQuality ? (
+          <>
+        {matchingQuality.buyer_choice && (
+          <div className="bg-white border border-olive-100 rounded-2xl p-4 mb-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-sm font-bold text-olive-900">تصحيحات اختيار الموردين</h3>
+                <p className="text-[11px] text-neutral-500 mt-1">اختيار المورد أو استبعاده يعلّم تفضيل شركتك، لكنه لا يثبت ملاءمة عرضه للبند.</p>
+              </div>
+              {matchingQuality.buyer_choice.status === 'AVAILABLE' && (
+                <div className="flex gap-2 text-[11px] font-semibold">
+                  <span className="rounded-full bg-olive-50 px-2.5 py-1 text-olive-800">اختيار {matchingQuality.buyer_choice.chosen ?? 0}</span>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-800">استبعاد {matchingQuality.buyer_choice.rejected ?? 0}</span>
+                  <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-neutral-700">إجمالي {matchingQuality.buyer_choice.decisions ?? 0}</span>
+                </div>
+              )}
+            </div>
+            {matchingQuality.buyer_choice.status !== 'AVAILABLE' ? (
+              <p className="text-xs text-neutral-500">
+                {matchingQuality.buyer_choice.status === 'NOT_FILTERABLE_BY_RFQ'
+                  ? 'تصحيحات الموردين لا تُفلتر حسب طلب التسعير؛ اعرض التقرير على مستوى الشركة.'
+                  : matchingQuality.buyer_choice.status === 'NOT_FILTERABLE_BY_SCOPE'
+                    ? 'إحصاءات اختيار الموردين غير متاحة ضمن صلاحية الطلبات المخصصة لك فقط.'
+                    : 'سجل تصحيحات اختيار الموردين غير متاح في هذا الإصدار.'}
+              </p>
+            ) : matchingQuality.buyer_choice.repeated_patterns.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-[11px] text-olive-700">
+                    {['المادة أو البند', 'مرات التصحيح', 'اختير', 'استُبعد', 'موردون', 'آخر تصحيح'].map((label) => <th key={label} className="text-right font-semibold px-2 py-2 whitespace-nowrap">{label}</th>)}
+                  </tr></thead>
+                  <tbody className="divide-y divide-olive-50">
+                    {matchingQuality.buyer_choice.repeated_patterns.map((row) => (
+                      <tr key={`${row.subject_kind}-${row.subject_key}`}>
+                        <td className="px-2 py-2 font-semibold text-olive-900">
+                          <span className="block text-[10px] text-neutral-400">{row.subject_kind === 'INTENT' ? 'مادة' : row.subject_kind === 'SPEC' ? 'منتج كتالوج' : 'نص البند'}</span>
+                          {row.subject_kind === 'INTENT' ? intentLabelAr(row.subject_key) || row.subject_key : row.subject_key}
+                        </td>
+                        <td className="px-2 py-2 tabular-nums">{row.decisions}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.chosen}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.rejected}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.suppliers}</td>
+                        <td className="px-2 py-2 text-xs text-neutral-500">{row.latest_update ? formatArDate(row.latest_update) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-500">لا توجد تصحيحات موردين في الفترة المحددة.</p>
+            )}
+          </div>
+        )}
+        <div className="grid sm:grid-cols-3 gap-3 mb-3">
+          <Kpi
+            value={matchingQuality?.fit_review.match_rate == null ? '—' : `${matchingQuality.fit_review.match_rate}%`}
+            label="ملاءمة العروض التي أكدها المشتري"
+            hint={matchingQuality?.fit_review.reviewed
+              ? [`من ${matchingQuality.fit_review.reviewed} تأكيد أو تصحيح صريح`, matchIntervalLabel(matchingQuality.fit_review.match_rate_interval_95)].filter(Boolean).join(' · ')
+              : 'ابدأ من مقارنة العروض واضغط «مناسب» أو «غير مناسب»'}
+          />
+          <Kpi value={matchingQuality?.fit_review.matched ?? '—'} label="تأكيدات ملاءمة" />
+          <Kpi value={matchingQuality?.fit_review.mismatched ?? '—'} label="تصحيحات عدم ملاءمة" hint={matchingQuality?.fit_review.mismatched ? 'استخدم أسباب الرفض لتحسين قواعد الموردين والتغطية' : undefined} />
+        </div>
+        {matchingQuality?.fit_review.mismatch_reasons.length ? (
+          <div className="bg-white border border-amber-100 rounded-2xl p-4 mb-3">
+            <h3 className="text-sm font-bold text-olive-900 mb-2">أسباب عدم الملاءمة المتكررة</h3>
+            <div className="space-y-2">
+              {matchingQuality.fit_review.mismatch_reasons.map((row, index) => (
+                <div key={`${row.reason_code}-${index}`} className="flex items-start justify-between gap-4 text-xs">
+                  <span className="text-neutral-700">
+                    <span className="font-semibold">{MATCH_REASON_AR[row.reason_code] || row.reason_code}</span>
+                    {row.reason ? <span className="block mt-0.5 text-[10px] text-neutral-500">مثال: {row.reason}</span> : null}
+                  </span>
+                  <span className="font-bold tabular-nums text-amber-800">{row.reports}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {matchingQuality?.fit_review.repeated_patterns?.length ? (
+          <div className="overflow-x-auto bg-white border border-amber-100 rounded-2xl mb-3">
+            <div className="px-4 pt-3 text-xs font-bold text-olive-900">أنماط تحتاج مراجعة في قواعد المطابقة أو تغطية الموردين</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-olive-700">
+                {['الفئة', 'المورد', 'سبب عدم الملاءمة', 'مسار المراجعة المقترح', 'حالات عدم الملاءمة', 'عينة للمراجعة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.fit_review.repeated_patterns?.map((row) => (
+                  <tr key={`${row.category}-${row.supplier_id}-${row.reason_code}`}>
+                    <td className="px-3 py-2 text-xs font-semibold text-olive-900">{categoryLabel(row.category)}</td>
+                    <td className="px-3 py-2 text-xs">{row.supplier_name}</td>
+                    <td className="px-3 py-2 text-xs">{MATCH_REASON_AR[row.reason_code] || row.reason_code}</td>
+                    <td className="px-3 py-2 text-xs text-olive-700">{MATCH_ACTION_AR[row.reason_code] || MATCH_ACTION_AR.OTHER}</td>
+                    <td className="px-3 py-2 tabular-nums text-amber-800">{row.reports}</td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => openRfq(row.example_rfq_id, 'rfq-detail')} className="text-xs font-bold text-olive-700 hover:underline whitespace-nowrap">افتح الطلب · {row.example_line_key}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="px-3 pb-3 text-[10px] text-neutral-500">كل صف مبني على مراجعات صريحة. راجع البنود ذات العينات القليلة قبل تغيير قاعدة أو تغطية.</p>
+          </div>
+        ) : null}
+        {matchingQuality?.fit_review.suppliers?.length ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl mb-3">
+            <div className="px-4 pt-3 text-xs font-bold text-olive-900">ملاءمة المطابقة حسب المورد</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-olive-700">
+                {['المورد', 'مراجعات', 'مناسب', 'غير مناسب', 'نسبة الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.fit_review.suppliers?.map((row) => (
+                  <tr key={row.supplier_id}>
+                    <td className="px-3 py-2 font-semibold text-olive-900">{row.supplier_name}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.matched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}{matchIntervalLabel(row.match_rate_interval_95) ? <span className="block text-[10px] text-neutral-500">{matchIntervalLabel(row.match_rate_interval_95)}</span> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="px-3 pb-3 text-[10px] text-neutral-500">تعامل مع النسب ذات العينات القليلة كمؤشر للمراجعة فقط.</p>
+          </div>
+        ) : null}
+        {matchingQuality?.fit_review.categories.length ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl mb-3">
+            <div className="px-4 pt-3 text-xs font-bold text-olive-900">ملاءمة المطابقة حسب الفئة</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-olive-700">
+                {['الفئة', 'مراجعات', 'غير مناسب', 'نسبة الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.fit_review.categories.map((row) => (
+                  <tr key={row.category}>
+                    <td className="px-3 py-2 font-semibold text-olive-900">{row.category}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}{matchIntervalLabel(row.match_rate_interval_95) ? <span className="block text-[10px] text-neutral-500">{matchIntervalLabel(row.match_rate_interval_95)}</span> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        {matchingQuality?.fit_review.by_lane.length ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl mb-3">
+            <div className="px-4 pt-3 text-xs font-bold text-olive-900">دقة المطابقة حسب مصدر الترشيح</div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-olive-700">
+                {['مصدر الترشيح', 'الثقة', 'نسخة القواعد', 'مراجعات صريحة', 'غير مناسب', 'نسبة الملاءمة'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.fit_review.by_lane.map((row) => (
+                  <tr key={`${row.lane}-${row.confidence}-${row.ontology_version}-${row.grade_version}-${row.map_hash}`}>
+                    <td className="px-3 py-2 font-semibold text-olive-900">{MATCH_LANE_AR[row.lane] || row.lane}</td>
+                    <td className="px-3 py-2 text-xs">{row.confidence === 'SURE' ? 'قوي' : row.confidence === 'LIKELY' ? 'مرجّح' : 'محتمل'}</td>
+                    <td className="px-3 py-2 text-[10px] text-neutral-600" title={row.map_hash || undefined}>
+                      {[row.ontology_version, row.grade_version].filter(Boolean).join(' · ') || 'غير مسجل'}
+                      {row.map_hash ? <span className="block font-mono">map {row.map_hash.slice(0, 8)}</span> : null}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">{row.reviewed}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.mismatched}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.match_rate == null ? '—' : `${row.match_rate}%`}{matchIntervalLabel(row.match_rate_interval_95) ? <span className="block text-[10px] text-neutral-500">{matchIntervalLabel(row.match_rate_interval_95)}</span> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="px-3 pb-3 text-[10px] text-neutral-500">تُربط المراجعة بمصدر الترشيح وإصدارات القواعد وخريطة الموردين المسجلة وقت العرض. البنود التي بلا سجل عرض لا تدخل هذا الجدول.</p>
+          </div>
+        ) : null}
+        {matchingQuality?.exposure.status === 'AVAILABLE' && matchingQuality.exposure.by_lane.length > 0 ? (
+          <div className="overflow-x-auto bg-white border border-olive-100 rounded-2xl">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-olive-50 text-xs text-olive-700">
+                {['مصدر الاقتراح', 'الثقة', 'عُرض', 'اختاره المشتري', 'اختيار آلي بقي محددًا', 'سعّر البند', 'رفض البند'].map((label) => <th key={label} className="text-right font-semibold px-3 py-2.5 whitespace-nowrap">{label}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-olive-50">
+                {matchingQuality.exposure.by_lane.map((row) => (
+                  <tr key={`${row.lane}-${row.confidence}`}>
+                    <td className="px-3 py-2.5 font-semibold text-olive-900">{MATCH_LANE_AR[row.lane] || row.lane}</td>
+                    <td className="px-3 py-2.5 text-xs">{row.confidence === 'SURE' ? 'قوي' : row.confidence === 'LIKELY' ? 'مرجّح' : 'محتمل'}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.shown}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.selected}{row.selection_rate != null ? <span className="ms-1 text-[10px] text-neutral-400">({row.selection_rate}%)</span> : null}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.auto_picked_selected}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.quoted_line}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.line_declined}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : matchingQuality?.exposure.status === 'UNAVAILABLE' ? (
+          <p className="rounded-2xl border border-neutral-100 bg-white p-4 text-xs text-neutral-500">سجل الاقتراحات غير متاح في هذه البيئة؛ تظهر مراجعات الملاءمة عند توفرها.</p>
+        ) : null}
+        {matchingQuality && <p className="mt-2 text-[11px] text-neutral-500">{matchingQuality.note}</p>}
+          </>
+        ) : matchingQualityUnavailable ? (
+          <p className="rounded-2xl border border-amber-100 bg-white p-4 text-xs text-neutral-600">
+            تعذّر تحميل قياس جودة المطابقة في هذه البيئة. أُبقيت التقارير الأخرى كما هي؛ أعد المحاولة بعد توفر خدمة المطابقة.
+          </p>
+        ) : (
+          <p className="rounded-2xl border border-neutral-100 bg-white p-4 text-xs text-neutral-500">جارٍ تحميل قياس جودة المطابقة…</p>
+        )}
       </Section>
 
       <Section title="طلبات التسعير" note="كل صف طلب أو دفعة تسعير، وقد تتبع عدة طلبات الكراسة نفسها. اضغط الطلب لفتح ملفه.">

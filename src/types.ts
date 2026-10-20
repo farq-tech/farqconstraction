@@ -38,7 +38,7 @@ export type AppView =
  * Where a supplier on a line came from. «من الكتالوج» is the neutral value: the
  * catalog returned the supplier and nothing says how strong the link is.
  */
-export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات'
+export type EvidenceType = 'دليل مباشر' | 'نشاط متطابق' | 'دليل منتج' | 'من الكتالوج' | 'على مستوى النشاط' | 'اختيارك' | 'تسمية آلية' | 'خريطة فرق' | 'نتائج الجولات' | 'تأكيد سابق'
 
 /**
  * What the supplier did with this material in earlier rounds (server:
@@ -60,6 +60,8 @@ export interface Supplier {
   channel: ChannelType
   /** The buyer chose this supplier for this material before. */
   learned?: boolean
+  /** The buyer's latest explicit fit verdict for this identical line text. */
+  fitReview?: { verdict: 'QUOTE_MATCHED' | 'QUOTE_MISMATCHED'; reasonCode?: string; reviewedAt?: string }
   /**
    * «مقدّم عروض سابقاً»: he priced this material (or its line, or its trade)
    * for this company before — the number of requests he priced. The API ranks
@@ -108,6 +110,8 @@ export interface BOQItem {
   familySuggestion?: { family: string; suppliers: Supplier[] }
   /** Suppliers the buyer picked for this same line in an earlier booklet. Never preselected. */
   learnedSuggestion?: { suppliers: Supplier[] }
+  /** Suppliers from the buyer's own latest fit reviews for this exact line. */
+  fitReviewSuggestion?: { suppliers: Supplier[] }
   /** «من قائمتك المفضلة»: the buyer's own pinned suppliers for this kind of line. First, and ticked by default. */
   /** The person's own list («قائمة بدر»): shown, chosen by him, never auto-ticked. */
   preferredSuggestion?: { suppliers: Supplier[]; label?: string }

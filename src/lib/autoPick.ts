@@ -34,6 +34,7 @@ function materialKeyOf(item: BOQItem): string | null {
 // never ticked automatically (owner 14-10), so it is not a lane here.
 function lanesOf(item: BOQItem): Supplier[][] {
   return [
+    item.fitReviewSuggestion?.suppliers || [],
     item.learnedSuggestion?.suppliers || [],
     item.outcomeSuggestion?.suppliers || [],
     item.mapSuggestion?.suppliers || [],
@@ -41,6 +42,10 @@ function lanesOf(item: BOQItem): Supplier[][] {
     item.aiSuggestion?.suppliers || [],
     item.familySuggestion?.suppliers || [],
   ]
+}
+
+function fitMismatches(item: BOQItem): Set<string> {
+  return new Set((item.fitReviewSuggestion?.suppliers || []).filter(s => s.fitReview?.verdict === 'QUOTE_MISMATCHED').map(s => s.id))
 }
 
 /** «مقدّم عروض سابقاً»: he priced this material for the company before. */
@@ -118,6 +123,9 @@ export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 
 export function confidenceOf(s: Supplier): Confidence {
   if (s.outOfCity) return 'MAYBE'
+  // A buyer's prior quote-fit confirmation is useful context, but it does not
+  // confirm today's availability or authorize a new RFQ without selection.
+  if (s.fitReview?.verdict === 'QUOTE_MISMATCHED' || s.fitReview?.verdict === 'QUOTE_MATCHED') return 'MAYBE'
   if (s.learned || isPriorQuoter(s)) return 'SURE'
   // A question or clarification also counts as ANSWERED; a reply alone
   // does not establish that the supplier sells the requested material.
@@ -146,8 +154,10 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   // A weak earlier lane must not hide stronger evidence for the same business.
   const strongest = new Map<string, Supplier>()
   const outsideCity = new Set<string>()
+  const mismatched = fitMismatches(item)
   const score = (s: Supplier) => ({ SURE: 2, LIKELY: 1, MAYBE: 0 })[confidenceOf(s)]
   const candidates = [
+    ...(item.fitReviewSuggestion?.suppliers || []),
     ...(item.learnedSuggestion?.suppliers || []).map(s => ({ ...s, learned: true })),
     ...lanesOf(item).flat(),
   ]
@@ -157,7 +167,7 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
     const previous = strongest.get(s.id)
     if (!previous || score(s) > score(previous)) strongest.set(s.id, s)
   }
-  return all.map(s => strongest.get(s.id) || s).filter(s => !outsideCity.has(s.id) && confidenceOf(s) !== 'MAYBE')
+  return all.map(s => strongest.get(s.id) || s).filter(s => !outsideCity.has(s.id) && !mismatched.has(s.id) && confidenceOf(s) !== 'MAYBE')
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
@@ -171,6 +181,7 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
     item.familySuggestion?.suppliers || [],
   ]
   const ordered = [
+    ...(item.fitReviewSuggestion?.suppliers || []),
     ...(item.learnedSuggestion?.suppliers || []),
     ...(item.outcomeSuggestion?.suppliers || []),
     ...lanes.flat().filter(isPriorQuoter),
@@ -182,8 +193,9 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   ]
   const chosen: Supplier[] = []
   const seen = new Set<string>()
+  const mismatched = fitMismatches(item)
   for (const s of ordered) {
-    if (!s?.id || seen.has(s.id) || rejected.has(s.id)) continue
+    if (!s?.id || seen.has(s.id) || rejected.has(s.id) || mismatched.has(s.id)) continue
     seen.add(s.id)
     chosen.push(s)
     if (chosen.length >= limit) break

@@ -571,6 +571,7 @@ function mapApiSuppliers(
     why_ar?: string
     out_of_city?: boolean
     preferred?: boolean
+    fitReview?: Supplier['fitReview']
   }>,
   limit = MATCH_SUPPLIERS_PER_LINE,
 ): Supplier[] {
@@ -586,7 +587,8 @@ function mapApiSuppliers(
         s.evidence === 'اختيارك' ||
         s.evidence === 'تسمية آلية' ||
         s.evidence === 'خريطة فرق' ||
-        s.evidence === 'نتائج الجولات'
+        s.evidence === 'نتائج الجولات' ||
+        s.evidence === 'تأكيد سابق'
           ? s.evidence
           : // Never grade a supplier by its position in the list.
             'من الكتالوج'
@@ -603,13 +605,14 @@ function mapApiSuppliers(
         why: typeof s.why_ar === 'string' && s.why_ar ? s.why_ar : undefined,
         outOfCity: s.out_of_city === true ? true : undefined,
         ...(s.preferred === true ? { preferred: true } : {}),
+        ...(s.fitReview ? { fitReview: s.fitReview } : {}),
         channel,
       }
     })
 }
 
 /** Result of the remote match, with its failure kept instead of swallowed. */
-type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; preferredSuggestion?: BOQItem['preferredSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
+type RemoteHit = { farqSpecId?: string | null; suppliers: Supplier[]; aiSuggestion?: BOQItem['aiSuggestion']; mapSuggestion?: BOQItem['mapSuggestion']; learnedSuggestion?: BOQItem['learnedSuggestion']; fitReviewSuggestion?: BOQItem['fitReviewSuggestion']; preferredSuggestion?: BOQItem['preferredSuggestion']; outcomeSuggestion?: BOQItem['outcomeSuggestion']; familySuggestion?: BOQItem['familySuggestion']; exposureId?: string }
 type RemoteMatch = {
   hits: Map<string, RemoteHit>
   /** Set when the request itself failed, so the screen can stop looking normal. */
@@ -745,6 +748,9 @@ async function matchViaFarqBoqApi(
         learnedSuggestion: row.learned_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.learned_suggestion.suppliers) }
           : undefined,
+        fitReviewSuggestion: row.fit_review_suggestion?.suppliers?.length
+          ? { suppliers: mapApiSuppliers(row.fit_review_suggestion.suppliers, Number.POSITIVE_INFINITY) }
+          : undefined,
         // The person's own list («قائمة بدر»), uncut, with its name.
         preferredSuggestion: row.preferred_suggestion?.suppliers?.length
           ? { suppliers: mapApiSuppliers(row.preferred_suggestion.suppliers, Number.POSITIVE_INFINITY), ...(row.preferred_suggestion.label_ar ? { label: String(row.preferred_suggestion.label_ar) } : {}) }
@@ -828,12 +834,13 @@ export async function matchSuppliersForItems(
       ...(api?.exposureId ? { exposureId: api.exposureId } : {}),
       aiSuggestion: api?.aiSuggestion,
       learnedSuggestion: api?.learnedSuggestion,
+      fitReviewSuggestion: api?.fitReviewSuggestion,
       ...(api?.preferredSuggestion ? { preferredSuggestion: api.preferredSuggestion } : {}),
       outcomeSuggestion: api?.outcomeSuggestion,
       familySuggestion: api?.familySuggestion,
       mapSuggestion: api?.mapSuggestion,
       workOnly:
-        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.preferredSuggestion && !api?.outcomeSuggestion && !api?.familySuggestion
+        Boolean(line.workOnly) && suppliers.length === 0 && !api?.mapSuggestion && !api?.aiSuggestion && !api?.learnedSuggestion && !api?.fitReviewSuggestion && !api?.preferredSuggestion && !api?.outcomeSuggestion && !api?.familySuggestion
           ? true
           : undefined,
       itemCode: line.itemCode,
