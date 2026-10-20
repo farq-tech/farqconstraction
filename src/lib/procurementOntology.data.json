@@ -1,5 +1,5 @@
 {
- "version": "cpo-v36",
+ "version": "cpo-v40",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -4283,7 +4283,8 @@
       "الواح ساندويتش",
       "لوح ساندويتش",
       "ساندويتش بانل",
-      "ساندويتش بنل"
+      "ساندويتش بنل",
+      "بانل عزل للاسقف"
      ]
     },
     {
@@ -5187,16 +5188,36 @@
      ]
     },
     {
+     "id": "steel_gate",
+     "label_ar": "بوابات حديدية",
+     "strong_terms": [
+      "بوابه حديد",
+      "بوابات حديد",
+      "بوابه حديديه",
+      "بوابات حديديه",
+      "بوابه مدخل حديد",
+      "بوابات مدخل حديد",
+      "بوابه سور حديد",
+      "بوابات سور حديد",
+      "بوابه حوش",
+      "بوابات حوش",
+      "steel gate",
+      "steel gates",
+      "metal gate",
+      "metal gates",
+      "iron gate",
+      "iron gates",
+      "wrought iron gate",
+      "wrought iron gates"
+     ]
+    },
+    {
      "id": "entrance_gate",
      "label_ar": "بوابات المداخل والأسوار",
      "strong_terms": [
       "بوابه مدخل",
       "بوابات مدخل",
       "بوابه المدخل",
-      "بوابه حديد",
-      "بوابات حديد",
-      "ابواب حديد",
-      "ابواب حديديه",
       "بوابه رييسيه",
       "بوابه سحاب",
       "بوابه منزلقه",
@@ -36534,7 +36555,9 @@
       "fiber cable",
       "fibre cable",
       "optical fiber cable",
-      "كبيل فايبر"
+      "كبيل فايبر",
+      "كيبل الياف",
+      "كيبل الياف بصريه"
      ]
     },
     {
@@ -41031,7 +41054,8 @@
       "alucobond",
       "cladding tube",
       "تيوبات كلادينج",
-      "الواح acp"
+      "الواح acp",
+      "كلادينج الومنيوم"
      ]
     },
     {
@@ -49800,7 +49824,15 @@
       "scrub sink",
       "scrub station",
       "مغسله بدون لمس",
-      "hands free sink"
+      "hands free sink",
+      "surgical scrub sink",
+      "surgical scrub sinks",
+      "operating room scrub sink",
+      "operating room scrub sinks",
+      "operating room scrub stations",
+      "حوض غسيل جراحي",
+      "احواض غسيل جراحي",
+      "مغاسل جراحية لغرف العمليات"
      ]
     },
     {
@@ -50316,7 +50348,11 @@
       "بوابه صعود الكترونيه",
       "e-gate",
       "egate",
-      "بوابه ركاب الكترونيه"
+      "بوابه ركاب الكترونيه",
+      "airport baggage scale",
+      "passenger self-check baggage scale",
+      "ميزان امتعة المطار",
+      "ميزان وزن الامتعة بالمطار"
      ]
     },
     {
