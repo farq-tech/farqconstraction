@@ -420,7 +420,8 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v40')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v41')
+    expect(listIntentIds()).toHaveLength(834)
   })
 
   it('separates steel entrance gates from powered entrance-gate equipment', () => {
@@ -429,6 +430,11 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
       expect(resolve(line).family).toBe('industrial_doors')
     }
     expect(resolve('بوابة منزلقة كهربائية').intent).toBe('entrance_gate')
+  })
+
+  it('separates manual interior sliding doors from automatic doors', () => {
+    expect(resolve('باب سحاب داخلي (جرار)').intent).toBe('interior_sliding_door')
+    expect(resolve('باب سحاب أوتوماتيكي').intent).toBe('automatic_door')
   })
 
   it('keeps every cpo-v4 intent id that the held-out phase touched', () => {
