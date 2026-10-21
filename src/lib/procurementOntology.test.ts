@@ -420,8 +420,19 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v52')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v53')
     expect(listIntentIds()).toHaveLength(834)
+  })
+
+  it('matches cementitious tile adhesive wording without treating mixers as grout', () => {
+    for (const line of [
+      'مونة أسمنتية لاصقة للبورسلين',
+      'مونة إسمنتية لاصقة للبلاط',
+      'مونة اسمنتية لاصقة للسيراميك',
+    ]) {
+      expect(resolve(line).intent).toBe('tile_grout_adhesive')
+    }
+    expect(resolve('grout mixer').intent).not.toBe('tile_grout_adhesive')
   })
 
   it('separates steel entrance gates from powered entrance-gate equipment', () => {
