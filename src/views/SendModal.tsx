@@ -294,18 +294,33 @@ export function SendModal({
   if (readIssue?.kind === 'partial' && !partialAcknowledged) sendBlockers.push('أكّد أنك تعلم أن القراءة ناقصة.')
   sendBlockers.push(...siteSupplyProblems(siteSupply))
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
-  const byChannel = recipients.reduce(
+  const selectedHarajCount = recipients.filter((r) => r.channel === 'محادثة').length
+  const unavailableHarajIds = new Set(
+    chatReady === false
+      ? recipients.filter((r) => r.channel === 'محادثة').map((r) => r.id)
+      : [],
+  )
+  // Keep stopped Haraj chats out of this RFQ while preserving the buyer's
+  // selections. The request can still reach suppliers on working channels.
+  const sendableRecipients = recipients.filter((r) => !unavailableHarajIds.has(r.id))
+  const sendableItems = readyItems.filter((item) =>
+    (selectedByItem[item.id] || []).some((id) => !unavailableHarajIds.has(String(id))),
+  )
+  const byChannel = sendableRecipients.reduce(
     (acc, r) => { if (r.channel === 'واتساب') acc.wa += 1; else if (r.channel === 'محادثة') acc.haraj += 1; else acc.email += 1; return acc },
     { email: 0, wa: 0, haraj: 0 },
   )
-  if (byChannel.haraj > 0 && chatReady !== true) sendBlockers.push(
-    chatReady === false ? `قناة المحادثة متوقفة: ${byChannel.haraj} موردًا لن تصلهم الرسالة. ألغِ اختيارهم أو انتظر تفعيل القناة.`
-      : channelReadFailed ? 'تعذر التحقق من قناة المحادثة. أغلق المراجعة وأعد المحاولة.' : 'نتحقق من جاهزية قناة المحادثة قبل الإرسال.',
+  const unavailableHarajCount = unavailableHarajIds.size
+  if (selectedHarajCount > 0 && chatReady === null) sendBlockers.push(
+    channelReadFailed ? 'تعذر التحقق من قناة المحادثة. أغلق المراجعة وأعد المحاولة.' : 'نتحقق من جاهزية قناة المحادثة قبل الإرسال.',
   )
+  if (unavailableHarajCount > 0 && sendableRecipients.length < 2) {
+    sendBlockers.push('بعد استبعاد محادثات الموردين المتوقفة، يلزم موردان على الأقل عبر قنوات متاحة.')
+  }
   const waUnit = waPricing?.enabled && waPricing.price_sar ? waPricing.price_sar : null
   const waTotal = waUnit != null ? byChannel.wa * waUnit : null
   const creditsLeft = entitlement && !entitlement.unlimited_credits && entitlement.credits_remaining != null ? entitlement.credits_remaining : null
-  const creditsShort = creditsLeft != null && recipients.length > creditsLeft
+  const creditsShort = creditsLeft != null && sendableRecipients.length > creditsLeft
 
   useEffect(() => {
     if (phase !== 'sending') return
@@ -1001,7 +1016,10 @@ export function SendModal({
       }
 
       touchActivity({ step: 'تصفية الموردين القابلين للتواصل…', channel: 'SETUP' })
-      const rfqSupplierIds = await resolveRfqSupplierIds(selectedSupplierIds)
+      const supplierIdsForThisSend = selectedSupplierIds.filter(
+        (id) => !unavailableHarajIds.has(String(id)),
+      )
+      const rfqSupplierIds = await resolveRfqSupplierIds(supplierIdsForThisSend)
       if (rfqSupplierIds.length < 2) {
         throw new Error(
           rfqSupplierIds.length === 0
@@ -1241,8 +1259,9 @@ export function SendModal({
               {/* What will happen, in one sentence; the settings stay folded unless asked for. */}
               <div className="bg-[#f0faf7] rounded-2xl p-4 mb-4">
                 <div className="text-base font-black text-[#0D1F1D]">
-                  سيصل طلبك إلى {recipients.length} {recipients.length === 1 ? 'مورد' : 'موردين'} عن {readyItems.length}{' '}
-                  {readyItems.length === 1 ? 'بند' : 'بنود'}
+                  سيصل طلبك إلى {sendableRecipients.length} {sendableRecipients.length === 1 ? 'مورد' : 'موردين'} عن {sendableItems.length}{' '}
+                  {sendableItems.length === 1 ? 'بند' : 'بنود'}
+                  {unavailableHarajCount > 0 && ` · ${unavailableHarajCount} محادثة مستبعدة مؤقتًا`}
                 </div>
                 <div className="text-xs text-neutral-600 mt-1">كل مورد يرى بنوده فقط، ويرد عبر رابط أو بالرد على الرسالة.</div>
                 {searchingItems > 0 && (
@@ -1250,7 +1269,7 @@ export function SendModal({
                 )}
               </div>
 
-              {recipients.length > 0 && (
+              {sendableRecipients.length > 0 && (
                 <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${creditsShort ? 'border-amber-200 bg-amber-50' : 'border-neutral-100 bg-white'}`} aria-live="polite">
                   <div className="text-xs font-bold text-[#0D1F1D] mb-2">التكلفة قبل الإرسال</div>
                   <div className="space-y-1 text-xs text-neutral-700">
@@ -1281,7 +1300,7 @@ export function SendModal({
                     )}
                     {entitlement && (
                       <div className="flex items-center justify-between gap-3 pt-1 border-t border-neutral-100 mt-1">
-                        <span>رصيد الموردين · يحتاج {recipients.length}</span>
+                        <span>رصيد الموردين · يحتاج {sendableRecipients.length}</span>
                         <span className={`font-semibold ${creditsShort ? 'text-amber-800' : 'text-[#0D1F1D]'}`}>
                           {entitlement.unlimited_credits ? 'غير محدود' : creditsLeft != null ? `المتبقي ${creditsLeft}` : '—'}
                         </span>
@@ -1500,11 +1519,14 @@ export function SendModal({
               )}
 
               {harajSelected > 0 && (
-                <p className="text-xs text-[#123F3A] mb-4 leading-relaxed bg-[#f0faf7] rounded-xl px-3 py-2">
-                  {harajSelected} مورد محادثة —{' '}
-                  {fastEmailFirst
-                    ? 'سيُؤجَّلون لزر منفصل بعد البريد.'
-                    : `يُرسلون تلقائيًا بعد البريد وواتساب، رسالة كل 20 ثانية (قرابة ${Math.max(1, Math.ceil((harajSelected * 20) / 60))} دقيقة). أبقِ الصفحة مفتوحة حتى ينتهي.`}
+                <p className={`text-xs mb-4 leading-relaxed rounded-xl px-3 py-2 ${unavailableHarajCount > 0 ? 'text-amber-950 bg-amber-50 border border-amber-200' : 'text-[#123F3A] bg-[#f0faf7]'}`}>
+                  {unavailableHarajCount > 0
+                    ? `قناة المحادثة متوقفة؛ سيُستبعد ${unavailableHarajCount} موردًا منها الآن، ويُرسل الطلب عبر القنوات المتاحة. البنود التي لا يتوفر لها مورد عبر قناة متاحة لن تُرسل.`
+                    : <>{harajSelected} مورد محادثة —{' '}
+                        {fastEmailFirst
+                          ? 'سيُؤجَّلون لزر منفصل بعد البريد.'
+                          : `يُرسلون تلقائيًا بعد البريد وواتساب، رسالة كل 20 ثانية (قرابة ${Math.max(1, Math.ceil((harajSelected * 20) / 60))} دقيقة). أبقِ الصفحة مفتوحة حتى ينتهي.`}
+                      </>}
                 </p>
               )}
             </>
