@@ -303,6 +303,9 @@ export function SendModal({
   // Keep stopped Haraj chats out of this RFQ while preserving the buyer's
   // selections. The request can still reach suppliers on working channels.
   const sendableRecipients = recipients.filter((r) => !unavailableHarajIds.has(r.id))
+  const sendableItems = readyItems.filter((item) =>
+    (selectedByItem[item.id] || []).some((id) => !unavailableHarajIds.has(String(id))),
+  )
   const byChannel = sendableRecipients.reduce(
     (acc, r) => { if (r.channel === 'واتساب') acc.wa += 1; else if (r.channel === 'محادثة') acc.haraj += 1; else acc.email += 1; return acc },
     { email: 0, wa: 0, haraj: 0 },
@@ -311,6 +314,9 @@ export function SendModal({
   if (selectedHarajCount > 0 && chatReady === null) sendBlockers.push(
     channelReadFailed ? 'تعذر التحقق من قناة المحادثة. أغلق المراجعة وأعد المحاولة.' : 'نتحقق من جاهزية قناة المحادثة قبل الإرسال.',
   )
+  if (unavailableHarajCount > 0 && sendableRecipients.length < 2) {
+    sendBlockers.push('بعد استبعاد محادثات الموردين المتوقفة، يلزم موردان على الأقل عبر قنوات متاحة.')
+  }
   const waUnit = waPricing?.enabled && waPricing.price_sar ? waPricing.price_sar : null
   const waTotal = waUnit != null ? byChannel.wa * waUnit : null
   const creditsLeft = entitlement && !entitlement.unlimited_credits && entitlement.credits_remaining != null ? entitlement.credits_remaining : null
@@ -1253,8 +1259,8 @@ export function SendModal({
               {/* What will happen, in one sentence; the settings stay folded unless asked for. */}
               <div className="bg-[#f0faf7] rounded-2xl p-4 mb-4">
                 <div className="text-base font-black text-[#0D1F1D]">
-                  سيصل طلبك إلى {sendableRecipients.length} {sendableRecipients.length === 1 ? 'مورد' : 'موردين'} عن {readyItems.length}{' '}
-                  {readyItems.length === 1 ? 'بند' : 'بنود'}
+                  سيصل طلبك إلى {sendableRecipients.length} {sendableRecipients.length === 1 ? 'مورد' : 'موردين'} عن {sendableItems.length}{' '}
+                  {sendableItems.length === 1 ? 'بند' : 'بنود'}
                   {unavailableHarajCount > 0 && ` · ${unavailableHarajCount} محادثة مستبعدة مؤقتًا`}
                 </div>
                 <div className="text-xs text-neutral-600 mt-1">كل مورد يرى بنوده فقط، ويرد عبر رابط أو بالرد على الرسالة.</div>
