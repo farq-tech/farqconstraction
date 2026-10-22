@@ -713,10 +713,10 @@ export function RequestFileView({
           )}
           {offers.length > 0 && (
             <button
-              onClick={() => setTab("quotes")}
+              onClick={() => navigate("comparison")}
               className="text-sm font-bold text-[#123F3A] hover:underline"
             >
-              المقارنة التفصيلية والترسية ←
+              مراجعة العروض وملاءمتها ←
             </button>
           )}
         </div>
