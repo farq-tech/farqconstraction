@@ -60,7 +60,7 @@ export function ComparisonView({ navigate }: NavProps) {
     let cancelled = false
     getConstructionMe()
       .then((me) => {
-        if (!cancelled) setCanReviewFit(['ADMIN', 'PROCUREMENT', 'APPROVER'].includes(String(me?.role || '').toUpperCase()))
+        if (!cancelled) setCanReviewFit(['ADMIN', 'PROCUREMENT', 'APPROVER', 'ENGINEER'].includes(String(me?.role || '').toUpperCase()))
       })
       .catch(() => { if (!cancelled) setCanReviewFit(false) })
     return () => { cancelled = true }
