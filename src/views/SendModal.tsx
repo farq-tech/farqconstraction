@@ -33,6 +33,7 @@ import {
   buildRfqPackagesFromSelection,
   dominantEngineeringDepartment,
 } from '../lib/rfqPackages'
+import { collectSelectedRecipients, unavailableHarajRecipientIds } from '../lib/sendRecipientSelection'
 import { useProcurement } from '../procurementContext'
 import { farqSession } from '../api/farqSession'
 import { companyBrand } from '../lib/companyBranding'
@@ -265,18 +266,7 @@ export function SendModal({
   const [department, setDepartment] = useState<string>(guessedDepartment || '')
 
   // Who gets what, by name, before the first real email leaves.
-  const recipients = (() => {
-    const byId = new Map<string, { name: string; channel: string; lines: number }>()
-    for (const item of readyItems) {
-      for (const id of selectedByItem[item.id] || []) {
-        const known = item.suppliers.find((s) => s.id === id)
-        const entry = byId.get(id) || { name: known?.name || id, channel: known?.channel || '', lines: 0 }
-        entry.lines += 1
-        byId.set(id, entry)
-      }
-    }
-    return [...byId.values()].sort((a, b) => b.lines - a.lines)
-  })()
+  const recipients = collectSelectedRecipients(readyItems, selectedByItem)
 
   const sendBlockers: string[] = []
   if (!getSession().matchingCity || getSession().boqItems.some(item => item.needsMatch)) sendBlockers.push('حدّد مدينة التسليم وأعد مطابقة الموردين من صفحة الطلب قبل الإرسال.')
@@ -295,11 +285,7 @@ export function SendModal({
   sendBlockers.push(...siteSupplyProblems(siteSupply))
   const harajSelected = countHarajSupplierIds(selectedSupplierIds)
   const selectedHarajCount = recipients.filter((r) => r.channel === 'محادثة').length
-  const unavailableHarajIds = new Set(
-    chatReady === false
-      ? recipients.filter((r) => r.channel === 'محادثة').map((r) => r.id)
-      : [],
-  )
+  const unavailableHarajIds = unavailableHarajRecipientIds(recipients, chatReady)
   // Keep stopped Haraj chats out of this RFQ while preserving the buyer's
   // selections. The request can still reach suppliers on working channels.
   const sendableRecipients = recipients.filter((r) => !unavailableHarajIds.has(r.id))
