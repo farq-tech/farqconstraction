@@ -233,6 +233,15 @@ export function ComparisonView({ navigate }: NavProps) {
         </button>
       </div>
 
+      {!loading && !error && responses.length > 0 && canReviewFit && (
+        <div className="mb-5 rounded-2xl border border-[#cfe5df] bg-[#f1faf7] px-4 py-3 text-sm text-[#123F3A]">
+          <div className="font-bold">ساعدنا على تحسين ترشيح الموردين</div>
+          <p className="mt-1 text-xs leading-5 text-[#45645f]">
+            بعد مراجعة مواصفات كل عرض، اختر «مناسب للبند» أو «غير مناسب» أسفل سعر المورد. تقييمك داخلي؛ لا يُرسل للمورد ولا يغيّر العرض.
+          </p>
+        </div>
+      )}
+
       {error && (
         <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error} — هذا فشل في القراءة، وليس دليلًا على عدم وجود عروض.
@@ -345,12 +354,12 @@ export function ComparisonView({ navigate }: NavProps) {
                                 <button
                                   disabled={Boolean(reviewBusyKey)}
                                   onClick={() => void saveFitReview(line, supplierId, quoteVersionId, 'QUOTE_MATCHED', 'راجع المشتري عرض المورد وأكد ملاءمته للبند.')}
-                                  className="rounded-lg border border-olive-200 px-2 py-1 text-[10px] font-bold text-olive-700 disabled:opacity-40"
-                                >مناسب</button>
+                                  className="min-h-9 rounded-lg border border-olive-200 px-3 py-2 text-xs font-bold text-olive-700 disabled:opacity-40"
+                                >مناسب للبند</button>
                                 <button
                                   disabled={Boolean(reviewBusyKey)}
                                   onClick={() => { setReviewingKey(reviewKey); setReviewReason(''); setReviewReasonCode('') }}
-                                  className="rounded-lg border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-800 disabled:opacity-40"
+                                  className="min-h-9 rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-800 disabled:opacity-40"
                                 >غير مناسب</button>
                               </div>
                             ) : <div className="text-[10px] text-neutral-400">تأكيد ملاءمة العرض غير متاح لحسابك</div>}
