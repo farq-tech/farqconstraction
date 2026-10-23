@@ -58,11 +58,12 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
     (/\bdoors?\b|باب|أبواب|ابواب/i.test(text))
   if (!isWpcDoor) return null
 
-  const measurements = text.match(/\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/gi) || []
+  const normalized = text
+    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/٫/g, '.')
   const thickness =
     Boolean(item.specCard?.thickness?.trim()) ||
-    /(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(text) ||
-    (measurements.length === 1 && /(?:مقاس|size)/i.test(text))
+    /(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(normalized))
   const color =
     /(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
     /كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|cream|white|black|brown|gray|grey|beige|red|blue|green/i.test(text)
