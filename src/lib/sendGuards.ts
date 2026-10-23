@@ -32,6 +32,58 @@ export function cleanLineName(raw: string): string {
     .trim()
 }
 
+type WpcDoorSpecInput = {
+  name?: string | null
+  spec?: string | null
+  specCard?: {
+    material?: string | null
+    thickness?: string | null
+    finish?: string | null
+    notes?: string | null
+  } | null
+}
+
+/** A WPC door needs enough identifying detail for a supplier to price it. */
+export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | null {
+  const text = [
+    item.name,
+    item.spec,
+    item.specCard?.material,
+    item.specCard?.thickness,
+    item.specCard?.finish,
+    item.specCard?.notes,
+  ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' ').toLowerCase()
+  const isWpcDoor =
+    (/\bwpc\b|wood[\s-]*plastic[\s-]*composite|خشب\s?بلاستيكي|بلاستيك\s?خشبي|دبليو\s?بي\s?سي/i.test(text)) &&
+    (/\bdoors?\b|باب|أبواب|ابواب/i.test(text))
+  if (!isWpcDoor) return null
+
+  const normalized = text
+    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/٫/g, '.')
+  const thickness =
+    Boolean(item.specCard?.thickness?.trim()) ||
+    /(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(normalized)
+  const unknownColor =
+    /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+اختيار(?:\s+المالك)?|مطفي|غير\s+معروف|لاحقًا|لاحقا)/iu.test(text)
+  const color =
+    !unknownColor &&
+    (/(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
+      /كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|cream|white|black|brown|gray|grey|beige|red|blue|green/i.test(text))
+  const missing = [
+    ...(!thickness ? ['السماكة'] : []),
+    ...(!color ? ['اللون'] : []),
+  ]
+  if (!missing.length) return null
+
+  const name = String(item.name ?? '').replace(/\s+/g, ' ').trim() || 'باب WPC'
+  return `«${name.slice(0, 60)}»: حدّد ${missing.join(' و')} قبل الإرسال، من تعديل وصف ومواصفات البند.`
+}
+
+export function wpcDoorSpecificationBlockers(items: readonly WpcDoorSpecInput[]): string[] {
+  return items.map(wpcDoorSpecificationBlocker).filter((issue): issue is string => Boolean(issue))
+}
+
 export const DELIVERY_BEFORE_DEADLINE_CODE = 'CONSTRUCTION_DELIVERY_BEFORE_DEADLINE'
 export const DELIVERY_BEFORE_DEADLINE_AR = 'تاريخ التوريد لا يمكن أن يكون قبل آخر موعد لاستلام العروض'
 

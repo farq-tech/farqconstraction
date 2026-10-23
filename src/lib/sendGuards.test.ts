@@ -1,10 +1,61 @@
 import { describe, expect, it } from 'vitest'
-import { cleanLineName, deliveryBeforeDeadline, readQty } from './sendGuards'
+import { cleanLineName, deliveryBeforeDeadline, readQty, wpcDoorSpecificationBlockers } from './sendGuards'
 import { buildRfqLinesFromItems, buildRfqPackagesFromSelection, departmentForBoqItem, dominantEngineeringDepartment } from './rfqPackages'
 import type { BOQItem } from '../types'
 
 const item = (over: Partial<BOQItem>): BOQItem => ({
   id: 1, name: 'بند', qty: '1', unit: '', status: 'ready', supplierCount: 0, suppliers: [], ...over,
+})
+
+describe('WPC door details are complete before sending', () => {
+  it('names the missing thickness and color for a WPC door', () => {
+    expect(wpcDoorSpecificationBlockers([item({ name: 'باب WPC', qty: '44' })])).toEqual([
+      '«باب WPC»: حدّد السماكة واللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
+    ])
+  })
+
+  it('accepts explicit thickness and color with Arabic-Indic digits', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', spec: 'السماكة ٤٫٥ سنتي، اللون كريمي' }),
+    ])).toEqual([])
+  })
+
+  it('does not mistake width and height for thickness', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', spec: 'مقاس 90 × 210 سم، لون أبيض' }),
+    ])).toEqual([
+      '«باب WPC»: حدّد السماكة قبل الإرسال، من تعديل وصف ومواصفات البند.',
+    ])
+  })
+
+  it('uses spec-card thickness and finish when the free-text description is short', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', specCard: { thickness: '4.5 سم', finish: 'كريمي' } }),
+    ])).toEqual([])
+  })
+
+  it('does not mistake a matte finish for a requested color', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', specCard: { thickness: '4.5 سم', finish: 'مطفي' } }),
+    ])).toEqual([
+      '«باب WPC»: حدّد اللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
+    ])
+  })
+
+  it('does not accept an unknown color or a color chosen later', () => {
+    for (const spec of ['السماكة ٤٫٥ سم، اللون غير محدد', 'السماكة ٤٫٥ سم، اللون حسب اختيار المالك']) {
+      expect(wpcDoorSpecificationBlockers([item({ name: 'باب WPC', spec })])).toEqual([
+        '«باب WPC»: حدّد اللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
+      ])
+    }
+  })
+
+  it('does not block non-WPC doors or WPC materials that are not doors', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب خشب', spec: '' }),
+      item({ name: 'ألواح WPC', spec: '' }),
+    ])).toEqual([])
+  })
 })
 
 describe('a quantity is read or refused, never defaulted', () => {

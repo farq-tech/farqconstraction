@@ -18,7 +18,7 @@ import { autoPickConfident, buildPickContext } from '../../lib/autoPick'
 import { loadCompanyProfile } from '../../lib/companyProfile'
 import { matchSuppliersForItems, rowsToLines, sanitizeBoqLines, type ParsedLine } from '../../lib/parseBoq'
 import { attachMatchExposureIds, buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
-import { cleanLineName, parseQty, readQty, requestTermsBlockers, suggestedRequestType, type RequestType } from '../../lib/sendGuards'
+import { cleanLineName, parseQty, readQty, requestTermsBlockers, suggestedRequestType, wpcDoorSpecificationBlockers, type RequestType } from '../../lib/sendGuards'
 import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../../lib/quoteDeadline'
 import { REQUEST_TYPES } from '../../lib/specCard'
 import type { BOQItem, Supplier, SupplierEntry } from '../../types'
@@ -242,6 +242,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   if (step === 'details') {
     if (allPicked.length < 2) blockers.push('اختر موردين اثنين على الأقل.')
     blockers.push(...requestTermsBlockers({ requestType, city, quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason }))
+    blockers.push(...wpcDoorSpecificationBlockers(readyItems))
     if (!quoteDeadline || !requiredDate || quoteDeadline >= requiredDate) blockers.push('آخر موعد للعروض يجب أن يسبق موعد التوريد.')
   }
 
