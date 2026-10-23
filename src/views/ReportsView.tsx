@@ -160,12 +160,17 @@ export function ReportsView({ navigate }: NavProps) {
   const [allSuppliers, setAllSuppliers] = useState(false)
   const [reload, setReload] = useState(0)
   const [brand, setBrand] = useState<CompanyBrand | null>(null)
+  const [canReviewFit, setCanReviewFit] = useState(false)
 
   // Whose reports these are: the company's logo on screen and on the printout.
   useEffect(() => {
     let alive = true
     getConstructionMe()
-      .then((me) => alive && setBrand(companyBrand(me.scope_owner_user_id)))
+      .then((me) => {
+        if (!alive) return
+        setBrand(companyBrand(me.scope_owner_user_id))
+        setCanReviewFit(['ADMIN', 'PROCUREMENT', 'APPROVER', 'ENGINEER'].includes(String(me?.role || '').toUpperCase()))
+      })
       .catch(() => undefined)
     return () => {
       alive = false
@@ -370,7 +375,8 @@ export function ReportsView({ navigate }: NavProps) {
             label="ملاءمة العروض التي أكدها المشتري"
             hint={matchingQuality?.fit_review.reviewed
               ? [`من ${matchingQuality.fit_review.reviewed} تأكيد أو تصحيح صريح`, matchIntervalLabel(matchingQuality.fit_review.match_rate_interval_95)].filter(Boolean).join(' · ')
-              : 'ابدأ من مقارنة العروض واضغط «مناسب» أو «غير مناسب»'}
+              : canReviewFit ? 'انتقل لمقارنة العروض وسجّل حكمك على كل عرض' : 'لا توجد أحكام صريحة مسجلة حتى الآن'}
+            onClick={!matchingQuality?.fit_review.reviewed && canReviewFit ? () => { if (rfqId) openRfq(rfqId, 'comparison'); else navigate('comparison') } : undefined}
           />
           <Kpi value={matchingQuality?.fit_review.matched ?? '—'} label="تأكيدات ملاءمة" />
           <Kpi value={matchingQuality?.fit_review.mismatched ?? '—'} label="تصحيحات عدم ملاءمة" hint={matchingQuality?.fit_review.mismatched ? 'استخدم أسباب الرفض لتحسين قواعد الموردين والتغطية' : undefined} />
