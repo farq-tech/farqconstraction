@@ -376,7 +376,7 @@ export function ReportsView({ navigate }: NavProps) {
             hint={matchingQuality?.fit_review.reviewed
               ? [`من ${matchingQuality.fit_review.reviewed} تأكيد أو تصحيح صريح`, matchIntervalLabel(matchingQuality.fit_review.match_rate_interval_95)].filter(Boolean).join(' · ')
               : canReviewFit ? 'انتقل لمقارنة العروض وسجّل حكمك على كل عرض' : 'لا توجد أحكام صريحة مسجلة حتى الآن'}
-            onClick={!matchingQuality?.fit_review.reviewed && canReviewFit ? () => navigate('comparison') : undefined}
+            onClick={!matchingQuality?.fit_review.reviewed && canReviewFit ? () => { if (rfqId) openRfq(rfqId, 'comparison'); else navigate('comparison') } : undefined}
           />
           <Kpi value={matchingQuality?.fit_review.matched ?? '—'} label="تأكيدات ملاءمة" />
           <Kpi value={matchingQuality?.fit_review.mismatched ?? '—'} label="تصحيحات عدم ملاءمة" hint={matchingQuality?.fit_review.mismatched ? 'استخدم أسباب الرفض لتحسين قواعد الموردين والتغطية' : undefined} />
