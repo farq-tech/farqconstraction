@@ -14,10 +14,18 @@ describe('WPC door details are complete before sending', () => {
     ])
   })
 
-  it('accepts a single stated WPC door size with a color', () => {
+  it('accepts explicit thickness and color with Arabic-Indic digits', () => {
     expect(wpcDoorSpecificationBlockers([
-      item({ name: 'باب WPC', spec: 'مقاس 4.5 سنتي، لون كريمي' }),
+      item({ name: 'باب WPC', spec: 'السماكة ٤٫٥ سنتي، اللون كريمي' }),
     ])).toEqual([])
+  })
+
+  it('does not mistake width and height for thickness', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', spec: 'مقاس 90 × 210 سم، لون أبيض' }),
+    ])).toEqual([
+      '«باب WPC»: حدّد السماكة قبل الإرسال، من تعديل وصف ومواصفات البند.',
+    ])
   })
 
   it('uses spec-card thickness and finish when the free-text description is short', () => {
