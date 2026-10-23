@@ -26,6 +26,14 @@ describe('WPC door details are complete before sending', () => {
     ])).toEqual([])
   })
 
+  it('does not mistake a matte finish for a requested color', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', specCard: { thickness: '4.5 سم', finish: 'مطفي' } }),
+    ])).toEqual([
+      '«باب WPC»: حدّد اللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
+    ])
+  })
+
   it('does not block non-WPC doors or WPC materials that are not doors', () => {
     expect(wpcDoorSpecificationBlockers([
       item({ name: 'باب خشب', spec: '' }),
