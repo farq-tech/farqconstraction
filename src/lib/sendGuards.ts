@@ -63,10 +63,13 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
     .replace(/٫/g, '.')
   const thickness =
     Boolean(item.specCard?.thickness?.trim()) ||
-    /(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(normalized))
+    /(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(normalized)
+  const unknownColor =
+    /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+اختيار(?:\s+المالك)?|مطفي|غير\s+معروف|لاحقًا|لاحقا)/iu.test(text)
   const color =
-    /(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
-    /كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|cream|white|black|brown|gray|grey|beige|red|blue|green/i.test(text)
+    !unknownColor &&
+    (/(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
+      /كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|cream|white|black|brown|gray|grey|beige|red|blue|green/i.test(text))
   const missing = [
     ...(!thickness ? ['السماكة'] : []),
     ...(!color ? ['اللون'] : []),
