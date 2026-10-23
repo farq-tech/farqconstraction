@@ -64,7 +64,6 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
     /(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(text) ||
     (measurements.length === 1 && /(?:مقاس|size)/i.test(text))
   const color =
-    Boolean(item.specCard?.finish?.trim()) ||
     /(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
     /كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|cream|white|black|brown|gray|grey|beige|red|blue|green/i.test(text)
   const missing = [
