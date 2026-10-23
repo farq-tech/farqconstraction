@@ -54,18 +54,18 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
     item.specCard?.notes,
   ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' ').toLowerCase()
   const isWpcDoor =
-    (/\\bwpc\\b|wood[\\s-]*plastic[\\s-]*composite|خشب\\s?بلاستيكي|بلاستيك\\s?خشبي|دبليو\\s?بي\\s?سي/i.test(text)) &&
-    (/\\bdoors?\\b|باب|أبواب|ابواب/i.test(text))
+    (/\bwpc\b|wood[\s-]*plastic[\s-]*composite|خشب\s?بلاستيكي|بلاستيك\s?خشبي|دبليو\s?بي\s?سي/i.test(text)) &&
+    (/\bdoors?\b|باب|أبواب|ابواب/i.test(text))
   if (!isWpcDoor) return null
 
-  const measurements = text.match(/\\d+(?:[.,]\\d+)?\\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/gi) || []
+  const measurements = text.match(/\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/gi) || []
   const thickness =
     Boolean(item.specCard?.thickness?.trim()) ||
-    /(?:سماك(?:ة|ه)|سمك|thickness|thk)\\s*[:：-]?\\s*\\d+(?:[.,]\\d+)?\\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(text) ||
+    /(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*\d+(?:[.,]\d+)?\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i.test(text) ||
     (measurements.length === 1 && /(?:مقاس|size)/i.test(text))
   const color =
     Boolean(item.specCard?.finish?.trim()) ||
-    /(?:لون|اللون|color|colour)\\s*[:：-]?\\s*[\\p{L}]+/iu.test(text) ||
+    /(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
     /كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|cream|white|black|brown|gray|grey|beige|red|blue|green/i.test(text)
   const missing = [
     ...(!thickness ? ['السماكة'] : []),
@@ -73,7 +73,7 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
   ]
   if (!missing.length) return null
 
-  const name = String(item.name ?? '').replace(/\\s+/g, ' ').trim() || 'باب WPC'
+  const name = String(item.name ?? '').replace(/\s+/g, ' ').trim() || 'باب WPC'
   return `«${name.slice(0, 60)}»: حدّد ${missing.join(' و')} قبل الإرسال، من تعديل وصف ومواصفات البند.`
 }
 
