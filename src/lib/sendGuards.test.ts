@@ -10,7 +10,7 @@ const item = (over: Partial<BOQItem>): BOQItem => ({
 describe('WPC door details are complete before sending', () => {
   it('names the missing thickness and color for a WPC door', () => {
     expect(wpcDoorSpecificationBlockers([item({ name: 'باب WPC', qty: '44' })])).toEqual([
-      '«باب WPC»: حدّد السماكة و اللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
+      '«باب WPC»: حدّد السماكة واللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
     ])
   })
 
