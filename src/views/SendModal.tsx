@@ -39,7 +39,7 @@ import { farqSession } from '../api/farqSession'
 import { companyBrand } from '../lib/companyBranding'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
-import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty, requestTermsBlockers, suggestedRequestType, type RequestType } from '../lib/sendGuards'
+import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty, requestTermsBlockers, suggestedRequestType, wpcDoorSpecificationBlockers, type RequestType } from '../lib/sendGuards'
 import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../lib/quoteDeadline'
 import SiteSupplySection from '../components/SiteSupplySection'
 import { EMPTY_SITE_SUPPLY, REQUEST_TYPES, requestTypeLabel, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
@@ -277,6 +277,9 @@ export function SendModal({
       `كمية غير مقروءة في ${badQtyItems.length} بندًا: ${badQtyItems.slice(0, 3).map((i) => `«${cleanLineName(i.name).slice(0, 40) || i.id}»`).join('، ')}${badQtyItems.length > 3 ? '…' : ''}. ألغِ اختيار مورديها أو صحّح الكراسة.`,
     )
   if (badNameItems.length) sendBlockers.push(`اسم غير مقروء في ${badNameItems.length} بندًا (رقم ${badNameItems.slice(0, 5).map((i) => i.id).join('، ')}).`)
+  const incompleteWpcDoors = wpcDoorSpecificationBlockers(readyItems)
+  sendBlockers.push(...incompleteWpcDoors.slice(0, 3))
+  if (incompleteWpcDoors.length > 3) sendBlockers.push(`وهناك ${incompleteWpcDoors.length - 3} بنود WPC أخرى تحتاج مواصفات.`)
   if (!department) sendBlockers.push('اختر القسم الهندسي لهذا الطلب: لم نستطع تحديده من البنود.')
   const deadlineCheck = checkQuoteDeadline({ deadline: quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason })
   sendBlockers.push(...requestTermsBlockers({ requestType, city: site, quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason }))
