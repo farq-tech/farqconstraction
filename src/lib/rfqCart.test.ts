@@ -4,16 +4,19 @@ import {
   ANY_BRAND_TEXT,
   appendToCart,
   cartCountLabel,
+  cleanQty,
   editCartLine,
   lineFromProduct,
   linesFromManualText,
   linesToMatch,
   mergeMatched,
   parseManualLine,
+  parseManualText,
   quickSheetFor,
   quotaLabel,
   removeCartLine,
   safeImageUrl,
+  validCartQuantity,
   type ProductCard,
 } from './rfqCart'
 import { buildRfqLinesFromItems } from './rfqPackages'
@@ -117,6 +120,49 @@ describe('typed lines', () => {
     const lines = linesFromManualText('6 سخانات كهربائية 80 لتر\n\n20 كيس أسمنت')
     expect(lines).toHaveLength(2)
     expect(lines.every((l) => l.origin === 'manual' && l.needsMatch)).toBe(true)
+  })
+  it('reads tab-delimited spreadsheet rows in either quantity-first or item-first order', () => {
+    const result = parseManualText('اسم البند\tالكمية\tالوحدة\nسخان كهربائي 80 لتر\t٦\tحبة\nبلاط 60×60\t3\tكرتون')
+    expect(result.headerRows).toBe(1)
+    expect(result.lines.map(({ name, qty, unit }) => ({ name, qty, unit }))).toEqual([
+      { name: 'سخان كهربائي 80 لتر', qty: '6', unit: 'حبة' },
+      { name: 'بلاط 60×60', qty: '3', unit: 'كرتون' },
+    ])
+  })
+
+  it('reads Persian digits and the Arabic decimal separator from pasted sheets', () => {
+    const result = parseManualText('الكمية\tالوحدة\tالوصف\n۱۲٫۵\tكجم\tرمل مغسول')
+    expect(result.invalidRows).toBe(0)
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0]).toMatchObject({ qty: '12.5', unit: 'كجم', name: 'رمل مغسول' })
+  })
+
+  it('validates Arabic and Persian digits for quantities', () => {
+    expect(validCartQuantity('١٢٫٥')).toBe(true)
+    expect(validCartQuantity('۱۲.۵')).toBe(true)
+    expect(cleanQty('۱۲٫۵')).toBe('12.5')
+    expect(validCartQuantity('٠')).toBe(false)
+  })
+  it('uses Excel header columns so a serial number and digits in the description are not mistaken for quantity', () => {
+    const result = parseManualText('رقم البند\tالوصف\tالكمية\tالوحدة\tالسعر\tالكود\n17\tماسورة 25 مم\t6\tقدم\t12.50\tP-17')
+    expect(result.headerRows).toBe(1)
+    expect(result.lines.map(({ name, qty, unit }) => ({ name, qty, unit }))).toEqual([
+      { name: 'ماسورة 25 مم', qty: '6', unit: 'قدم' },
+    ])
+  })
+  it('preserves an unfamiliar unit when a row has no header', () => {
+    expect(parseManualText('6\tماسورة 25 مم\tقدم').lines[0]).toMatchObject({ name: 'ماسورة 25 مم', qty: '6', unit: 'قدم' })
+  })
+  it('reports invalid rows instead of silently dropping them', () => {
+    const result = parseManualText('20 كيس أسمنت\n1\tحبة\n3 مواسير')
+    expect(result.lines).toHaveLength(2)
+    expect(result.invalidRows).toBe(1)
+  })
+  it('blocks a manual paste over 200 valid rows and reports the overflow', () => {
+    const result = parseManualText(Array.from({ length: 201 }, (_, i) => `${i + 1} بند مواد`).join('\n'))
+    expect(result.lines).toHaveLength(200)
+    expect(result.validCount).toBe(201)
+    expect(result.overLimit).toBe(1)
   })
 })
 

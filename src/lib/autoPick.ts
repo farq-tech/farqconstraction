@@ -30,6 +30,14 @@ function materialKeyOf(item: BOQItem): string | null {
   )
 }
 
+/** Whether two lines are the same exact material for buyer feedback propagation. */
+export function sameMaterial(a: BOQItem, b: BOQItem): boolean {
+  if (a.farqSpecId && a.farqSpecId === b.farqSpecId) return true
+  const intentsA = [a.mapSuggestion?.intent, a.aiSuggestion?.intent].filter((value): value is string => Boolean(value))
+  const intentsB = new Set([b.mapSuggestion?.intent, b.aiSuggestion?.intent].filter((value): value is string => Boolean(value)))
+  return intentsA.some((intent) => intentsB.has(intent))
+}
+
 // The person's own list («قائمة بدر») is shown for him to choose from and is
 // never ticked automatically (owner 14-10), so it is not a lane here.
 function lanesOf(item: BOQItem): Supplier[][] {
@@ -45,7 +53,15 @@ function lanesOf(item: BOQItem): Supplier[][] {
 }
 
 function fitMismatches(item: BOQItem): Set<string> {
-  return new Set((item.fitReviewSuggestion?.suppliers || []).filter(s => s.fitReview?.verdict === 'QUOTE_MISMATCHED').map(s => s.id))
+  // A reviewed supplier can be repeated across the match, outcome, and
+  // suggestion lanes. Apply the buyer's explicit mismatch verdict wherever
+  // that supplier appears, not only when the review lane is present.
+  return new Set(
+    lanesOf(item)
+      .flat()
+      .filter(s => s?.id && s.fitReview?.verdict === 'QUOTE_MISMATCHED')
+      .map(s => s.id),
+  )
 }
 
 /** «مقدّم عروض سابقاً»: he priced this material for the company before. */
@@ -171,6 +187,7 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
 }
 
 export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickContext): Supplier[] {
+  if (limit <= 0) return []
   const rejected = new Set(item.rejectedSupplierIds || [])
   const map = item.mapSuggestion?.suppliers || []
   const lanes = [

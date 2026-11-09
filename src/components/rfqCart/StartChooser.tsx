@@ -8,7 +8,7 @@ import { UploadIcon } from '../../icons'
 export type StartPath = 'upload' | 'search' | 'manual'
 
 const PATHS: Array<{ id: StartPath; title: string; hint: string; icon: string }> = [
-  { id: 'upload', title: 'ارفع كراسة', hint: 'ملف PDF — نقرأ البنود تلقائيًا', icon: 'upload' },
+  { id: 'upload', title: 'ارفع ملف البنود', hint: 'PDF أو جدول XLSX أو CSV', icon: 'upload' },
   { id: 'search', title: 'ابحث عن منتج', hint: 'ابحث بالاسم أو الموديل وأضفه للطلب', icon: '⌕' },
   { id: 'manual', title: 'اكتب البنود يدويًا', hint: 'مثال: 6 سخانات كهربائية 80 لتر', icon: '✎' },
 ]

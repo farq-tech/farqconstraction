@@ -13,7 +13,8 @@ import {
   type ConstructionInboxStatus,
   type ConstructionInboxThread,
   type ConstructionInboxThreadDetail,
-  listConstructionEmailLinks,
+  type ConstructionUnresolvedKind,
+  listConstructionUnresolvedArrivals,
   markConstructionInboxThreads,
   setConstructionInboxThreadsVisibility,
 } from '../api/constructionClient'
@@ -160,9 +161,10 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   const [activeId, setActiveId] = useState<string | null>(initialThreadId)
   /** The mailbox/Gmail status panel takes the chat pane's place while open. */
   const [showStatus, setShowStatus] = useState(false)
-  /** «بريد يحتاج ربط» takes the chat pane's place while open (owner only). */
+  /** Unresolved supplier messages take the chat pane's place while open. */
   const [showEmailLinks, setShowEmailLinks] = useState(false)
-  const [emailLinks, setEmailLinks] = useState<{ count: number; more: boolean } | null>(null)
+  const [emailLinkKind, setEmailLinkKind] = useState<ConstructionUnresolvedKind>('email')
+  const [unresolvedLinkCounts, setUnresolvedLinkCounts] = useState<Record<ConstructionUnresolvedKind, { count: number; more: boolean } | null>>({ email: null, whatsapp: null })
   /** Bumped by «إعادة المحاولة»: re-runs the same reads, adds no new ones. */
   const [reloadKey, setReloadKey] = useState(0)
   // Live refresh: the list re-reads itself every 30 s while the tab is visible,
@@ -447,18 +449,28 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
   }
 
   const emailLinkAvailable = Boolean(status?.email_link_available)
-  // One read for the count when the server offers it; the panel re-reads on open.
+  const whatsappLinkAvailable = Boolean(status?.whatsapp_link_available)
+  // One read for each count when the server offers that route; the panel re-reads on open.
   useEffect(() => {
-    if (!emailLinkAvailable) return
     let alive = true
-    listConstructionEmailLinks()
-      .then((page) => alive && setEmailLinks({ count: page.arrivals.length, more: Boolean(page.next_cursor) }))
-      .catch(() => {})
+    const kinds: ConstructionUnresolvedKind[] = [
+      ...(emailLinkAvailable ? ['email' as const] : []),
+      ...(whatsappLinkAvailable ? ['whatsapp' as const] : []),
+    ]
+    for (const kind of kinds) {
+      listConstructionUnresolvedArrivals(kind)
+        .then((page) => alive && setUnresolvedLinkCounts((counts) => ({
+          ...counts,
+          [kind]: { count: page.arrivals.length, more: Boolean(page.next_cursor) },
+        })))
+        .catch(() => {})
+    }
     return () => {
       alive = false
     }
-  }, [emailLinkAvailable])
-  const emailLinkLabel = emailLinks?.count ? `${emailLinks.count}${emailLinks.more ? '+' : ''}` : null
+  }, [emailLinkAvailable, whatsappLinkAvailable])
+  const emailLinkLabel = unresolvedLinkCounts.email?.count ? `${unresolvedLinkCounts.email.count}${unresolvedLinkCounts.email.more ? '+' : ''}` : null
+  const whatsappLinkLabel = unresolvedLinkCounts.whatsapp?.count ? `${unresolvedLinkCounts.whatsapp.count}${unresolvedLinkCounts.whatsapp.more ? '+' : ''}` : null
 
   const enabled = Boolean(status?.enabled)
   const receiving = Boolean(status?.receiving_configured)
@@ -1053,14 +1065,15 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               {emailLinkAvailable && (
                 <button
                   type="button"
-                  aria-pressed={showEmailLinks}
+                  aria-pressed={showEmailLinks && emailLinkKind === 'email'}
                   onClick={() => {
-                    setShowEmailLinks((open) => !open)
+                    setEmailLinkKind('email')
+                    setShowEmailLinks((open) => !(open && emailLinkKind === 'email'))
                     setShowStatus(false)
                     setActiveId(null)
                   }}
                   className={`relative text-[11px] font-bold rounded-full px-2.5 py-1.5 border ${
-                    showEmailLinks
+                    showEmailLinks && emailLinkKind === 'email'
                       ? 'bg-[#123F3A] text-white border-[#123F3A]'
                       : 'text-[#123F3A] border-neutral-200 hover:border-[#123F3A]/40'
                   }`}
@@ -1069,6 +1082,30 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
                   {emailLinkLabel && (
                     <span className="ms-1 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-amber-500 text-white text-[10px]">
                       {emailLinkLabel}
+                    </span>
+                  )}
+                </button>
+              )}
+              {whatsappLinkAvailable && (
+                <button
+                  type="button"
+                  aria-pressed={showEmailLinks && emailLinkKind === 'whatsapp'}
+                  onClick={() => {
+                    setEmailLinkKind('whatsapp')
+                    setShowEmailLinks((open) => !(open && emailLinkKind === 'whatsapp'))
+                    setShowStatus(false)
+                    setActiveId(null)
+                  }}
+                  className={`relative text-[11px] font-bold rounded-full px-2.5 py-1.5 border ${
+                    showEmailLinks && emailLinkKind === 'whatsapp'
+                      ? 'bg-[#123F3A] text-white border-[#123F3A]'
+                      : 'text-[#123F3A] border-neutral-200 hover:border-[#123F3A]/40'
+                  }`}
+                >
+                  واتساب يحتاج ربط
+                  {whatsappLinkLabel && (
+                    <span className="ms-1 inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-amber-500 text-white text-[10px]">
+                      {whatsappLinkLabel}
                     </span>
                   )}
                 </button>
@@ -1099,6 +1136,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               <button
                 type="button"
                 onClick={() => {
+                  setEmailLinkKind('email')
                   setShowEmailLinks(true)
                   setShowStatus(false)
                   setActiveId(null)
@@ -1107,6 +1145,20 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
               >
                 <span className="font-bold">بريد يحتاج ربط: </span>
                 {emailLinkLabel} رسالة من موردين لم نعرف طلبها — افتحها واربطها.
+              </button>
+            ) : whatsappLinkLabel && !showEmailLinks && !(mailboxWarning && !showStatus) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailLinkKind('whatsapp')
+                  setShowEmailLinks(true)
+                  setShowStatus(false)
+                  setActiveId(null)
+                }}
+                className="w-full text-start rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-[11px] text-amber-900 leading-relaxed hover:border-amber-300"
+              >
+                <span className="font-bold">رسائل WhatsApp تحتاج ربط: </span>
+                {whatsappLinkLabel} محادثة لا يمكن إسنادها تلقائيًا بأمان — اختر المورد والطلب.
               </button>
             ) : mailboxWarning && !showStatus ? (
               <button
@@ -1193,8 +1245,12 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
           statusPanel
         ) : showEmailLinks ? (
           <EmailLinkPanel
+            // Switching provider must drop any expanded arrival/selection so an
+            // email row can never be submitted using the WhatsApp route (or vice versa).
+            key={emailLinkKind}
+            kind={emailLinkKind}
             onBack={closeDetail}
-            onCount={(count, more) => setEmailLinks({ count, more })}
+            onCount={(count, more) => setUnresolvedLinkCounts((counts) => ({ ...counts, [emailLinkKind]: { count, more } }))}
           />
         ) : activeId ? (
           <ChatPane

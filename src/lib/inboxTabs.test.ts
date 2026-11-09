@@ -104,6 +104,10 @@ describe('appendThreads', () => {
   it('adds the next page after the loaded rows without repeating one', () => {
     expect(appendThreads([row('a'), row('b')], [row('b'), row('c')]).map((t) => t.invite_id)).toEqual(['a', 'b', 'c'])
   })
+
+  it('deduplicates repeated conversation ids inside the incoming page too', () => {
+    expect(appendThreads([row('a')], [row('b'), row('b'), row('c')]).map((t) => t.invite_id)).toEqual(['a', 'b', 'c'])
+  })
 })
 
 describe('inboxUnreadConversations', () => {

@@ -1,35 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   getConstructionEmailLinkTargets,
-  linkConstructionEmail,
-  listConstructionEmailLinks,
+  linkConstructionArrival,
+  listConstructionUnresolvedArrivals,
+  type ConstructionUnresolvedKind,
   type ConstructionEmailLink,
   type ConstructionEmailLinkTargets,
 } from '../../api/constructionClient'
+import { isLinkableArrivalSupplier, uniqueSuggestedLinkSupplier } from '../../lib/unresolvedLink'
 
-/**
- * «بريد يحتاج ربط»: supplier email that reached info@farq.sa but could not be
- * tied to a request by itself (a new address, no request number). One click
- * links it to a request and supplier; the address is then remembered, so the
- * next email from it is linked by the server.
- */
+/** Review supplier email or WhatsApp arrivals the server could not route safely. */
 export default function EmailLinkPanel({
+  kind = 'email',
   onBack,
   onCount,
 }: {
+  kind?: ConstructionUnresolvedKind
   onBack: () => void
   onCount?: (count: number, more: boolean) => void
 }) {
   const [items, setItems] = useState<ConstructionEmailLink[]>([])
   const [next, setNext] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [done, setDone] = useState<Record<string, string>>({})
+  const loadingMoreRef = useRef(false)
 
   useEffect(() => {
     let alive = true
-    listConstructionEmailLinks()
+    listConstructionUnresolvedArrivals(kind)
       .then((page) => {
         if (!alive) return
         setItems(page.arrivals)
@@ -42,16 +43,30 @@ export default function EmailLinkPanel({
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [kind])
 
   const loadMore = async () => {
-    if (!next) return
+    if (!next || loadingMoreRef.current) return
+    const cursor = next
+    loadingMoreRef.current = true
+    setLoadingMore(true)
     try {
-      const page = await listConstructionEmailLinks(next)
-      setItems((rows) => [...rows, ...page.arrivals])
+      const page = await listConstructionUnresolvedArrivals(kind, cursor)
+      setItems((rows) => {
+        const known = new Set(rows.map((row) => row.id))
+        const unseen = page.arrivals.filter((row) => {
+          if (known.has(row.id)) return false
+          known.add(row.id)
+          return true
+        })
+        return [...rows, ...unseen]
+      })
       setNext(page.next_cursor)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر التحميل')
+    } finally {
+      loadingMoreRef.current = false
+      setLoadingMore(false)
     }
   }
 
@@ -76,9 +91,11 @@ export default function EmailLinkPanel({
           </svg>
         </button>
         <div className="min-w-0">
-          <h2 className="text-base font-black text-[#0D1F1D]">بريد يحتاج ربط</h2>
+          <h2 className="text-base font-black text-[#0D1F1D]">{kind === 'whatsapp' ? 'رسائل واتساب تحتاج ربط' : 'بريد يحتاج ربط'}</h2>
           <p className="text-[11px] text-neutral-500 leading-relaxed">
-            رسائل موردين وصلت إلى info@ ولم نعرف طلبها. اربطها مرة، ونعرف المرسل في المرة القادمة.
+            {kind === 'whatsapp'
+              ? 'وصلتنا رسائل WhatsApp ولم نستطع تحديد طلبها بأمان. اختر الدعوة الصحيحة لربطها بالمحادثة.'
+              : 'رسائل موردين وصلت إلى info@ ولم نعرف طلبها. اربطها مرة، ونعرف المرسل في المرة القادمة.'}
           </p>
         </div>
       </div>
@@ -91,10 +108,13 @@ export default function EmailLinkPanel({
             </p>
           )}
           {!loading && !error && items.length === 0 && (
-            <p className="text-sm text-neutral-500 text-center py-10">لا يوجد بريد يحتاج ربط.</p>
+            <p className="text-sm text-neutral-500 text-center py-10">
+              {kind === 'whatsapp' ? 'لا توجد رسائل واتساب تحتاج ربط.' : 'لا يوجد بريد يحتاج ربط.'}
+            </p>
           )}
           {items.map((item) => (
             <EmailCard
+              kind={kind}
               key={item.id}
               item={item}
               note={done[item.id] || null}
@@ -106,10 +126,11 @@ export default function EmailLinkPanel({
           {next && (
             <button
               type="button"
+              disabled={loadingMore}
               onClick={() => void loadMore()}
-              className="w-full text-xs font-bold text-[#123F3A] py-2 rounded-xl border border-neutral-200 bg-white"
+              className="w-full text-xs font-bold text-[#123F3A] py-2 rounded-xl border border-neutral-200 bg-white disabled:opacity-50"
             >
-              تحميل المزيد
+              {loadingMore ? 'جارٍ تحميل المزيد…' : 'تحميل المزيد'}
             </button>
           )}
         </div>
@@ -119,12 +140,14 @@ export default function EmailLinkPanel({
 }
 
 function EmailCard({
+  kind,
   item,
   note,
   open,
   onOpen,
   onLinked,
 }: {
+  kind: ConstructionUnresolvedKind
   item: ConstructionEmailLink
   note: string | null
   open: boolean
@@ -139,7 +162,7 @@ function EmailCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-bold text-[#0D1F1D] truncate" dir="auto">
-            {p?.subject || 'بلا عنوان'}
+            {p?.subject || (kind === 'whatsapp' ? 'رسالة واتساب غير مربوطة' : 'بلا عنوان')}
           </div>
           <div className="text-[11px] text-neutral-500 mt-0.5" dir="ltr">
             {p?.sender || '—'}
@@ -181,14 +204,14 @@ function EmailCard({
           >
             {open ? 'إلغاء' : 'اربطه بالطلب'}
           </button>
-          {open && <LinkPicker item={item} onLinked={onLinked} />}
+          {open && <LinkPicker kind={kind} item={item} onLinked={onLinked} />}
         </div>
       )}
     </div>
   )
 }
 
-function LinkPicker({ item, onLinked }: { item: ConstructionEmailLink; onLinked: (note: string) => void }) {
+function LinkPicker({ kind, item, onLinked }: { kind: ConstructionUnresolvedKind; item: ConstructionEmailLink; onLinked: (note: string) => void }) {
   const [targets, setTargets] = useState<ConstructionEmailLinkTargets | null>(null)
   const [query, setQuery] = useState('')
   const [rfqId, setRfqId] = useState('')
@@ -207,8 +230,8 @@ function LinkPicker({ item, onLinked }: { item: ConstructionEmailLink; onLinked:
           const suggested = t.requests.filter((r) => r.suggested)
           if (!rfqId && suggested.length === 1) {
             setRfqId(suggested[0].rfq_id)
-            const s = suggested[0].suppliers.filter((x) => x.suggested)
-            if (s.length === 1) setInviteId(s[0].invite_id)
+            const supplier = uniqueSuggestedLinkSupplier(suggested[0].suppliers)
+            if (supplier) setInviteId(supplier.invite_id)
           }
         })
         .catch((err) => alive && setError(err instanceof Error ? err.message : 'تعذّر تحميل الطلبات'))
@@ -221,16 +244,20 @@ function LinkPicker({ item, onLinked }: { item: ConstructionEmailLink; onLinked:
   }, [item.id, query])
 
   const request = targets?.requests.find((r) => r.rfq_id === rfqId) || null
+  const selectedInviteIsCurrent = Boolean(request?.suppliers.some((supplier) => supplier.invite_id === inviteId && isLinkableArrivalSupplier(supplier)))
 
   const submit = async () => {
-    if (!inviteId || busy) return
+    if (!selectedInviteIsCurrent || busy) return
     setBusy(true)
     setError(null)
     try {
-      const result = await linkConstructionEmail(item.id, inviteId, item.revision)
+      const result = await linkConstructionArrival(item.id, inviteId, item.revision, kind)
+      if (!result.resolved && !result.pending_import) {
+        throw new Error('لم يؤكد الخادم ربط الرسالة بالطلب. حدّث القائمة قبل إعادة المحاولة.')
+      }
       const supplier = request?.suppliers.find((s) => s.invite_id === inviteId)
       onLinked(
-        `رُبط بالطلب ${request?.reference || ''}${supplier?.name_ar ? ` — ${supplier.name_ar}` : ''}. يظهر في المحادثة خلال لحظات${
+        `${result.pending_import && !result.resolved ? 'سُجّل الربط، والرسالة قيد الاستيراد إلى المحادثة' : `رُبط بالطلب ${request?.reference || ''}${supplier?.name_ar ? ` — ${supplier.name_ar}` : ''}. يظهر في المحادثة خلال لحظات`}${
           result.contact_added ? '، وحُفظ العنوان للمورد' : ''
         }.`,
       )
@@ -247,7 +274,13 @@ function LinkPicker({ item, onLinked }: { item: ConstructionEmailLink; onLinked:
       <input
         type="search"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setTargets(null)
+          setRfqId('')
+          setInviteId('')
+          setError(null)
+        }}
         placeholder="ابحث برقم الطلب أو اسم المورد"
         className="w-full text-xs border border-neutral-200 rounded-lg px-3 py-2"
       />
@@ -279,23 +312,28 @@ function LinkPicker({ item, onLinked }: { item: ConstructionEmailLink; onLinked:
         <fieldset className="space-y-1">
           <legend className="text-[11px] text-neutral-500 mb-1">المورد</legend>
           {request.suppliers.map((s) => (
-            <label key={s.invite_id} className="flex items-center gap-2 text-xs cursor-pointer">
+            <label key={s.invite_id} className={`flex items-center gap-2 text-xs ${s.locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
               <input
                 type="radio"
                 name={`supplier-${item.id}`}
                 checked={inviteId === s.invite_id}
                 onChange={() => setInviteId(s.invite_id)}
+                disabled={Boolean(s.locked)}
               />
               <span>{s.name_ar || s.name_en || 'مورد'}</span>
               {s.suggested && <span className="text-[10px] font-bold text-[#123F3A] bg-[#CFF5DC] rounded-full px-1.5">مقترح</span>}
+              {s.locked && <span className="text-[10px] font-semibold text-neutral-500">الطلب مغلق</span>}
             </label>
           ))}
+          {request.suppliers.length > 0 && request.suppliers.every((supplier) => !isLinkableArrivalSupplier(supplier)) && (
+            <p className="text-[11px] text-amber-800">لا يمكن ربط الرسالة بدعوة من طلب مغلق.</p>
+          )}
         </fieldset>
       )}
       {error && <p className="text-[11px] text-amber-800 break-words">{error}</p>}
       <button
         type="button"
-        disabled={!inviteId || busy}
+        disabled={!selectedInviteIsCurrent || busy}
         onClick={() => void submit()}
         className="px-4 py-2 bg-[#123F3A] text-white text-xs font-bold rounded-lg disabled:opacity-50"
       >

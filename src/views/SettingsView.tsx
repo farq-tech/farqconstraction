@@ -7,6 +7,8 @@ import {
   getConstructionInboxStatus,
   getConstructionMe,
   getConstructionStatus,
+  getConstructionWhatsAppStatus,
+  type ConstructionWhatsAppStatus,
 } from '../api/constructionClient'
 import { farqSession } from '../api/farqSession'
 import { signOutAndForget } from '../store/session'
@@ -23,6 +25,8 @@ import {
   type TeamContext,
 } from '../api/teamClient'
 import { useFarqSession } from '../api/useFarqSession'
+import { whatsappDeliveryEvidenceLabel } from '../lib/whatsappDelivery'
+import { channelAvailability, whatsAppChannelDetail } from '../lib/channelAvailability'
 
 // Module scope on purpose: declared inside the component these were a new
 // component type every render, so each keystroke remounted the input and the
@@ -59,19 +63,27 @@ const ROLE_AR: Record<string, string> = {
   MANAGEMENT: 'مشاهدة',
 }
 
+function formatEvidenceTime(value?: string | null): string {
+  if (!value) return 'لا يوجد دليل مسجل'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'وقت غير صالح'
+  return date.toLocaleString('ar-SA', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
 export function SettingsView({ navigate }: NavProps) {
   const [toast, setToast] = useState<string | null>(null)
   const [apiStatus, setApiStatus] = useState<string>('…')
   const [channels, setChannels] = useState<{
-    email?: boolean
-    whatsapp?: boolean
-    whatsappManual?: boolean
+    email?: boolean | null
+    whatsapp?: boolean | null
+    whatsappManual?: boolean | null
     whatsappProvider?: string
-    haraj?: boolean
-    metaReady?: boolean
+    haraj?: boolean | null
+    metaReady?: boolean | null
     inboxEnabled?: boolean | null
     inboxNote?: string
     gmailState?: string
+    whatsappStatus?: ConstructionWhatsAppStatus | null
   }>({})
   // What is saved here is what the send form uses. See lib/companyProfile.
   const [company, setCompany] = useState(() => loadCompanyProfile())
@@ -134,16 +146,24 @@ export function SettingsView({ navigate }: NavProps) {
               : 'غير متاح'
         }
 
+        let whatsappStatus: ConstructionWhatsAppStatus | null = null
+        try {
+          whatsappStatus = await getConstructionWhatsAppStatus()
+        } catch {
+          // Older API versions or a temporary read failure stay unknown below.
+        }
+
         setChannels({
-          email: Boolean(delivery.email),
-          whatsapp: Boolean(delivery.whatsapp),
-          whatsappManual: Boolean(delivery.whatsapp_manual),
+          email: channelAvailability(delivery.email),
+          whatsapp: channelAvailability(delivery.whatsapp),
+          whatsappManual: channelAvailability(delivery.whatsapp_manual),
           whatsappProvider: String(delivery.whatsapp_provider || ''),
-          haraj: Boolean(delivery.haraj),
-          metaReady: Boolean(waConfig.ready),
+          haraj: channelAvailability(delivery.haraj),
+          metaReady: channelAvailability(waConfig.ready),
           inboxEnabled,
           inboxNote,
           gmailState,
+          whatsappStatus,
         })
       })
       .catch((err: Error) => setApiStatus(err.message))
@@ -161,7 +181,7 @@ export function SettingsView({ navigate }: NavProps) {
     unknown,
   }: {
     label: string
-    on?: boolean
+    on?: boolean | null
     detail?: string
     unknown?: boolean
   }) => (
@@ -198,27 +218,41 @@ export function SettingsView({ navigate }: NavProps) {
         <ChannelRow
           label="بريد صادر (Resend)"
           on={channels.email}
+          unknown={channels.email == null}
           detail="بريد طلبات التسعير الصادر من خادم فرق"
         />
         <ChannelRow
           label="واتساب Cloud (Meta)"
           on={channels.whatsapp}
-          detail={
-            channels.whatsapp
-              ? 'جاهز للإرسال للموردين الذين وافقوا على المراسلة عبر واتساب'
-              : channels.metaReady
-                ? 'الحساب مهيّأ لدى Meta لكن القناة موقوفة على خادم فرق'
-                : 'غير مهيأ'
-          }
+          unknown={channels.whatsapp == null}
+          detail={whatsAppChannelDetail(channels.whatsapp ?? null, channels.metaReady ?? null)}
         />
+        <div className="rounded-xl border border-neutral-100 bg-[#FAFAF8] px-3 py-3 space-y-1.5 text-[11px] text-neutral-600 leading-relaxed">
+          <div className="font-bold text-[#0D1F1D]">دليل نشاط WhatsApp لهذه الشركة</div>
+          {channels.whatsappStatus ? (
+            <>
+              <div>مصادقة Webhook مهيّأة: {channels.whatsappStatus.webhook?.authentication_configured == null ? 'غير معروفة' : channels.whatsappStatus.webhook.authentication_configured ? 'نعم' : 'لا'}</div>
+              <div>آخر محاولة إرسال: {formatEvidenceTime(channels.whatsappStatus.last_outbound_attempt?.attempted_at)}{channels.whatsappStatus.last_outbound_attempt?.status ? ` · ${channels.whatsappStatus.last_outbound_attempt.status}` : ''}</div>
+              <div>نتيجة أحدث إرسال: {whatsappDeliveryEvidenceLabel(channels.whatsappStatus.receipts?.latest_send_state, channels.whatsappStatus.last_outbound_attempt?.status, channels.whatsappStatus.receipts?.tracking_available)}</div>
+              <div>آخر إيصال من Meta: {formatEvidenceTime(channels.whatsappStatus.receipts?.last_received_at)}</div>
+              <div>آخر رد مربوط: {formatEvidenceTime(channels.whatsappStatus.last_inbound_at)}</div>
+              <div>رسائل تنتظر ربطًا: {channels.whatsappStatus.unresolved_count == null ? 'غير معروفة' : channels.whatsappStatus.unresolved_count}</div>
+              <div className="text-neutral-400">الإعداد المهيّأ لا يثبت وحده أن Meta سلّمت الرسالة أو أن Webhook يستقبل حاليًا.</div>
+            </>
+          ) : (
+            <div>أدلة نشاط WhatsApp غير متاحة من الـ API الآن؛ لا نستنتج أن القناة سليمة أو متوقفة.</div>
+          )}
+        </div>
         <ChannelRow
           label="واتساب يدوي (WhatsApp Web)"
           on={channels.whatsappManual}
+          unknown={channels.whatsappManual == null}
           detail="رابط واتساب تفتحه أنت وترسله بنفسك: متاح دائمًا"
         />
         <ChannelRow
           label="محادثة"
           on={channels.haraj}
+          unknown={channels.haraj == null}
           detail="قناة محادثات الموردين — يحدد مسؤول النظام جاهزيتها وحدود الإرسال"
         />
         <ChannelRow

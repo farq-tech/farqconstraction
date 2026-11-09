@@ -23,6 +23,10 @@ import QuickAddSheet from './QuickAddSheet'
 
 const EXAMPLES = ['سخان 80 لتر', 'Ariston 80L', 'لمبة LED سقف 12 واط']
 
+export function productSearchQueryProblem(query: string): string {
+  return query.trim().length < 2 ? 'اكتب اسم المنتج أو الموديل (حرفين على الأقل).' : ''
+}
+
 export function ProductCardView({
   card,
   onChoose,
@@ -109,16 +113,29 @@ export default function ProductSearchPanel({ onAdd }: { onAdd: (line: Omit<BOQIt
     return () => { live = false }
   }, [])
 
+  useEffect(() => () => {
+    ctrl.current?.abort()
+    ctrl.current = null
+  }, [])
+
   const run = async (text: string) => {
     const query = text.trim()
-    if (query.length < 2) {
-      setError('اكتب اسم المنتج أو الموديل (حرفين على الأقل).')
+    const problem = productSearchQueryProblem(query)
+    if (problem) {
+      ctrl.current?.abort()
+      ctrl.current = null
+      setBusy(false)
+      setResult(null)
+      setAdded('')
+      setError(problem)
       return
     }
     ctrl.current?.abort()
     const controller = new AbortController()
     ctrl.current = controller
     setBusy(true)
+    setResult(null)
+    setChoice(null)
     setError('')
     setAdded('')
     try {
@@ -146,7 +163,16 @@ export default function ProductSearchPanel({ onAdd }: { onAdd: (line: Omit<BOQIt
       >
         <input
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value)
+            ctrl.current?.abort()
+            ctrl.current = null
+            setBusy(false)
+            setResult(null)
+            setChoice(null)
+            setError('')
+            setAdded('')
+          }}
           placeholder="اسم المنتج، الموديل، رقم الصنف، أو الصق رابط المنتج"
           aria-label="ابحث عن منتج"
           className="flex-1 min-w-0 border border-neutral-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#123F3A]"

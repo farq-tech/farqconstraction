@@ -24,6 +24,7 @@ import {
   getConstructionDispatch,
   cancelConstructionDispatch,
   DEFAULT_DELIVERY_CITY,
+  type ConstructionRfq,
   type ConstructionInvitation,
 } from '../api/constructionClient'
 import { resolveRfqSupplierIds } from '../api/constructionSuppliers'
@@ -40,6 +41,8 @@ import { companyBrand } from '../lib/companyBranding'
 import { loadCompanyProfile } from '../lib/companyProfile'
 import { getSession } from '../store/session'
 import { DELIVERY_BEFORE_DEADLINE_AR, DELIVERY_BEFORE_DEADLINE_CODE, cleanLineName, deliveryBeforeDeadline, parseQty, readQty, requestTermsBlockers, suggestedRequestType, type RequestType } from '../lib/sendGuards'
+import { presentWhatsAppDelivery } from '../lib/whatsappDelivery'
+import { bestAcceptedDispatchAttempt, dispatchPollTimedOut, latestDispatchAttempt, recordedAttemptOutcome } from '../lib/dispatchAttempt'
 import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../lib/quoteDeadline'
 import SiteSupplySection from '../components/SiteSupplySection'
 import { EMPTY_SITE_SUPPLY, REQUEST_TYPES, requestTypeLabel, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
@@ -88,6 +91,7 @@ const STALL_EMAIL_MS = 15_000
 const STALL_WA_MS = 15_000
 const STALL_HARAJ_MS = 25_000
 const STALL_SETUP_MS = 20_000
+const DISPATCH_IDLE_TIMEOUT_MS = 90_000
 
 const DEPARTMENT_CHOICES: Array<{ key: string; label: string }> = [
   { key: 'CIVIL', label: 'المدني والإنشائي' },
@@ -407,9 +411,18 @@ export function SendModal({
       // The API answers 200 whatever the provider did; the invite in the reply
       // carries the truth. «أُرسل» only when the email was actually accepted.
       const row = (updated?.invitations || []).find((r) => r.id === invite.id)
-      const email = (row?.dispatch_attempts || []).find((a) => a.channel === 'EMAIL')
-      const delivered = email ? email.status === 'SENT' : row?.delivery_status === 'SENT'
-      if (!delivered) {
+      const email = latestDispatchAttempt(row?.dispatch_attempts, 'EMAIL')
+      const emailOutcome = recordedAttemptOutcome(email)
+      if (emailOutcome !== 'ACCEPTED') {
+        if (emailOutcome === 'UNKNOWN') {
+          updateRow(invite.id, {
+            status: 'failed',
+            detail: 'لم يتأكد إرسال البريد · لا توجد محاولة بريد مسجلة؛ راجع سجل الطلب قبل الإعادة',
+            code: 'DELIVERY_UNKNOWN',
+            finishedAt: Date.now(),
+          })
+          return 'failed'
+        }
         const why = email?.failure_code || row?.delivery_status || 'NOT_SENT'
         updateRow(invite.id, {
           status: 'failed',
@@ -547,6 +560,16 @@ export function SendModal({
     touchActivity({ step: `واتساب ${index + 1}/${total}`, index: index + 1, total, supplierName: name, channel: 'WHATSAPP', inviteStartedAt: startedAt })
     updateRow(invite.id, { status: 'sending', detail: 'إرسال واتساب من رقم فرق…', startedAt })
     const ctrl = beginAbortable()
+    const reflectAcceptedAttempt = (attempt: NonNullable<ConstructionInvitation['dispatch_attempts']>[number]): 'sent' | 'failed' => {
+      const outcome = presentWhatsAppDelivery(attempt.provider_delivery?.state, attempt.provider_delivery?.error_title)
+      updateRow(invite.id, {
+        status: outcome.status,
+        detail: outcome.detail,
+        code: outcome.code,
+        finishedAt: Date.now(),
+      })
+      return outcome.status
+    }
     try {
       const updated = await sendConstructionRfqInvite(createdId, invite.id, {
         sendConsent: false,
@@ -555,21 +578,58 @@ export function SendModal({
         signal: ctrl.signal,
       })
       activeAbortsRef.current.delete(ctrl)
-      const row = (updated?.invitations || []).find((r) => r.id === invite.id)
-      const wa = (row?.dispatch_attempts || []).find((a) => a.channel === 'WHATSAPP')
+      let row = (updated?.invitations || []).find((r) => r.id === invite.id)
+      let wa = latestDispatchAttempt(row?.dispatch_attempts, 'WHATSAPP')
       if (wa?.status === 'SENT') {
-        updateRow(invite.id, { status: 'sent', detail: 'واتساب · أُرسل من رقم فرق', code: 'SENT', finishedAt: Date.now() })
-        return 'sent'
+        return reflectAcceptedAttempt(wa)
       }
-      // Not sent (cap reached, number refused…): fall back to a WhatsApp Web link.
-      return prepareOneWa(createdId, invite, index, total)
+      // A 200 response without a recorded attempt is not proof that Cloud failed.
+      // Refresh once before offering a manual link, so a recorded Cloud acceptance
+      // never gets mislabeled as a failed send.
+      if (!wa) {
+        const refreshed = await getConstructionRfq(createdId).catch(() => null)
+        row = (refreshed?.invitations || []).find((r) => r.id === invite.id)
+        wa = latestDispatchAttempt(row?.dispatch_attempts, 'WHATSAPP')
+        if (wa?.status === 'SENT') {
+          return reflectAcceptedAttempt(wa)
+        }
+      }
+      // A recorded provider failure is safe to offer as a manual fallback.
+      if (wa?.status === 'DELIVERY_FAILED') return prepareOneWa(createdId, invite, index, total)
+      updateRow(invite.id, {
+        status: 'failed',
+        detail: 'لم تتأكد حالة إرسال واتساب · راجع سجل الطلب قبل إعادة المحاولة',
+        code: 'DELIVERY_UNKNOWN',
+        finishedAt: Date.now(),
+      })
+      return 'failed'
     } catch (err) {
       activeAbortsRef.current.delete(ctrl)
-      if (cancelRef.current || isAbortError(err)) {
+      if (cancelRef.current) {
         updateRow(invite.id, { status: 'skipped', detail: 'أُلغي', code: 'CANCELLED', finishedAt: Date.now() })
         return 'cancelled'
       }
-      return prepareOneWa(createdId, invite, index, total)
+      const refreshed = await getConstructionRfq(createdId).catch(() => null)
+      const row = (refreshed?.invitations || []).find((r) => r.id === invite.id)
+      const wa = latestDispatchAttempt(row?.dispatch_attempts, 'WHATSAPP')
+      if (wa?.status === 'SENT') {
+        return reflectAcceptedAttempt(wa)
+      }
+      // Only a definite 4xx rejection or a recorded provider failure is safe for
+      // fallback. A timeout/connection error can happen after Meta accepted the send.
+      const definiteRejection = err instanceof ConstructionApiError && err.status >= 400 && err.status < 500
+      if (wa?.status === 'DELIVERY_FAILED' || definiteRejection) {
+        return prepareOneWa(createdId, invite, index, total)
+      }
+      updateRow(invite.id, {
+        status: 'failed',
+        detail: isAbortError(err)
+          ? 'انتهت المهلة ولم تتأكد حالة الإرسال · راجع سجل الطلب قبل إعادة المحاولة'
+          : 'انقطع الاتصال ولم تتأكد حالة الإرسال · راجع سجل الطلب قبل إعادة المحاولة',
+        code: 'DELIVERY_UNKNOWN',
+        finishedAt: Date.now(),
+      })
+      return 'failed'
     }
   }
 
@@ -638,13 +698,25 @@ export function SendModal({
   /** Reflect one invitation's recorded attempts in its progress row. */
   const applyAttempts = (invite: ConstructionInvitation) => {
     const attempts = invite.dispatch_attempts || []
-    const ok = attempts.find((a) => a.status === 'SENT')
+    const ok = bestAcceptedDispatchAttempt(attempts)
     if (ok) {
-      const label = ok.channel === 'WHATSAPP' ? 'واتساب · أُرسل من رقم فرق' : ok.channel === 'HARAJ' ? 'محادثة · أُرسلت' : 'بريد · قبله مزود البريد'
+      if (ok.channel === 'WHATSAPP') {
+        const outcome = presentWhatsAppDelivery(ok.provider_delivery?.state, ok.provider_delivery?.error_title)
+        updateRow(invite.id, {
+          status: outcome.status,
+          detail: outcome.detail,
+          code: outcome.code,
+          finishedAt: Date.now(),
+        })
+        return outcome.status
+      }
+      const label = ok.channel === 'HARAJ' ? 'محادثة · أُرسلت' : 'بريد · قبله مزود البريد'
       updateRow(invite.id, { status: 'sent', detail: label, code: 'SENT', finishedAt: Date.now() })
       return 'sent' as const
     }
-    const bad = attempts.find((a) => a.status === 'DELIVERY_FAILED')
+    const bad = attempts.find((a) =>
+      a.status === 'DELIVERY_FAILED' || (a.status === 'SENT' && a.channel === 'WHATSAPP' && a.provider_delivery?.state === 'FAILED'),
+    )
     if (bad) {
       updateRow(invite.id, { status: 'failed', detail: `لم يُرسل · ${bad.failure_code || bad.status}`, code: bad.failure_code || 'SEND_FAILED', finishedAt: Date.now() })
       return 'failed' as const
@@ -688,6 +760,9 @@ export function SendModal({
     let finalState = 'RUNNING'
     let sent = 0
     let failed = 0
+    let lastProgressAt = Date.now()
+    let lastProgressKey = ''
+    let lastDetail: ConstructionRfq | null = null
     for (;;) {
       if (cancelRef.current) {
         await cancelConstructionDispatch(createdId).catch(() => undefined)
@@ -699,6 +774,18 @@ export function SendModal({
         getConstructionDispatch(createdId).catch(() => null),
         getConstructionRfq(createdId).catch(() => null),
       ])
+      if (detail) lastDetail = detail
+      const progressKey = [
+        job?.state || 'NO_JOB',
+        job?.processed ?? '-',
+        (detail?.invitations || []).map((invite) =>
+          `${invite.id}:${(invite.dispatch_attempts || []).map((attempt) => `${attempt.channel}/${attempt.status}/${attempt.provider_delivery?.state || ''}`).join(',')}`,
+        ).join('|'),
+      ].join(':')
+      if (progressKey !== lastProgressKey) {
+        lastProgressKey = progressKey
+        lastProgressAt = Date.now()
+      }
       sent = 0
       failed = 0
       for (const invite of detail?.invitations || []) {
@@ -720,10 +807,27 @@ export function SendModal({
           break
         }
       }
+      if (dispatchPollTimedOut(lastProgressAt, Date.now(), DISPATCH_IDLE_TIMEOUT_MS)) {
+        finalState = 'UNCONFIRMED'
+        break
+      }
     }
     setServerSending(false)
     let waPrepared = 0
-    if (!waPaid && waInvites.length && finalState !== 'CANCELLED') {
+    if (finalState === 'UNCONFIRMED') {
+      for (const invite of invites) {
+        const latestInvite = lastDetail?.invitations?.find((row) => row.id === invite.id)
+        if (latestInvite && applyAttempts(latestInvite) === 'sent') continue
+        updateRow(invite.id, {
+          status: 'failed',
+          detail: 'توقفت متابعة المهمة بلا تحديث مؤكد؛ تحقّق من سجل الطلب قبل إعادة الإرسال.',
+          code: 'DELIVERY_UNKNOWN',
+          finishedAt: Date.now(),
+        })
+      }
+      failed = Math.max(failed, invites.length - sent)
+    }
+    if (!waPaid && waInvites.length && !['CANCELLED', 'UNCONFIRMED'].includes(finalState)) {
       for (let index = 0; index < waInvites.length; index += 1) {
         const outcome = await prepareOneWa(createdId, waInvites[index]!, index, waInvites.length)
         if (outcome === 'wa_ready') waPrepared += 1
@@ -1145,19 +1249,19 @@ export function SendModal({
 
       if (result.cancelled) {
         setError(
-          `توقّف الإرسال. أُرسل ${result.sent} · واتساب ${result.waPrepared} · فشل ${result.failed}.`,
+          `توقّف الإرسال. أُرسل ${result.sent} · واتساب ${result.waPrepared} · تعذّر تأكيد/إرسال ${result.failed}.`,
         )
         return
       }
       if (invites.length > 0 && result.sent === 0 && result.waPrepared === 0) {
-        setError('تعذّر إرسال أي دعوة. راجع أكواد الفشل في الجدول. النافذة تبقى مفتوحة.')
+        setError('لم يتأكد إرسال أي دعوة. راجع سجل المحاولات في الطلب قبل إعادة الإرسال؛ النافذة تبقى مفتوحة.')
         return
       }
       if (result.failed > 0 || result.deferredHaraj.length > 0) {
         setError(
           [
             result.failed > 0
-              ? `جزئي: أُرسل ${result.sent} · واتساب ${result.waPrepared} · فشل ${result.failed}.`
+              ? `جزئي: أُرسل ${result.sent} · واتساب ${result.waPrepared} · تعذّر تأكيد/إرسال ${result.failed}.`
               : `تم البريد/واتساب: أُرسل ${result.sent} · واتساب ${result.waPrepared}.`,
             result.deferredHaraj.length
               ? `${result.deferredHaraj.length} محادثة مؤجّلة — اضغط «إرسال المحادثات الآن» أو تابع للمراسلات.`
@@ -1209,10 +1313,13 @@ export function SendModal({
   }
 
   const sentCount = rows.filter((r) => r.status === 'sent').length
-  const failedCount = rows.filter((r) => r.status === 'failed').length
+  const unknownCount = rows.filter((r) => r.status === 'failed' && r.code === 'DELIVERY_UNKNOWN').length
+  const failedCount = rows.filter((r) => r.status === 'failed' && r.code !== 'DELIVERY_UNKNOWN').length
   const waCount = rows.filter((r) => r.status === 'wa_ready').length
   const deferredCount = rows.filter((r) => r.code === 'DEFERRED_FAST_MODE').length
-  const canContinue = Boolean(rfqId) && phase === 'done' && (sentCount > 0 || waCount > 0)
+  // The RFQ and its attempt log are useful even when no provider acceptance
+  // was confirmed; let the buyer inspect that evidence before trying again.
+  const canContinue = Boolean(rfqId) && phase === 'done'
 
   const idleMs = live ? nowTick - live.lastActivityAt : 0
   const inviteMs = live?.inviteStartedAt != null ? nowTick - live.inviteStartedAt : null
@@ -1633,7 +1740,9 @@ export function SendModal({
                     className={`flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${
                       row.status === 'sent' || row.status === 'wa_ready'
                         ? 'bg-[#CFF5DC] text-[#1a7a45]'
-                        : row.status === 'failed'
+                        : row.code === 'DELIVERY_UNKNOWN'
+                          ? 'bg-amber-50 text-amber-800'
+                          : row.status === 'failed'
                           ? 'bg-red-50 text-red-700'
                           : row.status === 'sending'
                             ? 'bg-amber-50 text-amber-800'
@@ -1642,13 +1751,13 @@ export function SendModal({
                               : 'bg-neutral-100 text-neutral-500'
                     }`}
                   >
-                    {row.code === 'DEFERRED_FAST_MODE' ? 'مؤجّل' : statusLabel(row.status)}
+                    {row.code === 'DEFERRED_FAST_MODE' ? 'مؤجّل' : row.code === 'DELIVERY_UNKNOWN' ? 'غير مؤكد' : statusLabel(row.status)}
                   </span>
                 </div>
               ))}
               {phase === 'done' && (
                 <p className="text-xs text-neutral-500 pt-1">
-                  أُرسل {sentCount} · واتساب {waCount} · فشل {failedCount}
+                  أُرسل {sentCount} · واتساب {waCount} · غير مؤكد {unknownCount} · فشل {failedCount}
                   {deferredCount > 0 ? ` · محادثة مؤجّلة ${deferredCount}` : ''}
                 </p>
               )}

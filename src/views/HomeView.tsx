@@ -62,6 +62,7 @@ export function HomeView({ navigate }: NavProps) {
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
   const [attempt, setAttempt] = useState(0)
   const [inbox, setInbox] = useState<Inbox>({ needsReply: null, unread: null })
+  const [inboxState, setInboxState] = useState<'loading' | 'ok' | 'partial' | 'error'>('loading')
   const [now, setNow] = useState(() => Date.now())
   const { openBooklet } = useProcurement()
   const session = useFarqSession()
@@ -84,12 +85,25 @@ export function HomeView({ navigate }: NavProps) {
       .catch(() => {
         if (!cancelled) setState('error')
       })
+    setInboxState('loading')
     loadInbox()
       .then((result) => {
-        if (!cancelled) setInbox(result)
+        if (!cancelled) {
+          setInbox(result)
+          setInboxState(
+            result.needsReply == null && result.unread == null
+              ? 'error'
+              : result.needsReply == null || result.unread == null
+                ? 'partial'
+                : 'ok',
+          )
+        }
       })
       .catch(() => {
-        if (!cancelled) setInbox({ needsReply: null, unread: null })
+        if (!cancelled) {
+          setInbox({ needsReply: null, unread: null })
+          setInboxState('error')
+        }
       })
     return () => {
       cancelled = true
@@ -152,6 +166,19 @@ export function HomeView({ navigate }: NavProps) {
       {dragging && (
         <div className="mb-6 rounded-2xl border-2 border-dashed border-[#123F3A] bg-[#f0faf7] py-10 text-center text-sm font-bold text-[#123F3A]">
           أفلت الكراسة هنا لنبدأ القراءة
+        </div>
+      )}
+
+      {(inboxState === 'partial' || inboxState === 'error') && (
+        <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <span>تعذّر تحميل بعض مؤشرات المراسلات؛ قد لا يعكس العدد الظاهر آخر الرسائل.</span>
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            className="shrink-0 font-bold underline underline-offset-2"
+          >
+            أعد المحاولة
+          </button>
         </div>
       )}
 

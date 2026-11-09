@@ -8,9 +8,9 @@ import { describe, expect, it } from 'vitest'
 import type { BOQItem } from '../../types'
 import { appendToCart, lineFromProduct, quickSheetFor, type ProductCard } from '../../lib/rfqCart'
 import StartChooser from './StartChooser'
-import { ProductCardView } from './ProductSearchPanel'
+import { ProductCardView, productSearchQueryProblem } from './ProductSearchPanel'
 import QuickAddSheet from './QuickAddSheet'
-import CartPanel from './CartPanel'
+import CartPanel, { cartLineEditProblem } from './CartPanel'
 import NewRequestButton from './NewRequestButton'
 
 const card: ProductCard = {
@@ -29,7 +29,8 @@ describe('StartChooser', () => {
   it('offers the three ways in, with the owner’s wording', () => {
     const html = renderToStaticMarkup(createElement(StartChooser, { active: null, onChoose: noop }))
     expect(html).toContain('كيف تبي تبدأ طلب التسعير؟')
-    expect(html).toContain('ارفع كراسة')
+    expect(html).toContain('ارفع ملف البنود')
+    expect(html).toContain('PDF أو جدول XLSX أو CSV')
     expect(html).toContain('ابحث عن منتج')
     expect(html).toContain('ابحث بالاسم أو الموديل وأضفه للطلب')
     expect(html).toContain('اكتب البنود يدويًا')
@@ -81,6 +82,15 @@ describe('ProductCardView', () => {
   })
 })
 
+describe('productSearchQueryProblem', () => {
+  it('requires two trimmed characters and accepts Arabic or Latin input', () => {
+    expect(productSearchQueryProblem('  ')).toContain('حرفين')
+    expect(productSearchQueryProblem('س')).toContain('حرفين')
+    expect(productSearchQueryProblem('سخان')).toBe('')
+    expect(productSearchQueryProblem('M16')).toBe('')
+  })
+})
+
 describe('QuickAddSheet', () => {
   it('asks quantity, unit, sale units with pack size, brand and notes', () => {
     const html = renderToStaticMarkup(
@@ -123,5 +133,11 @@ describe('CartPanel', () => {
     )
     expect(html).toContain('طلبك فاضي')
     expect(html).toMatch(/disabled=""[^>]*data-action="continue"|data-action="continue"[^>]*disabled=""/)
+  })
+  it('requires a name, positive quantity, and unit before saving an edit', () => {
+    expect(cartLineEditProblem({ name: '  ', qty: '2', unit: 'متر' })).toContain('اسم البند')
+    expect(cartLineEditProblem({ name: 'مواسير', qty: '0', unit: 'متر' })).toContain('كمية أكبر من صفر')
+    expect(cartLineEditProblem({ name: 'مواسير', qty: '2', unit: ' ' })).toContain('وحدة القياس')
+    expect(cartLineEditProblem({ name: 'مواسير', qty: '٢', unit: 'متر' })).toBe('')
   })
 })

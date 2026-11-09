@@ -881,6 +881,10 @@ async function rawFetch(
   } catch (err) {
     if (getPlatformReviewScope() && !["GET", "HEAD"].includes(String(fetchInit.method || "GET").toUpperCase())) throw err
     if (err instanceof DOMException && err.name === 'AbortError') {
+      // The caller's signal means the user or screen intentionally cancelled
+      // work. Keep AbortError intact so callers can stop quietly; only our own
+      // deadline should be presented as a network timeout.
+      if (external?.aborted) throw err
       throw new ConstructionApiError(
         'انتهت مهلة الطلب إلى واجهة البناء — أعد المحاولة أو قلّل عدد البنود.',
         504,
@@ -1050,6 +1054,20 @@ export async function getPlatformReviewCompanies() {
 
 export async function getConstructionStatus() {
   return request<Record<string, unknown>>('/api/construction/status')
+}
+
+export type ConstructionWhatsAppStatus = {
+  cloud?: { enabled?: boolean; configured?: boolean; checks?: Record<string, boolean> }
+  webhook?: { authentication_configured?: boolean }
+  receipts?: { tracking_available?: boolean; last_received_at?: string | null; latest_send_state?: 'READ' | 'DELIVERED' | 'ACCEPTED' | 'FAILED' | 'UNCONFIRMED' | null }
+  last_outbound_attempt?: { status?: string; attempted_at?: string | null; sent_at?: string | null } | null
+  last_inbound_at?: string | null
+  unresolved_count?: number | null
+}
+
+/** Company-scoped WhatsApp config and observed traffic evidence; no secrets or recipients. */
+export async function getConstructionWhatsAppStatus() {
+  return request<ConstructionWhatsAppStatus>('/api/construction/whatsapp/status')
 }
 
 export async function getConstructionMe() {
@@ -1967,6 +1985,8 @@ export type ConstructionInboxStatus = {
   unresolved_available?: boolean
   /** «بريد يحتاج ربط» (CONSTRUCTION_EMAIL_SMART_ROUTING=1): mailbox owner only. */
   email_link_available?: boolean
+  /** WhatsApp messages the webhook could not safely associate; owner-only. */
+  whatsapp_link_available?: boolean
   work_global_available?: boolean
   work_view_available?: boolean
   replying_allowed?: boolean
@@ -2255,7 +2275,9 @@ export async function setConstructionInboxThreadsVisibility(inviteIds: string[],
 }
 
 /** An email the server could not tie to a request, but that reads like a supplier's answer. */
-export type ConstructionEmailLink = {
+export type ConstructionUnresolvedKind = 'email' | 'whatsapp'
+
+export type ConstructionUnresolvedArrival = {
   id: string
   provider: 'GMAIL' | 'RESEND' | string
   state: 'NO_MATCH' | 'AMBIGUOUS' | string
@@ -2272,6 +2294,9 @@ export type ConstructionEmailLink = {
   candidates: { id: string; rfq_id: string; supplier_name_ar?: string | null; locked?: boolean }[]
 }
 
+/** Kept as an alias for existing email-link screens and callers. */
+export type ConstructionEmailLink = ConstructionUnresolvedArrival
+
 export type ConstructionEmailLinkTargets = {
   sender_domain: string | null
   requests: {
@@ -2286,17 +2311,27 @@ export type ConstructionEmailLinkTargets = {
       name_en: string | null
       response_status: string | null
       suggested: boolean
+      /** The server can return historical invitations whose RFQ is sealed. */
+      locked?: boolean
     }[]
   }[]
 }
 
-/** «بريد يحتاج ربط»: supplier-looking email the server could not route. */
-export async function listConstructionEmailLinks(cursor?: string) {
-  const q = new URLSearchParams({ kind: 'email' })
+/** Supplier communication the server could not safely link to a request. */
+export async function listConstructionUnresolvedArrivals(
+  kind: ConstructionUnresolvedKind = 'email',
+  cursor?: string,
+) {
+  const q = new URLSearchParams({ kind })
   if (cursor) q.set('cursor', cursor)
   return request<{ arrivals: ConstructionEmailLink[]; next_cursor: string | null }>(
     `/api/construction/inbox/unresolved?${q.toString()}`,
   )
+}
+
+/** «بريد يحتاج ربط»: supplier-looking email the server could not route. */
+export function listConstructionEmailLinks(cursor?: string) {
+  return listConstructionUnresolvedArrivals('email', cursor)
 }
 
 /** Open requests (and their invited suppliers) an email may be linked to. */
@@ -2308,7 +2343,12 @@ export async function getConstructionEmailLinkTargets(arrivalId: string, q = '')
 }
 
 /** «اربطه بالطلب»: the email joins that supplier's conversation on that request. */
-export async function linkConstructionEmail(arrivalId: string, inviteId: string, expectedRevision: number) {
+export async function linkConstructionArrival(
+  arrivalId: string,
+  inviteId: string,
+  expectedRevision: number,
+  kind: ConstructionUnresolvedKind = 'email',
+) {
   return request<{ resolved: boolean; pending_import: boolean; contact_added?: string | null }>(
     `/api/construction/inbox/unresolved/${encodeURIComponent(arrivalId)}/resolve`,
     {
@@ -2317,10 +2357,15 @@ export async function linkConstructionEmail(arrivalId: string, inviteId: string,
       body: JSON.stringify({
         invite_id: inviteId,
         expected_revision: expectedRevision,
-        reason: 'ربط بريد مورد بطلبه من الوارد',
+        reason: kind === 'whatsapp' ? 'ربط رسالة واتساب بطلبها من الوارد' : 'ربط بريد مورد بطلبه من الوارد',
       }),
     },
   )
+}
+
+/** «اربطه بالطلب»: backward-compatible email-specific name. */
+export function linkConstructionEmail(arrivalId: string, inviteId: string, expectedRevision: number) {
+  return linkConstructionArrival(arrivalId, inviteId, expectedRevision, 'email')
 }
 
 export async function markConstructionInboxMessageUnread(messageId: string) {

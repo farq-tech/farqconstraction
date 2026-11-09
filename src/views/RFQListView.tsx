@@ -31,6 +31,7 @@ export function RFQListView({ navigate }: NavProps) {
   const [apiRfqs, setApiRfqs] = useState<RFQSummary[]>([])
   // A failed load must not read as «no requests yet».
   const [loadState, setLoadState] = useState<'loading' | 'ok' | 'error'>('loading')
+  const [reloadKey, setReloadKey] = useState(0)
   const [filter, setFilter] = useState<Filter>('all')
   const [search, setSearch] = useState('')
   const { openRfq, openBooklet } = useProcurement()
@@ -38,6 +39,7 @@ export function RFQListView({ navigate }: NavProps) {
 
   useEffect(() => {
     let cancelled = false
+    setLoadState('loading')
     listBuyerRfqs()
       .then((overview) => {
         if (cancelled) return
@@ -48,14 +50,15 @@ export function RFQListView({ navigate }: NavProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setApiRfqs([])
           setLoadState('error')
         }
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
+
+  const retryLoad = () => setReloadKey((key) => key + 1)
 
   const seen = new Set<string>()
   const allRfqs: RFQSummary[] = []
@@ -138,7 +141,18 @@ export function RFQListView({ navigate }: NavProps) {
 
       {filtered.length === 0 && loadState !== 'ok' && !localRfqs.length ? (
         <div className="text-center py-20 text-sm text-neutral-500">
-          {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : 'تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد تحميل الصفحة.'}
+          {loadState === 'loading' ? 'جارٍ تحميل الطلبات…' : (
+            <>
+              <p>تعذّر تحميل الطلبات. تحقق من الاتصال ثم أعد المحاولة.</p>
+              <button
+                type="button"
+                onClick={retryLoad}
+                className="mt-4 px-4 py-2 bg-[#123F3A] text-white font-bold rounded-xl"
+              >
+                أعد المحاولة
+              </button>
+            </>
+          )}
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">
@@ -153,6 +167,14 @@ export function RFQListView({ navigate }: NavProps) {
         </div>
       ) : (
         <div className="space-y-3">
+          {loadState === 'error' && allRfqs.length > 0 && (
+            <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <span>تعذّر تحديث الطلبات؛ المعروض يشمل الطلبات المحفوظة محليًا.</span>
+              <button type="button" onClick={retryLoad} className="shrink-0 font-bold underline underline-offset-2">
+                أعد المحاولة
+              </button>
+            </div>
+          )}
           {grouped
             ? groupRequestsByBooklet(filtered).map((row) =>
                 row.kind === 'rfq' ? (

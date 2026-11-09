@@ -46,6 +46,7 @@ import ProductSearchPanel from '../components/rfqCart/ProductSearchPanel'
 import ManualLinesPanel from '../components/rfqCart/ManualLinesPanel'
 import CartPanel from '../components/rfqCart/CartPanel'
 import PurchaseScanReader from '../components/PurchaseScanReader'
+import { readBoqCsv, readBoqExcel, selectBoqSheet, type BoqSpreadsheetWorkbook } from '../lib/boqSpreadsheet'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -216,6 +217,7 @@ type ReadReport = {
 const SOURCE_LABEL: Record<string, string> = {
   'pdf-table': 'قراءة أعمدة الجدول بالإحداثيات',
   'pdf-text': 'قراءة نصية للأسطر',
+  spreadsheet: 'قراءة أعمدة جدول البنود',
   empty: 'لا مصدر',
 }
 
@@ -343,6 +345,11 @@ export function UploadView({ navigate }: NavProps) {
   const [items, setItems] = useState<BOQItem[]>([])
   const [projectName, setProjectName] = useState('')
   const [pendingCityFile, setPendingCityFile] = useState<File | null>(null)
+  const [workbookChoice, setWorkbookChoice] = useState<{
+    file: File
+    workbook: BoqSpreadsheetWorkbook
+    selectedSheetName: string
+  } | null>(null)
   const [deliveryCity, setDeliveryCity] = useState(() => getSession().matchingCity || loadCompanyProfile().defaultDeliveryCity || 'الرياض')
   const [errorMsg, setErrorMsg] = useState('')
   const [needsSignIn, setNeedsSignIn] = useState(false)
@@ -357,6 +364,7 @@ export function UploadView({ navigate }: NavProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   /** Kept so «أعد المحاولة» retries the same booklet instead of asking again. */
   const lastFileRef = useRef<File | null>(null)
+  const lastWorkbookRef = useRef<BoqSpreadsheetWorkbook | null>(null)
   /** Ignores a superseded run so a slow first attempt cannot overwrite a retry. */
   const runIdRef = useRef(0)
   /** «كيف تبي تبدأ طلب التسعير؟» — which way in is open. All three fill one cart. */
@@ -465,7 +473,7 @@ export function UploadView({ navigate }: NavProps) {
     return () => window.clearInterval(id)
   }, [phase])
 
-  const runProcessing = async (file: File) => {
+  const runProcessing = async (file: File, spreadsheet?: BoqSpreadsheetWorkbook) => {
     if (!deliveryCity.trim()) {
       setErrorMsg('اكتب مدينة التسليم قبل قراءة الكراسة ومطابقة الموردين.')
       return
@@ -480,6 +488,7 @@ export function UploadView({ navigate }: NavProps) {
       return
     }
     void saveInflightUpload(file, farqSession.getUser()?.id ?? null)
+    lastWorkbookRef.current = spreadsheet || null
     setNeedsSignIn(false)
     // Lines already found by search or typed stay in the request: a booklet
     // read replaces the previous BOOKLET, never the rest of the cart.
@@ -519,6 +528,7 @@ export function UploadView({ navigate }: NavProps) {
       setMatchingCity(deliveryCity)
       const parsed = parseBoqFile(file, {
         deliveryCity,
+        spreadsheet,
         onStage: (id) => {
           if (!current()) return
           const i = STAGES.findIndex((s) => s.id === id)
@@ -550,7 +560,7 @@ export function UploadView({ navigate }: NavProps) {
             setAsideNote: facts.setAsideNote,
             setAsideRows: facts.setAsideRows,
             matchApiFailed: false,
-            source: 'pdf-table',
+            source: /\.(csv|xlsx)$/i.test(file.name) ? 'spreadsheet' : 'pdf-table',
             descriptionColumnSuspect: facts.descriptionColumnSuspect,
             descriptionColumnDetail: facts.descriptionColumnDetail,
             codedItemsSuspect: facts.codedItemsSuspect,
@@ -691,9 +701,47 @@ export function UploadView({ navigate }: NavProps) {
     }
   }
 
+  const chooseFile = async (file: File) => {
+    setErrorMsg('')
+    setWorkbookChoice(null)
+    if (/\.xlsx$/i.test(file.name)) {
+      try {
+        const workbook = await readBoqExcel(file)
+        const readable = workbook.sheets.filter((sheet) => !sheet.error)
+        if (readable.length > 1) {
+          setWorkbookChoice({
+            file,
+            workbook,
+            selectedSheetName: readable[workbook.selected]?.name || readable[0]!.name,
+          })
+          return
+        }
+        const selected = readable[0]
+        if (!selected) throw new Error('لم نعثر على ورقة فيها بنود قابلة للقراءة.')
+        await runProcessing(file, selectBoqSheet(workbook, selected.name))
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'تعذّرت قراءة ملف Excel.')
+      }
+      return
+    }
+    if (/\.csv$/i.test(file.name)) {
+      try {
+        await runProcessing(file, await readBoqCsv(file))
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'تعذّرت قراءة ملف CSV.')
+      }
+      return
+    }
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+      void runProcessing(file)
+      return
+    }
+    setErrorMsg('اختر كراسة بصيغة PDF أو جدول بنود بصيغة XLSX أو CSV.')
+  }
+
   const retry = () => {
     const file = lastFileRef.current
-    if (file) void runProcessing(file)
+    if (file) void runProcessing(file, lastWorkbookRef.current || undefined)
   }
 
   // A file chosen on the home screen starts reading here, once.
@@ -796,9 +844,42 @@ export function UploadView({ navigate }: NavProps) {
       {phase === 'idle' && pendingCityFile && <button type="button" disabled={!deliveryCity.trim()} onClick={() => {
         const file = pendingCityFile
         setPendingCityFile(null)
-        void runProcessing(file)
+        void chooseFile(file)
       }} className="mb-4 w-full rounded-xl bg-[#123F3A] text-white p-3 font-bold">قراءة {pendingCityFile.name} ومطابقة الموردين في {deliveryCity}</button>}
       {phase === 'idle' && <button type="button" onClick={() => setCameraOpen(true)} className="mb-4 w-full rounded-2xl bg-[#123F3A] px-4 py-4 text-white font-bold">قراءة طلب شراء بالكاميرا</button>}
+      {phase === 'idle' && workbookChoice && (
+        <div className="mb-5 rounded-2xl border border-[#b7d8d1] bg-[#f0faf7] p-4" dir="rtl">
+          <div className="text-sm font-bold text-[#123F3A]">وجدنا أكثر من ورقة فيها جدول بنود</div>
+          <p className="mt-1 text-xs text-neutral-600">اختر الورقة المطلوبة. سنقرأ الاسم والكمية والوحدة وننبهك إلى الصفوف غير المقروءة.</p>
+          <label className="mt-3 block text-xs font-semibold text-neutral-600">
+            ورقة Excel
+            <select
+              className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm"
+              value={workbookChoice.selectedSheetName}
+              onChange={(event) => setWorkbookChoice({ ...workbookChoice, selectedSheetName: event.target.value })}
+            >
+              {workbookChoice.workbook.sheets.filter((sheet) => !sheet.error).map((sheet) => (
+                <option key={sheet.name} value={sheet.name}>{sheet.name} · {sheet.lines.length} بندًا صالحًا{sheet.issues.length ? ` · ${sheet.issues.length} صف غير مقروء` : ''}</option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              disabled={!deliveryCity.trim()}
+              onClick={() => {
+                const choice = workbookChoice
+                setWorkbookChoice(null)
+                void runProcessing(choice.file, selectBoqSheet(choice.workbook, choice.selectedSheetName))
+              }}
+              className="rounded-xl bg-[#123F3A] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              اقرأ الورقة المختارة
+            </button>
+            <button type="button" onClick={() => setWorkbookChoice(null)} className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-bold text-neutral-600">إلغاء</button>
+          </div>
+        </div>
+      )}
       {phase === 'idle' ? (
         <StartChooser
           active={startPath}
@@ -855,13 +936,13 @@ export function UploadView({ navigate }: NavProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,application/pdf"
+        accept=".pdf,application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
         className="hidden"
         data-testid="booklet-file"
         onChange={(e) => {
           const f = e.target.files?.[0]
           e.target.value = ''
-          if (f) void runProcessing(f)
+          if (f) void chooseFile(f)
         }}
       />
 
@@ -882,7 +963,7 @@ export function UploadView({ navigate }: NavProps) {
             e.preventDefault()
             setDragging(false)
             const f = e.dataTransfer.files[0]
-            if (f) void runProcessing(f)
+            if (f) void chooseFile(f)
           }}
           onClick={() => inputRef.current?.click()}
         >
@@ -910,10 +991,11 @@ export function UploadView({ navigate }: NavProps) {
               <UploadIcon className="w-8 h-8 text-[#123F3A]" />
             </div>
             <div className="text-xl font-bold mb-2 text-[#0D1F1D]">اختر ملفًا</div>
-            <p className="text-neutral-400 text-sm mb-6 text-center">اسحب الملف أو اضغط للاختيار</p>
+            <p className="text-neutral-400 text-sm mb-6 text-center">PDF أو جدول بنود XLSX أو CSV · اسحب الملف أو اضغط للاختيار</p>
             <div className="flex gap-2">
               <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">PDF</span>
-              
+              <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">XLSX</span>
+              <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">CSV</span>
             </div>
           </div>
         </div>
