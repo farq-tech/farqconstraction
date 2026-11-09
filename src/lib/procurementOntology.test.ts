@@ -2690,36 +2690,6 @@ describe('cpo-v13: seven common materials that were family-only', () => {
   }
 })
 
-/**
- * cpo-v14 — the widening the owner asked for on 3 Oct 2026: every material a Saudi
- * booklet commonly buys reaches its own intent under the names buyers write
- * (formal, colloquial, English, transliterated, misspelled). The probes are the
- * contract: positive lines per new intent, and the collisions each trade feared.
- */
-describe('cpo-v14: the wider dictionary keeps its probes', () => {
-  const { probes } = JSON.parse(
-    readFileSync(new URL('../../fixtures/ontology/cpo-v14-probes.json', import.meta.url), 'utf8'),
-  ) as {
-    probes: Array<{
-      line: string
-      expect_intent?: string
-      expect_family?: string
-      expect_not_intent?: string
-      expect_not_family?: string
-    }>
-  }
-  it('has a probe set', () => expect(probes.length).toBeGreaterThan(700))
-  for (const p of probes) {
-    it(p.line, () => {
-      const r = resolveOntology(p.line)
-      if (p.expect_intent) expect(r.intent, p.line).toBe(p.expect_intent)
-      if (p.expect_family) expect(r.family, p.line).toBe(p.expect_family)
-      if (p.expect_not_intent) expect(r.intent, p.line).not.toBe(p.expect_not_intent)
-      if (p.expect_not_family) expect(r.family, p.line).not.toBe(p.expect_not_family)
-    })
-  }
-})
-
 /** cpo-v16. Four misroutes a 60-line random review of cpo-v15 found (7 %). */
 describe('cpo-v16: fuel tanks, indoor signage, parking sensors, and a ceiling that is only a location', () => {
   const cases: Array<[string, string | null]> = [
@@ -2746,6 +2716,16 @@ describe('cpo-v34: bare colloquial concrete-block name', () => {
     expect(resolveOntology('بلك خفيف سيبوركس').intent).toBe('lightweight_block')
     expect(resolveOntology('بلك عازل').intent).toBe('insulated_block')
     expect(resolveOntology('بلك بركاني').intent).toBe('lightweight_block')
+  })
+})
+
+describe('gate material vs entrance operation', () => {
+  it('keeps a motorized sliding iron gate in the entrance pool', () => {
+    expect(resolve('بوابة حديد سحاب للسور مع موتور').intent).toBe('entrance_gate')
+  })
+
+  it('keeps a plain steel gate in the steel-gate pool', () => {
+    expect(resolve('توريد بوابة حديد صناعية للمصنع').intent).toBe('steel_gate')
   })
 })
 

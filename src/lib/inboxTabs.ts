@@ -172,5 +172,16 @@ export function appendThreads(
   more: ConstructionInboxThread[],
 ): ConstructionInboxThread[] {
   const seen = new Set(loaded.map((t) => String(t.invite_id || '')))
-  return [...loaded, ...more.filter((t) => !t.invite_id || !seen.has(String(t.invite_id)))]
+  const appended: ConstructionInboxThread[] = []
+  for (const thread of more) {
+    if (!thread.invite_id) {
+      appended.push(thread)
+      continue
+    }
+    const id = String(thread.invite_id)
+    if (seen.has(id)) continue
+    seen.add(id)
+    appended.push(thread)
+  }
+  return [...loaded, ...appended]
 }

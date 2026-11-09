@@ -85,6 +85,12 @@ describe('a server-verified read is judged as what it is', () => {
     expect(r.descriptionColumnSuspect).toBe(true)
   })
 
+  it('does not block spreadsheet tables because legitimate item names repeat', () => {
+    const apiLines = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, name: 'ماسورة حديد مجلفن', qty: String(i + 1), unit: 'متر' }))
+    const r = resolveParsedLines({ apiLines, text: '', fileName: 'items.xlsx', spreadsheet: true })
+    expect(r.descriptionColumnSuspect).toBe(false)
+  })
+
   it('never gives two lines the same id, whatever the codes look like', async () => {
     const { rowsToLines } = await import('./parseBoq')
     const rows: unknown[] = [HEADER]

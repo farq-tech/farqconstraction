@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter } from './autoPick'
+import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter, sameMaterial } from './autoPick'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -53,6 +53,22 @@ describe('buildPickContext', () => {
   })
 })
 
+describe('sameMaterial feedback scope', () => {
+  it('links the same catalogue item even when line intents differ', () => {
+    const byIntent = line(1, 'paints', [], { farqSpecId: 'spec-7' })
+    const byOtherIntent = line(2, 'primers', [], { farqSpecId: 'spec-7' })
+    expect(sameMaterial(byIntent, byOtherIntent)).toBe(true)
+  })
+
+  it('links matching intent when one line lacks a catalogue id, but never links by family alone', () => {
+    const mapped = line(1, 'paints', [], { mapSuggestion: { intent: 'paint_x', family: 'paints', supplierCount: 0, suppliers: [] } })
+    const aiOnly = line(2, 'primers', [], { mapSuggestion: undefined, aiSuggestion: { intent: 'paint_x', family: 'paints', supplierCount: 0, suppliers: [] } })
+    const otherIntent = line(3, 'paints', [], { mapSuggestion: { intent: 'primer_x', family: 'paints', supplierCount: 0, suppliers: [] } })
+    expect(sameMaterial(mapped, aiOnly)).toBe(true)
+    expect(sameMaterial(mapped, otherIntent)).toBe(false)
+  })
+})
+
 describe('autoPickFor with a context', () => {
   it('puts the specialist before the generalist inside a lane', () => {
     const context = buildPickContext(booklet)
@@ -86,6 +102,20 @@ describe('autoPickFor with a context', () => {
     const context = buildPickContext(booklet)
     const item = { ...booklet[0], rejectedSupplierIds: ['حديد-أ'] }
     expect(autoPickFor(item, 1, context).map((s) => s.id)).toEqual(['حديد-ب'])
+  })
+
+  it('returns no suppliers for a zero or negative limit', () => {
+    expect(autoPickFor(booklet[0], 0)).toEqual([])
+    expect(autoPickFor(booklet[0], -1)).toEqual([])
+  })
+
+  it('honors an explicit mismatch verdict even when the supplier is repeated in another lane', () => {
+    const rejected = { ...sup('reviewed-mismatch'), fitReview: { verdict: 'QUOTE_MISMATCHED' as const } }
+    const item = line(13, 'cement', [rejected], {
+      mapSuggestion: { intent: 'cement_x', family: 'cement', supplierCount: 1, suppliers: [rejected] },
+    })
+    expect(autoPickFor(item).map(s => s.id)).toEqual([])
+    expect(autoPickConfident(item).map(s => s.id)).toEqual([])
   })
 
   it('behaves exactly as before without a context', () => {

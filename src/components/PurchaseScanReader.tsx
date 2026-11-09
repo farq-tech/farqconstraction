@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { shrinkImage } from '../lib/cameraFrame'
+import { validCartQuantity } from '../lib/rfqCart'
 import { scanPurchaseRequest, type ScannedRequest } from '../api/constructionClient'
 
 /*
@@ -162,23 +163,44 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
   async function fromFiles(files: FileList | null) {
     if (!files?.length) return
     const added: Page[] = []
-    for (const file of Array.from(files).slice(0, 5)) {
+    let rejected = ''
+    const remaining = Math.max(0, 5 - pages.length)
+    if (remaining === 0) {
+      setError('وصلت إلى الحد الأقصى: 5 صفحات لكل طلب.')
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+    for (const file of Array.from(files)) {
+      if (added.length >= remaining) {
+        rejected = 'يمكن قراءة 5 صفحات كحد أقصى. أزل صفحة قبل إضافة المزيد.'
+        break
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        rejected = 'الحد الأقصى لحجم كل ملف 10 م.ب.'
+        continue
+      }
       const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
       const isXlsx = file.type === XLSX || /\.xlsx$/i.test(file.name)
       if (isPdf || isXlsx) {
-        if (file.size > 10 * 1024 * 1024) { setError('الملف أكبر من 10 م.ب.'); continue }
         const base64 = await fileToBase64(file).catch(() => '')
         if (base64) added.push({ mime: isPdf ? 'application/pdf' : XLSX, base64, url: '', name: file.name })
+        else rejected = `تعذرت قراءة ${file.name}. جرّب فتحه ثم حفظه من جديد.`
         continue
       }
-      if (/\.xls$|\.csv$/i.test(file.name)) { setError('احفظ الملف بصيغة xlsx أو PDF ثم أعد المحاولة.'); continue }
+      if (!file.type.startsWith('image/')) {
+        rejected = /\.xls$|\.csv$/i.test(file.name)
+          ? 'احفظ جدول Excel أو CSV بصيغة xlsx أو PDF ثم أعد المحاولة.'
+          : `نوع الملف غير مدعوم: ${file.name}. اختر صورة أو PDF أو Excel بصيغة xlsx.`
+        continue
+      }
       const page = await shrinkImage(file).catch(() => null)
       if (page) added.push(page)
+      else rejected = `تعذرت قراءة الصورة ${file.name}. جرّب صورة أخرى.`
     }
     if (fileRef.current) fileRef.current.value = ''
-    if (!added.length) return setError('لم نستطع فتح الصورة. جرّب صورة أخرى.')
+    if (!added.length) return setError(rejected || 'لم نستطع فتح الملفات المحددة.')
     setPages((p) => [...p, ...added].slice(0, 5))
-    setError(null)
+    setError(rejected)
   }
 
   async function readPages() {
@@ -216,7 +238,7 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
     onDraft({ project: project.trim(), reference: reference.trim() || null, requester: read?.requester || null, lines })
   }
 
-  const missingQty = rows.filter((r) => !(Number(String(r.qty).replace(/,/g, '')) > 0)).length
+  const missingQty = rows.filter((r) => !validCartQuantity(r.qty)).length
 
   /* ===== scanner ===== */
   if (phase === 'camera' || phase === 'reading') {
@@ -419,7 +441,7 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
 
         <div className="mt-3 space-y-3">
           {rows.map((r, i) => {
-            const bad = !(Number(String(r.qty).replace(/,/g, '')) > 0)
+            const bad = !validCartQuantity(r.qty)
             return (
               <div key={i} className={`rounded-2xl bg-white border p-3 ${bad ? 'border-amber-200' : 'border-[#f5f5f5]'}`}>
                 <div className="flex items-center justify-between mb-1.5">

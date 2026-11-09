@@ -156,13 +156,21 @@ function specCardFromSheet(sheet: QuickSheet): SpecCard | undefined {
 
 /** A positive quantity as text, or '1'. Arabic digits are read. */
 export function cleanQty(value: string): string {
-  const ascii = String(value || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,،٬\s]/g, '').replace('٫', '.')
+  const ascii = String(value || '')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[,،٬\s]/g, '')
+    .replace('٫', '.')
   const n = Number(ascii)
   return Number.isFinite(n) && n > 0 ? String(Math.round(n * 1000) / 1000) : '1'
 }
 
 export function validCartQuantity(value: string): boolean {
-  const ascii = String(value).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[,،٬\s]/g, '').replace('٫', '.')
+  const ascii = String(value)
+    .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[,،٬\s]/g, '')
+    .replace('٫', '.')
   const n = Number(ascii)
   return Number.isFinite(n) && n > 0 && Math.round(n * 1000) > 0
 }
@@ -220,10 +228,12 @@ const UNIT_WORDS: Array<[RegExp, string]> = [
  * Without a leading number the quantity is 1 and every word stays in the name.
  */
 export function parseManualLine(text: string): { qty: string; unit: string; name: string } | null {
-  const raw = String(text || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\s+/g, ' ').trim()
+  const raw = String(text || '').replace(/\s+/g, ' ').trim()
   if (!raw) return null
-  const m = raw.match(/^(\d+(?:[.,]\d+)?)\s*[x×*]?\s+(.+)$/i)
+  const m = raw.match(/^([\d٠-٩۰-۹٬٫,.'’\u066B\u066C]+)\s*[x×*]?\s+(.+)$/i)
   if (!m) return raw.length >= 2 ? { qty: '1', unit: 'عدد', name: raw.slice(0, 240) } : null
+  const quantity = normalizeManualQuantity(m[1]!)
+  if (!quantity) return raw.length >= 2 ? { qty: '1', unit: 'عدد', name: raw.slice(0, 240) } : null
   let rest = m[2]!.trim()
   let unit = 'عدد'
   const [first, ...others] = rest.split(' ')
@@ -233,17 +243,146 @@ export function parseManualLine(text: string): { qty: string; unit: string; name
     rest = others.join(' ')
   }
   if (rest.length < 2) return null
-  return { qty: cleanQty(m[1]!.replace(',', '.')), unit, name: rest.slice(0, 240) }
+  return { qty: cleanQty(quantity), unit, name: rest.slice(0, 240) }
 }
 
-/** Typed lines, one per row, as cart lines. */
-export function linesFromManualText(text: string): Array<Omit<BOQItem, 'id'>> {
-  return String(text || '')
-    .split(/\r?\n/)
-    .map(parseManualLine)
-    .filter((x): x is NonNullable<ReturnType<typeof parseManualLine>> => Boolean(x))
-    .slice(0, 200)
-    .map((p) => ({
+/** Normalize grouped quantities before validation without treating 1,200 as 1.2. */
+function normalizeManualQuantity(value: string): string | null {
+  let ascii = value
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[’']/g, '')
+    .replace(/[\u00a0\u202f\s]/g, '')
+  ascii = ascii.replace(/٬/g, ',').replace(/٫|\u066B/g, '.')
+  const group = (s: string) => /^\d{1,3}(?:,\d{3})+$/.test(s)
+  if (ascii.includes('.')) {
+    const [integer, ...fraction] = ascii.split('.')
+    if (fraction.length !== 1 || !/^\d+$/.test(fraction[0] || '') || !integer) return null
+    if (integer.includes(',') && !group(integer)) return null
+    ascii = `${integer.replace(/,/g, '')}.${fraction[0]}`
+  } else if (ascii.includes(',')) {
+    if (group(ascii)) ascii = ascii.replace(/,/g, '')
+    else if (/^\d+,\d+$/.test(ascii)) ascii = ascii.replace(',', '.')
+    else return null
+  }
+  return /^\d+(?:\.\d+)?$/.test(ascii) && validCartQuantity(ascii) ? ascii : null
+}
+
+type ManualColumn = 'serial' | 'description' | 'quantity' | 'unit' | 'ignore'
+type ManualColumns = { quantity: number; description: number; unit: number | null; other: number[] }
+
+function manualColumn(header: string): ManualColumn | null {
+  const value = header.trim().toLocaleLowerCase().replace(/[.:#]/g, '').replace(/\s+/g, ' ')
+  if (['الكمية', 'كمية', 'العدد', 'qty', 'quantity', "q'ty"].includes(value)) return 'quantity'
+  if (['الوحدة', 'وحدة', 'unit', 'uom'].includes(value)) return 'unit'
+  if (['البند', 'اسم البند', 'الوصف', 'وصف', 'الصنف', 'اسم الصنف', 'المادة', 'اسم المادة', 'المنتج', 'اسم المنتج', 'item', 'items', 'item name', 'description', 'product', 'product name', 'material', 'name'].includes(value)) return 'description'
+  if (['رقم', 'الرقم', 'رقم البند', 'رقم الصنف', 'الرقم التسلسلي', 'مسلسل', 'المسلسل', 'serial', 'no', 'number', 'line no', 'line number', 'item no', 'item number', 'item code', 'code', 'sku', 'الكود', 'كود'].includes(value)) return 'serial'
+  if (['السعر', 'سعر', 'سعر الوحدة', 'السعر الإفرادي', 'price', 'unit price', 'amount', 'total', 'cost'].includes(value)) return 'ignore'
+  return null
+}
+
+function manualColumnsFromHeader(cells: string[]): ManualColumns | null {
+  const kinds = cells.map(manualColumn)
+  const quantity = kinds.indexOf('quantity')
+  const description = kinds.indexOf('description')
+  if (quantity < 0 || description < 0) return null
+  return {
+    quantity,
+    description,
+    unit: kinds.indexOf('unit') >= 0 ? kinds.indexOf('unit') : null,
+    other: kinds.flatMap((kind, index) => kind == null && index !== quantity && index !== description ? [index] : []),
+  }
+}
+
+function quantityCell(value: string): boolean {
+  return normalizeManualQuantity(value) != null
+}
+
+function manualLineFromCells(cells: string[], columns?: ManualColumns | null): ReturnType<typeof parseManualLine> {
+  if (columns) {
+    const rawQty = cells[columns.quantity] || ''
+    const description = cells[columns.description] || ''
+    if (!quantityCell(rawQty) || description.trim().length < 2) return null
+    const extra = columns.other.map((index) => cells[index] || '').filter(Boolean)
+    const name = [description, ...extra].join(' ').replace(/\s+/g, ' ').trim()
+    const quantity = normalizeManualQuantity(rawQty)
+    if (!quantity) return null
+    return {
+      qty: cleanQty(quantity),
+      unit: columns.unit == null ? 'عدد' : clean(cells[columns.unit], 40) || 'عدد',
+      name: name.slice(0, 240),
+    }
+  }
+  const quantityIndex = cells.findIndex(quantityCell)
+  const unitIndex = cells.findIndex((cell, index) => index !== quantityIndex && UNIT_WORDS.some(([re]) => re.test(cell.trim())))
+  const inferredUnitIndex = unitIndex >= 0
+    ? unitIndex
+    : cells.length === 3 && quantityIndex === 1
+      ? 2
+      : cells.length === 3 && quantityIndex === 2
+        ? 0
+        : cells.length === 3 && quantityIndex === 0
+          ? 2
+          : -1
+  const name = cells
+    .filter((_, index) => index !== quantityIndex && index !== inferredUnitIndex)
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (quantityIndex >= 0) {
+    if (name.length < 2) return null
+    const rawQty = normalizeManualQuantity(cells[quantityIndex]!)
+    if (!rawQty) return null
+    return {
+      qty: cleanQty(rawQty),
+      unit: inferredUnitIndex >= 0
+        ? UNIT_WORDS.find(([re]) => re.test(cells[inferredUnitIndex]!.trim()))?.[1] || clean(cells[inferredUnitIndex], 40) || 'عدد'
+        : 'عدد',
+      name: name.slice(0, 240),
+    }
+  }
+  if (unitIndex >= 0 && name.length >= 2) {
+    return { qty: '1', unit: UNIT_WORDS.find(([re]) => re.test(cells[unitIndex]!.trim()))?.[1] || clean(cells[unitIndex], 40) || 'عدد', name: name.slice(0, 240) }
+  }
+  return parseManualLine(cells.filter(Boolean).join(' '))
+}
+
+export type ManualLinesResult = {
+  /** At most 200 valid lines; callers should block adding while overLimit > 0. */
+  lines: Array<Omit<BOQItem, 'id'>>
+  validCount: number
+  invalidRows: number
+  headerRows: number
+  overLimit: number
+}
+
+/** Parse typed lines and tab-delimited rows pasted from a spreadsheet. */
+export function parseManualText(text: string): ManualLinesResult {
+  let invalidRows = 0
+  let headerRows = 0
+  let columns: ManualColumns | null = null
+  const parsed = String(text || '').split(/\r?\n/).flatMap((row) => {
+    if (!row.trim()) return []
+    if (row.includes('\t')) {
+      const cells = row.split('\t').map((cell) => cell.trim())
+      const headerColumns = manualColumnsFromHeader(cells)
+      if (headerColumns) {
+        headerRows += 1
+        columns = headerColumns
+        return []
+      }
+      const line = manualLineFromCells(cells, columns)
+      if (!line) invalidRows += 1
+      return line ? [line] : []
+    }
+    const line = parseManualLine(row)
+    if (!line) invalidRows += 1
+    return line ? [line] : []
+  })
+  const overLimit = Math.max(0, parsed.length - 200)
+  const lines = parsed.slice(0, 200).map((p) => ({
       name: p.name,
       qty: p.qty,
       unit: p.unit,
@@ -253,6 +392,12 @@ export function linesFromManualText(text: string): Array<Omit<BOQItem, 'id'>> {
       origin: 'manual' as const,
       needsMatch: true,
     }))
+  return { lines, validCount: parsed.length, invalidRows, headerRows, overLimit }
+}
+
+/** Typed lines, one per row, as cart lines. */
+export function linesFromManualText(text: string): Array<Omit<BOQItem, 'id'>> {
+  return parseManualText(text).lines
 }
 
 /** Ids continue after the highest in the cart, so a booklet's numbering is never reused. */

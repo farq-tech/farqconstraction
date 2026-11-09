@@ -4972,6 +4972,41 @@
      "supplier_pool_affecting": true
     }
    ],
+   "term_guards": [
+    {
+     "terms": [
+      "بوابه حديد",
+      "بوابات حديد",
+      "بوابه حديديه",
+      "بوابات حديديه",
+      "steel gate",
+      "steel gates",
+      "metal gate",
+      "metal gates",
+      "iron gate",
+      "iron gates",
+      "wrought iron gate",
+      "wrought iron gates"
+     ],
+     "block_any": [
+      "سحاب",
+      "منزلقه",
+      "مفصليه",
+      "مدخل",
+      "المدخل",
+      "سور",
+      "حوش",
+      "motorized",
+      "sliding",
+      "swing gate",
+      "gate motor",
+      "motor",
+      "موتور",
+      "محرك"
+     ],
+     "note": "A steel entrance/sliding gate belongs to entrance_gate; reserve steel_gate for the material when no entrance mechanism or location decides it."
+    }
+   ],
    "intents": [
     {
      "id": "door_hardware",
@@ -5223,6 +5258,9 @@
      "id": "entrance_gate",
      "label_ar": "بوابات المداخل والأسوار",
      "strong_terms": [
+      "بوابه حديد سحاب",
+      "بوابه حديد منزلقه",
+      "بوابه حديد مفصليه",
       "بوابه مدخل",
       "بوابات مدخل",
       "بوابه المدخل",
@@ -16727,6 +16765,8 @@
     "air filter",
     "fire smoke damper",
     "smoke damper",
+    "سموك دامبر",
+    "فاير اند سموك دامبر",
     "دامبر حريق",
     "دامبر دخان",
     "motorized damper",
@@ -18714,24 +18754,11 @@
      "strong_terms": [
       "fire damper",
       "fire dampers",
-      "smoke damper",
-      "smoke dampers",
-      "fire smoke damper",
-      "fire and smoke damper",
-      "combination fire smoke damper",
-      "motorized smoke damper",
-      "motorized fire damper",
       "curtain fire damper",
+      "combination fire smoke damper",
       "ul555 damper",
       "فاير دامبر",
-      "سموك دامبر",
-      "فاير اند سموك دامبر",
-      "دامبر حريق",
-      "دامبر دخان",
       "دامبرات حريق",
-      "دامبرات دخان",
-      "مخمد دخان",
-      "مخمد حريق",
       "مخمدات الدخان",
       "مخمد دخان بمحرك"
      ]
@@ -33353,40 +33380,6 @@
       "قلب محرك متحرك",
       "قلب موتور",
       "حامل فحمات"
-     ],
-     "term_guards": [
-      {
-       "terms": [
-        "قلب ثابت",
-        "قلب متحرك",
-        "قلب محرك",
-        "قلب محرك متحرك",
-        "قلب موتور",
-        "بيت موتور",
-        "بيت محرك",
-        "مبيت موتور",
-        "مبيت محرك"
-       ],
-       "block_any": [
-        "مضخه",
-        "مضخات",
-        "ماتور مضخه",
-        "مولد",
-        "مولدات",
-        "ضاغط",
-        "كمبروسر",
-        "مكيف",
-        "تكييف",
-        "ثلاجه",
-        "غساله",
-        "مروحه",
-        "سياره",
-        "سيارات",
-        "كيلوواط",
-        "حصان"
-       ],
-       "note": "cpo-v27: a stator/armature/housing of a pump, generator, compressor, AC or vehicle motor is not a power-tool spare."
-      }
      ]
     },
     {
@@ -33425,6 +33418,38 @@
     }
    ],
    "term_guards": [
+    {
+     "terms": [
+      "قلب ثابت",
+      "قلب متحرك",
+      "قلب محرك",
+      "قلب محرك متحرك",
+      "قلب موتور",
+      "بيت موتور",
+      "بيت محرك",
+      "مبيت موتور",
+      "مبيت محرك"
+     ],
+     "block_any": [
+      "مضخه",
+      "مضخات",
+      "ماتور مضخه",
+      "مولد",
+      "مولدات",
+      "ضاغط",
+      "كمبروسر",
+      "مكيف",
+      "تكييف",
+      "ثلاجه",
+      "غساله",
+      "مروحه",
+      "سياره",
+      "سيارات",
+      "كيلوواط",
+      "حصان"
+     ],
+     "note": "cpo-v27: a stator/armature/housing of a pump, generator, compressor, AC or vehicle motor is not a power-tool spare."
+    },
     {
      "terms": [
       "هيلتي",
@@ -58436,7 +58461,6 @@
    ],
    "hard_conflicts": [
     "ppe_supplier",
-    "sanitary_ware_supplier",
     "furniture_supplier",
     "advertising_agency",
     "security_guard_services"

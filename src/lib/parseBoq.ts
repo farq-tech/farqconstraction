@@ -10,6 +10,7 @@ import {
 } from './boqPdfTable'
 import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
 import { currentAuthMode } from '../api/constructionAuth'
+import { readBoqCsv, readBoqExcel, type BoqSpreadsheetWorkbook } from './boqSpreadsheet'
 
 function normalizeAr(text: string): string {
   // NFKC first: printed Etimad booklets arrive as Arabic Presentation Forms-B
@@ -863,7 +864,7 @@ export type ParseBoqResult = {
   projectName: string
   /** Content-hash / upload identity — lines are bound to this document only. */
   documentId: string
-  source: 'pdf-table' | 'pdf-text' | 'empty'
+  source: 'pdf-table' | 'pdf-text' | 'spreadsheet' | 'empty'
   rawLineCount: number
   /** True when Farq API was unreachable / returned no directory during match. */
   matchDegraded?: boolean
@@ -1067,6 +1068,8 @@ export function resolveParsedLines(input: {
   fileName: string
   /** Column-aware read of a real table, when the document carried one. */
   table?: BoqTableResult | null
+  /** Spreadsheet rows already have explicit columns; repeated names are valid. */
+  spreadsheet?: boolean
 }): {
   lines: ParsedLine[]
   source: ParseBoqResult['source']
@@ -1182,6 +1185,7 @@ export function resolveParsedLines(input: {
   // the guard called 1,039 verified rows an invalid read.
   const verifiedShare = lines.length ? lines.filter((l) => l.codeVerified).length / lines.length : 0
   const descriptionColumnSuspect =
+    !input.spreadsheet &&
     verifiedShare < 0.8 &&
     lines.length >= NAME_DUPLICATION_MIN_ROWS &&
     dup.share >= NAME_DUPLICATION_SUSPECT_SHARE
@@ -1651,6 +1655,8 @@ export async function parseBoqFile(
      * read is a complete one.
      */
     onRead?: (facts: BoqReadFacts) => void
+    /** A workbook already opened by UploadView, to avoid reading it twice. */
+    spreadsheet?: BoqSpreadsheetWorkbook
     /** Line-level activity for the live panel on the processing screen. */
     onActivity?: (event: BoqActivity) => void
   } = {},
@@ -1670,6 +1676,7 @@ async function parseBoqFileInner(
     onStage?: BoqParseProgress
     onWork?: BoqWorkProgress
     onRead?: (facts: BoqReadFacts) => void
+    spreadsheet?: BoqSpreadsheetWorkbook
   },
 ): Promise<ParseBoqResult> {
   const stage = opts.onStage ?? (() => {})
@@ -1685,12 +1692,24 @@ async function parseBoqFileInner(
 
   const isPdf =
     file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  const isCsv = /\.csv$/i.test(file.name)
+  const isXlsx = /\.xlsx$/i.test(file.name)
+  let spreadsheetSheet: BoqSpreadsheetWorkbook['sheets'][number] | null = null
 
   // CRITICAL (live UploadView): extract client text FIRST.
   // Never block local Farq-test parsers behind Farq API queue/OCR (that left SITE
   // booklet at 0 lines when API was slow/empty and pdf worker failed silently).
   stage('read')
-  try {
+  if (isCsv || isXlsx) {
+    const workbook = isXlsx ? opts.spreadsheet || (await readBoqExcel(file)) : opts.spreadsheet || (await readBoqCsv(file))
+    spreadsheetSheet = workbook.sheets[workbook.selected] || null
+    if (!spreadsheetSheet || spreadsheetSheet.error) {
+      throw new Error(spreadsheetSheet?.error || 'لم نجد ورقة عمل قابلة للقراءة.')
+    }
+    apiLines = spreadsheetSheet.lines
+    work({ kind: 'start', leg: 'extract', opaque: true })
+    work({ kind: 'end', leg: 'extract' })
+  } else try {
     // pdf.js resolves `getDocument().promise` only after the worker handshakes.
     // A worker chunk that 404s (or goes stale across an HMR reload) leaves that
     // promise pending forever — the whole upload then hangs with a clean console.
@@ -1792,8 +1811,10 @@ async function parseBoqFileInner(
     text,
     table,
     fileName: file.name,
+    spreadsheet: Boolean(spreadsheetSheet),
   })
-  const { source, projectName, specsFromApi } = resolved
+  const source: ParseBoqResult['source'] = spreadsheetSheet ? 'spreadsheet' : resolved.source
+  const { projectName, specsFromApi } = resolved
   // Lines read here in the browser (text, CSV, the local column reader) never
   // met the server's name memory: ask it — memory only, never a model — for
   // the ones without a name. Capped and silent: without an answer the lines
@@ -1854,9 +1875,9 @@ async function parseBoqFileInner(
         ? `المواصفات الفنية لم تُستخرج (${specsPending} من ${lines.length} بندًا): استخراجها يجري على خادم فرق ويحتاج تسجيل دخول. الكميات والوحدات مقروءة بالكامل من الكراسة نفسها.`
         : `المواصفات الفنية لم تصل بعد لـ ${specsPending} من ${lines.length} بندًا — استخراجها من الكراسة أبطأ من مهلة هذه الشاشة، فطُوبقت هذه البنود بالاسم والكمية. الكميات والوحدات مقروءة بالكامل.`
       : ''
-  const expectedLineCount = usedTable ? table!.expectedCount : null
-  const unreadableLineCount = usedTable ? unreadableCount(table!) : 0
-  const readIssues = usedTable ? table!.issues.map((issue) => issue.detail) : []
+  const expectedLineCount = spreadsheetSheet?.expectedRows ?? (usedTable ? table!.expectedCount : null)
+  const unreadableLineCount = spreadsheetSheet?.issues.length ?? (usedTable ? unreadableCount(table!) : 0)
+  const readIssues = spreadsheetSheet?.issues ?? (usedTable ? table!.issues.map((issue) => issue.detail) : [])
   const skippedTables = usedTable
     ? table!.otherTables.map((t) => `صفحة ${t.page}: جدول آخر لم نقرأه كبنود — «${t.header}»`)
     : []

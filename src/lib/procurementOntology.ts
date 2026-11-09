@@ -351,6 +351,10 @@ const EARTHWORK =
   /(?:^|\s)(?:اعمال\s+)?(?:حفر|حفريات|ردم|دك|هدم|ازاله|ازالات|تسويه|excavation|excavating|backfill|backfilling|compaction|demolition|earthworks?)(?:\s|$)/
 const EARTHWORK_SERVICE_ACTION =
   /(?:^|\s)(?:حفر|حفريات|دك|هدم|ازاله|ازالات|رفع|نقل|تسويه|excavation|excavating|compaction|demolition)(?:\s|$)/
+// «إزالة رطوبة / dehumidifier» names HVAC equipment, while «إزالة تراب» is
+// an earthwork service. Do not let the shared action noun reject the product.
+const MOISTURE_CONTROL_EQUIPMENT =
+  /(?:\b(?:dehumidifiers?|humidifiers?)\b|(?:جهاز|مزيل(?:ات)?|اجهزه)\s+(?:ازاله|سحب|ترطيب)\s+(?:ال)?رطوبه)/
 // A named equipment purchase can contain the same action word as an earthwork
 // service. Keep it eligible for the ontology's equipment intent before the
 // service veto runs (for example, «توريد معدات حفر الآبار»).
@@ -359,7 +363,7 @@ const SUPPLIED_EARTHWORK_EQUIPMENT =
 const NAMES_A_MATERIAL = /(?:توريد|supply|رمل|بحص|مواد|خرسانه|اسفلت|بلوك|حجر|sand|gravel|aggregate|soil|material)/
 const SOIL_FILL_MATERIAL = /^(?:تراب|تربه)\s+ردم(?:\s+(?:نظيف|منخول))?(?:\s|$)/
 function isWorkOnly(normalized: string): boolean {
-  return PURE_SERVICE.test(normalized) || (EARTHWORK.test(normalized) && (
+  return PURE_SERVICE.test(normalized) || (EARTHWORK.test(normalized) && !MOISTURE_CONTROL_EQUIPMENT.test(normalized) && (
     !SUPPLIED_EARTHWORK_EQUIPMENT.test(normalized) && (
       EARTHWORK_SERVICE_ACTION.test(normalized)
         || (!NAMES_A_MATERIAL.test(normalized) && !SOIL_FILL_MATERIAL.test(normalized))

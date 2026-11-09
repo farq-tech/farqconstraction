@@ -6,7 +6,7 @@ it.each([
  ['Hydrophilic swelling waterbar', 'movement_joint_systems'],
  ['شريط مانع تسرب متمدد لفواصل الخرسانة', 'movement_joint_systems'],
  ['PVC waterstop for concrete construction joints', 'movement_joint_systems'],
- ['Intumescent firestop collar for pipe penetrations', 'fire_fighting'],
+ ['Intumescent firestop collar for pipe penetrations', 'passive_fire_protection'],
  ['Firestop sealant for wall penetrations', 'passive_fire_protection'],
  ['HDPE electrofusion coupling', 'pipes_fittings'],
  ['HDPE drainage pipe', 'pipes_fittings'],

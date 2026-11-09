@@ -75,10 +75,12 @@ function emptyState(ownerUserId: string | null): SessionState {
 const state: SessionState = emptyState(farqSession.getUser()?.id ?? null)
 
 const listeners = new Set<Listener>()
+let workingRevision = 0
 
 function emit() {
   // Every change is written through, so the only thing that can lose a
   // booklet is the buyer deciding to start again.
+  workingRevision += 1
   persistSession(state.ownerUserId, state)
   listeners.forEach((fn) => fn())
 }
@@ -90,14 +92,23 @@ function emit() {
  * that raced an upload would replace the new booklet with the old one.
  */
 export async function restoreSession(): Promise<boolean> {
-  const stored = (await loadPersistedSession(state.ownerUserId)) as Partial<SessionState> | null
-  if (!stored || state.documentId || state.boqItems.length) return false
+  // IndexedDB may resolve after the owner signs out or another account signs
+  // in. Never apply a snapshot fetched for the previous identity to the new
+  // session, even when the screen is still empty.
+  const ownerUserId = state.ownerUserId
+  const revision = workingRevision
+  const stored = (await loadPersistedSession(ownerUserId)) as Partial<SessionState> | null
+  // A new upload temporarily has no parsed lines or document id. Its revision
+  // still changes, so a slow IndexedDB read cannot put the previous booklet
+  // back over the upload in progress.
+  if (state.ownerUserId !== ownerUserId || workingRevision !== revision || !stored || state.documentId || state.boqItems.length) return false
   Object.assign(state, {
-    ...emptyState(state.ownerUserId),
+    ...emptyState(ownerUserId),
     ...stored,
-    ownerUserId: state.ownerUserId,
+    ownerUserId,
     boqItems: sanitizeBoqLines(Array.isArray(stored.boqItems) ? stored.boqItems : []),
   })
+  workingRevision += 1
   listeners.forEach((fn) => fn())
   return Boolean(state.documentId || state.boqItems.length)
 }
@@ -107,6 +118,7 @@ export async function restoreSession(): Promise<boolean> {
  * the browser both. Nothing else clears the stored copy.
  */
 export function resetWorkingSession(): void {
+  workingRevision += 1
   Object.assign(state, emptyState(state.ownerUserId))
   clearPersistedSession()
   listeners.forEach((fn) => fn())
@@ -117,6 +129,7 @@ export function resetWorkingSession(): void {
  * sign-out, so a shared machine does not hand the next person a loaded tender.
  */
 export function resetSessionForIdentity(ownerUserId: string | null) {
+  workingRevision += 1
   Object.assign(state, emptyState(ownerUserId))
   // Only the screen is cleared here. A session that lapsed (refresh token
   // expired or revoked) is not the buyer throwing his work away, and the stored

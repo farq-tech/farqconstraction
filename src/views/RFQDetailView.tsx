@@ -16,6 +16,7 @@ import {
   formatRfqApiStatus,
   formatRfqReference,
   formatRfqTitle,
+  getConstructionDispatch,
   getConstructionRfq,
   invitePreferredChannel,
   isHarajSellerExternalKey,
@@ -23,10 +24,12 @@ import {
   mapRfqUiStatus,
   prepareConstructionWhatsAppLink,
   sendConstructionRfqInvite,
+  type ConstructionDispatchJob,
   type ConstructionRfq,
   type ProviderDelivery,
 } from '../api/constructionClient'
 import { deliveryFailureReason } from '../lib/requestFile'
+import { dispatchJobAllowsRetry, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome } from '../lib/dispatchAttempt'
 
 type Tab = 'correspondence' | 'offers' | 'items' | 'log'
 
@@ -134,8 +137,26 @@ export function RFQDetailView({ navigate }: NavProps) {
 
   const dispatchPendingEmails = async () => {
     if (!rfq) return
-    const pending = (rfq.invitations || []).filter(
-      (invite) => String(invite.delivery_status || '').toUpperCase() !== 'SENT',
+    let job: ConstructionDispatchJob
+    let latestRfq: ConstructionRfq
+    try {
+      job = await getConstructionDispatch(rfq.id)
+      latestRfq = await getConstructionRfq(rfq.id)
+    } catch {
+      setDispatchNote('تعذّر التحقق من مهمة الإرسال السابقة؛ لا تُعد الإرسال الآن. حدّث الصفحة أو راجع سجل الطلب.')
+      return
+    }
+    if (!dispatchJobAllowsRetry(job.state)) {
+      setDispatchNote(
+        job.state === 'RUNNING' || job.state === 'QUEUED'
+          ? 'ما زالت مهمة إرسال سابقة قيد التنفيذ؛ انتظر تحديث سجل الدعوات قبل إعادة المحاولة.'
+          : 'حالة مهمة الإرسال غير معروفة؛ لا تُعد الإرسال حتى تتأكد من سجل الطلب.',
+      )
+      return
+    }
+    setRfq(latestRfq)
+    const pending = (latestRfq.invitations || []).filter((invite) =>
+      inviteCanRetryDispatch(invite, invitePreferredChannel(invite)),
     )
     if (!pending.length) {
       setDispatchNote('كل الدعوات مُرسلة بالفعل.')
@@ -179,11 +200,14 @@ export function RFQDetailView({ navigate }: NavProps) {
           continue
         }
         try {
-          await sendConstructionRfqInvite(rfq.id, invite.id, {
+          const updated = await sendConstructionRfqInvite(rfq.id, invite.id, {
             sendConsent: false,
             harajLimit: isHarajSellerExternalKey(supplierId) ? 1 : undefined,
           })
-          sent += 1
+          const updatedInvite = updated?.invitations?.find((row) => row.id === invite.id)
+          const attempt = latestDispatchAttempt(updatedInvite?.dispatch_attempts, channel)
+          if (recordedAttemptOutcome(attempt) === 'ACCEPTED') sent += 1
+          else noteFailure(new Error(attempt?.failure_code || 'DELIVERY_UNKNOWN'))
         } catch (err) {
           noteFailure(err)
         }
@@ -261,7 +285,7 @@ export function RFQDetailView({ navigate }: NavProps) {
   const deadline = payload?.delivery?.required_date
   const closing = rfqClosing(payload?.quote_deadline, payload?.quote_deadline_time)
   const quoted = invites.filter((i) => String(i.response_status || '').toUpperCase() === 'QUOTED')
-  const reached = invites.filter((i) => (i.dispatch_attempts || []).some((a) => a.status === 'SENT')).length
+  const accepted = invites.filter(inviteHasAcceptedDispatch).length
   const opened = invites.filter((i) => i.opened_at).length
   const total = invites.length
 
@@ -270,8 +294,8 @@ export function RFQDetailView({ navigate }: NavProps) {
     ? { text: `وصلتك ${quoted.length} عروض أسعار — قارن بينها واختر الأنسب.`, action: 'مقارنة العروض', go: () => openRfq(rfq.id, 'comparison'), tone: 'green' }
     : quoted.length === 1
       ? { text: 'وصلك أول عرض سعر. انتظر بقية الموردين أو راجعه الآن.', action: 'عرض العروض', go: () => openRfq(rfq.id, 'offers'), tone: 'green' }
-      : reached === 0 && total > 0
-        ? { text: 'لم يصل الطلب لأي مورد بعد.', action: null, go: null, tone: 'amber' }
+      : accepted === 0 && total > 0
+        ? { text: 'لم يسجل مزود الإرسال قبول أي دعوة بعد.', action: null, go: null, tone: 'amber' }
         : { text: `بانتظار عروض الموردين${closing.label ? ` — ${closing.label}` : ''}. أي رد يصلك بالبريد فورًا.`, action: 'المراسلات', go: () => navigate('inbox'), tone: 'neutral' }
 
   const stageBar = (label: string, value: number, colour: string) => (
@@ -379,14 +403,14 @@ export function RFQDetailView({ navigate }: NavProps) {
 
       {total > 0 && (
         <div className="mb-6 bg-white border border-neutral-100 rounded-2xl px-4 py-4 flex gap-4">
-          {stageBar('وصلهم الطلب', reached, 'bg-[#123F3A]/40')}
+          {stageBar('قبل مزود الإرسال الدعوة', accepted, 'bg-[#123F3A]/40')}
           {stageBar('فتحوا الطلب', opened, 'bg-[#2F6CB5]/70')}
           {stageBar('قدّموا عرضًا', quoted.length, 'bg-[#1a7a45]')}
         </div>
       )}
 
       {!draftNotSent &&
-        invites.some((invite) => String(invite.delivery_status || '').toUpperCase() !== 'SENT') && (
+        invites.some((invite) => inviteCanRetryDispatch(invite, invitePreferredChannel(invite))) && (
           <div className="mb-5">
             <button
               type="button"

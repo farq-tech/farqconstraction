@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefCallback } from 'react'
-import { autoPickConfident, buildPickContext, isPriorQuoter } from '../lib/autoPick'
+import { autoPickConfident, buildPickContext, isPriorQuoter, sameMaterial } from '../lib/autoPick'
 import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
@@ -1104,13 +1104,6 @@ export function ProposalsView({ navigate }: NavProps) {
   // booklet that is the SAME material — the same named intent, or the same
   // catalogue item. Never a looser likeness than that. The bar at the bottom
   // says how many lines it reached, so nothing is ticked behind his back.
-  const materialKeyOf = (item: BOQItem | undefined): string | null => {
-    if (!item) return null
-    const intent = item.mapSuggestion?.intent || item.aiSuggestion?.intent
-    if (intent) return `intent:${intent}`
-    if (item.farqSpecId) return `spec:${item.farqSpecId}`
-    return null
-  }
   const [echo, setEcho] = useState<string | null>(null)
   const echoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const announce = (text: string) => {
@@ -1120,9 +1113,9 @@ export function ProposalsView({ navigate }: NavProps) {
   }
   /** Ids of this line and of every other line that is the same material. */
   const sameMaterialIds = (itemId: number): number[] => {
-    const key = materialKeyOf(items.find((i) => i.id === itemId))
-    if (!key) return [itemId]
-    return items.filter((i) => i.id === itemId || (!i.workOnly && materialKeyOf(i) === key)).map((i) => i.id)
+    const source = items.find((i) => i.id === itemId)
+    if (!source) return []
+    return items.filter((i) => i.id === itemId || (!i.workOnly && sameMaterial(source, i))).map((i) => i.id)
   }
 
   const rejectSupplier = (itemId: number, supplier: Supplier) => {

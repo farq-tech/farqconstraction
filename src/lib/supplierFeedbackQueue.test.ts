@@ -46,12 +46,15 @@ describe('supplier feedback queue', () => {
     const feedback = { subject_kind: 'INTENT' as const, subject_key: 'stone_slab', supplier_id: 'supplier-a', verdict: 'CHOSEN' as const }
     const queueA = [feedback]
     const queueB = [feedback]
+    expect(persistSupplierFeedbackQueue('buyer-a', [feedback], storage)).toBe(true)
     let releaseSend!: (value: { recorded: number }) => void
     const send = vi.fn(() => new Promise<{ recorded: number }>((resolve) => { releaseSend = resolve }))
     const first = drainSupplierFeedbackQueueForOwner('buyer-a', queueA, send, vi.fn(), vi.fn(), storage)
     const second = drainSupplierFeedbackQueueForOwner('buyer-a', queueB, send, vi.fn(), vi.fn(), storage)
 
-    expect(send).toHaveBeenCalledTimes(1)
+    // The lock implementation may schedule through either navigator.locks or
+    // the in-process queue; wait for the exclusive callback before asserting.
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1))
     releaseSend({ recorded: 1 })
     await expect(first).resolves.toMatchObject({ claimed: true, completed: true, persisted: true })
     await expect(second).resolves.toMatchObject({ claimed: false })
