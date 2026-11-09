@@ -228,10 +228,12 @@ const UNIT_WORDS: Array<[RegExp, string]> = [
  * Without a leading number the quantity is 1 and every word stays in the name.
  */
 export function parseManualLine(text: string): { qty: string; unit: string; name: string } | null {
-  const raw = String(text || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\s+/g, ' ').trim()
+  const raw = String(text || '').replace(/\s+/g, ' ').trim()
   if (!raw) return null
-  const m = raw.match(/^(\d+(?:[.,]\d+)?)\s*[x×*]?\s+(.+)$/i)
+  const m = raw.match(/^([\d٠-٩۰-۹٬٫,.'’\u066B\u066C]+)\s*[x×*]?\s+(.+)$/i)
   if (!m) return raw.length >= 2 ? { qty: '1', unit: 'عدد', name: raw.slice(0, 240) } : null
+  const quantity = normalizeManualQuantity(m[1]!)
+  if (!quantity) return raw.length >= 2 ? { qty: '1', unit: 'عدد', name: raw.slice(0, 240) } : null
   let rest = m[2]!.trim()
   let unit = 'عدد'
   const [first, ...others] = rest.split(' ')
@@ -241,7 +243,29 @@ export function parseManualLine(text: string): { qty: string; unit: string; name
     rest = others.join(' ')
   }
   if (rest.length < 2) return null
-  return { qty: cleanQty(m[1]!.replace(',', '.')), unit, name: rest.slice(0, 240) }
+  return { qty: cleanQty(quantity), unit, name: rest.slice(0, 240) }
+}
+
+/** Normalize grouped quantities before validation without treating 1,200 as 1.2. */
+function normalizeManualQuantity(value: string): string | null {
+  let ascii = value
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[’']/g, '')
+    .replace(/[\u00a0\u202f\s]/g, '')
+  ascii = ascii.replace(/٬/g, ',').replace(/٫|\u066B/g, '.')
+  const group = (s: string) => /^\d{1,3}(?:,\d{3})+$/.test(s)
+  if (ascii.includes('.')) {
+    const [integer, ...fraction] = ascii.split('.')
+    if (fraction.length !== 1 || !/^\d+$/.test(fraction[0] || '') || !integer) return null
+    if (integer.includes(',') && !group(integer)) return null
+    ascii = `${integer.replace(/,/g, '')}.${fraction[0]}`
+  } else if (ascii.includes(',')) {
+    if (group(ascii)) ascii = ascii.replace(/,/g, '')
+    else if (/^\d+,\d+$/.test(ascii)) ascii = ascii.replace(',', '.')
+    else return null
+  }
+  return /^\d+(?:\.\d+)?$/.test(ascii) && validCartQuantity(ascii) ? ascii : null
 }
 
 type ManualColumn = 'serial' | 'description' | 'quantity' | 'unit' | 'ignore'
@@ -271,12 +295,7 @@ function manualColumnsFromHeader(cells: string[]): ManualColumns | null {
 }
 
 function quantityCell(value: string): boolean {
-  const ascii = value
-    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace('٫', '.')
-    .trim()
-  return /^\d+(?:[.,]\d+)?$/.test(ascii) && validCartQuantity(ascii.replace(',', '.'))
+  return normalizeManualQuantity(value) != null
 }
 
 function manualLineFromCells(cells: string[], columns?: ManualColumns | null): ReturnType<typeof parseManualLine> {
@@ -286,8 +305,10 @@ function manualLineFromCells(cells: string[], columns?: ManualColumns | null): R
     if (!quantityCell(rawQty) || description.trim().length < 2) return null
     const extra = columns.other.map((index) => cells[index] || '').filter(Boolean)
     const name = [description, ...extra].join(' ').replace(/\s+/g, ' ').trim()
+    const quantity = normalizeManualQuantity(rawQty)
+    if (!quantity) return null
     return {
-      qty: cleanQty(rawQty.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(',', '.')),
+      qty: cleanQty(quantity),
       unit: columns.unit == null ? 'عدد' : clean(cells[columns.unit], 40) || 'عدد',
       name: name.slice(0, 240),
     }
@@ -312,9 +333,10 @@ function manualLineFromCells(cells: string[], columns?: ManualColumns | null): R
 
   if (quantityIndex >= 0) {
     if (name.length < 2) return null
-    const rawQty = cells[quantityIndex]!.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    const rawQty = normalizeManualQuantity(cells[quantityIndex]!)
+    if (!rawQty) return null
     return {
-      qty: cleanQty(rawQty.replace(',', '.')),
+      qty: cleanQty(rawQty),
       unit: inferredUnitIndex >= 0
         ? UNIT_WORDS.find(([re]) => re.test(cells[inferredUnitIndex]!.trim()))?.[1] || clean(cells[inferredUnitIndex], 40) || 'عدد'
         : 'عدد',

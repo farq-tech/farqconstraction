@@ -136,6 +136,14 @@ describe('typed lines', () => {
     expect(result.lines).toHaveLength(1)
     expect(result.lines[0]).toMatchObject({ qty: '12.5', unit: 'كجم', name: 'رمل مغسول' })
   })
+  it('preserves localized thousands grouping in pasted quantities', () => {
+    expect(parseManualLine('١٬٢٠٠ كيس أسمنت')).toEqual({ qty: '1200', unit: 'كيس', name: 'أسمنت' })
+    expect(parseManualLine('1,200 كيس أسمنت')).toEqual({ qty: '1200', unit: 'كيس', name: 'أسمنت' })
+    expect(parseManualLine('1,25 رمل مغسول')).toEqual({ qty: '1.25', unit: 'عدد', name: 'رمل مغسول' })
+    const result = parseManualText('الوصف\tالكمية\tالوحدة\nأسمنت مقاوم\t١٬٢٠٠\tكيس\nرمل مغسول\t1,200\tكجم')
+    expect(result.invalidRows).toBe(0)
+    expect(result.lines.map(({ qty }) => qty)).toEqual(['1200', '1200'])
+  })
 
   it('validates Arabic and Persian digits for quantities', () => {
     expect(validCartQuantity('١٢٫٥')).toBe(true)

@@ -367,6 +367,8 @@ export function UploadView({ navigate }: NavProps) {
   const lastWorkbookRef = useRef<BoqSpreadsheetWorkbook | null>(null)
   /** Ignores a superseded run so a slow first attempt cannot overwrite a retry. */
   const runIdRef = useRef(0)
+  /** Also supersedes asynchronous XLSX/CSV opening before parsing begins. */
+  const fileSelectionRef = useRef(0)
   /** «كيف تبي تبدأ طلب التسعير؟» — which way in is open. All three fill one cart. */
   const [startPath, setStartPath] = useState<StartPath | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
@@ -702,11 +704,18 @@ export function UploadView({ navigate }: NavProps) {
   }
 
   const chooseFile = async (file: File) => {
+    const selectionId = ++fileSelectionRef.current
+    const isCurrentSelection = () => selectionId === fileSelectionRef.current
+    // Invalidate a prior parse as soon as a newer file is selected, even while
+    // the new workbook is still opening.
+    runIdRef.current += 1
+    setPhase('idle')
     setErrorMsg('')
     setWorkbookChoice(null)
     if (/\.xlsx$/i.test(file.name)) {
       try {
         const workbook = await readBoqExcel(file)
+        if (!isCurrentSelection()) return
         const readable = workbook.sheets.filter((sheet) => !sheet.error)
         if (readable.length > 1) {
           setWorkbookChoice({
@@ -720,14 +729,18 @@ export function UploadView({ navigate }: NavProps) {
         if (!selected) throw new Error('لم نعثر على ورقة فيها بنود قابلة للقراءة.')
         await runProcessing(file, selectBoqSheet(workbook, selected.name))
       } catch (err) {
+        if (!isCurrentSelection()) return
         setErrorMsg(err instanceof Error ? err.message : 'تعذّرت قراءة ملف Excel.')
       }
       return
     }
     if (/\.csv$/i.test(file.name)) {
       try {
-        await runProcessing(file, await readBoqCsv(file))
+        const workbook = await readBoqCsv(file)
+        if (!isCurrentSelection()) return
+        await runProcessing(file, workbook)
       } catch (err) {
+        if (!isCurrentSelection()) return
         setErrorMsg(err instanceof Error ? err.message : 'تعذّرت قراءة ملف CSV.')
       }
       return

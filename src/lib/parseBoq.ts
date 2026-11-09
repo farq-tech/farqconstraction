@@ -1068,6 +1068,8 @@ export function resolveParsedLines(input: {
   fileName: string
   /** Column-aware read of a real table, when the document carried one. */
   table?: BoqTableResult | null
+  /** Spreadsheet rows already have explicit columns; repeated names are valid. */
+  spreadsheet?: boolean
 }): {
   lines: ParsedLine[]
   source: ParseBoqResult['source']
@@ -1183,6 +1185,7 @@ export function resolveParsedLines(input: {
   // the guard called 1,039 verified rows an invalid read.
   const verifiedShare = lines.length ? lines.filter((l) => l.codeVerified).length / lines.length : 0
   const descriptionColumnSuspect =
+    !input.spreadsheet &&
     verifiedShare < 0.8 &&
     lines.length >= NAME_DUPLICATION_MIN_ROWS &&
     dup.share >= NAME_DUPLICATION_SUSPECT_SHARE
@@ -1808,6 +1811,7 @@ async function parseBoqFileInner(
     text,
     table,
     fileName: file.name,
+    spreadsheet: Boolean(spreadsheetSheet),
   })
   const source: ParseBoqResult['source'] = spreadsheetSheet ? 'spreadsheet' : resolved.source
   const { projectName, specsFromApi } = resolved

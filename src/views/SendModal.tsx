@@ -775,16 +775,21 @@ export function SendModal({
         getConstructionRfq(createdId).catch(() => null),
       ])
       if (detail) lastDetail = detail
-      const progressKey = [
-        job?.state || 'NO_JOB',
-        job?.processed ?? '-',
-        (detail?.invitations || []).map((invite) =>
-          `${invite.id}:${(invite.dispatch_attempts || []).map((attempt) => `${attempt.channel}/${attempt.status}/${attempt.provider_delivery?.state || ''}`).join(',')}`,
-        ).join('|'),
-      ].join(':')
-      if (progressKey !== lastProgressKey) {
-        lastProgressKey = progressKey
-        lastProgressAt = Date.now()
+      // A failed poll is absence of evidence, not progress. In particular, do
+      // not let alternating timeouts and successful unchanged responses keep a
+      // wedged dispatch alive forever.
+      if ((job && job.state !== 'NONE') || detail) {
+        const progressKey = [
+          job?.state || 'NO_JOB',
+          job?.processed ?? '-',
+          (detail?.invitations || []).map((invite) =>
+            `${invite.id}:${(invite.dispatch_attempts || []).map((attempt) => `${attempt.channel}/${attempt.status}/${attempt.provider_delivery?.state || ''}`).join(',')}`,
+          ).join('|'),
+        ].join(':')
+        if (progressKey !== lastProgressKey) {
+          lastProgressKey = progressKey
+          lastProgressAt = Date.now()
+        }
       }
       sent = 0
       failed = 0
