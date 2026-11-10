@@ -10,6 +10,7 @@ import {
   lineFromProduct,
   linesFromManualText,
   linesToMatch,
+  lineMatchStillCurrent,
   mergeMatched,
   parseManualLine,
   parseManualText,
@@ -220,6 +221,28 @@ describe('one cart, mixed sources', () => {
     expect(recovered[0]).toMatchObject({ farqSpecId: 'cement' })
     expect(recovered[0]!.matchFailed).toBeUndefined()
     expect(recovered[0]!.needsMatch).toBeUndefined()
+  })
+
+  it('keeps other pending lines retryable when a single row is rematched', () => {
+    const failed = { ...bookletLine(9), matchFailed: true, needsMatch: true }
+    const pending = { ...bookletLine(10), needsMatch: true }
+    const matched = { ...failed, matchFailed: undefined, needsMatch: undefined, status: 'ready' as const, suppliers: [], supplierCount: 0 }
+    const merged = mergeMatched([failed, pending], [matched])
+    expect(merged[1]).toBe(pending)
+    expect(linesToMatch(merged).map((line) => line.id)).toEqual([10])
+  })
+
+  it('clears a stale work-only label when a rematch returns a material result', () => {
+    const old = { ...bookletLine(11), workOnly: true, needsMatch: true }
+    const rematched = { ...bookletLine(11, 1), workOnly: undefined, needsMatch: undefined }
+    expect(mergeMatched([old], [rematched])[0]!.workOnly).toBeUndefined()
+  })
+
+  it('rejects delayed match results after the document or line identity changes', () => {
+    const oldLine = { id: 12, name: 'قديم', spec: 'قديم' }
+    expect(lineMatchStillCurrent('new-document', 'old-document', oldLine, oldLine)).toBe(false)
+    expect(lineMatchStillCurrent('same-document', 'same-document', { ...oldLine, name: 'معدل' }, oldLine)).toBe(false)
+    expect(lineMatchStillCurrent('same-document', 'same-document', oldLine, oldLine)).toBe(true)
   })
 
   it('counts in Arabic', () => {

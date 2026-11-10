@@ -12,7 +12,7 @@ import {
   subscribeSession,
 } from '../store/session'
 import { matchSuppliersForItems, resolveBoqCardFields } from '../lib/parseBoq'
-import { mergeMatched } from '../lib/rfqCart'
+import { lineMatchStillCurrent, mergeMatched } from '../lib/rfqCart'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
@@ -500,10 +500,10 @@ function BOQCard({
             <span className="text-xs font-bold text-neutral-400">{item.id}</span>
             {isSearching && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-semibold">
-                {item.workOnly
-                  ? 'عمل بلا توريد'
-                  : item.matchFailed
+                {item.matchFailed
                   ? 'تعذّرت المطابقة — أعد المحاولة'
+                  : item.workOnly
+                  ? 'عمل بلا توريد'
                   : unresolved
                   ? item.mapSuggestion
                     ? 'مادة معروفة — من خريطة فرق'
@@ -523,10 +523,10 @@ function BOQCard({
         <div className="text-left flex-shrink-0">
           <div className="text-xs text-neutral-500 mb-1">
             {isSearching
-              ? item.workOnly
-                ? 'عمل موقع لا مادة تُشترى — لا يُطلب من مورد'
-                : item.matchFailed
+              ? item.matchFailed
                 ? 'لم يكتمل فحص الموردين — أعد المحاولة'
+                : item.workOnly
+                ? 'عمل موقع لا مادة تُشترى — لا يُطلب من مورد'
                 : unresolved
                 ? item.mapSuggestion
                   ? item.mapSuggestion.supplierCount > 0
@@ -819,27 +819,28 @@ function BOQCard({
           {/* Only where nothing at all was found. Under a card that lists map
               suppliers this note said «لم نبحث له عن موردين», and under a
               work-only card it told the buyer to go and find a supplier. */}
-          {isSearching && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.preferredSuggestion && !item.outcomeSuggestion && (
+          {isSearching && item.matchFailed && (
+            <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
+              تعذّر الاتصال بخدمة المطابقة لهذا البند؛ لم نحدد بعد إن كان له موردون. أعد المحاولة أو أضف موردًا يدويًا.
+              <button
+                type="button"
+                disabled={retryingMatch}
+                onClick={async (event) => {
+                  event.stopPropagation()
+                  setRetryingMatch(true)
+                  try { await onRetryMatch() } finally { setRetryingMatch(false) }
+                }}
+                className="mr-2 font-bold text-[#123F3A] underline disabled:opacity-50"
+              >
+                {retryingMatch ? 'جارٍ إعادة المطابقة…' : 'إعادة المطابقة'}
+              </button>
+            </div>
+          )}
+          {isSearching && !item.matchFailed && !item.workOnly && !item.mapSuggestion && !item.aiSuggestion && !item.familySuggestion && !item.learnedSuggestion && !item.preferredSuggestion && !item.outcomeSuggestion && (
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'
-                : item.matchFailed
-                ? 'تعذّر الاتصال بخدمة المطابقة لهذا البند؛ لم نحدد بعد إن كان له موردون. أعد المحاولة أو أضف موردًا يدويًا.'
                 : 'لا يوجد مورد مؤكد لهذه المادة في الكتالوج. لا بحث جارٍ الآن — أضف موردًا من دليل الموردين إن كنت تعرف واحدًا.'}
-              {item.matchFailed && (
-                <button
-                  type="button"
-                  disabled={retryingMatch}
-                  onClick={async (event) => {
-                    event.stopPropagation()
-                    setRetryingMatch(true)
-                    try { await onRetryMatch() } finally { setRetryingMatch(false) }
-                  }}
-                  className="mr-2 font-bold text-[#123F3A] underline disabled:opacity-50"
-                >
-                  {retryingMatch ? 'جارٍ إعادة المطابقة…' : 'إعادة المطابقة'}
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -969,8 +970,11 @@ export function ProposalsView({ navigate }: NavProps) {
   const retryLineMatch = async (id: number) => {
     const line = getBoqItems().find((item) => item.id === id)
     if (!line) return
-    const result = await matchSuppliersForItems([{ id: line.id, name: line.name, qty: line.qty, unit: line.unit, spec: line.spec }], { deliveryCity: getSession().matchingCity })
+    const documentId = getSession().documentId
+    const result = await matchSuppliersForItems([{ id: line.id, name: line.name, qty: line.qty, unit: line.unit, spec: line.spec, workOnly: line.workOnly }], { deliveryCity: getSession().matchingCity })
     const latest = getBoqItems()
+    const currentLine = latest.find((item) => item.id === id)
+    if (!lineMatchStillCurrent(getSession().documentId, documentId, currentLine, line)) return
     const next = mergeMatched(latest, result.items, getSelections())
     persistItems(next)
     if (result.matchApiError) announce(`تعذّرت إعادة المطابقة: ${result.matchApiError}`)
