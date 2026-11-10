@@ -4,6 +4,7 @@ import {
   ANY_BRAND_TEXT,
   appendToCart,
   cartCountLabel,
+  clearSelectionAfterIdentityEdit,
   cleanQty,
   editCartLine,
   lineFromProduct,
@@ -221,6 +222,18 @@ describe('quotaLabel — «عمليات البحث اليوم»', () => {
     expect(quotaLabel({ used: 1500, limit: 1500, remaining: 0 })).toBe('عمليات البحث اليوم: 0 متبقية من 1,500')
     expect(quotaLabel(null)).toBe('')
   })
+})
+
+it('clears only this line’s old supplier ticks when its name or spec changes', () => {
+  const selections = { 7: ['old-material-supplier'], 8: ['other-line-supplier'] }
+  const before = { name: 'ماسورة PVC', spec: 'قطر 25 مم' }
+  expect(clearSelectionAfterIdentityEdit(selections, 7, before, { name: 'ماسورة PPR', spec: 'قطر 25 مم' })).toEqual({
+    8: ['other-line-supplier'],
+  })
+  expect(clearSelectionAfterIdentityEdit(selections, 7, before, { ...before, spec: 'قطر 32 مم' })).toEqual({
+    8: ['other-line-supplier'],
+  })
+  expect(clearSelectionAfterIdentityEdit(selections, 7, before, { ...before })).toBe(selections)
 })
 
 it('keeps visible records for retained manual selections when a new city has different candidates', () => {
