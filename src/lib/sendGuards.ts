@@ -63,7 +63,10 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
     .replace(/٫/g, '.')
   const thicknessValue = String(item.specCard?.thickness ?? '').trim().replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/٫/g, '.')
   const thicknessField = thicknessValue.match(/^\s*(\d+(?:[.,]\d+)?)\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)?\s*$/i)
-  const describedThickness = normalized.match(/(?:سماك(?:ة|ه)|سمك|thickness|thk)(?![a-z])\s*[:：-]?\s*[^\d\n]{0,32}?(\d+(?:[.,]\d+)?)\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)(?![a-z])/i)
+  const unresolvedThickness = /(?:سماك(?:ة|ه)|سمك|thickness|thk)(?![a-z])[^\d\n]{0,32}?(?:غير\s+محدد(?:ة)?|حسب\s+(?:الطلب|المخطط|اختيار|رغبة)|غير\s+معروف|لاحقًا|لاحقا|قيد\s+التحديد|tbd|pending)/i.test(normalized)
+  const describedThickness = unresolvedThickness
+    ? null
+    : normalized.match(/(?:سماك(?:ة|ه)|سمك|thickness|thk)(?![a-z])\s*[:：-]?\s*[^\d\n]{0,32}?(\d+(?:[.,]\d+)?)\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)(?![a-z])/i)
   const thickness = Number((thicknessField?.[1] || describedThickness?.[1] || '0').replace(',', '.')) > 0
   const unknownColor =
     /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+(?:الطلب|المخطط|اختيار(?:\s+[\p{L}]+){0,3}|رغبة(?:\s+[\p{L}]+){0,3})|مطفي|غير\s+معروف|لاحقًا|لاحقا|قيد\s+التحديد|tbd|pending)/iu.test(text)
