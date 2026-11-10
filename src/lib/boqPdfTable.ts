@@ -660,8 +660,11 @@ export function readVisualUnit(cell: string): string | null {
 export function readQuantity(cell: string): string | null {
   let text = foldPdfText(cell)
     .replace(/\s/g, '')
-    // Arabic-Indic digits and the Arabic decimal mark: «٣٫٥٠٠» is 3.5.
+    // Arabic-Indic and Eastern Arabic (Persian) digits and number separators:
+    // «٣٬٥٠٠» is 3,500; «۳٫۵» / «٣٫٥» are 3.5.
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/٬/g, '')
     .replace(/٫/g, '.')
   if (!text) return null
   if (/^\d{1,3}(?:[,،]\d{3})+(?:\.\d+)?$/.test(text)) {

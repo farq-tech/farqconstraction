@@ -113,6 +113,8 @@ describe('readQuantity', () => {
   it('rejects anything that is not a positive number', () => {
     expect(readQuantity('385')).toBe('385')
     expect(readQuantity('5,600')).toBe('5,600')
+    expect(readQuantity('۳٫۵')).toBe('3.5')
+    expect(readQuantity('٣٬٥٠٠')).toBe('3,500')
     expect(readQuantity('')).toBeNull()
     expect(readQuantity('نعم')).toBeNull()
     expect(readQuantity('0')).toBeNull()
