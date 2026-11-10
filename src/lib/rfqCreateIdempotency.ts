@@ -1,6 +1,25 @@
 const KEY_PREFIX = "farq:construction:create-rfq:v1:"
 const KEY_TTL_MS = 24 * 60 * 60 * 1000
 
+/**
+ * A match exposure ID identifies one matching response, not the RFQ intent.
+ * The API uses the same canonical form so a re-match can replay a timed-out
+ * create while retaining the original exposure record on the stored RFQ.
+ */
+export function canonicalRfqCreatePayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload
+  const record = payload as Record<string, unknown>
+  if (!Array.isArray(record.packages)) return payload
+  return {
+    ...record,
+    packages: record.packages.map((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry
+      const { exposure_id: _exposureId, ...stable } = entry as Record<string, unknown>
+      return stable
+    }),
+  }
+}
+
 function randomKey(): string {
   if (typeof globalThis.crypto?.randomUUID === "function") return globalThis.crypto.randomUUID()
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
@@ -21,7 +40,7 @@ function fallbackFingerprint(value: string): string {
 }
 
 async function fingerprint(payload: unknown): Promise<string> {
-  const serialized = JSON.stringify(payload)
+  const serialized = JSON.stringify(canonicalRfqCreatePayload(payload))
   try {
     if (typeof globalThis.crypto?.subtle?.digest === "function") {
       const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized))

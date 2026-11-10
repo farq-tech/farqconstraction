@@ -22,6 +22,21 @@ describe("RFQ create idempotency key", () => {
     expect(await getRfqCreateIdempotencyKey({ ...payload, selected_supplier_ids: ["supplier-b"] }, 2_000)).not.toBe(first)
   })
 
+  it("reuses the create key when only the supplier-match exposure ID changes", async () => {
+    const payload = {
+      lines: [{ line_key: "line-1", farq_spec_id: "wire", quantity: 12 }],
+      selected_supplier_ids: ["supplier-a"],
+      packages: [{ id: "electrical", line_keys: ["line-1"], selected_supplier_ids: ["supplier-a"], exposure_id: "match-1" }],
+    }
+    const first = await getRfqCreateIdempotencyKey(payload, 1_000)
+    const retried = await getRfqCreateIdempotencyKey({
+      ...payload,
+      packages: payload.packages.map((entry) => ({ ...entry, exposure_id: "match-2" })),
+    }, 2_000)
+
+    expect(retried).toBe(first)
+  })
+
   it("starts a new key after the retry window expires", async () => {
     const payload = { request_type: "SUPPLY_ONLY" }
     const first = await getRfqCreateIdempotencyKey(payload, 1_000)
