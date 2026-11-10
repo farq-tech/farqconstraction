@@ -455,8 +455,21 @@ export function removeCartLine(items: BOQItem[], id: number): BOQItem[] {
 /** Lines still to be matched with suppliers, as the matcher takes them. */
 export function linesToMatch(items: BOQItem[]): ParsedLine[] {
   return items
-    .filter((item) => item.needsMatch)
+    .filter((item) => item.needsMatch || item.matchFailed)
     .map((item) => ({ id: item.id, name: item.name, qty: item.qty, unit: item.unit, spec: item.spec }))
+}
+
+/** A response is safe to apply only while its document and line identity still match. */
+export function lineMatchStillCurrent(
+  currentDocumentId: string | null | undefined,
+  expectedDocumentId: string | null | undefined,
+  current: Pick<BOQItem, 'id' | 'name' | 'spec'> | undefined,
+  expected: Pick<BOQItem, 'id' | 'name' | 'spec'>,
+): boolean {
+  return Boolean(
+    currentDocumentId === expectedDocumentId && current &&
+    current.id === expected.id && current.name === expected.name && (current.spec || '') === (expected.spec || ''),
+  )
 }
 
 /**
@@ -467,10 +480,11 @@ export function linesToMatch(items: BOQItem[]): ParsedLine[] {
 export function mergeMatched(items: BOQItem[], matched: BOQItem[], retainedSelections: Record<number, string[]> = {}): BOQItem[] {
   const byId = new Map(matched.map((m) => [m.id, m]))
   return items.map((item) => {
-    if (!item.needsMatch) return item
+    if (!item.needsMatch && !item.matchFailed) return item
     const m = byId.get(item.id)
     const base = { ...item, needsMatch: undefined }
-    if (!m) return base
+    // A retry may cover only one row. Keep every other pending row eligible.
+    if (!m) return item
     const rejected = new Set(item.rejectedSupplierIds || [])
     const automatic = new Set(item.autoPickedSupplierIds || [])
     const retained = new Set((retainedSelections[item.id] || []).filter(id => !automatic.has(id) && !rejected.has(id)))
@@ -482,6 +496,9 @@ export function mergeMatched(items: BOQItem[], matched: BOQItem[], retainedSelec
       supplierCount: suppliers.length,
       suppliers,
       farqSpecId: m.farqSpecId,
+      workOnly: m.workOnly,
+      matchFailed: m.matchFailed,
+      needsMatch: m.matchFailed || undefined,
       lineKey: m.lineKey || item.lineKey,
       outcomeSuggestion: m.outcomeSuggestion,
       fitReviewSuggestion: m.fitReviewSuggestion,
