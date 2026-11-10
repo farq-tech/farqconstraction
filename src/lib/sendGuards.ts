@@ -32,6 +32,63 @@ export function cleanLineName(raw: string): string {
     .trim()
 }
 
+type WpcDoorSpecInput = {
+  name?: string | null
+  spec?: string | null
+  specCard?: {
+    material?: string | null
+    thickness?: string | null
+    finish?: string | null
+    notes?: string | null
+  } | null
+}
+
+/** A WPC door needs enough identifying detail for a supplier to price it. */
+export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | null {
+  const text = [
+    item.name,
+    item.spec,
+    item.specCard?.material,
+    item.specCard?.thickness,
+    item.specCard?.finish,
+    item.specCard?.notes,
+  ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' ').toLowerCase()
+  const isWpcDoor =
+    (/\bwpc\b|wood[\s-]*plastic[\s-]*composite|خشب\s?بلاستيكي|بلاستيك\s?خشبي|دبليو\s?بي\s?سي/i.test(text)) &&
+    (/\bdoors?\b|باب|أبواب|ابواب/i.test(text))
+  if (!isWpcDoor) return null
+
+  const normalized = text
+    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/٫/g, '.')
+  const thicknessValue = String(item.specCard?.thickness ?? '').trim().replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/٫/g, '.')
+  const thicknessField = thicknessValue.match(/^\s*(\d+(?:[.,]\d+)?)\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)?\s*$/i)
+  const unresolvedThickness = /(?:سماك(?:ة|ه)|سمك|thickness|thk)(?![a-z])[^\d\n]{0,32}?(?:غير\s+محدد(?:ة)?|حسب\s+(?:الطلب|المخطط|اختيار|رغبة)|غير\s+معروف|لاحقًا|لاحقا|قيد\s+التحديد|tbd|pending)/i.test(normalized)
+  const describedThickness = unresolvedThickness
+    ? null
+    : normalized.match(/(?:سماك(?:ة|ه)|سمك|thickness|thk)(?![a-z])\s*[:：-]?\s*[^\d\n]{0,32}?(\d+(?:[.,]\d+)?)\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)(?![a-z])/i)
+  const thickness = Number((thicknessField?.[1] || describedThickness?.[1] || '0').replace(',', '.')) > 0
+  const unknownColor =
+    /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+(?:الطلب|المخطط|اختيار(?:\s+[\p{L}]+){0,3}|رغبة(?:\s+[\p{L}]+){0,3})|مطفي|غير\s+معروف|لاحقًا|لاحقا|قيد\s+التحديد|tbd|pending)/iu.test(text)
+  const color =
+    !unknownColor &&
+    (/كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|أصفر|اصفر|ذهبي|فضي|عاجي|وردي|بنفسجي|برتقالي|سماوي|كحلي|زيتي|خشبي|جوزي/i.test(text) ||
+      /(?:^|[^a-z])(?:cream|ivory|white|black|brown|tan|gray|grey|silver|gold|beige|red|blue|green|yellow|orange|pink|purple|violet|navy|teal|turquoise|olive|walnut|natural)(?:$|[^a-z])/i.test(text) ||
+      /\bRAL\s*\d{4}\b/i.test(text) || /#[0-9a-f]{3,8}\b/i.test(text))
+  const missing = [
+    ...(!thickness ? ['السماكة'] : []),
+    ...(!color ? ['اللون'] : []),
+  ]
+  if (!missing.length) return null
+
+  const name = String(item.name ?? '').replace(/\s+/g, ' ').trim() || 'باب WPC'
+  return `«${name.slice(0, 60)}»: حدّد ${missing.join(' و')} قبل الإرسال، من تعديل وصف ومواصفات البند.`
+}
+
+export function wpcDoorSpecificationBlockers(items: readonly WpcDoorSpecInput[]): string[] {
+  return items.map(wpcDoorSpecificationBlocker).filter((issue): issue is string => Boolean(issue))
+}
+
 export const DELIVERY_BEFORE_DEADLINE_CODE = 'CONSTRUCTION_DELIVERY_BEFORE_DEADLINE'
 export const DELIVERY_BEFORE_DEADLINE_AR = 'تاريخ التوريد لا يمكن أن يكون قبل آخر موعد لاستلام العروض'
 
