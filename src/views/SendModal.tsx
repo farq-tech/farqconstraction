@@ -46,6 +46,7 @@ import { bestAcceptedDispatchAttempt, dispatchPollTimedOut, latestDispatchAttemp
 import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../lib/quoteDeadline'
 import SiteSupplySection from '../components/SiteSupplySection'
 import { EMPTY_SITE_SUPPLY, REQUEST_TYPES, requestTypeLabel, siteSupplyPayload, siteSupplyProblems, type SiteSupply } from '../lib/specCard'
+import { getRfqCreateIdempotencyKey } from '../lib/rfqCreateIdempotency'
 
 interface SendModalProps {
   items: BOQItem[]
@@ -1210,9 +1211,11 @@ export function SendModal({
       if (harajLimit > 0) createBody.haraj_limit = harajLimit
 
       const createCtrl = beginAbortable()
+      const idempotencyKey = await getRfqCreateIdempotencyKey(createBody)
       const created = await createConstructionRfq(createBody, {
         signal: createCtrl.signal,
         timeoutMs: SEND_INVITE_TIMEOUT_MS,
+        idempotencyKey,
       })
       setRfqId(created.id)
       setSelectedRfqId(created.id)

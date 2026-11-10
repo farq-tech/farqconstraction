@@ -1837,11 +1837,14 @@ export type SendRfqInviteOptions = {
 
 export async function createConstructionRfq(
   payload: Record<string, unknown>,
-  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+  options: { signal?: AbortSignal; timeoutMs?: number; idempotencyKey?: string } = {},
 ) {
   return request<ConstructionRfq>('/api/construction/rfqs', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
+    },
     body: JSON.stringify(payload),
     signal: options.signal,
     timeoutMs: options.timeoutMs,
