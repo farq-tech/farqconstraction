@@ -1,4 +1,5 @@
 import PlatformCompanyReview from './components/PlatformCompanyReview'
+import PlatformWhatsAppReview from './components/PlatformWhatsAppReview'
 import { getPlatformReviewScope } from './api/platformReviewScope'
 import { ProcurementProvider, useProcurement } from './procurementContext'
 import { isReadOnlyBuild } from './api/readOnlyMode'
@@ -130,6 +131,7 @@ function AppRoutes() {
   return (
     <Shell view={view} navigate={navigate}>
       <PlatformCompanyReview />
+      <PlatformWhatsAppReview />
       <ErrorBoundary key={reviewScope || session.user?.id || "own"} resetKey={view}>
       {view === 'home' && <HomeView navigate={navigate} />}
       {view === 'material-prices' && <MaterialPricesView navigate={navigate} />}
