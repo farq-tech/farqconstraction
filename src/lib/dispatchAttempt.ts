@@ -79,6 +79,29 @@ export function deliveryAttemptFailed(attempt: DispatchAttemptEvidence): boolean
     || (attempt.channel === 'WHATSAPP' && String(attempt.provider_delivery?.state || '').toUpperCase() === 'FAILED')
 }
 
+/** Prefer channel-specific Meta evidence over the invitation's aggregate SENT state. */
+export function offerDeliverySummaryLabel(
+  attempts: readonly DispatchAttemptEvidence[] | null | undefined,
+  fallbackLabel: string,
+): string {
+  const latestWhatsApp = latestDispatchAttempt(attempts, 'WHATSAPP')
+  if (!latestWhatsApp) return fallbackLabel
+
+  const receipt = String(latestWhatsApp.provider_delivery?.state || '').toUpperCase()
+  if (deliveryAttemptFailed(latestWhatsApp)) {
+    const undelivered = receipt === 'FAILED' ? 'لم تصل عبر واتساب' : 'تعذر إرسال واتساب'
+    const anotherChannelReached = (attempts || []).some(
+      (attempt) => attempt.channel !== 'WHATSAPP' && deliveryAttemptReached(attempt),
+    )
+    return anotherChannelReached ? `أُرسل عبر قناة أخرى؛ ${undelivered}` : undelivered
+  }
+  if (receipt === 'READ') return 'قرأها المورد عبر واتساب'
+  if (receipt === 'DELIVERED') return 'وصلت إلى المورد عبر واتساب'
+  if (receipt === 'ACCEPTED') return 'قبلت Meta رسالة واتساب؛ بانتظار إيصال التسليم'
+  if (receipt === 'UNCONFIRMED') return 'لا يوجد تأكيد تسليم من واتساب بعد'
+  return fallbackLabel
+}
+
 /** Return the newest recorded attempt for a channel, preserving API order for untimed legacy rows. */
 export function latestDispatchAttempt<T extends DispatchAttemptEvidence>(
   attempts: readonly T[] | null | undefined,
