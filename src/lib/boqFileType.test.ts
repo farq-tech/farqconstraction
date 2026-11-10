@@ -2,10 +2,16 @@ import { describe, expect, it } from "vitest"
 import { boqFileKind } from "./boqFileType"
 
 describe("BOQ file type recognition", () => {
-  it("recognizes standard PDF, XLSX, and CSV MIME types without filename extensions", () => {
+  it("recognizes standard PDF, DOCX, XLSX, and CSV MIME types without filename extensions", () => {
     expect(boqFileKind({ name: "attachment", type: "application/pdf" })).toBe(
       "pdf",
     )
+    expect(
+      boqFileKind({
+        name: "attachment",
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }),
+    ).toBe("docx")
     expect(
       boqFileKind({
         name: "attachment",
@@ -22,6 +28,9 @@ describe("BOQ file type recognition", () => {
       boqFileKind({ name: "مواد.XLSX", type: "application/octet-stream" }),
     ).toBe("xlsx")
     expect(boqFileKind({ name: "جدول.csv", type: "" })).toBe("csv")
+    expect(
+      boqFileKind({ name: "كراسة.DOCX", type: "application/octet-stream" }),
+    ).toBe("docx")
     expect(
       boqFileKind({ name: "كراسة.PDF", type: "application/octet-stream" }),
     ).toBe("pdf")

@@ -14,13 +14,13 @@ import { scanPurchaseRequest, type ScannedRequest } from '../api/constructionCli
 type Phase = 'camera' | 'reading' | 'review'
 type Page = { mime: string; base64: string; url: string; name?: string }
 
-export type PurchaseScanFileKind = BoqFileKind | 'image'
+export type PurchaseScanFileKind = Exclude<BoqFileKind, 'docx'> | 'image'
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 /** Keep the camera import picker in sync with the main BOQ upload's formats. */
 export function purchaseScanFileKind(file: Pick<File, 'name' | 'type'>): PurchaseScanFileKind {
   const kind = boqFileKind(file)
-  if (kind !== 'unsupported') return kind
+  if (kind !== 'unsupported' && kind !== 'docx') return kind
   return String(file.type || '').toLowerCase().startsWith('image/') ? 'image' : 'unsupported'
 }
 
