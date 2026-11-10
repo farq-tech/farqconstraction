@@ -20,6 +20,12 @@ describe('WPC door details are complete before sending', () => {
     ])).toEqual([])
   })
 
+  it('recognizes a thickness value after a noun in the label', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', spec: 'سماكة الباب 45 مم، اللون أبيض' }),
+    ])).toEqual([])
+  })
+
   it('does not mistake width and height for thickness', () => {
     expect(wpcDoorSpecificationBlockers([
       item({ name: 'باب WPC', spec: 'مقاس 90 × 210 سم، لون أبيض' }),
