@@ -622,13 +622,16 @@ export class ConstructionApiError extends Error {
   /** Seconds left on the server's limiter. Only set for 429 — lets the UI say
    *  «أعد المحاولة بعد كذا» instead of inventing a disconnection. */
   retryAfterSec?: number
+  /** The provider may already have accepted a send; a caller must not retry automatically. */
+  indeterminate: boolean
 
-  constructor(message: string, status: number, code: string, retryAfterSec?: number) {
+  constructor(message: string, status: number, code: string, retryAfterSec?: number, indeterminate = false) {
     super(message)
     this.name = 'ConstructionApiError'
     this.status = status
     this.code = code
     this.retryAfterSec = retryAfterSec
+    this.indeterminate = indeterminate
   }
 }
 
@@ -752,6 +755,10 @@ async function parsePayload(response: Response): Promise<{
   errors?: Array<{ code?: string; message?: string }>
   message?: string
   error?: string
+  indeterminate?: boolean
+  messageId?: string
+  to?: string
+  budget?: { enforced?: boolean; limit?: number | null; sent?: number; remaining?: number; warning?: string }
   /** Sent by the API's rate limiter alongside the `Retry-After` header. */
   retryAfterSec?: number
 }> {
@@ -1042,6 +1049,8 @@ function unwrap<T>(
       payload?.errors?.[0]?.message || payload?.message || String(code),
       response.status,
       String(code),
+      undefined,
+      payload?.indeterminate === true,
     )
   }
 
@@ -1068,6 +1077,33 @@ export type ConstructionWhatsAppStatus = {
 /** Company-scoped WhatsApp config and observed traffic evidence; no secrets or recipients. */
 export async function getConstructionWhatsAppStatus() {
   return request<ConstructionWhatsAppStatus>('/api/construction/whatsapp/status')
+}
+
+/** Sends one explicit, unassociated Cloud test message; never retries a provider-uncertain result. */
+export async function sendConstructionWhatsAppTest(to: string, body: string) {
+  const { response, payload } = await send('/admin/whatsapp/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to, body }),
+  }, 20_000, 'buyer')
+  const code = payload?.errors?.[0]?.code || payload?.error || `HTTP_${response.status}`
+  if (!response.ok || payload?.ok === false) {
+    throw new ConstructionApiError(
+      payload?.errors?.[0]?.message || payload?.message || payload?.error || String(code),
+      response.status,
+      String(code),
+      undefined,
+      payload?.indeterminate === true,
+    )
+  }
+  if (!payload?.messageId) {
+    throw new ConstructionApiError('استجاب الخادم بلا معرّف قبول من Meta؛ تحقّق من سجل واتساب قبل إعادة المحاولة.', response.status, 'WHATSAPP_SEND_UNCONFIRMED', undefined, true)
+  }
+  return payload as {
+    messageId: string
+    to: string
+    budget?: { enforced?: boolean; limit?: number | null; sent?: number; remaining?: number; warning?: string }
+  }
 }
 
 export async function getConstructionMe() {
