@@ -66,7 +66,7 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
   const describedThickness = normalized.match(/(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*(\d+(?:[.,]\d+)?)\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i)
   const thickness = Number((thicknessField?.[1] || describedThickness?.[1] || '0').replace(',', '.')) > 0
   const unknownColor =
-    /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+اختيار(?:\s+المالك)?|مطفي|غير\s+معروف|لاحقًا|لاحقا)/iu.test(text)
+    /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+(?:الطلب|المخطط|اختيار(?:\s+[\p{L}]+){0,3})|مطفي|غير\s+معروف|لاحقًا|لاحقا)/iu.test(text)
   const color =
     !unknownColor &&
     (/(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
