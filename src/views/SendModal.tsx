@@ -34,7 +34,7 @@ import {
   buildRfqPackagesFromSelection,
   dominantEngineeringDepartment,
 } from '../lib/rfqPackages'
-import { collectSelectedRecipients, unavailableHarajRecipientIds } from '../lib/sendRecipientSelection'
+import { collectSelectedRecipients, selectedSupplyItems, unselectedSupplyItemCount, unavailableHarajRecipientIds } from '../lib/sendRecipientSelection'
 import { useProcurement } from '../procurementContext'
 import { farqSession } from '../api/farqSession'
 import { companyBrand } from '../lib/companyBranding'
@@ -174,7 +174,6 @@ export function SendModal({
   items,
   selectedByItem,
   projectName,
-  searchingItems,
   onClose,
   onSent,
   onFailed,
@@ -258,7 +257,8 @@ export function SendModal({
   }
 
   // Work with nothing to buy is never put in front of a supplier.
-  const readyItems = items.filter((i) => !i.workOnly && (selectedByItem[i.id] || []).length > 0)
+  const unselectedItems = unselectedSupplyItemCount(items, selectedByItem)
+  const readyItems = selectedSupplyItems(items, selectedByItem)
   const selectedSupplierIds = [...new Set(readyItems.flatMap((i) => selectedByItem[i.id] || []))]
 
   // Everything that must stop a send is decided BEFORE the button, where the
@@ -1369,8 +1369,8 @@ export function SendModal({
                   {unavailableHarajCount > 0 && ` · ${unavailableHarajCount} محادثة مستبعدة مؤقتًا`}
                 </div>
                 <div className="text-xs text-neutral-600 mt-1">كل مورد يرى بنوده فقط، ويرد عبر رابط أو بالرد على الرسالة.</div>
-                {searchingItems > 0 && (
-                  <div className="text-xs text-amber-700 mt-1">{searchingItems} بنود ما زال البحث عن موردين لها جاريًا — تُرسل لاحقًا.</div>
+                {unselectedItems > 0 && (
+                  <div className="text-xs text-amber-700 mt-1">{unselectedItems} بنود بدون موردين مختارين — لن تُرسل ضمن هذه الدفعة.</div>
                 )}
               </div>
 

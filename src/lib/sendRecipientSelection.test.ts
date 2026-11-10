@@ -1,10 +1,23 @@
 import { describe, expect, it } from "vitest"
 import {
   collectSelectedRecipients,
+  selectedSupplyItems,
+  unselectedSupplyItemCount,
   unavailableHarajRecipientIds,
 } from "./sendRecipientSelection"
 
 describe("selected RFQ recipients", () => {
+  it("warns for unselected supply lines and excludes them and work-only lines from the RFQ", () => {
+    const selected = { id: 1, workOnly: false, name: "Pipe", suppliers: [] }
+    const unselected = { id: 2, workOnly: false, name: "Valve", suppliers: [] }
+    const workOnly = { id: 3, workOnly: true, name: "Install", suppliers: [] }
+    const items = [selected, unselected, workOnly]
+    const selectedByItem = { 1: ["supplier-1"] }
+
+    expect(unselectedSupplyItemCount(items, selectedByItem)).toBe(1)
+    expect(selectedSupplyItems(items, selectedByItem)).toEqual([selected])
+  })
+
   it("keeps supplier IDs so a stopped chat channel excludes only those suppliers", () => {
     const suppliers = Array.from({ length: 52 }, (_, index) => ({
       id: `supplier-${index}`,
