@@ -433,6 +433,21 @@ export function editCartLine(
   })
 }
 
+/** Drop a line's old supplier ticks when its material identity changes. */
+export function clearSelectionAfterIdentityEdit(
+  selections: Record<number, string[]>,
+  id: number,
+  before: Pick<BOQItem, 'name' | 'spec'> | undefined,
+  after: Pick<BOQItem, 'name' | 'spec'> | undefined,
+): Record<number, string[]> {
+  if (!before || !after || !selections[id]?.length) return selections
+  const identityChanged = before.name !== after.name || (before.spec || '') !== (after.spec || '')
+  if (!identityChanged) return selections
+  const next = { ...selections }
+  delete next[id]
+  return next
+}
+
 export function removeCartLine(items: BOQItem[], id: number): BOQItem[] {
   return items.filter((item) => item.id !== id)
 }

@@ -36,6 +36,7 @@ import { useProcurement } from '../procurementContext'
 import { currentAuthMode } from '../api/constructionAuth'
 import {
   appendToCart,
+  clearSelectionAfterIdentityEdit,
   editCartLine,
   linesToMatch,
   mergeMatched,
@@ -397,7 +398,13 @@ export function UploadView({ navigate }: NavProps) {
   }
   const editLine = (id: number, patch: Partial<Pick<BOQItem, 'name' | 'qty' | 'unit' | 'spec'>>) => {
     setCartTouched(true)
-    setCartItems(editCartLine(getBoqItems(), id, patch), newCartDocumentId)
+    const current = getBoqItems()
+    const updated = editCartLine(current, id, patch)
+    const oldLine = current.find((item) => item.id === id)
+    const newLine = updated.find((item) => item.id === id)
+    const selections = clearSelectionAfterIdentityEdit(getSession().selections, id, oldLine, newLine)
+    if (selections !== getSession().selections) setSelections(selections)
+    setCartItems(updated, newCartDocumentId)
   }
   const removeLine = (id: number) => {
     setCartTouched(true)
