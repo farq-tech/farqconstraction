@@ -11,6 +11,7 @@ import {
 import { apiUnreachableAdvice, isProductionBuild } from '../api/apiBase'
 import { currentAuthMode } from '../api/constructionAuth'
 import { readBoqCsv, readBoqExcel, type BoqSpreadsheetWorkbook } from './boqSpreadsheet'
+import { boqFileKind } from './boqFileType'
 
 function normalizeAr(text: string): string {
   // NFKC first: printed Etimad booklets arrive as Arabic Presentation Forms-B
@@ -1690,10 +1691,10 @@ async function parseBoqFileInner(
   let table: BoqTableResult | null = null
   let extractError = ''
 
-  const isPdf =
-    file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-  const isCsv = /\.csv$/i.test(file.name)
-  const isXlsx = /\.xlsx$/i.test(file.name)
+  const fileKind = boqFileKind(file)
+  const isPdf = fileKind === 'pdf'
+  const isCsv = fileKind === 'csv'
+  const isXlsx = fileKind === 'xlsx'
   let spreadsheetSheet: BoqSpreadsheetWorkbook['sheets'][number] | null = null
 
   // CRITICAL (live UploadView): extract client text FIRST.
