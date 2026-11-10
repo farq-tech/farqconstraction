@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acquireDispatchLock, bestAcceptedDispatchAttempt, deliveryAttemptFailed, deliveryAttemptReached, dispatchJobAllowsRetry, dispatchPollTimedOut, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome, shouldRetryWhatsAppPaid } from './dispatchAttempt'
+import { acquireDispatchLock, bestAcceptedDispatchAttempt, deliveryAttemptFailed, deliveryAttemptReached, dispatchJobAllowsRetry, dispatchPollTimedOut, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, offerDeliverySummaryLabel, recordedAttemptOutcome, shouldRetryWhatsAppPaid } from './dispatchAttempt'
 
 describe('dispatch attempt evidence', () => {
   it('allows only one retry batch until the active run releases its lock', () => {
@@ -61,6 +61,38 @@ describe('dispatch attempt evidence', () => {
     expect(deliveryAttemptFailed(failed)).toBe(true)
     expect(deliveryAttemptReached(delivered)).toBe(true)
     expect(deliveryAttemptFailed(delivered)).toBe(false)
+  })
+
+  it('shows a Meta refusal as not delivered even when the invite aggregate still says SENT', () => {
+    expect(offerDeliverySummaryLabel([
+      { channel: 'WHATSAPP', status: 'SENT', provider_delivery: { state: 'FAILED' } },
+    ], 'أُرسل')).toBe('لم تصل عبر واتساب')
+  })
+
+  it('keeps a successful fallback channel visible alongside a WhatsApp refusal', () => {
+    expect(offerDeliverySummaryLabel([
+      { channel: 'WHATSAPP', status: 'SENT', provider_delivery: { state: 'FAILED' } },
+      { channel: 'EMAIL', status: 'SENT' },
+    ], 'أُرسل')).toBe('أُرسل عبر قناة أخرى؛ لم تصل عبر واتساب')
+  })
+
+  it('ignores AWARD attempts when summarizing RFQ delivery', () => {
+    expect(offerDeliverySummaryLabel([
+      { channel: 'WHATSAPP', status: 'SENT', message_type: 'RFQ', provider_delivery: { state: 'FAILED' } },
+      { channel: 'WHATSAPP', status: 'SENT', message_type: 'AWARD', provider_delivery: { state: 'DELIVERED' } },
+      { channel: 'EMAIL', status: 'SENT', message_type: 'AWARD' },
+    ], 'أُرسل')).toBe('لم تصل عبر واتساب')
+  })
+
+  it.each([
+    ['READ', 'قرأها المورد عبر واتساب'],
+    ['DELIVERED', 'وصلت إلى المورد عبر واتساب'],
+    ['ACCEPTED', 'قبلت Meta رسالة واتساب؛ بانتظار إيصال التسليم'],
+    ['UNCONFIRMED', 'لا يوجد تأكيد تسليم من واتساب بعد'],
+  ])('shows WhatsApp receipt state %s instead of aggregate delivery state', (state, label) => {
+    expect(offerDeliverySummaryLabel([
+      { channel: 'WHATSAPP', status: 'SENT', provider_delivery: { state } },
+    ], 'أُرسل')).toBe(label)
   })
 
   it("only offers a paid Cloud retry when all accepted attempts have a retryable Meta refusal", () => {

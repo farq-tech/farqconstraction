@@ -16,7 +16,7 @@ import {
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
 import { cleanSupplierName } from '../lib/supplierName'
-import { deliveryAttemptFailed, deliveryAttemptReached } from '../lib/dispatchAttempt'
+import { deliveryAttemptFailed, deliveryAttemptReached, offerDeliverySummaryLabel } from '../lib/dispatchAttempt'
 
 const STATUS_CONF = {
   complete: { label: 'مكتمل المعلومات', className: 'bg-[#CFF5DC] text-[#1a7a45]' },
@@ -35,6 +35,8 @@ function formatAttempt(channel: string, status: string): string {
       ? 'أُرسل'
       : status.startsWith('SKIPPED')
         ? 'تخطّي'
+        : status === 'UNDELIVERED'
+          ? 'لم تصل'
         : status === 'FAILED'
           ? 'فشل'
           : status
@@ -329,7 +331,7 @@ export function OffersView({ navigate }: NavProps) {
                         {cfg.label}
                       </span>
                       <span className="text-xs text-neutral-400">
-                        إرسال: {formatInviteDeliveryStatus(offer.deliveryStatus)}
+                        إرسال: {offerDeliverySummaryLabel(attempts, formatInviteDeliveryStatus(offer.deliveryStatus))}
                       </span>
                       <span className="text-xs text-neutral-400">
                         رد: {formatInviteResponseStatus(offer.responseStatus, offer.deliveryStatus)}
@@ -352,7 +354,12 @@ export function OffersView({ navigate }: NavProps) {
                                   : 'bg-neutral-100 text-neutral-500'
                             }`}
                           >
-                            {formatAttempt(a.channel, deliveryAttemptFailed(a) ? 'FAILED' : a.status)}
+                            {formatAttempt(
+                              a.channel,
+                              a.channel === 'WHATSAPP' && deliveryAttemptFailed(a)
+                                ? 'UNDELIVERED'
+                                : a.status,
+                            )}
                             {a.sent_at
                               ? ` · ${new Date(a.sent_at).toLocaleString('en-GB', {
                                   dateStyle: 'short',
