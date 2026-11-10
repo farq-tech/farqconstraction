@@ -40,7 +40,15 @@ function fallbackFingerprint(value: string): string {
 }
 
 async function fingerprint(payload: unknown): Promise<string> {
-  const serialized = JSON.stringify(canonicalRfqCreatePayload(payload))
+  return fingerprintSerialized(JSON.stringify(canonicalRfqCreatePayload(payload)))
+}
+
+/** The pre-canonical v1 slot used the full request body. */
+async function legacyFingerprint(payload: unknown): Promise<string> {
+  return fingerprintSerialized(JSON.stringify(payload))
+}
+
+async function fingerprintSerialized(serialized: string): Promise<string> {
   try {
     if (typeof globalThis.crypto?.subtle?.digest === "function") {
       const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized))
@@ -53,14 +61,38 @@ async function fingerprint(payload: unknown): Promise<string> {
   return fallbackFingerprint(serialized)
 }
 
+function readValidEntry(value: string | null, now: number): { key: string; expiresAt: number } | null {
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value) as { key?: unknown; expiresAt?: unknown }
+    if (typeof parsed.key === "string" && typeof parsed.expiresAt === "number" && parsed.expiresAt > now) {
+      return { key: parsed.key, expiresAt: parsed.expiresAt }
+    }
+  } catch {
+    // Ignore malformed or stale session entries.
+  }
+  return null
+}
+
 /** Reuse the same key for an identical RFQ retry in this tab for 24 hours. */
 export async function getRfqCreateIdempotencyKey(payload: unknown, now = Date.now()): Promise<string> {
   const storageKey = `${KEY_PREFIX}${await fingerprint(payload)}`
   try {
-    const existing = sessionStorage.getItem(storageKey)
-    if (existing) {
-      const parsed = JSON.parse(existing) as { key?: unknown; expiresAt?: unknown }
-      if (typeof parsed.key === "string" && typeof parsed.expiresAt === "number" && parsed.expiresAt > now) return parsed.key
+    const existing = readValidEntry(sessionStorage.getItem(storageKey), now)
+    if (existing) return existing.key
+
+    const legacyStorageKey = `${KEY_PREFIX}${await legacyFingerprint(payload)}`
+    if (legacyStorageKey !== storageKey) {
+      const legacy = readValidEntry(sessionStorage.getItem(legacyStorageKey), now)
+      if (legacy) {
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify(legacy))
+          sessionStorage.removeItem(legacyStorageKey)
+        } catch {
+          // Reuse the pending key even if the old slot cannot be migrated.
+        }
+        return legacy.key
+      }
     }
   } catch {
     // Storage can be disabled by browser policy; create still works without it.
@@ -78,12 +110,15 @@ export async function getRfqCreateIdempotencyKey(payload: unknown, now = Date.no
 
 /** Remove a confirmed create so a later intentional identical RFQ gets a fresh key. */
 export async function clearRfqCreateIdempotencyKey(payload: unknown, key: string): Promise<void> {
-  const storageKey = `${KEY_PREFIX}${await fingerprint(payload)}`
   try {
-    const existing = sessionStorage.getItem(storageKey)
-    if (!existing) return
-    const parsed = JSON.parse(existing) as { key?: unknown }
-    if (parsed.key === key) sessionStorage.removeItem(storageKey)
+    const storageKeys = new Set([
+      `${KEY_PREFIX}${await fingerprint(payload)}`,
+      `${KEY_PREFIX}${await legacyFingerprint(payload)}`,
+    ])
+    for (const storageKey of storageKeys) {
+      const existing = readValidEntry(sessionStorage.getItem(storageKey), 0)
+      if (existing?.key === key) sessionStorage.removeItem(storageKey)
+    }
   } catch {
     // The RFQ is already confirmed; disabled storage must not affect the flow.
   }

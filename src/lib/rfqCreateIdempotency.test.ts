@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { clearRfqCreateIdempotencyKey, getRfqCreateIdempotencyKey } from "./rfqCreateIdempotency"
 
@@ -35,6 +36,21 @@ describe("RFQ create idempotency key", () => {
     }, 2_000)
 
     expect(retried).toBe(first)
+  })
+
+  it("migrates a pending key from the previous raw-payload fingerprint", async () => {
+    const payload = {
+      lines: [{ line_key: "line-1", farq_spec_id: "wire", quantity: 12 }],
+      selected_supplier_ids: ["supplier-a"],
+      packages: [{ id: "electrical", line_keys: ["line-1"], selected_supplier_ids: ["supplier-a"], exposure_id: "match-1" }],
+    }
+    const legacyStorageKey = `farq:construction:create-rfq:v1:${createHash("sha256").update(JSON.stringify(payload)).digest("hex")}`
+    entries.set(legacyStorageKey, JSON.stringify({ key: "pending-create-key", expiresAt: 50_000 }))
+
+    expect(await getRfqCreateIdempotencyKey(payload, 2_000)).toBe("pending-create-key")
+    expect(entries.has(legacyStorageKey)).toBe(false)
+    expect(entries.size).toBe(1)
+    expect(await getRfqCreateIdempotencyKey(payload, 3_000)).toBe("pending-create-key")
   })
 
   it("starts a new key after the retry window expires", async () => {
