@@ -26,12 +26,12 @@ describe("RFQ create idempotency key", () => {
     const payload = {
       lines: [{ line_key: "line-1", farq_spec_id: "wire", quantity: 12 }],
       selected_supplier_ids: ["supplier-a"],
-      packages: [{ id: "electrical", line_keys: ["line-1"], selected_supplier_ids: ["supplier-a"], exposure_id: "match-1" }],
+      packages: [{ id: "electrical", line_keys: ["line-1"], selected_supplier_ids: ["supplier-a"], exposure_id: "match-1", exposure_ids: ["match-1"] }],
     }
     const first = await getRfqCreateIdempotencyKey(payload, 1_000)
     const retried = await getRfqCreateIdempotencyKey({
       ...payload,
-      packages: payload.packages.map((entry) => ({ ...entry, exposure_id: "match-2" })),
+      packages: payload.packages.map((entry) => ({ ...entry, exposure_id: "match-2", exposure_ids: ["match-2", "match-3"] })),
     }, 2_000)
 
     expect(retried).toBe(first)

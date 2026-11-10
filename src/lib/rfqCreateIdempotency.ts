@@ -14,7 +14,7 @@ export function canonicalRfqCreatePayload(payload: unknown): unknown {
     ...record,
     packages: record.packages.map((entry) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry
-      const { exposure_id: _exposureId, ...stable } = entry as Record<string, unknown>
+      const { exposure_id: _exposureId, exposure_ids: _exposureIds, ...stable } = entry as Record<string, unknown>
       return stable
     }),
   }

@@ -41,11 +41,11 @@ it("sends the same API create key after matching returns a different exposure ID
     manual_send: true,
     selected_supplier_ids: ["supplier-a", "supplier-b"],
     lines: [{ line_key: "line-1", name_ar: "كيبل", quantity: 12 }],
-    packages: [{ id: "electrical", line_keys: ["line-1"], selected_supplier_ids: ["supplier-a", "supplier-b"], exposure_id: "match-1" }],
+    packages: [{ id: "electrical", line_keys: ["line-1"], selected_supplier_ids: ["supplier-a", "supplier-b"], exposure_id: "match-1", exposure_ids: ["match-1"] }],
   }
   const retryPayload = {
     ...firstPayload,
-    packages: firstPayload.packages.map((entry) => ({ ...entry, exposure_id: "match-2" })),
+    packages: firstPayload.packages.map((entry) => ({ ...entry, exposure_id: "match-2", exposure_ids: ["match-2", "match-3"] })),
   }
   const firstKey = await getRfqCreateIdempotencyKey(firstPayload, 1_000)
   const retryKey = await getRfqCreateIdempotencyKey(retryPayload, 2_000)
