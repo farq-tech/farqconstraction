@@ -19,6 +19,7 @@ import {
   setConstructionInboxThreadsVisibility,
 } from '../api/constructionClient'
 import EmailLinkPanel from '../components/inbox/EmailLinkPanel'
+import PlatformWhatsAppReviewPanel from '../components/inbox/PlatformWhatsAppReviewPanel'
 import { useProcurement } from '../procurementContext'
 import { ChatPane } from '../components/inbox/ChatPane'
 import { ConversationList, type InboxTab } from '../components/inbox/ConversationList'
@@ -986,6 +987,7 @@ export function InboxView({ navigate, initialThreadId = null }: InboxViewProps) 
       }
       className="relative flex overflow-hidden bg-white lg:border-s border-neutral-200"
     >
+      <PlatformWhatsAppReviewPanel />
       {filterPanelOpen && (
         <>
           <div className="absolute inset-0 z-30 bg-[#0D1F1D]/5" aria-hidden="true" onClick={() => setFilterPanelOpen(false)} />
