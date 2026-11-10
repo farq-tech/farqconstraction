@@ -1070,7 +1070,7 @@ export type ConstructionWhatsAppStatus = {
   cloud?: { enabled?: boolean; configured?: boolean; checks?: Record<string, boolean> }
   webhook?: { authentication_configured?: boolean }
   receipts?: { tracking_available?: boolean; last_received_at?: string | null; latest_send_state?: 'READ' | 'DELIVERED' | 'ACCEPTED' | 'FAILED' | 'UNCONFIRMED' | null }
-  last_outbound_attempt?: { status?: string; attempted_at?: string | null; sent_at?: string | null } | null
+  last_outbound_attempt?: { status?: string; attempted_at?: string | null; sent_at?: string | null; source?: string | null; recipient_masked?: string | null; message_reference?: string | null; delivery_state?: string | null; delivery_error_code?: number | null } | null
   last_inbound_at?: string | null
   unresolved_count?: number | null
 }
@@ -1080,31 +1080,22 @@ export async function getConstructionWhatsAppStatus() {
   return request<ConstructionWhatsAppStatus>('/api/construction/whatsapp/status')
 }
 
+export type ConstructionWhatsAppTestResult = {
+  accepted: boolean
+  recipient_masked: string
+  message_reference: string
+  accepted_at: string
+  delivery_state: 'UNCONFIRMED' | 'DELIVERED' | 'READ' | 'FAILED'
+  budget?: { enforced?: boolean; limit?: number | null; sent?: number; remaining?: number; warning?: string }
+}
+
 /** Sends one explicit, unassociated Cloud test message; never retries a provider-uncertain result. */
 export async function sendConstructionWhatsAppTest(to: string, body: string) {
-  const { response, payload } = await send('/admin/whatsapp/send', {
+  return request<ConstructionWhatsAppTestResult>('/api/construction/whatsapp/test-send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ to, body }),
-  }, 20_000, 'buyer')
-  const code = payload?.errors?.[0]?.code || payload?.error || `HTTP_${response.status}`
-  if (!response.ok || payload?.ok === false) {
-    throw new ConstructionApiError(
-      payload?.errors?.[0]?.message || payload?.message || payload?.error || String(code),
-      response.status,
-      String(code),
-      undefined,
-      payload?.indeterminate === true,
-    )
-  }
-  if (!payload?.messageId) {
-    throw new ConstructionApiError('استجاب الخادم بلا معرّف قبول من Meta؛ تحقّق من سجل واتساب قبل إعادة المحاولة.', response.status, 'WHATSAPP_SEND_UNCONFIRMED', undefined, true)
-  }
-  return payload as {
-    messageId: string
-    to: string
-    budget?: { enforced?: boolean; limit?: number | null; sent?: number; remaining?: number; warning?: string }
-  }
+  })
 }
 
 export async function getConstructionMe() {
@@ -2388,7 +2379,7 @@ export type ConstructionUnresolvedArrival = {
   state: 'NO_MATCH' | 'AMBIGUOUS' | string
   revision: number
   ingested_at: string
-  evidence?: { reason?: string; smart?: { method?: string; sender_domain?: string | null; free_mail?: boolean } } | null
+  evidence?: { reason?: string; test_send_reference?: string | null; supplier_id?: string | null; supplier_match?: string; supplier_link_state?: string; smart?: { method?: string; sender_domain?: string | null; free_mail?: boolean } } | null
   preview: {
     sender: string | null
     subject: string | null
@@ -2404,6 +2395,7 @@ export type ConstructionEmailLink = ConstructionUnresolvedArrival
 
 export type ConstructionEmailLinkTargets = {
   sender_domain: string | null
+  supplier_candidates?: { supplier_id: string; name_ar: string | null; name_en: string | null; suggested: boolean }[]
   requests: {
     rfq_id: string
     reference: string
@@ -2465,6 +2457,13 @@ export async function linkConstructionArrival(
         reason: kind === 'whatsapp' ? 'ربط رسالة واتساب بطلبها من الوارد' : 'ربط بريد مورد بطلبه من الوارد',
       }),
     },
+  )
+}
+
+export function linkConstructionTestReplySupplier(arrivalId: string, supplierId: string, expectedRevision: number) {
+  return request<{ resolved: boolean; supplier_id: string; supplier_only: boolean; pending_import: boolean }>(
+    `/api/construction/inbox/unresolved/${encodeURIComponent(arrivalId)}/resolve`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ supplier_id: supplierId, expected_revision: expectedRevision, reason: 'مراجعة رد اختبار وربطه بملف المورد دون طلب شراء' }) },
   )
 }
 

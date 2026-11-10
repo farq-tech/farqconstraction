@@ -22,15 +22,16 @@ afterEach(() => {
 })
 
 describe('sendConstructionWhatsAppTest', () => {
-  it('posts one direct test and returns the Meta message id', async () => {
-    const fetchMock = installFetch(200, { ok: true, messageId: 'wamid.test-1', to: '***3463' })
+  it('posts one owner-scoped test and returns only masked delivery evidence', async () => {
+    const fetchMock = installFetch(200, { ok: true, data: { accepted: true, recipient_masked: '966*******63', message_reference: '…test-1', accepted_at: '2026-11-10T00:00:00Z', delivery_state: 'UNCONFIRMED' } })
 
     await expect(sendConstructionWhatsAppTest('966501234567', 'اختبار فقط')).resolves.toMatchObject({
-      messageId: 'wamid.test-1',
+      message_reference: '…test-1',
+      recipient_masked: '966*******63',
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [input, init] = fetchMock.mock.calls[0]!
-    expect(String(input)).toContain('/admin/whatsapp/send')
+    expect(String(input)).toContain('/api/construction/whatsapp/test-send')
     expect(init?.method).toBe('POST')
     expect(JSON.parse(String(init?.body))).toEqual({ to: '966501234567', body: 'اختبار فقط' })
   })

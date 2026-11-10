@@ -193,9 +193,19 @@ export function SettingsView({ navigate }: NavProps) {
         to,
         'السلام عليكم، هذه رسالة اختبار من فرق بناء لقناة واتساب. لا يلزم اتخاذ أي إجراء. شكرًا.',
       )
+      const whatsappStatus = await getConstructionWhatsAppStatus().catch(() => channels.whatsappStatus || null)
+      setChannels((current) => ({ ...current, whatsappStatus: whatsappStatus ? {
+        ...whatsappStatus,
+        receipts: { ...whatsappStatus.receipts, latest_send_state: result.delivery_state },
+        last_outbound_attempt: {
+          status: 'SENT', attempted_at: result.accepted_at, sent_at: result.accepted_at,
+          source: 'CLOUD_TEST', recipient_masked: result.recipient_masked,
+          message_reference: result.message_reference, delivery_state: result.delivery_state,
+        },
+      } : current.whatsappStatus }))
       setTestOutcome({
         kind: 'accepted',
-        text: `قبلت Meta الرسالة للإرسال. هذا لا يثبت وصولها. معرّف الرسالة: ${result.messageId}`,
+        text: `قبلت Meta الرسالة للإرسال إلى ${result.recipient_masked}. المرجع: ${result.message_reference}. الحالة: ${whatsappDeliveryEvidenceLabel(result.delivery_state, 'SENT', true)}.`,
       })
     } catch (err) {
       const uncertain = Boolean(
@@ -271,7 +281,10 @@ export function SettingsView({ navigate }: NavProps) {
             <>
               <div>مصادقة Webhook مهيّأة: {channels.whatsappStatus.webhook?.authentication_configured == null ? 'غير معروفة' : channels.whatsappStatus.webhook.authentication_configured ? 'نعم' : 'لا'}</div>
               <div>آخر محاولة إرسال: {formatEvidenceTime(channels.whatsappStatus.last_outbound_attempt?.attempted_at)}{channels.whatsappStatus.last_outbound_attempt?.status ? ` · ${channels.whatsappStatus.last_outbound_attempt.status}` : ''}</div>
+              {channels.whatsappStatus.last_outbound_attempt?.recipient_masked && <div>آخر مستلم: {channels.whatsappStatus.last_outbound_attempt.recipient_masked}</div>}
+              {channels.whatsappStatus.last_outbound_attempt?.source === 'CLOUD_TEST' && channels.whatsappStatus.last_outbound_attempt?.message_reference && <div>مرجع Meta: {channels.whatsappStatus.last_outbound_attempt.message_reference}</div>}
               <div>نتيجة أحدث إرسال: {whatsappDeliveryEvidenceLabel(channels.whatsappStatus.receipts?.latest_send_state, channels.whatsappStatus.last_outbound_attempt?.status, channels.whatsappStatus.receipts?.tracking_available)}</div>
+              {channels.whatsappStatus.last_outbound_attempt?.delivery_error_code != null && <div>رمز خطأ الإيصال: {channels.whatsappStatus.last_outbound_attempt.delivery_error_code}</div>}
               <div>آخر إيصال من Meta: {formatEvidenceTime(channels.whatsappStatus.receipts?.last_received_at)}</div>
               <div>آخر رد مربوط: {formatEvidenceTime(channels.whatsappStatus.last_inbound_at)}</div>
               <div>رسائل تنتظر ربطًا: {channels.whatsappStatus.unresolved_count == null ? 'غير معروفة' : channels.whatsappStatus.unresolved_count}</div>
@@ -311,7 +324,7 @@ export function SettingsView({ navigate }: NavProps) {
         </div>
       </Section>
 
-      <Section title="اختبار واتساب Cloud">
+      {user.role === 'ADMIN' ? <Section title="اختبار واتساب Cloud">
         <p className="text-xs text-neutral-600 leading-relaxed">
           يرسل رسالة نصية مباشرة من رقم فرق إلى الرقم أدناه؛ لا ينشئ طلب تسعير. قد تُحتسب الرسالة، والرسائل النصية الحرة تتطلب نافذة محادثة مفتوحة لدى Meta.
         </p>
@@ -343,7 +356,7 @@ export function SettingsView({ navigate }: NavProps) {
             {testOutcome.text}
           </div>
         )}
-      </Section>
+      </Section> : <Section title="اختبار واتساب Cloud"><p className="text-xs text-neutral-500">إرسال الاختبار متاح لمسؤول الشركة فقط.</p></Section>}
 
       {/* Company */}
       <Section title="الشركة">
