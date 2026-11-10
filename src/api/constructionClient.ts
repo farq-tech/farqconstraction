@@ -1,4 +1,5 @@
 import { platformReviewPath, getPlatformReviewScope } from './platformReviewScope'
+import { getNewSupplierLimit } from '../lib/newSupplierLimit'
 import { supplierDisplayName } from '../lib/presentationQuality'
 import { quoteCompleteness } from '../lib/quoteCompleteness'
 /**
@@ -3661,6 +3662,7 @@ export async function matchConstructionBoqCatalog(payload: {
     return { ...row, ontology_resolution: resolved }
   })
 
+  const externalCandidateLimit = getNewSupplierLimit()
   const data = await request<{
     /** «سجل العرض»: the id of this match call, sent back on each package the request creates. */
     exposure?: { id?: string; status?: string } | null
@@ -3709,7 +3711,13 @@ export async function matchConstructionBoqCatalog(payload: {
     headers: { 'Content-Type': 'application/json' },
     // `compact` asks the API to leave out the candidate items and long catalogue
     // texts this screen never renders: about a quarter of the bytes per call.
-    body: JSON.stringify({ rows, compact: true, ...(payload.delivery_city?.trim() ? { delivery_city: payload.delivery_city.trim() } : {}) }),
+    body: JSON.stringify({
+      rows,
+      compact: true,
+      ...(payload.delivery_city?.trim() ? { delivery_city: payload.delivery_city.trim() } : {}),
+      // The buyer's optional cap; an omitted value uses the server's bounded default.
+      ...(externalCandidateLimit != null ? { external_candidate_limit: externalCandidateLimit } : {}),
+    }),
     timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
   })
 
