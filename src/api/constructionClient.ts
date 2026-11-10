@@ -3319,11 +3319,13 @@ export function priorQuotesOf(s: Record<string, unknown>): number | undefined {
   return prior && Number.isFinite(n) && n > 0 ? n : undefined
 }
 
+const ACTIVITY_GRADE = 'على مستوى النشاط'
+
 /**
  * Suppliers attached to a SUGGESTION (map- or model-named). Never a confirmed
  * product match, so `rfq_eligible` is false and the badge names the source.
  */
-function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string, limit = 12) {
+export function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, evidence: string, limit = 12) {
   // One business listed twice (two directory rows, same name) is one choice,
   // not two. The server returns at most 12; all of them are listed so the
   // count on the card is the count the buyer can actually see.
@@ -3354,7 +3356,10 @@ function suggestionSuppliers(list: Array<Record<string, unknown>> | undefined, e
         name_ar: s.name_ar as string | undefined,
         name_en: s.name_en as string | undefined,
         city: (s.city as string | undefined) || undefined,
-        evidence,
+        // Keep the per-supplier grade from Farq. Replacing it with the lane
+        // label made activity/family fallbacks look like material matches and
+        // allowed them into automatic selections.
+        evidence: s.evidence === ACTIVITY_GRADE ? ACTIVITY_GRADE : evidence,
         learned: s.learned_choice === true,
         ...(fitReview?.verdict ? { fitReview: { verdict: fitReview.verdict, ...(fitReview.reason_code ? { reasonCode: fitReview.reason_code } : {}), ...(fitReview.reviewed_at ? { reviewedAt: fitReview.reviewed_at } : {}) } } : {}),
         prior_quotes: priorQuotesOf(s),
