@@ -97,6 +97,8 @@ export function SettingsView({ navigate }: NavProps) {
   const [testRecipient, setTestRecipient] = useState('')
   const [testSending, setTestSending] = useState(false)
   const [testOutcome, setTestOutcome] = useState<{ kind: 'accepted' | 'failed' | 'uncertain'; text: string } | null>(null)
+  const [whatsappStatusRefreshing, setWhatsappStatusRefreshing] = useState(false)
+  const [whatsappStatusRefreshNotice, setWhatsappStatusRefreshNotice] = useState<string | null>(null)
 
   /** Show who is actually signed in, not a placeholder. */
   useEffect(() => {
@@ -177,6 +179,27 @@ export function SettingsView({ navigate }: NavProps) {
   const showToast = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(null), 3000)
+  }
+
+  const refreshWhatsAppStatus = async () => {
+    if (whatsappStatusRefreshing) return
+    setWhatsappStatusRefreshing(true)
+    setWhatsappStatusRefreshNotice(null)
+    try {
+      const whatsappStatus = await getConstructionWhatsAppStatus()
+      setChannels((current) => ({ ...current, whatsappStatus }))
+      setWhatsappStatusRefreshNotice(
+        `تم تحديث حالة الإيصالات: ${whatsappDeliveryEvidenceLabel(
+          whatsappStatus.receipts?.latest_send_state,
+          whatsappStatus.last_outbound_attempt?.status,
+          whatsappStatus.receipts?.tracking_available,
+        )}.`,
+      )
+    } catch {
+      setWhatsappStatusRefreshNotice('تعذّر تحديث حالة الإيصالات الآن؛ حاول مرة أخرى.')
+    } finally {
+      setWhatsappStatusRefreshing(false)
+    }
   }
 
   const sendWhatsAppTest = async () => {
@@ -276,7 +299,18 @@ export function SettingsView({ navigate }: NavProps) {
           detail={whatsAppChannelDetail(channels.whatsapp ?? null, channels.metaReady ?? null)}
         />
         <div className="rounded-xl border border-neutral-100 bg-[#FAFAF8] px-3 py-3 space-y-1.5 text-[11px] text-neutral-600 leading-relaxed">
-          <div className="font-bold text-[#0D1F1D]">دليل نشاط WhatsApp لهذه الشركة</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="font-bold text-[#0D1F1D]">دليل نشاط WhatsApp لهذه الشركة</div>
+            <button
+              type="button"
+              onClick={() => void refreshWhatsAppStatus()}
+              disabled={whatsappStatusRefreshing}
+              className="shrink-0 font-bold text-[#123F3A] disabled:opacity-50"
+            >
+              {whatsappStatusRefreshing ? 'جارٍ التحديث…' : 'تحديث الإيصال'}
+            </button>
+          </div>
+          {whatsappStatusRefreshNotice && <div role="status">{whatsappStatusRefreshNotice}</div>}
           {channels.whatsappStatus ? (
             <>
               <div>مصادقة Webhook مهيّأة: {channels.whatsappStatus.webhook?.authentication_configured == null ? 'غير معروفة' : channels.whatsappStatus.webhook.authentication_configured ? 'نعم' : 'لا'}</div>
