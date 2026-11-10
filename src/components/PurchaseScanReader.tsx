@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { shrinkImage } from '../lib/cameraFrame'
+import { boqFileKind, type BoqFileKind } from '../lib/boqFileType'
 import { readBoqCsv } from '../lib/boqSpreadsheet'
 import { validCartQuantity } from '../lib/rfqCart'
 import { scanPurchaseRequest, type ScannedRequest } from '../api/constructionClient'
@@ -13,7 +14,15 @@ import { scanPurchaseRequest, type ScannedRequest } from '../api/constructionCli
 type Phase = 'camera' | 'reading' | 'review'
 type Page = { mime: string; base64: string; url: string; name?: string }
 
-const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+export type PurchaseScanFileKind = BoqFileKind | 'image'
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+/** Keep the camera import picker in sync with the main BOQ upload's formats. */
+export function purchaseScanFileKind(file: Pick<File, 'name' | 'type'>): PurchaseScanFileKind {
+  const kind = boqFileKind(file)
+  if (kind !== 'unsupported') return kind
+  return String(file.type || '').toLowerCase().startsWith('image/') ? 'image' : 'unsupported'
+}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -193,9 +202,10 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
         rejected = 'الحد الأقصى لحجم كل ملف 10 م.ب.'
         continue
       }
-      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-      const isXlsx = file.type === XLSX || /\.xlsx$/i.test(file.name)
-      const isCsv = /\.csv$/i.test(file.name) || /text\/csv/i.test(file.type)
+      const kind = purchaseScanFileKind(file)
+      const isPdf = kind === 'pdf'
+      const isXlsx = kind === 'xlsx'
+      const isCsv = kind === 'csv'
       if (isCsv) {
         if (files.length !== 1 || pages.length) {
           rejected = 'أضف ملف CSV وحده في قارئ المسح، أو استخدم رفع الكراسة لإضافة ملفات متعددة.'
@@ -217,11 +227,11 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
       }
       if (isPdf || isXlsx) {
         const base64 = await fileToBase64(file).catch(() => '')
-        if (base64) added.push({ mime: isPdf ? 'application/pdf' : XLSX, base64, url: '', name: file.name })
+        if (base64) added.push({ mime: isPdf ? 'application/pdf' : XLSX_MIME, base64, url: '', name: file.name })
         else rejected = `تعذرت قراءة ${file.name}. جرّب فتحه ثم حفظه من جديد.`
         continue
       }
-      if (!file.type.startsWith('image/')) {
+      if (kind !== 'image') {
         rejected = /\.xls$/i.test(file.name)
           ? 'احفظ جدول Excel بصيغة xlsx أو PDF ثم أعد المحاولة.'
           : `نوع الملف غير مدعوم: ${file.name}. اختر صورة أو PDF أو Excel بصيغة xlsx.`
