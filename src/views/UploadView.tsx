@@ -47,6 +47,7 @@ import ManualLinesPanel from '../components/rfqCart/ManualLinesPanel'
 import CartPanel from '../components/rfqCart/CartPanel'
 import PurchaseScanReader from '../components/PurchaseScanReader'
 import { readBoqCsv, readBoqExcel, selectBoqSheet, type BoqSpreadsheetWorkbook } from '../lib/boqSpreadsheet'
+import { boqFileKind } from '../lib/boqFileType'
 
 /**
  * Stages are driven by `parseBoqFile`'s real callbacks. They used to advance on
@@ -476,6 +477,7 @@ export function UploadView({ navigate }: NavProps) {
   }, [phase])
 
   const runProcessing = async (file: File, spreadsheet?: BoqSpreadsheetWorkbook) => {
+    const fileKind = boqFileKind(file)
     if (!deliveryCity.trim()) {
       setErrorMsg('اكتب مدينة التسليم قبل قراءة الكراسة ومطابقة الموردين.')
       return
@@ -562,7 +564,7 @@ export function UploadView({ navigate }: NavProps) {
             setAsideNote: facts.setAsideNote,
             setAsideRows: facts.setAsideRows,
             matchApiFailed: false,
-            source: /\.(csv|xlsx)$/i.test(file.name) ? 'spreadsheet' : 'pdf-table',
+            source: fileKind === 'csv' || fileKind === 'xlsx' ? 'spreadsheet' : 'pdf-table',
             descriptionColumnSuspect: facts.descriptionColumnSuspect,
             descriptionColumnDetail: facts.descriptionColumnDetail,
             codedItemsSuspect: facts.codedItemsSuspect,
@@ -712,7 +714,8 @@ export function UploadView({ navigate }: NavProps) {
     setPhase('idle')
     setErrorMsg('')
     setWorkbookChoice(null)
-    if (/\.xlsx$/i.test(file.name)) {
+    const kind = boqFileKind(file)
+    if (kind === 'xlsx') {
       try {
         const workbook = await readBoqExcel(file)
         if (!isCurrentSelection()) return
@@ -734,7 +737,7 @@ export function UploadView({ navigate }: NavProps) {
       }
       return
     }
-    if (/\.csv$/i.test(file.name)) {
+    if (kind === 'csv') {
       try {
         const workbook = await readBoqCsv(file)
         if (!isCurrentSelection()) return
@@ -745,7 +748,7 @@ export function UploadView({ navigate }: NavProps) {
       }
       return
     }
-    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+    if (kind === 'pdf') {
       void runProcessing(file)
       return
     }
