@@ -153,6 +153,8 @@ export interface BOQItem {
   origin?: 'booklet' | 'search' | 'url' | 'manual'
   /** Added or edited since the last supplier match; matched on «متابعة لاختيار الموردين». */
   needsMatch?: boolean
+  /** The match service failed before it could determine whether this line has suppliers. */
+  matchFailed?: boolean
   /**
    * What the internet said the product IS — for the buyer's cart only, never
    * sent and never a price. The line's name, spec and spec card carry what

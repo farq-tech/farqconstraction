@@ -209,6 +209,19 @@ describe('one cart, mixed sources', () => {
     expect(merged[1]!.needsMatch).toBeUndefined()
   })
 
+  it('keeps failed match rows eligible for retry and clears the warning after a successful response', () => {
+    const failed: BOQItem = {
+      ...bookletLine(9),
+      matchFailed: true,
+      needsMatch: true,
+    }
+    expect(linesToMatch([failed]).map((line) => line.id)).toEqual([9])
+    const recovered = mergeMatched([failed], [{ ...failed, matchFailed: undefined, needsMatch: undefined, farqSpecId: 'cement', status: 'ready', suppliers: [], supplierCount: 0 }])
+    expect(recovered[0]).toMatchObject({ farqSpecId: 'cement' })
+    expect(recovered[0]!.matchFailed).toBeUndefined()
+    expect(recovered[0]!.needsMatch).toBeUndefined()
+  })
+
   it('counts in Arabic', () => {
     expect(cartCountLabel(1)).toBe('بند واحد')
     expect(cartCountLabel(2)).toBe('بندان')

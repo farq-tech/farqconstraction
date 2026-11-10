@@ -455,7 +455,7 @@ export function removeCartLine(items: BOQItem[], id: number): BOQItem[] {
 /** Lines still to be matched with suppliers, as the matcher takes them. */
 export function linesToMatch(items: BOQItem[]): ParsedLine[] {
   return items
-    .filter((item) => item.needsMatch)
+    .filter((item) => item.needsMatch || item.matchFailed)
     .map((item) => ({ id: item.id, name: item.name, qty: item.qty, unit: item.unit, spec: item.spec }))
 }
 
@@ -482,6 +482,8 @@ export function mergeMatched(items: BOQItem[], matched: BOQItem[], retainedSelec
       supplierCount: suppliers.length,
       suppliers,
       farqSpecId: m.farqSpecId,
+      matchFailed: m.matchFailed,
+      needsMatch: m.matchFailed || undefined,
       lineKey: m.lineKey || item.lineKey,
       outcomeSuggestion: m.outcomeSuggestion,
       fitReviewSuggestion: m.fitReviewSuggestion,

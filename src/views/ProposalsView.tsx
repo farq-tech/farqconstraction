@@ -11,7 +11,8 @@ import {
   setSelections,
   subscribeSession,
 } from '../store/session'
-import { resolveBoqCardFields } from '../lib/parseBoq'
+import { matchSuppliersForItems, resolveBoqCardFields } from '../lib/parseBoq'
+import { mergeMatched } from '../lib/rfqCart'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
@@ -68,6 +69,7 @@ interface BOQCardProps {
   onSelectAll: () => void
   onClearAll: () => void
   onAddSupplier: (supplier: Supplier) => void
+  onRetryMatch: () => Promise<void>
   onRejectSupplier: (supplier: Supplier) => void
   /** Removes this line from the request. The parent offers an undo. */
   onDelete: () => void
@@ -244,6 +246,7 @@ function BOQCard({
   onSelectAll,
   onClearAll,
   onAddSupplier,
+  onRetryMatch,
   onRejectSupplier,
   onDelete,
   openAll,
@@ -261,6 +264,7 @@ function BOQCard({
   const [hitTotal, setHitTotal] = useState(0)
   const [searchingCatalog, setSearchingCatalog] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [retryingMatch, setRetryingMatch] = useState(false)
 
   const allIds = item.suppliers.map((s) => s.id)
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.includes(id))
@@ -272,7 +276,7 @@ function BOQCard({
   // material at all — in which case we never looked for a supplier and saying
   // «no supplier» would be a claim we did not earn. `farqSpecId` is set only
   // when the API resolved the line, so it is what separates the two.
-  const unresolved = isSearching && !item.farqSpecId
+  const unresolved = isSearching && !item.farqSpecId && !item.matchFailed
   const alreadyIds = useMemo(() => new Set(item.suppliers.map((s) => s.id)), [item.suppliers])
   // Suppliers dismissed on this card. They also leave the lists for good, server side.
   const [locallyHidden, setHiddenIds] = useState<Set<string>>(new Set())
@@ -498,6 +502,8 @@ function BOQCard({
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-semibold">
                 {item.workOnly
                   ? 'عمل بلا توريد'
+                  : item.matchFailed
+                  ? 'تعذّرت المطابقة — أعد المحاولة'
                   : unresolved
                   ? item.mapSuggestion
                     ? 'مادة معروفة — من خريطة فرق'
@@ -519,6 +525,8 @@ function BOQCard({
             {isSearching
               ? item.workOnly
                 ? 'عمل موقع لا مادة تُشترى — لا يُطلب من مورد'
+                : item.matchFailed
+                ? 'لم يكتمل فحص الموردين — أعد المحاولة'
                 : unresolved
                 ? item.mapSuggestion
                   ? item.mapSuggestion.supplierCount > 0
@@ -815,7 +823,23 @@ function BOQCard({
             <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 rounded-xl px-3 py-2.5">
               {unresolved
                 ? 'لم نربط هذا البند بمادة معروفة، فلم نبحث له عن موردين. ابحث في دليل الموردين يدويًا أو راجع نص البند في الكراسة.'
+                : item.matchFailed
+                ? 'تعذّر الاتصال بخدمة المطابقة لهذا البند؛ لم نحدد بعد إن كان له موردون. أعد المحاولة أو أضف موردًا يدويًا.'
                 : 'لا يوجد مورد مؤكد لهذه المادة في الكتالوج. لا بحث جارٍ الآن — أضف موردًا من دليل الموردين إن كنت تعرف واحدًا.'}
+              {item.matchFailed && (
+                <button
+                  type="button"
+                  disabled={retryingMatch}
+                  onClick={async (event) => {
+                    event.stopPropagation()
+                    setRetryingMatch(true)
+                    try { await onRetryMatch() } finally { setRetryingMatch(false) }
+                  }}
+                  className="mr-2 font-bold text-[#123F3A] underline disabled:opacity-50"
+                >
+                  {retryingMatch ? 'جارٍ إعادة المطابقة…' : 'إعادة المطابقة'}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -940,6 +964,16 @@ export function ProposalsView({ navigate }: NavProps) {
       items: nextItems,
       documentId: session.documentId,
     })
+  }
+
+  const retryLineMatch = async (id: number) => {
+    const line = getBoqItems().find((item) => item.id === id)
+    if (!line) return
+    const result = await matchSuppliersForItems([{ id: line.id, name: line.name, qty: line.qty, unit: line.unit, spec: line.spec }], { deliveryCity: getSession().matchingCity })
+    const latest = getBoqItems()
+    const next = mergeMatched(latest, result.items, getSelections())
+    persistItems(next)
+    if (result.matchApiError) announce(`تعذّرت إعادة المطابقة: ${result.matchApiError}`)
   }
 
   // Every tick, untick and «غير مناسب» is a verdict the API replays on the next
@@ -1155,6 +1189,8 @@ export function ProposalsView({ navigate }: NavProps) {
           suppliers,
           supplierCount: suppliers.length,
           status: 'ready' as const,
+          matchFailed: undefined,
+          needsMatch: undefined,
           // The buyer naming a supplier outranks the reader's «عمل بلا توريد».
           workOnly: undefined,
         }
@@ -1398,6 +1434,7 @@ export function ProposalsView({ navigate }: NavProps) {
                     onSelectAll={() => selectAll(item.id)}
                     onClearAll={() => clearAll(item.id)}
                     onAddSupplier={(supplier) => addSupplierToItem(item.id, supplier)}
+                    onRetryMatch={() => retryLineMatch(item.id)}
                     onRejectSupplier={(supplier) => rejectSupplier(item.id, supplier)}
                     onDelete={() => deleteItem(item.id)}
                     openAll={openAll}
