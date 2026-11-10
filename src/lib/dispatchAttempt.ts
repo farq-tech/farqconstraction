@@ -1,6 +1,7 @@
 export type DispatchAttemptEvidence = {
   channel: string
   status: string
+  message_type?: string | null
   sent_at?: string | null
   attempted_at?: string | null
   failure_code?: string | null
@@ -84,13 +85,16 @@ export function offerDeliverySummaryLabel(
   attempts: readonly DispatchAttemptEvidence[] | null | undefined,
   fallbackLabel: string,
 ): string {
-  const latestWhatsApp = latestDispatchAttempt(attempts, 'WHATSAPP')
+  const inviteAttempts = (attempts || []).filter(
+    (attempt) => String(attempt.message_type || 'RFQ').toUpperCase() === 'RFQ',
+  )
+  const latestWhatsApp = latestDispatchAttempt(inviteAttempts, 'WHATSAPP')
   if (!latestWhatsApp) return fallbackLabel
 
   const receipt = String(latestWhatsApp.provider_delivery?.state || '').toUpperCase()
   if (deliveryAttemptFailed(latestWhatsApp)) {
     const undelivered = receipt === 'FAILED' ? 'لم تصل عبر واتساب' : 'تعذر إرسال واتساب'
-    const anotherChannelReached = (attempts || []).some(
+    const anotherChannelReached = inviteAttempts.some(
       (attempt) => attempt.channel !== 'WHATSAPP' && deliveryAttemptReached(attempt),
     )
     return anotherChannelReached ? `أُرسل عبر قناة أخرى؛ ${undelivered}` : undelivered

@@ -76,6 +76,14 @@ describe('dispatch attempt evidence', () => {
     ], 'أُرسل')).toBe('أُرسل عبر قناة أخرى؛ لم تصل عبر واتساب')
   })
 
+  it('ignores AWARD attempts when summarizing RFQ delivery', () => {
+    expect(offerDeliverySummaryLabel([
+      { channel: 'WHATSAPP', status: 'SENT', message_type: 'RFQ', provider_delivery: { state: 'FAILED' } },
+      { channel: 'WHATSAPP', status: 'SENT', message_type: 'AWARD', provider_delivery: { state: 'DELIVERED' } },
+      { channel: 'EMAIL', status: 'SENT', message_type: 'AWARD' },
+    ], 'أُرسل')).toBe('لم تصل عبر واتساب')
+  })
+
   it.each([
     ['READ', 'قرأها المورد عبر واتساب'],
     ['DELIVERED', 'وصلت إلى المورد عبر واتساب'],
