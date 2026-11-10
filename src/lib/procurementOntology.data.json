@@ -1,5 +1,5 @@
 {
- "version": "cpo-v57",
+ "version": "cpo-v59",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -34882,7 +34882,13 @@
       "anchor bolt",
       "anchor stud",
       "anchor bolts M16",
-      "مسمار تثبيت انكر"
+      "مسمار تثبيت انكر",
+      "chemical anchor stud",
+      "chemical anchor bolt",
+      "كيميكال انكر مسمار",
+      "انكر كيميكال مسمار",
+      "كيميكال انكر بولت",
+      "انكر كيميكال بولت"
      ]
     },
     {
@@ -44130,17 +44136,16 @@
        "terms": [
         "chemical anchor",
         "chemical anchoring",
-        "resin anchor",
-        "epoxy anchor adhesive"
+        "كيميكال انكر",
+        "انكر كيميكال"
        ],
        "block_any": [
         "stud",
         "bolt",
-        "anchor stud",
-        "anchor bolt",
+        "مسمار",
         "مسمار تثبيت"
        ],
-       "note": "cpo-v56: stud/bolt hardware is a mechanical anchor even when the description also says chemical anchor; rod references alone do not suppress an adhesive product."
+       "note": "cpo-v58: veto only base chemical-anchor aliases when hardware is named; explicit resin and adhesive product names remain eligible when they mention compatible fasteners."
       }
      ]
     },
