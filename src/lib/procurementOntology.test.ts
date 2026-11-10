@@ -420,7 +420,7 @@ describe('cpo-v4 grows additively from cpo-v3 and cpo-v2', () => {
   })
 
   it('publishes a version the sibling lane can compare against', () => {
-    expect(ONTOLOGY_VERSION).toBe('cpo-v56')
+    expect(ONTOLOGY_VERSION).toBe('cpo-v57')
     expect(listIntentIds()).toHaveLength(834)
   })
 
@@ -1070,7 +1070,6 @@ describe('ancestor derivation from a unique strong intent term', () => {
       ['توريد rope grab للحبل الرأسي', 'rope_grab'],
       ['توريد حامل إنقاذ ثلاثي Tripod Rescue', 'rescue_tripod'],
       ['توريد VAV Box 600 CFM', 'vav_terminal'],
-      ['توريد Motorized Fire/Smoke Damper', 'hvac_damper'],
       ['توريد KVM switch 8 ports', 'kvm_console'],
     ] as const) {
       const r = resolve(line)

@@ -34,6 +34,9 @@ it('keeps firestop sealant in its specific sealant product pool', () => {
 it.each([
  ['Polyurethane waterproof coating', 'liquid_waterproofing', 'waterproofing'],
  ['Galvanized HVAC duct 0.8mm', 'galvanized_ductwork', 'hvac_equipment'],
+ ['fire smoke damper', 'fire_smoke_damper', 'hvac_equipment'],
+ ['سموك دامبر', 'fire_smoke_damper', 'hvac_equipment'],
+ ['بوابه حديد مدخل', 'entrance_gate', 'industrial_doors'],
  ['Anchor bolt M16x200mm', 'mechanical_anchor', 'fasteners'],
  ['Chemical Anchor Stud M5x20', 'mechanical_anchor', 'fasteners'],
  ['Chemical anchor bolt M16', 'mechanical_anchor', 'fasteners'],

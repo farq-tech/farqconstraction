@@ -1,5 +1,5 @@
 {
- "version": "cpo-v56",
+ "version": "cpo-v57",
  "note": "Compositional Procurement Ontology. Four EXPLICIT levels: sector -> family -> category -> intent. Terms are three-tier (strong decides / weak+context decides / weak alone never decides) and inherit down the chain. Veto is declared at sector or family level and inherited; an intent only adds its own exceptions. FACETS carry all variation (dimensions, grades, capacities, model numbers) and each declares supplier_pool_affecting, which sibling caches key on. Never add an entry per product SKU. IDs in this file are NOT a hardcodable list: consumers must read them through listIntentIds()/listFamilyIds()/listOntologyIds() (or scripts/ontology-ids.mjs) and compare ontology_version, because intents split and any copied list rots silently. This file must stay byte-identical between farqconstraction/src/lib and farq/api/lib/construction.",
  "morphology_rule": {
   "note": "ARABIC INFLECTION, TREATED AS A CLASS. Three rounds in a row lost an intent to Arabic morphology and each was closed on its own — «باب خشب / خشبي», «اسمني / اسمنتي», «امبير» absent while `a` was present. The distinction that closes them together is the one the language itself makes, and it is recorded here because it governs how every term in this payload matches.",
@@ -5261,6 +5261,10 @@
       "بوابه حديد سحاب",
       "بوابه حديد منزلقه",
       "بوابه حديد مفصليه",
+      "بوابه حديد مدخل",
+      "بوابه حديديه مدخل",
+      "بوابات حديد مدخل",
+      "بوابات حديديه مدخل",
       "بوابه مدخل",
       "بوابات مدخل",
       "بوابه المدخل",
@@ -18754,6 +18758,12 @@
      "strong_terms": [
       "fire damper",
       "fire dampers",
+      "fire smoke damper",
+      "smoke damper",
+      "سموك دامبر",
+      "فاير اند سموك دامبر",
+      "دامبر حريق",
+      "دامبر دخان",
       "curtain fire damper",
       "combination fire smoke damper",
       "ul555 damper",
@@ -31160,6 +31170,7 @@
       {
        "id": "rope_grab",
        "label_ar": "ماسك الحبل",
+       "supplier_evidence_rule": "intent_strong_required",
        "strong_terms": [
         "rope grab",
         "ماسك حبل",
@@ -31183,6 +31194,7 @@
       {
        "id": "rescue_tripod",
        "label_ar": "حوامل الإنقاذ الثلاثية",
+       "supplier_evidence_rule": "intent_strong_required",
        "strong_terms": [
         "rescue tripod",
         "tripod rescue",
@@ -31239,6 +31251,7 @@
       {
        "id": "rescue_winch",
        "label_ar": "أوناش الإنقاذ",
+       "supplier_evidence_rule": "intent_strong_required",
        "strong_terms": [
         "rescue winch",
         "ونش انقاذ",
@@ -31264,6 +31277,7 @@
       {
        "id": "rescue_kit",
        "label_ar": "أطقم الإنقاذ",
+       "supplier_evidence_rule": "intent_strong_required",
        "strong_terms": [
         "rescue kit",
         "طقم انقاذ",
