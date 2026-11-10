@@ -7,6 +7,18 @@ export type DispatchAttemptEvidence = {
   provider_delivery?: { state?: string; at?: string | null }
 }
 
+/** Prevent a fast double click from starting two retry batches before React rerenders. */
+export function acquireDispatchLock(lock: { current: boolean }): (() => void) | null {
+  if (lock.current) return null
+  lock.current = true
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    lock.current = false
+  }
+}
+
 const ACCEPTED_INVITE_DELIVERY_STATES = new Set([
   'SENT',
   'PARTIALLY_SENT',
