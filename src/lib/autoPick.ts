@@ -128,12 +128,12 @@ function specialistsFirst(lane: Supplier[], context?: PickContext): Supplier[] {
 /**
  * How sure we are that this supplier sells this line's material.
  *
- *   SURE     he priced it in a round, the buyer chose him
- *            before, or the map's reason is his NAME or REGISTERED ACTIVITY
- *            naming the material — and he is not in another city
+ *   SURE     he previously priced this material, has direct product evidence,
+ *            or the map's reason is his NAME or REGISTERED ACTIVITY naming it
  *   LIKELY   the map confirmed the material some other way («نشاط متطابق»:
  *            the line's own word in his name, Haraj tags)
- *   MAYBE    «مورد محتمل»: his trade only
+ *   MAYBE    a broad trade suggestion, a buyer-choice preference without
+ *            independent fit evidence, or a supplier outside the delivery city
  */
 export type Confidence = 'SURE' | 'LIKELY' | 'MAYBE'
 
