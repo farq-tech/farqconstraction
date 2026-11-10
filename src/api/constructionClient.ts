@@ -1071,7 +1071,7 @@ export async function getConstructionWhatsAppStatus() {
 }
 
 export async function getConstructionMe() {
-  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string; request_scope?: ConstructionRequestScope; permissions?: { view_actual_supplier_counts?: boolean; view_all_company_booklets?: boolean } }>(
+  return request<{ user_id?: string; scope_owner_user_id?: string; role?: string; request_scope?: ConstructionRequestScope; permissions?: { view_actual_supplier_counts?: boolean; view_all_company_booklets?: boolean; review_unowned_whatsapp_arrivals?: boolean } }>(
     '/api/construction/me',
   )
 }
@@ -2279,6 +2279,69 @@ export async function setConstructionInboxThreadsVisibility(inviteIds: string[],
 
 /** An email the server could not tie to a request, but that reads like a supplier's answer. */
 export type ConstructionUnresolvedKind = 'email' | 'whatsapp'
+
+export type PlatformWhatsAppArrivalSummary = {
+  id: string
+  state: 'AMBIGUOUS' | string
+  revision: number
+  ingested_at: string
+  occurred_at?: string | null
+  candidate_count: number
+}
+
+export type PlatformWhatsAppArrivalDetail = {
+  arrival: {
+    id: string
+    state: 'AMBIGUOUS' | string
+    revision: number
+    ingested_at: string
+    occurred_at?: string | null
+    text: string | null
+    media_available: boolean
+  }
+  candidates: Array<{
+    invite_id: string
+    rfq_id: string
+    company_id: string
+    project_name?: string | null
+    request_reference?: string | null
+    supplier_name_ar?: string | null
+    supplier_name_en?: string | null
+    response_status?: string | null
+    sent_by_whatsapp: boolean
+    phone_matches: boolean
+  }>
+}
+
+export async function listPlatformWhatsAppArrivals() {
+  return request<{ arrivals: PlatformWhatsAppArrivalSummary[]; has_more: boolean }>(
+    '/api/construction/inbox/platform/whatsapp/unresolved',
+  )
+}
+
+export async function getPlatformWhatsAppArrival(arrivalId: string) {
+  return request<PlatformWhatsAppArrivalDetail>(
+    `/api/construction/inbox/platform/whatsapp/unresolved/${encodeURIComponent(arrivalId)}`,
+  )
+}
+
+export async function resolvePlatformWhatsAppArrival(arrivalId: string, inviteId: string, expectedRevision: number, reason: string) {
+  return request<{ resolved: boolean; company_id: string; rfq_id: string; invite_id: string; media_attachment_state: string | null }>(
+    `/api/construction/inbox/platform/whatsapp/unresolved/${encodeURIComponent(arrivalId)}/resolve`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invite_id: inviteId, expected_revision: expectedRevision, reason }),
+    },
+  )
+}
+
+export async function retryPlatformWhatsAppArrivalMedia(arrivalId: string) {
+  return request<{ media_attachment_state: string }>(
+    `/api/construction/inbox/platform/whatsapp/unresolved/${encodeURIComponent(arrivalId)}/media/retry`,
+    { method: 'POST' },
+  )
+}
 
 export type ConstructionUnresolvedArrival = {
   id: string
