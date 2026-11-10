@@ -3662,6 +3662,7 @@ export async function matchConstructionBoqCatalog(payload: {
     return { ...row, ontology_resolution: resolved }
   })
 
+  const externalCandidateLimit = getNewSupplierLimit()
   const data = await request<{
     /** «سجل العرض»: the id of this match call, sent back on each package the request creates. */
     exposure?: { id?: string; status?: string } | null
@@ -3714,8 +3715,8 @@ export async function matchConstructionBoqCatalog(payload: {
       rows,
       compact: true,
       ...(payload.delivery_city?.trim() ? { delivery_city: payload.delivery_city.trim() } : {}),
-      // The buyer's own cap on new evidence-backed suppliers per line; absent = no cap.
-      ...(getNewSupplierLimit() != null ? { external_candidate_limit: getNewSupplierLimit() } : {}),
+      // The buyer's optional cap; an omitted value uses the server's bounded default.
+      ...(externalCandidateLimit != null ? { external_candidate_limit: externalCandidateLimit } : {}),
     }),
     timeoutMs: CONSTRUCTION_BOQ_MATCH_TIMEOUT_MS,
   })

@@ -1,5 +1,5 @@
 import { loadCompanyProfile } from '../lib/companyProfile'
-import { getNewSupplierLimit, setNewSupplierLimit } from '../lib/newSupplierLimit'
+import { getNewSupplierLimit, MAX_NEW_SUPPLIER_LIMIT, setNewSupplierLimit } from '../lib/newSupplierLimit'
 import { useState, useRef, useEffect } from 'react'
 import { autoPickConfident, buildPickContext } from '../lib/autoPick'
 import type { NavProps, BOQItem } from '../types'
@@ -860,15 +860,18 @@ export function UploadView({ navigate }: NavProps) {
         }} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2" />
       </label>}
       {phase === 'idle' && <label className="block mb-4 text-sm text-neutral-600">حد الموردين الجدد لكل بند
-        <input type="number" inputMode="numeric" min={0} step={1} placeholder="بلا حد" value={newSupplierLimit} disabled={continuing} onChange={e => {
+        <input type="number" inputMode="numeric" min={0} max={MAX_NEW_SUPPLIER_LIMIT} step={1} placeholder="حد الخدمة الافتراضي" value={newSupplierLimit} disabled={continuing} onChange={e => {
           const text = e.target.value
-          setNewSupplierLimitText(text)
           const n = Number(text)
-          setNewSupplierLimit(text.trim() === '' || !Number.isInteger(n) || n < 0 ? null : n)
+          const limit = text.trim() === '' || !Number.isInteger(n) || n < 0
+            ? null
+            : Math.min(n, MAX_NEW_SUPPLIER_LIMIT)
+          setNewSupplierLimitText(limit == null ? text : String(limit))
+          setNewSupplierLimit(limit)
           const current = getBoqItems()
           if (current.length) setCartItems(current.map(item => ({ ...item, needsMatch: true })), newCartDocumentId)
         }} className="mt-1 w-full border border-neutral-200 rounded-xl px-3 py-2" />
-        <span className="block mt-1 text-xs text-neutral-500">موردون ما راسلناهم قبل، ويطلعون لأن عندهم دليل إنهم يبيعون المنتج نفسه. اتركها فاضية عشان يطلعون كلهم.</span>
+        <span className="block mt-1 text-xs text-neutral-500">عدد الموردين الجدد المدعومين بدليل مباشر على المنتج. أدخل من 0 إلى 100؛ اتركه فارغًا لاستخدام الحد الافتراضي الذي يطبقه الخادم.</span>
       </label>}
       {phase === 'idle' && pendingCityFile && <button type="button" disabled={!deliveryCity.trim()} onClick={() => {
         const file = pendingCityFile
