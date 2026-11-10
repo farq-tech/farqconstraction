@@ -111,6 +111,19 @@ describe("BOQ spreadsheet intake", () => {
     ])
   })
 
+  it("finds a BOQ table after project preamble rows and chooses its delimiter", () => {
+    const preamble = Array.from(
+      { length: 20 },
+      (_, i) => `معلومات المشروع,القيمة ${i + 1}`,
+    ).join("\n")
+    const sheet = parseBoqCsv(
+      `${preamble}\nاسم البند;الكمية;الوحدة\nمواسير;12;متر`,
+    ).sheets[0]!
+    expect(sheet.error).toBeNull()
+    expect(sheet.lines).toHaveLength(1)
+    expect(sheet.lines[0]?.name).toBe("مواسير")
+  })
+
   it("does not mis-detect delimiters when the CSV title contains a quoted newline", () => {
     const sheet = parseBoqCsv(
       '"ملخص الكراسة\nنسخة للتسعير"\nاسم البند;الكمية;الوحدة\nمضخة;2;عدد',

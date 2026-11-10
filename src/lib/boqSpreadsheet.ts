@@ -23,6 +23,7 @@ export const BOQ_CSV_MAX_BYTES = 10 * 1024 * 1024
 export const BOQ_XLSX_MAX_BYTES = 10 * 1024 * 1024
 const BOQ_XLSX_MAX_UNPACKED_BYTES = 30 * 1024 * 1024
 const BOQ_XLSX_MAX_SHEETS = 30
+const BOQ_HEADER_SEARCH_ROWS = 100
 const BOQ_MAX_ROWS = 50_000
 const BOQ_MAX_COLUMNS = 200
 const BOQ_MAX_CELL_CHARS = 20_000
@@ -120,7 +121,7 @@ function parseGrid(name: string, grid: SheetCell[][]): BoqSpreadsheetSheet {
   let headerIndex = -1
   let columns: Columns | null = null
   let headers: string[] = []
-  for (let i = 0; i < Math.min(grid.length, 15); i += 1) {
+  for (let i = 0; i < Math.min(grid.length, BOQ_HEADER_SEARCH_ROWS); i += 1) {
     const mapped = mapHeader(grid[i] || [])
     if (
       mapped.columns.name >= 0 &&
@@ -218,13 +219,21 @@ function detectCsvDelimiter(text: string): string {
   // Supplier and BOQ exports often start with a title row before the real
   // headers. Score several logical rows so that preambles cannot make us pick
   // commas by default for an otherwise tab- or semicolon-separated file.
-  const sample = csvSample(text, 12)
+  const sample = csvSample(text, BOQ_HEADER_SEARCH_ROWS)
   const scored = [",", ";", "\t"].map((delimiter) => {
     try {
-      const rows = parseCsvGrid(sample, delimiter).slice(0, 12)
+      const rows = parseCsvGrid(sample, delimiter).slice(
+        0,
+        BOQ_HEADER_SEARCH_ROWS,
+      )
       const useful = rows.filter((row) => row.length > 1)
+      const hasBoqHeader = rows.some((row) => {
+        const columns = mapHeader(row).columns
+        return columns.name >= 0 && columns.quantity >= 0 && columns.unit >= 0
+      })
       return {
         delimiter,
+        hasBoqHeader,
         score: useful.length * 100 + useful.reduce((sum, row) => sum + row.length, 0),
       }
     } catch (error) {
@@ -234,10 +243,15 @@ function detectCsvDelimiter(text: string): string {
       ) {
         throw error
       }
-      return { delimiter, score: -1 }
+      return { delimiter, hasBoqHeader: false, score: -1 }
     }
   })
-  return scored.sort((a, b) => b.score - a.score)[0]?.delimiter || ","
+  return (
+    scored.sort(
+      (a, b) =>
+        Number(b.hasBoqHeader) - Number(a.hasBoqHeader) || b.score - a.score,
+    )[0]?.delimiter || ","
+  )
 }
 
 function csvSample(text: string, maxRows: number): string {
