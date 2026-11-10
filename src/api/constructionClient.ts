@@ -1856,6 +1856,8 @@ export type SendRfqInviteOptions = {
   sendConsent?: boolean
   /** The account holder confirmed the paid WhatsApp send from Farq's number. */
   whatsappPaid?: boolean
+  /** Attempt WhatsApp before email when retrying a refused Cloud delivery. */
+  preferWhatsApp?: boolean
   /** Required (=1) when sending a single Haraj seller invite. */
   harajLimit?: number
   /** Override default 45s — Haraj pacing needs more headroom. */
@@ -1968,6 +1970,7 @@ export async function sendConstructionRfqInvite(
     body.haraj_limit = options.harajLimit
   }
   if (options.whatsappPaid) body.whatsapp_paid = true
+  if (options.preferWhatsApp) body.prefer_whatsapp = true
   if (options.retry) body.retry = true
   return request<ConstructionRfq>(
     `/api/construction/rfqs/${encodeURIComponent(rfqId)}/invites/${encodeURIComponent(inviteId)}/send`,

@@ -6,6 +6,7 @@ import type {
   ProviderDelivery,
 } from "../api/constructionClient"
 import { isHeldOffer, vatStatusLabel } from "./priceReview"
+import { shouldRetryWhatsAppPaid as hasRetryableWhatsAppRefusal } from "./dispatchAttempt"
 
 /**
  * The request as one deal file: every figure here is read from what the server
@@ -214,6 +215,15 @@ export function supplierState(
     label: "لم يُرسل",
     cls: "bg-amber-50 text-amber-700",
   }
+}
+
+/** A paid Cloud retry is only useful while the supplier still owes a reply. */
+export function canRetryWhatsAppPaid(
+  invite: ConstructionInvitation,
+  awardedInviteId?: string | null,
+): boolean {
+  return supplierState(invite, awardedInviteId).key === "FAILED"
+    && hasRetryableWhatsAppRefusal(invite)
 }
 
 export type Progress = {

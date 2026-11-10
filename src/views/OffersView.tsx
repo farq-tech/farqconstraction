@@ -16,6 +16,7 @@ import {
 } from '../api/constructionClient'
 import { rfqProjectName } from '../lib/rfqIdentity'
 import { cleanSupplierName } from '../lib/supplierName'
+import { deliveryAttemptFailed, deliveryAttemptReached } from '../lib/dispatchAttempt'
 
 const STATUS_CONF = {
   complete: { label: 'مكتمل المعلومات', className: 'bg-[#CFF5DC] text-[#1a7a45]' },
@@ -104,7 +105,7 @@ export function OffersView({ navigate }: NavProps) {
           const rank = (row: (typeof mapped)[number]) => {
             if (row.status === 'complete') return 0
             if (row.status === 'partial') return 1
-            if ((row.dispatchAttempts || []).some((a) => a.status === 'SENT')) return 2
+            if ((row.dispatchAttempts || []).some(deliveryAttemptReached)) return 2
             return 3
           }
           return rank(a) - rank(b)
@@ -139,7 +140,7 @@ export function OffersView({ navigate }: NavProps) {
     if (rowFilter === 'pending') return rows.filter((o) => o.status === 'pending')
     if (rowFilter === 'sent') {
       return rows.filter((o) =>
-        (o.dispatchAttempts || []).some((a) => a.status === 'SENT' || a.status === 'DELIVERED'),
+        (o.dispatchAttempts || []).some(deliveryAttemptReached),
       )
     }
     return rows
@@ -344,14 +345,14 @@ export function OffersView({ navigate }: NavProps) {
                           <span
                             key={`${a.channel}-${a.sent_at || idx}`}
                             className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                              a.status === 'SENT' || a.status === 'DELIVERED'
+                              deliveryAttemptReached(a)
                                 ? 'bg-[#e0efec] text-[#123F3A]'
-                                : a.status === 'FAILED'
+                                : deliveryAttemptFailed(a)
                                   ? 'bg-red-50 text-red-700'
                                   : 'bg-neutral-100 text-neutral-500'
                             }`}
                           >
-                            {formatAttempt(a.channel, a.status)}
+                            {formatAttempt(a.channel, deliveryAttemptFailed(a) ? 'FAILED' : a.status)}
                             {a.sent_at
                               ? ` · ${new Date(a.sent_at).toLocaleString('en-GB', {
                                   dateStyle: 'short',

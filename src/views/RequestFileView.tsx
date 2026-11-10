@@ -42,12 +42,14 @@ import SupplierPlanPanel from "../components/SupplierPlanPanel"
 import { SUPPLIER_MATCH_V2_SERVICE } from "../lib/supplierPlan"
 import { WEB_DISCOVERY_SERVICE } from "../lib/webAlternatives"
 import { EQUIVALENTS_SERVICE } from "../lib/brandEquivalence"
+import { latestDispatchAttempt } from "../lib/dispatchAttempt"
 import { useServices } from "../api/useServices"
 import MarketNameNote from "../components/MarketNameNote"
 import { bookletText, lineMarketName } from "../lib/marketName"
 import {
   CELL_LABEL,
   buildTimeline,
+  canRetryWhatsAppPaid,
   groupTimeline,
   formatEventTime,
   formatMoney,
@@ -441,7 +443,37 @@ export function RequestFileView({
     setResending(invite.id)
     setNotice(null)
     try {
-      if (invitePreferredChannel(invite) === "WHATSAPP") {
+      if (invitePreferredChannel(invite) === "WHATSAPP" || canRetryWhatsAppPaid(invite, awardedInviteId)) {
+        if (canRetryWhatsAppPaid(invite, awardedInviteId)) {
+          const updated = await sendConstructionRfqInvite(rfq.id, invite.id, {
+            retry: true,
+            sendConsent: false,
+            whatsappPaid: true,
+            preferWhatsApp: true,
+          })
+          setRfq(updated)
+          const after = (updated.invitations || []).find((row) => row.id === invite.id)
+          const attempt = latestDispatchAttempt(after?.dispatch_attempts, "WHATSAPP")
+          if (attempt?.status === "SENT" && attempt.provider_delivery?.state !== "FAILED") {
+            const confirmed = ["DELIVERED", "READ"].includes(String(attempt.provider_delivery?.state || ""))
+            setNotice({
+              tone: "ok",
+              text: confirmed
+                ? `أُعيد إرسال WhatsApp Cloud إلى ${nameOfSupplier(invite.supplier_id)} وأكد Meta وصولها.`
+                : `قبلت Meta إعادة إرسال WhatsApp Cloud إلى ${nameOfSupplier(invite.supplier_id)}؛ ننتظر إيصال التسليم.`,
+            })
+          } else {
+            setNotice({
+              tone: "bad",
+              text: `تعذرت إعادة الإرسال عبر WhatsApp Cloud${attempt?.failure_code ? ` — ${friendlyFailure(attempt.failure_code)}` : "؛ راجع حالة المحاولة قبل إعادة الإرسال."}`,
+            })
+          }
+          if (outcomes !== null)
+            getConstructionSupplierOutcomes(rfq.id)
+              .then((result) => setOutcomes(result.events || []))
+              .catch(() => {})
+          return
+        }
         const link = await prepareConstructionWhatsAppLink(rfq.id, invite.id)
         setNotice({tone:"ok",text:"جُهزت رسالة واتساب؛ أكمل إرسالها من الرابط. لم تُرسل تلقائيًا.",url:link.url})
         return
@@ -1114,7 +1146,7 @@ export function RequestFileView({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {(st.key === "FAILED" || st.key === "NOT_SENT") && (
+                    {(st.key === "FAILED" || st.key === "NOT_SENT" || canRetryWhatsAppPaid(invite, awardedInviteId)) && (
                       <button
                         disabled={resending === invite.id}
                         onClick={() => resend(invite)}
@@ -1122,7 +1154,7 @@ export function RequestFileView({
                       >
                         {resending === invite.id
                           ? "جارٍ الإرسال…"
-                          : st.key === "NOT_SENT" ? "إرسال الطلب" : "إعادة الإرسال"}
+                          : canRetryWhatsAppPaid(invite, awardedInviteId) ? "إعادة إرسال Cloud (قد تُحتسب)" : st.key === "NOT_SENT" ? "إرسال الطلب" : "إعادة الإرسال"}
                       </button>
                     )}
                     <button
