@@ -222,3 +222,30 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   }
   return chosen
 }
+
+/**
+ * Count unique suppliers shown on the proposal card, not only the automatic
+ * pick lane. Personal preferences are visible for manual choice, while AI and
+ * family boxes are hidden whenever a stronger map/AI box already exists.
+ */
+export function visibleSupplierCandidateCount(item: BOQItem): number {
+  const rejected = new Set(item.rejectedSupplierIds || [])
+  const boxed = [
+    item.preferredSuggestion?.suppliers || [],
+    item.fitReviewSuggestion?.suppliers || [],
+    item.learnedSuggestion?.suppliers || [],
+    item.outcomeSuggestion?.suppliers || [],
+    item.mapSuggestion?.suppliers || [],
+    ...(!item.mapSuggestion ? [item.aiSuggestion?.suppliers || []] : []),
+    ...(!item.mapSuggestion && !item.aiSuggestion ? [item.familySuggestion?.suppliers || []] : []),
+  ]
+  const boxedIds = new Set(boxed.flatMap((lane) => lane.map((supplier) => supplier?.id).filter((id): id is string => Boolean(id))))
+  const visibleIds = new Set<string>()
+  for (const supplier of boxed.flat()) {
+    if (supplier?.id && !rejected.has(supplier.id)) visibleIds.add(supplier.id)
+  }
+  for (const supplier of item.suppliers || []) {
+    if (supplier?.id && !boxedIds.has(supplier.id) && !rejected.has(supplier.id)) visibleIds.add(supplier.id)
+  }
+  return visibleIds.size
+}

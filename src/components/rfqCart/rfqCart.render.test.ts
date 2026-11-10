@@ -134,6 +134,20 @@ describe('CartPanel', () => {
     expect(html).toContain('1 موردًا مقترحًا')
     expect(html).not.toContain('بلا مورد')
   })
+  it('counts only the unique candidates shown in proposal lanes, including the buyer preference lane', () => {
+    const supplier = (id: string) => ({ id, name: id, city: 'الرياض', channel: 'بريد' as const, evidence: 'خريطة فرق' as const })
+    const line: BOQItem = {
+      ...booklet,
+      supplierCount: 0,
+      suppliers: [supplier('catalogue')],
+      preferredSuggestion: { suppliers: [supplier('preferred')] },
+      mapSuggestion: { intent: 'ppr_pipe', supplierCount: 1, suppliers: [supplier('map')] },
+      aiSuggestion: { intent: 'ppr_pipe', supplierCount: 1, suppliers: [supplier('hidden-ai')] },
+      familySuggestion: { suppliers: [supplier('hidden-family')], family: 'pipes_fittings' },
+    }
+    const html = renderToStaticMarkup(createElement(CartPanel, { items: [line], busy: false, error: '', onEdit: noop, onRemove: noop, onContinue: noop }))
+    expect(html).toContain('3 موردًا مقترحًا')
+  })
   it('empty: says how to start and cannot continue', () => {
     const html = renderToStaticMarkup(
       createElement(CartPanel, { items: [], busy: false, error: '', onEdit: noop, onRemove: noop, onContinue: noop }),

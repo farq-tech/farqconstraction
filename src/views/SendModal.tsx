@@ -34,7 +34,7 @@ import {
   buildRfqPackagesFromSelection,
   dominantEngineeringDepartment,
 } from '../lib/rfqPackages'
-import { collectSelectedRecipients, unavailableHarajRecipientIds } from '../lib/sendRecipientSelection'
+import { collectSelectedRecipients, selectedSupplyItems, unselectedSupplyItemCount, unavailableHarajRecipientIds } from '../lib/sendRecipientSelection'
 import { useProcurement } from '../procurementContext'
 import { farqSession } from '../api/farqSession'
 import { companyBrand } from '../lib/companyBranding'
@@ -257,8 +257,8 @@ export function SendModal({
   }
 
   // Work with nothing to buy is never put in front of a supplier.
-  const unselectedItems = items.filter(i => !i.workOnly && !(selectedByItem[i.id] || []).length).length
-  const readyItems = items.filter((i) => !i.workOnly && (selectedByItem[i.id] || []).length > 0)
+  const unselectedItems = unselectedSupplyItemCount(items, selectedByItem)
+  const readyItems = selectedSupplyItems(items, selectedByItem)
   const selectedSupplierIds = [...new Set(readyItems.flatMap((i) => selectedByItem[i.id] || []))]
 
   // Everything that must stop a send is decided BEFORE the button, where the

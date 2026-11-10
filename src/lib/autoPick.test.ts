@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter, sameMaterial } from './autoPick'
+import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter, sameMaterial, visibleSupplierCandidateCount } from './autoPick'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -305,5 +305,31 @@ describe('«من قائمتك المفضلة» (preferred suppliers)', () => {
   it('a line without a preferred lane picks exactly as before', () => {
     const plain = line(10, 'cable_accessories', [sup('خريطة-1'), sup('محتمل', 'على مستوى النشاط')])
     expect(autoPickConfident(plain).map((s) => s.id)).toEqual(['خريطة-1'])
+  })
+})
+
+describe('visible supplier candidate count', () => {
+  it('counts visible preferred/map/catalogue candidates once and ignores hidden AI/family or rejected rows', () => {
+    const map = sup('map', 'على مستوى النشاط')
+    const preferred = sup('preferred', 'على مستوى النشاط')
+    const rejected = sup('rejected', 'خريطة فرق')
+    const item = line(20, 'pipes_fittings', [map, rejected], {
+      preferredSuggestion: { suppliers: [preferred, map] },
+      mapSuggestion: { intent: 'pipe', family: 'pipes_fittings', supplierCount: 1, suppliers: [map, rejected] },
+      aiSuggestion: { intent: 'pipe', family: 'pipes_fittings', supplierCount: 1, suppliers: [sup('hidden-ai')] },
+      familySuggestion: { suppliers: [sup('hidden-family')], family: 'pipes_fittings' },
+      suppliers: [map, rejected, sup('catalogue')],
+      rejectedSupplierIds: ['rejected'],
+    })
+
+    expect(visibleSupplierCandidateCount(item)).toBe(3)
+  })
+
+  it('shows the family fallback only when neither map nor AI suggestion is displayed', () => {
+    const family = line(21, 'pipes_fittings', [], {
+      mapSuggestion: undefined,
+      familySuggestion: { suppliers: [sup('family-only')], family: 'pipes_fittings' },
+    })
+    expect(visibleSupplierCandidateCount(family)).toBe(1)
   })
 })
