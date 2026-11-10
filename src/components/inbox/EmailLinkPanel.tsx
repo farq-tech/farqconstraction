@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   getConstructionEmailLinkTargets,
   linkConstructionArrival,
+  linkConstructionTestReplySupplier,
   listConstructionUnresolvedArrivals,
   type ConstructionUnresolvedKind,
   type ConstructionEmailLink,
@@ -156,13 +157,14 @@ function EmailCard({
 }) {
   const p = item.preview
   const files = p?.files || []
+  const operatorTestReply = item.evidence?.reason === 'WHATSAPP_OPERATOR_TEST_REPLY'
   const suggested = item.candidates.filter((c) => c.supplier_name_ar).map((c) => c.supplier_name_ar)
   return (
     <div className={`bg-white border rounded-2xl p-4 ${note ? 'border-[#CFF5DC] opacity-70' : 'border-neutral-100'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-bold text-[#0D1F1D] truncate" dir="auto">
-            {p?.subject || (kind === 'whatsapp' ? 'رسالة واتساب غير مربوطة' : 'بلا عنوان')}
+            {operatorTestReply ? 'رد على اختبار WhatsApp Cloud' : p?.subject || (kind === 'whatsapp' ? 'رسالة واتساب غير مربوطة' : 'بلا عنوان')}
           </div>
           <div className="text-[11px] text-neutral-500 mt-0.5" dir="ltr">
             {p?.sender || '—'}
@@ -192,7 +194,15 @@ function EmailCard({
           {item.candidates.length > 1 ? ` — ${item.candidates.length} طلبات مفتوحة` : ''}
         </p>
       )}
-      {note ? (
+      {operatorTestReply ? (
+        <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+          رد على اختبار Cloud{item.evidence?.test_send_reference ? ` (${item.evidence.test_send_reference})` : ''}. لا يرتبط بطلب شراء أو دعوة أو عرض سعر.
+          {item.evidence?.supplier_link_state === 'AUTO_MATCHED' && <p className="mt-1 font-semibold">تمت مطابقة ملف المورد تلقائيًا برقم فريد.</p>}
+          {item.evidence?.supplier_link_state === 'MANUAL_REVIEWED' && <p className="mt-1 font-semibold">تم ربط الرد بملف المورد بعد المراجعة.</p>}
+          {note && <p className="mt-1 font-semibold">{note}</p>}
+          {!note && !item.evidence?.supplier_link_state && <TestReplySupplierPicker item={item} onLinked={(label) => onLinked(`رُبط الرد بملف المورد ${label} دون طلب شراء.`)} />}
+        </div>
+      ) : note ? (
         <p className="text-xs text-[#1a7a45] font-semibold mt-3">{note}</p>
       ) : (
         <div className="mt-3">
@@ -209,6 +219,37 @@ function EmailCard({
       )}
     </div>
   )
+}
+
+function TestReplySupplierPicker({ item, onLinked }: { item: ConstructionEmailLink; onLinked: (label: string) => void }) {
+  const [targets, setTargets] = useState<ConstructionEmailLinkTargets | null>(null)
+  const [supplierId, setSupplierId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    getConstructionEmailLinkTargets(item.id).then((value) => alive && setTargets(value)).catch((err) => alive && setError(err instanceof Error ? err.message : 'تعذّر تحميل الموردين'))
+    return () => { alive = false }
+  }, [item.id])
+  const suppliers = targets?.supplier_candidates || []
+  const submit = async () => {
+    if (!supplierId || busy) return
+    setBusy(true); setError(null)
+    try {
+      const result = await linkConstructionTestReplySupplier(item.id, supplierId, item.revision)
+      if (!result.resolved || !result.supplier_only) throw new Error('لم يؤكد الخادم ربط الرد بملف المورد.')
+      const supplier = suppliers.find((row) => row.supplier_id === supplierId)
+      onLinked(supplier?.name_ar || supplier?.name_en || 'المورد')
+    } catch (err) { setError(err instanceof Error ? err.message : 'تعذّر الربط') }
+    finally { setBusy(false) }
+  }
+  return <div className="mt-2 space-y-2">
+    {suppliers.length > 0 ? <>
+      <label className="block"><span className="sr-only">اختر ملف المورد</span><select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-2 py-2 text-xs text-neutral-800"><option value="">اختر ملف المورد للمراجعة</option>{suppliers.map((supplier) => <option key={supplier.supplier_id} value={supplier.supplier_id}>{supplier.name_ar || supplier.name_en || 'مورد'}</option>)}</select></label>
+      <button type="button" disabled={!supplierId || busy} onClick={() => void submit()} className="rounded-lg bg-[#123F3A] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">{busy ? 'جارٍ الربط…' : 'ربط بملف المورد فقط'}</button>
+    </> : <p className="mt-1">{targets ? 'لا يوجد تطابق فريد؛ بقي الرد للمراجعة دون ربط.' : 'جارٍ التحقق من الموردين…'}</p>}
+    {error && <p role="alert" className="text-red-800">{error}</p>}
+  </div>
 }
 
 function LinkPicker({ kind, item, onLinked }: { kind: ConstructionUnresolvedKind; item: ConstructionEmailLink; onLinked: (note: string) => void }) {
