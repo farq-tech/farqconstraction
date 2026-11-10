@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { shrinkImage } from '../lib/cameraFrame'
+import { readBoqCsv } from '../lib/boqSpreadsheet'
 import { validCartQuantity } from '../lib/rfqCart'
 import { scanPurchaseRequest, type ScannedRequest } from '../api/constructionClient'
 
@@ -23,6 +24,19 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 type Row = { name: string; qty: string; unit: string; spec: string }
+
+export async function readCsvDraftRows(file: File): Promise<Row[]> {
+  const workbook = await readBoqCsv(file)
+  const sheet = workbook.sheets[workbook.selected]
+  if (!sheet || sheet.error) throw new Error(sheet?.error || 'لم نجد ورقة عمل قابلة للقراءة.')
+  if (!sheet.lines.length) throw new Error('لم نجد بنودًا قابلة للقراءة في ملف CSV.')
+  return sheet.lines.map((line) => ({
+    name: line.name,
+    qty: line.qty,
+    unit: normalizeUnit(line.unit),
+    spec: line.spec || '',
+  }))
+}
 
 const LIME = '#a3e635'
 const BRAND = '#123f3a'
@@ -181,6 +195,26 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
       }
       const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
       const isXlsx = file.type === XLSX || /\.xlsx$/i.test(file.name)
+      const isCsv = /\.csv$/i.test(file.name) || /text\/csv/i.test(file.type)
+      if (isCsv) {
+        if (files.length !== 1 || pages.length) {
+          rejected = 'أضف ملف CSV وحده في قارئ المسح، أو استخدم رفع الكراسة لإضافة ملفات متعددة.'
+          break
+        }
+        try {
+          const csvRows = await readCsvDraftRows(file)
+          setRead(null)
+          setProject('')
+          setReference('')
+          setRows(csvRows)
+          setPhase('review')
+          setError(null)
+        } catch (error) {
+          setError(error instanceof Error ? error.message : `تعذرت قراءة ${file.name}.`)
+        }
+        if (fileRef.current) fileRef.current.value = ''
+        return
+      }
       if (isPdf || isXlsx) {
         const base64 = await fileToBase64(file).catch(() => '')
         if (base64) added.push({ mime: isPdf ? 'application/pdf' : XLSX, base64, url: '', name: file.name })
@@ -188,8 +222,8 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
         continue
       }
       if (!file.type.startsWith('image/')) {
-        rejected = /\.xls$|\.csv$/i.test(file.name)
-          ? 'احفظ جدول Excel أو CSV بصيغة xlsx أو PDF ثم أعد المحاولة.'
+        rejected = /\.xls$/i.test(file.name)
+          ? 'احفظ جدول Excel بصيغة xlsx أو PDF ثم أعد المحاولة.'
           : `نوع الملف غير مدعوم: ${file.name}. اختر صورة أو PDF أو Excel بصيغة xlsx.`
         continue
       }
@@ -245,7 +279,7 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
     const last = pages[pages.length - 1]
     return (
       <div className="fixed inset-0 z-[100] bg-[#010101] text-white overflow-hidden" dir="rtl">
-        <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple className="hidden" onChange={(e) => void fromFiles(e.target.files)} />
+        <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf,.xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple className="hidden" onChange={(e) => void fromFiles(e.target.files)} />
         {phase === 'camera' ? (
           <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 w-full h-full object-cover" />
         ) : (
@@ -312,7 +346,7 @@ export default function PurchaseScanReader({ onClose, onDraft }: { onClose: () =
               <span className="flex-1 text-[12.5px]">{camera === 'denied' ? 'تم رفض إذن الكاميرا — يمكنك تفعيله من الإعدادات' : 'الكاميرا غير متاحة الآن'}</span>
             </div>
             <div className="flex items-center justify-between mt-2.5 px-1">
-              <button onClick={() => fileRef.current?.click()} className="text-[13px] font-semibold text-[#78350f]">أو اختر صورة أو ملف PDF أو Excel</button>
+              <button onClick={() => fileRef.current?.click()} className="text-[13px] font-semibold text-[#78350f]">أو اختر صورة أو PDF أو Excel أو CSV</button>
               {camera === 'denied' && (
                 <button onClick={() => { window.location.href = 'app-settings:' }} className="h-[39px] px-3 rounded-xl bg-white border border-[#e5e5e5] text-[13px] font-bold" style={{ color: BRAND }}>
                   فتح الإعدادات
