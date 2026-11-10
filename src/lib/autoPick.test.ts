@@ -55,17 +55,55 @@ describe('buildPickContext', () => {
 
 describe('sameMaterial feedback scope', () => {
   it('links the same catalogue item even when line intents differ', () => {
-    const byIntent = line(1, 'paints', [], { farqSpecId: 'spec-7' })
-    const byOtherIntent = line(2, 'primers', [], { farqSpecId: 'spec-7' })
+    const byIntent = line(1, 'paints', [], { name: 'دهان داخلي', spec: 'مطفي', farqSpecId: 'spec-7' })
+    const byOtherIntent = line(2, 'primers', [], { name: 'دهان داخلي', spec: 'مطفي', farqSpecId: 'spec-7' })
     expect(sameMaterial(byIntent, byOtherIntent)).toBe(true)
   })
 
+  it('does not propagate a buyer choice across different specs of the same catalogue family', () => {
+    const diameter25 = line(1, 'pipes', [], {
+      name: 'ماسورة PPR',
+      spec: 'قطر 25 مم — PN20',
+      farqSpecId: 'PPR-PIPE-PN20',
+      specCard: { dimensions: '25 مم', standard: 'PN20' },
+    })
+    const diameter50 = line(2, 'pipes', [], {
+      name: 'ماسورة PPR',
+      spec: 'قطر 50 مم — PN20',
+      farqSpecId: 'PPR-PIPE-PN20',
+      specCard: { dimensions: '50 مم', standard: 'PN20' },
+    })
+
+    expect(sameMaterial(diameter25, diameter50)).toBe(false)
+  })
+
+  it('does not propagate across structured brand or dimension constraints absent from the line text', () => {
+    const requestedBrand = line(1, 'pipes', [], {
+      name: 'ماسورة PPR',
+      farqSpecId: 'PPR-PIPE-PN20',
+      specCard: { brand: 'A', dimensions: '25 مم' },
+    })
+    const differentBrand = line(2, 'pipes', [], {
+      name: 'ماسورة PPR',
+      farqSpecId: 'PPR-PIPE-PN20',
+      specCard: { brand: 'B', dimensions: '25 مم' },
+    })
+
+    expect(sameMaterial(requestedBrand, differentBrand)).toBe(false)
+  })
+
   it('links matching intent when one line lacks a catalogue id, but never links by family alone', () => {
-    const mapped = line(1, 'paints', [], { mapSuggestion: { intent: 'paint_x', family: 'paints', supplierCount: 0, suppliers: [] } })
-    const aiOnly = line(2, 'primers', [], { mapSuggestion: undefined, aiSuggestion: { intent: 'paint_x', family: 'paints', supplierCount: 0, suppliers: [] } })
-    const otherIntent = line(3, 'paints', [], { mapSuggestion: { intent: 'primer_x', family: 'paints', supplierCount: 0, suppliers: [] } })
+    const mapped = line(1, 'paints', [], { name: 'دهان داخلي', spec: 'مطفي', mapSuggestion: { intent: 'paint_x', family: 'paints', supplierCount: 0, suppliers: [] } })
+    const aiOnly = line(2, 'primers', [], { name: 'دهان داخلي', spec: 'مطفي', mapSuggestion: undefined, aiSuggestion: { intent: 'paint_x', family: 'paints', supplierCount: 0, suppliers: [] } })
+    const otherIntent = line(3, 'paints', [], { name: 'دهان داخلي', spec: 'مطفي', mapSuggestion: { intent: 'primer_x', family: 'paints', supplierCount: 0, suppliers: [] } })
     expect(sameMaterial(mapped, aiOnly)).toBe(true)
     expect(sameMaterial(mapped, otherIntent)).toBe(false)
+  })
+
+  it('normalizes harmless Arabic spelling and multiplication-sign differences', () => {
+    const first = line(1, 'pipes', [], { name: 'ماسورة PPR', spec: '40 × 25 مم', farqSpecId: 'spec-7' })
+    const second = line(2, 'pipes', [], { name: 'ماسورة PPR', spec: '40 x 25 مم', farqSpecId: 'spec-7' })
+    expect(sameMaterial(first, second)).toBe(true)
   })
 })
 

@@ -30,8 +30,48 @@ function materialKeyOf(item: BOQItem): string | null {
   )
 }
 
+function identityText(value: unknown): string {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/[×✕]/g, 'x')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * A catalogue item can represent a product family with several purchasable
+ * specifications (for example PPR pipe PN20 at diameters 20–50 mm). Reuse a
+ * buyer's selection or rejection only when the buyer-facing line identity and
+ * its structured technical constraints also agree.
+ */
+function sameLineIdentity(a: BOQItem, b: BOQItem): boolean {
+  if (!identityText(a.name) || identityText(a.name) !== identityText(b.name)) return false
+  if (identityText(a.spec) !== identityText(b.spec)) return false
+
+  const identityFields = [
+    'brand',
+    'any_approved_brand',
+    'standard',
+    'grade',
+    'dimensions',
+    'thickness',
+    'length',
+    'material',
+    'finish',
+    'sale_units',
+  ] as const
+  return identityFields.every((field) =>
+    JSON.stringify(a.specCard?.[field] ?? null) === JSON.stringify(b.specCard?.[field] ?? null),
+  )
+}
+
 /** Whether two lines are the same exact material for buyer feedback propagation. */
 export function sameMaterial(a: BOQItem, b: BOQItem): boolean {
+  if (!sameLineIdentity(a, b)) return false
   if (a.farqSpecId && a.farqSpecId === b.farqSpecId) return true
   const intentsA = [a.mapSuggestion?.intent, a.aiSuggestion?.intent].filter((value): value is string => Boolean(value))
   const intentsB = new Set([b.mapSuggestion?.intent, b.aiSuggestion?.intent].filter((value): value is string => Boolean(value)))
