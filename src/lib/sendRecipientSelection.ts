@@ -7,6 +7,21 @@ export type SelectedRecipient = {
   lines: number
 }
 
+/** Only supply lines with at least one explicitly selected supplier enter an RFQ. */
+export function selectedSupplyItems<T extends Pick<BOQItem, 'id' | 'workOnly'>>(
+  items: readonly T[],
+  selectedByItem: Record<number, string[]>,
+): T[] {
+  return items.filter((item) => !item.workOnly && (selectedByItem[item.id] || []).length > 0)
+}
+
+export function unselectedSupplyItemCount(
+  items: readonly Pick<BOQItem, 'id' | 'workOnly'>[],
+  selectedByItem: Record<number, string[]>,
+): number {
+  return items.filter((item) => !item.workOnly && !(selectedByItem[item.id] || []).length).length
+}
+
 /** Aggregate selected suppliers while retaining their IDs for channel filtering. */
 export function collectSelectedRecipients(
   items: readonly Pick<BOQItem, "id" | "suppliers">[],

@@ -902,6 +902,19 @@ export type ParseBoqResult = {
   codedItemsDetail?: string
 }
 
+export function missingSpecificationWarning(
+  source: ParseBoqResult['source'],
+  pending: number,
+  total: number,
+  demo: boolean,
+): string {
+  if (source !== 'pdf-table' || pending <= 0) return ''
+  if (demo) {
+    return `لم تُستخرج المواصفات الفنية لـ ${pending} من ${total} بندًا. استخراجها عبر خادم فرق يتطلب تسجيل الدخول. الكميات والوحدات قُرئت من الجدول؛ راجع المقاس والبراند قبل الإرسال.`
+  }
+  return `لا توجد مواصفات تفصيلية مستخرجة لـ ${pending} من ${total} بندًا. قُرئت الكميات والوحدات من الجدول، لكن المقاس والبراند غير متاحين في هذه البنود؛ راجعها وأضف تفاصيلها قبل الإرسال.`
+}
+
 /**
  * Share of rows that must share their name before the description column is
  * called into question. Item names are near-unique per row; category labels are
@@ -1870,12 +1883,7 @@ async function parseBoqFileInner(
   // owner was told a 6-second window was at fault when he simply had no
   // session: the extraction runs on the server, so with no session it never
   // started rather than ran late.
-  const specNote =
-    source === 'pdf-table' && specsPending > 0
-      ? currentAuthMode() === 'demo'
-        ? `المواصفات الفنية لم تُستخرج (${specsPending} من ${lines.length} بندًا): استخراجها يجري على خادم فرق ويحتاج تسجيل دخول. الكميات والوحدات مقروءة بالكامل من الكراسة نفسها.`
-        : `لا توجد مواصفات تفصيلية مستخرجة لـ ${specsPending} من ${lines.length} بندًا. طُوبقت هذه البنود بالنص المقروء والكمية والوحدة؛ راجع المقاس والبراند قبل الإرسال، ويمكنك إضافة التفاصيل بتعديل البند.`
-      : ''
+  const specNote = missingSpecificationWarning(source, specsPending, lines.length, currentAuthMode() === 'demo')
   const expectedLineCount = spreadsheetSheet?.expectedRows ?? (usedTable ? table!.expectedCount : null)
   const unreadableLineCount = spreadsheetSheet?.issues.length ?? (usedTable ? unreadableCount(table!) : 0)
   const readIssues = spreadsheetSheet?.issues ?? (usedTable ? table!.issues.map((issue) => issue.detail) : [])

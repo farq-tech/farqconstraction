@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import type { BOQItem } from '../../types'
 import { cartCountLabel, safeImageUrl, validCartQuantity } from '../../lib/rfqCart'
-import { autoPickFor } from '../../lib/autoPick'
+import { visibleSupplierCandidateCount } from '../../lib/autoPick'
 import { specCardSummary } from '../../lib/specCard'
 
 const ORIGIN_LABEL: Record<NonNullable<BOQItem['origin']>, string> = {
@@ -41,7 +41,7 @@ function CartLine({
   const [draft, setDraft] = useState({ name: item.name, qty: item.qty, unit: item.unit, spec: item.spec || '' })
   const image = safeImageUrl(item.productRef?.imageUrl)
   const card = specCardSummary(item.specCard)
-  const candidateCount = autoPickFor(item, Number.POSITIVE_INFINITY).length
+  const candidateCount = visibleSupplierCandidateCount(item)
   const matched = !item.needsMatch && (item.origin === undefined || item.origin === 'booklet' || item.supplierCount > 0)
   return (
     <div className="px-3 py-3 flex items-start gap-3 text-right" data-line={item.id}>
