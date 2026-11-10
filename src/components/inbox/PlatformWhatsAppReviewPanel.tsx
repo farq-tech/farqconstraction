@@ -223,7 +223,9 @@ export default function PlatformWhatsAppReviewPanel() {
                     }`}
                   >
                     <span className="block text-sm font-bold text-[#0D1F1D]">
-                      رسالة واردة · {row.candidate_count} احتمالات
+                      {row.state === "NO_MATCH"
+                        ? "رسالة غير مرتبطة بطلب"
+                        : `رسالة واردة · ${row.candidate_count} احتمالات`}
                     </span>
                     <span className="mt-1 block text-[11px] text-neutral-500">
                       وصلت {formatTime(row.occurred_at || row.ingested_at)}
@@ -310,11 +312,18 @@ export default function PlatformWhatsAppReviewPanel() {
 
                     <section className="space-y-3">
                       <h3 className="text-sm font-black text-[#0D1F1D]">
-                        الطلبات المرشحة · لا يظهر الرقم المرسل
+                        {selected.arrival.state === "NO_MATCH"
+                          ? "دعوات مفتوحة للمورد المطابق برقم الهاتف"
+                          : "الطلبات المرشحة · لا يظهر الرقم المرسل"}
                       </h3>
+                      {selected.candidates.length === 0 && (
+                        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                          لا يوجد مورد بدعوة مفتوحة يطابق رقم المرسل في الدليل. لا يمكن ربط الرسالة تلقائيًا؛ تحقّق من بيانات المورد ثم حدّث القائمة.
+                        </p>
+                      )}
                       {selected.candidates.map((candidate) => {
-                        const safe =
-                          candidate.sent_by_whatsapp && candidate.phone_matches
+                        const safe = candidate.phone_matches &&
+                          (selected.arrival.state === "NO_MATCH" || candidate.sent_by_whatsapp)
                         return (
                           <article
                             key={candidate.invite_id}
@@ -349,7 +358,9 @@ export default function PlatformWhatsAppReviewPanel() {
                                 >
                                   {candidate.sent_by_whatsapp
                                     ? "دعوة WhatsApp مسجلة كمرسلة"
-                                    : "لا يوجد إرسال WhatsApp مسجل"}{" "}
+                                    : selected.arrival.state === "NO_MATCH"
+                                      ? "اقتراح من تطابق رقم المورد؛ راجع محتوى الرسالة قبل الربط"
+                                      : "لا يوجد إرسال WhatsApp مسجل"}{" "}
                                   ·{" "}
                                   {candidate.phone_matches
                                     ? "الرقم مطابق"
