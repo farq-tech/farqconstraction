@@ -56,3 +56,16 @@ export async function getRfqCreateIdempotencyKey(payload: unknown, now = Date.no
   }
   return key
 }
+
+/** Remove a confirmed create so a later intentional identical RFQ gets a fresh key. */
+export async function clearRfqCreateIdempotencyKey(payload: unknown, key: string): Promise<void> {
+  const storageKey = `${KEY_PREFIX}${await fingerprint(payload)}`
+  try {
+    const existing = sessionStorage.getItem(storageKey)
+    if (!existing) return
+    const parsed = JSON.parse(existing) as { key?: unknown }
+    if (parsed.key === key) sessionStorage.removeItem(storageKey)
+  } catch {
+    // The RFQ is already confirmed; disabled storage must not affect the flow.
+  }
+}

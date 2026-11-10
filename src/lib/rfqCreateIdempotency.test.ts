@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { getRfqCreateIdempotencyKey } from "./rfqCreateIdempotency"
+import { clearRfqCreateIdempotencyKey, getRfqCreateIdempotencyKey } from "./rfqCreateIdempotency"
 
 describe("RFQ create idempotency key", () => {
   let entries: Map<string, string>
@@ -9,6 +9,7 @@ describe("RFQ create idempotency key", () => {
     vi.stubGlobal("sessionStorage", {
       getItem: (key: string) => entries.get(key) ?? null,
       setItem: (key: string, value: string) => entries.set(key, value),
+      removeItem: (key: string) => entries.delete(key),
       clear: () => entries.clear(),
     })
   })
@@ -26,5 +27,15 @@ describe("RFQ create idempotency key", () => {
     const first = await getRfqCreateIdempotencyKey(payload, 1_000)
 
     expect(await getRfqCreateIdempotencyKey(payload, 1_000 + 24 * 60 * 60 * 1000)).not.toBe(first)
+  })
+
+  it("starts a fresh key after a confirmed create while reusing the key until cleared", async () => {
+    const payload = { lines: [{ name: "كيبل", quantity: 12 }] }
+    const first = await getRfqCreateIdempotencyKey(payload, 1_000)
+    expect(await getRfqCreateIdempotencyKey(payload, 2_000)).toBe(first)
+
+    await clearRfqCreateIdempotencyKey(payload, first)
+
+    expect(await getRfqCreateIdempotencyKey(payload, 3_000)).not.toBe(first)
   })
 })
