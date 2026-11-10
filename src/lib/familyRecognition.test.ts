@@ -35,6 +35,8 @@ it.each([
  ['Polyurethane waterproof coating', 'liquid_waterproofing', 'waterproofing'],
  ['Galvanized HVAC duct 0.8mm', 'galvanized_ductwork', 'hvac_equipment'],
  ['Anchor bolt M16x200mm', 'mechanical_anchor', 'fasteners'],
+ ['Chemical Anchor Stud M5x20', 'mechanical_anchor', 'fasteners'],
+ ['Chemical anchor bolt M16', 'mechanical_anchor', 'fasteners'],
  ['Wedge anchor M16', 'mechanical_anchor', 'fasteners'],
  ['Mechanical anchor', 'mechanical_anchor', 'fasteners'],
  ['Chemical anchor resin', 'anchoring_epoxy', 'concrete_admixtures'],
