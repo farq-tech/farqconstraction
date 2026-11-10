@@ -142,7 +142,10 @@ export function confidenceOf(s: Supplier): Confidence {
   // A buyer's prior quote-fit confirmation is useful context, but it does not
   // confirm today's availability or authorize a new RFQ without selection.
   if (s.fitReview?.verdict === 'QUOTE_MISMATCHED' || s.fitReview?.verdict === 'QUOTE_MATCHED') return 'MAYBE'
-  if (s.learned || isPriorQuoter(s)) return 'SURE'
+  // A prior quote is direct evidence that the supplier priced this material.
+  // A prior buyer choice is only a preference: the server marks that lane
+  // review_required and must not be treated as proof of technical fit.
+  if (isPriorQuoter(s)) return 'SURE'
   // A question or clarification also counts as ANSWERED; a reply alone
   // does not establish that the supplier sells the requested material.
   if (s.roundOutcome?.grade === 'PRICED') return 'SURE'
@@ -174,8 +177,8 @@ export function autoPickConfident(item: BOQItem, context?: PickContext): Supplie
   const score = (s: Supplier) => ({ SURE: 2, LIKELY: 1, MAYBE: 0 })[confidenceOf(s)]
   const candidates = [
     ...(item.fitReviewSuggestion?.suppliers || []),
-    ...(item.learnedSuggestion?.suppliers || []).map(s => ({ ...s, learned: true })),
-    ...lanesOf(item).flat(),
+    ...(item.learnedSuggestion?.suppliers || []).map(s => ({ ...s, evidence: 'اختيارك' as const })),
+    ...lanesOf(item).flatMap((lane, index) => index === 1 ? [] : lane),
   ]
   for (const s of candidates) {
     if (!s?.id) continue

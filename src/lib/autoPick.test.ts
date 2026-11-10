@@ -210,10 +210,23 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
     expect(autoPickConfident(item)).toEqual([])
     expect(autoPickFor(item).map(s => s.id)).toEqual(['same'])
   })
-  it('recognizes the buyer-choice lane without a redundant learned flag', () => {
-    const item = line(10, 'cement', [], { learnedSuggestion: { suppliers: [wa('chosen', { evidence: 'اختيارك' })] } })
-    expect(autoPickConfident(item).map(s => s.id)).toEqual(['chosen'])
+  it('keeps a buyer-choice hint for manual review without treating it as product-fit proof', () => {
+    // The API can return the learned supplier without `evidence`; the client
+    // mapper's neutral fallback is «من الكتالوج», which must not upgrade this
+    // review-only lane into automatic technical-fit evidence.
+    const item = line(10, 'cement', [], { learnedSuggestion: { suppliers: [wa('chosen', { evidence: 'من الكتالوج', learned: true })] } })
+    expect(autoPickFor(item).map(s => s.id)).toEqual(['chosen'])
+    expect(autoPickConfident(item)).toEqual([])
     expect(autoPickConfident({ ...item, rejectedSupplierIds: ['chosen'] })).toEqual([])
+  })
+  it('keeps independent product evidence eligible when the same supplier was also chosen before', () => {
+    const item = line(25, 'cement', [wa('choice-with-proof', { evidence: 'دليل منتج', learned: true })], {
+      learnedSuggestion: { suppliers: [
+        wa('choice-only', { evidence: 'من الكتالوج', learned: true }),
+        wa('choice-with-proof', { evidence: 'من الكتالوج', learned: true }),
+      ] },
+    })
+    expect(autoPickConfident(item).map(s => s.id)).toEqual(['choice-with-proof'])
   })
   it('keeps exact-line fit confirmations as suggestions without auto-picking them', () => {
     const matched = { ...wa('confirmed'), fitReview: { verdict: 'QUOTE_MATCHED' as const } }
