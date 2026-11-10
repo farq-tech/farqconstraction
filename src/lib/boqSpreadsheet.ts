@@ -102,9 +102,14 @@ function normalizeQuantity(raw: string): string | null {
     .replace(/[\s\u00a0]/g, "")
     .replace(/[٬']/g, "")
     .replace("٫", ".")
-  if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(value))
+  // Excel exports in comma-decimal locales (for example `1.234,5`) use dots
+  // for grouping and commas for the decimal mark. Handle that before the
+  // simpler decimal-comma case below or a valid quantity becomes `1.234.5`.
+  if (/^\d{1,3}(\.\d{3})+,\d+$/.test(value)) {
+    value = value.replace(/\./g, "").replace(",", ".")
+  } else if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(value)) {
     value = value.replace(/,/g, "")
-  else if (value.includes(",")) value = value.replace(",", ".")
+  } else if (value.includes(",")) value = value.replace(",", ".")
   if (!/^\d+(\.\d+)?$/.test(value)) return null
   const number = Number(value)
   return Number.isFinite(number) && number > 0 ? String(number) : null

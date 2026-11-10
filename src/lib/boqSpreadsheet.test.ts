@@ -89,6 +89,18 @@ describe("BOQ spreadsheet intake", () => {
     expect(sheet.lines[0]?.qty).toBe("2.5")
   })
 
+  it.each(["1.234,5", "1,234.5"])(
+    "reads grouped quantity %s from localized Excel CSV",
+    (quantity) => {
+      const sheet = parseBoqCsv(
+        `اسم البند;الكمية;الوحدة\nمواسير;${quantity};متر`,
+      ).sheets[0]!
+      expect(sheet.lines).toHaveLength(1)
+      expect(sheet.lines[0]?.qty).toBe("1234.5")
+      expect(sheet.issues).toHaveLength(0)
+    },
+  )
+
   it("detects the table delimiter after a title row", () => {
     const sheet = parseBoqCsv(
       "كراسة اختبار كبيرة - مشروع مجمع سكني\nم\tالبند\tالكمية\tالوحدة\n1\tبلاط بورسلين\t87\tم²\n2\tأرضيات رخام\t124\tم²",
