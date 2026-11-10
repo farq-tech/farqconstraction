@@ -8,6 +8,7 @@ import {
   getConstructionMe,
   getConstructionStatus,
   getConstructionWhatsAppStatus,
+  sendConstructionWhatsAppTest,
   type ConstructionWhatsAppStatus,
 } from '../api/constructionClient'
 import { farqSession } from '../api/farqSession'
@@ -27,6 +28,7 @@ import {
 import { useFarqSession } from '../api/useFarqSession'
 import { whatsappDeliveryEvidenceLabel } from '../lib/whatsappDelivery'
 import { channelAvailability, whatsAppChannelDetail } from '../lib/channelAvailability'
+import { normalizeSaudiWhatsAppTestRecipient } from '../lib/whatsappTestRecipient'
 
 // Module scope on purpose: declared inside the component these were a new
 // component type every render, so each keystroke remounted the input and the
@@ -92,6 +94,9 @@ export function SettingsView({ navigate }: NavProps) {
   // signed-in account overwrites both below; demo mode keeps saying so plainly
   // rather than showing an invented identity.
   const [user, setUser] = useState({ name: '—', email: '—', role: '—' })
+  const [testRecipient, setTestRecipient] = useState('')
+  const [testSending, setTestSending] = useState(false)
+  const [testOutcome, setTestOutcome] = useState<{ kind: 'accepted' | 'failed' | 'uncertain'; text: string } | null>(null)
 
   /** Show who is actually signed in, not a placeholder. */
   useEffect(() => {
@@ -172,6 +177,39 @@ export function SettingsView({ navigate }: NavProps) {
   const showToast = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(null), 3000)
+  }
+
+  const sendWhatsAppTest = async () => {
+    if (testSending || testOutcome?.kind === 'accepted' || testOutcome?.kind === 'uncertain') return
+    const to = normalizeSaudiWhatsAppTestRecipient(testRecipient)
+    if (!to) {
+      setTestOutcome({ kind: 'failed', text: 'أدخل رقم جوال سعودي صحيح يبدأ بـ 05 أو 9665.' })
+      return
+    }
+    setTestSending(true)
+    setTestOutcome(null)
+    try {
+      const result = await sendConstructionWhatsAppTest(
+        to,
+        'السلام عليكم، هذه رسالة اختبار من فرق بناء لقناة واتساب. لا يلزم اتخاذ أي إجراء. شكرًا.',
+      )
+      setTestOutcome({
+        kind: 'accepted',
+        text: `قبلت Meta الرسالة للإرسال. هذا لا يثبت وصولها. معرّف الرسالة: ${result.messageId}`,
+      })
+    } catch (err) {
+      const uncertain = Boolean(
+        err && typeof err === 'object' && 'indeterminate' in err && (err as { indeterminate?: boolean }).indeterminate,
+      ) || Boolean(err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === 'CONSTRUCTION_REQUEST_TIMEOUT')
+      setTestOutcome({
+        kind: uncertain ? 'uncertain' : 'failed',
+        text: uncertain
+          ? 'تعذّر تأكيد النتيجة؛ قد تكون الرسالة أُرسلت. لا تعاود الإرسال الآن، وتحقق من سجل واتساب أولًا.'
+          : err instanceof Error ? err.message : 'تعذّر إرسال رسالة الاختبار.',
+      })
+    } finally {
+      setTestSending(false)
+    }
   }
 
   const ChannelRow = ({
@@ -271,6 +309,40 @@ export function SettingsView({ navigate }: NavProps) {
             فتح صندوق الوارد ←
           </button>
         </div>
+      </Section>
+
+      <Section title="اختبار واتساب Cloud">
+        <p className="text-xs text-neutral-600 leading-relaxed">
+          يرسل رسالة نصية مباشرة من رقم فرق إلى الرقم أدناه؛ لا ينشئ طلب تسعير. قد تُحتسب الرسالة، والرسائل النصية الحرة تتطلب نافذة محادثة مفتوحة لدى Meta.
+        </p>
+        <Field
+          label="رقم جوال سعودي"
+          value={testRecipient}
+          dir="ltr"
+          onChange={(value) => {
+            setTestRecipient(value)
+            setTestOutcome(null)
+          }}
+        />
+        <div className="rounded-xl border border-neutral-100 bg-[#FAFAF8] px-3 py-2.5 text-xs text-neutral-600" dir="rtl">
+          «السلام عليكم، هذه رسالة اختبار من فرق بناء لقناة واتساب. لا يلزم اتخاذ أي إجراء. شكرًا.»
+        </div>
+        <button
+          type="button"
+          onClick={() => void sendWhatsAppTest()}
+          disabled={testSending || testOutcome?.kind === 'accepted' || testOutcome?.kind === 'uncertain'}
+          className="w-full rounded-xl bg-[#123F3A] px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {testSending ? 'جارٍ الإرسال…' : testOutcome?.kind === 'accepted' ? 'تم إرسال الاختبار' : 'إرسال رسالة الاختبار عبر Cloud'}
+        </button>
+        {testOutcome && (
+          <div
+            role="status"
+            className={`rounded-xl px-3 py-2.5 text-xs leading-relaxed ${testOutcome.kind === 'accepted' ? 'bg-emerald-50 text-emerald-800' : testOutcome.kind === 'uncertain' ? 'bg-amber-50 text-amber-900' : 'bg-red-50 text-red-800'}`}
+          >
+            {testOutcome.text}
+          </div>
+        )}
       </Section>
 
       {/* Company */}
