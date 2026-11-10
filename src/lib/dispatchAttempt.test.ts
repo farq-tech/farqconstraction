@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { bestAcceptedDispatchAttempt, dispatchJobAllowsRetry, dispatchPollTimedOut, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome } from './dispatchAttempt'
+import { acquireDispatchLock, bestAcceptedDispatchAttempt, dispatchJobAllowsRetry, dispatchPollTimedOut, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome } from './dispatchAttempt'
 
 describe('dispatch attempt evidence', () => {
+  it('allows only one retry batch until the active run releases its lock', () => {
+    const lock = { current: false }
+    const release = acquireDispatchLock(lock)
+    expect(release).toBeTypeOf('function')
+    expect(acquireDispatchLock(lock)).toBeNull()
+    release?.()
+    release?.()
+    expect(acquireDispatchLock(lock)).toBeTypeOf('function')
+  })
+
   it('only allows another batch after a terminal server job state', () => {
     for (const state of ['NONE', 'DONE', 'FAILED', 'CANCELLED']) {
       expect(dispatchJobAllowsRetry(state)).toBe(true)

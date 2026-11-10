@@ -1,7 +1,7 @@
 import { supplierCountForDisplay } from '../lib/supplierCountVisibility'
 import { useActualSupplierCounts } from '../components/priceReview/useActualSupplierCounts'
 import { supplierDisplayName } from '../lib/presentationQuality'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NavProps } from '../types'
 import { ClockIcon } from '../icons'
 import { useProcurement } from '../procurementContext'
@@ -29,7 +29,7 @@ import {
   type ProviderDelivery,
 } from '../api/constructionClient'
 import { deliveryFailureReason } from '../lib/requestFile'
-import { dispatchJobAllowsRetry, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome } from '../lib/dispatchAttempt'
+import { acquireDispatchLock, dispatchJobAllowsRetry, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome } from '../lib/dispatchAttempt'
 
 type Tab = 'correspondence' | 'offers' | 'items' | 'log'
 
@@ -97,6 +97,7 @@ export function RFQDetailView({ navigate }: NavProps) {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('correspondence')
   const [dispatching, setDispatching] = useState(false)
+  const dispatchLockRef = useRef(false)
   const [dispatchProgress, setDispatchProgress] = useState<string | null>(null)
   const [dispatchNote, setDispatchNote] = useState<string | null>(null)
   const [waLinks, setWaLinks] = useState<Array<{ name: string; url: string }>>([])
@@ -137,47 +138,49 @@ export function RFQDetailView({ navigate }: NavProps) {
 
   const dispatchPendingEmails = async () => {
     if (!rfq) return
-    let job: ConstructionDispatchJob
-    let latestRfq: ConstructionRfq
-    try {
-      job = await getConstructionDispatch(rfq.id)
-      latestRfq = await getConstructionRfq(rfq.id)
-    } catch {
-      setDispatchNote('تعذّر التحقق من مهمة الإرسال السابقة؛ لا تُعد الإرسال الآن. حدّث الصفحة أو راجع سجل الطلب.')
-      return
-    }
-    if (!dispatchJobAllowsRetry(job.state)) {
-      setDispatchNote(
-        job.state === 'RUNNING' || job.state === 'QUEUED'
-          ? 'ما زالت مهمة إرسال سابقة قيد التنفيذ؛ انتظر تحديث سجل الدعوات قبل إعادة المحاولة.'
-          : 'حالة مهمة الإرسال غير معروفة؛ لا تُعد الإرسال حتى تتأكد من سجل الطلب.',
-      )
-      return
-    }
-    setRfq(latestRfq)
-    const pending = (latestRfq.invitations || []).filter((invite) =>
-      inviteCanRetryDispatch(invite, invitePreferredChannel(invite)),
-    )
-    if (!pending.length) {
-      setDispatchNote('كل الدعوات مُرسلة بالفعل.')
-      return
-    }
+    const releaseLock = acquireDispatchLock(dispatchLockRef)
+    if (!releaseLock) return
     setDispatching(true)
-    setDispatchNote(null)
-    setWaLinks([])
-    let sent = 0
-    let failed = 0
-    let waPrepared = 0
-    const reasons = new Map<string, number>()
-    const links: Array<{ name: string; url: string }> = []
-    const noteFailure = (err: unknown) => {
-      failed += 1
-      const code =
-        (err as { code?: string } | null)?.code ||
-        (err instanceof Error ? err.message.slice(0, 60) : 'سبب غير معروف')
-      reasons.set(code, (reasons.get(code) || 0) + 1)
-    }
     try {
+      let job: ConstructionDispatchJob
+      let latestRfq: ConstructionRfq
+      try {
+        job = await getConstructionDispatch(rfq.id)
+        latestRfq = await getConstructionRfq(rfq.id)
+      } catch {
+        setDispatchNote('تعذّر التحقق من مهمة الإرسال السابقة؛ لا تُعد الإرسال الآن. حدّث الصفحة أو راجع سجل الطلب.')
+        return
+      }
+      if (!dispatchJobAllowsRetry(job.state)) {
+        setDispatchNote(
+          job.state === 'RUNNING' || job.state === 'QUEUED'
+            ? 'ما زالت مهمة إرسال سابقة قيد التنفيذ؛ انتظر تحديث سجل الدعوات قبل إعادة المحاولة.'
+            : 'حالة مهمة الإرسال غير معروفة؛ لا تُعد الإرسال حتى تتأكد من سجل الطلب.',
+        )
+        return
+      }
+      setRfq(latestRfq)
+      const pending = (latestRfq.invitations || []).filter((invite) =>
+        inviteCanRetryDispatch(invite, invitePreferredChannel(invite)),
+      )
+      if (!pending.length) {
+        setDispatchNote('كل الدعوات مُرسلة بالفعل.')
+        return
+      }
+      setDispatchNote(null)
+      setWaLinks([])
+      let sent = 0
+      let failed = 0
+      let waPrepared = 0
+      const reasons = new Map<string, number>()
+      const links: Array<{ name: string; url: string }> = []
+      const noteFailure = (err: unknown) => {
+        failed += 1
+        const code =
+          (err as { code?: string } | null)?.code ||
+          (err instanceof Error ? err.message.slice(0, 60) : 'سبب غير معروف')
+        reasons.set(code, (reasons.get(code) || 0) + 1)
+      }
       for (let i = 0; i < pending.length; i += 1) {
         const invite = pending[i]!
         const channel = invitePreferredChannel(invite)
@@ -229,6 +232,7 @@ export function RFQDetailView({ navigate }: NavProps) {
         setDispatchNote((note) => `${note || ''} تعذّر تحديث الصفحة بعد الإرسال: لا تُعد الإرسال، حدّث الصفحة.`)
       }
     } finally {
+      releaseLock()
       setDispatching(false)
       setDispatchProgress(null)
     }
