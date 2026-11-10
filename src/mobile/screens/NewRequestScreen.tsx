@@ -18,7 +18,7 @@ import { autoPickConfident, buildPickContext } from '../../lib/autoPick'
 import { loadCompanyProfile } from '../../lib/companyProfile'
 import { matchSuppliersForItems, rowsToLines, sanitizeBoqLines, type ParsedLine } from '../../lib/parseBoq'
 import { attachMatchExposureIds, buildRfqLinesFromItems, buildRfqPackagesFromSelection, dominantEngineeringDepartment } from '../../lib/rfqPackages'
-import { cleanLineName, parseQty, readQty, requestTermsBlockers, suggestedRequestType, wpcDoorSpecificationBlockers, type RequestType } from '../../lib/sendGuards'
+import { cleanLineName, parseQty, readQty, requestTermsBlockers, suggestedRequestType, wpcDoorSpecificationBlocker, wpcDoorSpecificationBlockers, type RequestType } from '../../lib/sendGuards'
 import { URGENT_REASON_MAX, arabicDayMonth, checkQuoteDeadline, cleanUrgentReason, minimumQuoteDeadline, quoteUrgencyPayload, riyadhToday } from '../../lib/quoteDeadline'
 import { REQUEST_TYPES } from '../../lib/specCard'
 import type { BOQItem, Supplier, SupplierEntry } from '../../types'
@@ -238,6 +238,7 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
   /* ---------- step 3: send ---------- */
 
   const deadlineCheck = checkQuoteDeadline({ deadline: quoteDeadline, urgent: quoteUrgent, urgentReason: quoteUrgentReason })
+  const incompleteWpcItems = readyItems.filter((item) => wpcDoorSpecificationBlocker(item))
   const blockers: string[] = []
   if (step === 'details') {
     if (allPicked.length < 2) blockers.push('اختر موردين اثنين على الأقل.')
@@ -558,6 +559,25 @@ export default function NewRequestScreen({ nav, draftId }: { nav: Nav; draftId?:
                 </div>
               )}
             </Card>
+
+            {incompleteWpcItems.length > 0 && (
+              <>
+                <SectionTitle>مواصفات أبواب WPC</SectionTitle>
+                <p className="text-[12px] text-neutral-500 mb-2">أضف السماكة واللون لكل باب قبل الإرسال.</p>
+                {incompleteWpcItems.map((item) => (
+                  <label key={item.id} className="block rounded-2xl bg-white p-4 mb-2">
+                    <span className="block text-[13px] font-bold mb-2">{item.name}</span>
+                    <input
+                      value={item.spec || ''}
+                      maxLength={300}
+                      onChange={(event) => setItems((current) => current.map((line) => line.id === item.id ? { ...line, spec: event.target.value } : line))}
+                      placeholder="مثال: السماكة 45 مم، اللون أبيض"
+                      className="w-full h-11 rounded-xl bg-black/[0.04] px-3 outline-none"
+                    />
+                  </label>
+                ))}
+              </>
+            )}
 
             <SectionTitle>نوع الطلب</SectionTitle>
             <Chips<RequestType | ''>

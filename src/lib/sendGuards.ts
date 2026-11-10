@@ -66,11 +66,12 @@ export function wpcDoorSpecificationBlocker(item: WpcDoorSpecInput): string | nu
   const describedThickness = normalized.match(/(?:سماك(?:ة|ه)|سمك|thickness|thk)\s*[:：-]?\s*(\d+(?:[.,]\d+)?)\s*(?:سم|سنتي(?:متر)?|مم|ملم|cm|mm)/i)
   const thickness = Number((thicknessField?.[1] || describedThickness?.[1] || '0').replace(',', '.')) > 0
   const unknownColor =
-    /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+(?:الطلب|المخطط|اختيار(?:\s+[\p{L}]+){0,3})|مطفي|غير\s+معروف|لاحقًا|لاحقا)/iu.test(text)
+    /(?:لون|اللون|color|colour)\s*[:：-]?\s*(?:غير\s+محدد|حسب\s+(?:الطلب|المخطط|اختيار(?:\s+[\p{L}]+){0,3}|رغبة(?:\s+[\p{L}]+){0,3})|مطفي|غير\s+معروف|لاحقًا|لاحقا|قيد\s+التحديد|tbd|pending)/iu.test(text)
   const color =
     !unknownColor &&
-    (/(?:لون|اللون|color|colour)\s*[:：-]?\s*[\p{L}]+/iu.test(text) ||
-      /كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|cream|white|black|brown|gray|grey|beige|red|blue|green/i.test(text))
+    (/كريمي|كريمه|أبيض|ابيض|أسود|اسود|بني|رمادي|رصاصي|بيج|أحمر|احمر|أزرق|ازرق|أخضر|اخضر|أصفر|اصفر|ذهبي|فضي|عاجي|وردي|بنفسجي|برتقالي|سماوي|كحلي|زيتي|خشبي|جوزي/i.test(text) ||
+      /(?:^|[^a-z])(?:cream|ivory|white|black|brown|tan|gray|grey|silver|gold|beige|red|blue|green|yellow|orange|pink|purple|violet|navy|teal|turquoise|olive|walnut|natural)(?:$|[^a-z])/i.test(text) ||
+      /\bRAL\s*\d{4}\b/i.test(text) || /#[0-9a-f]{3,8}\b/i.test(text))
   const missing = [
     ...(!thickness ? ['السماكة'] : []),
     ...(!color ? ['اللون'] : []),

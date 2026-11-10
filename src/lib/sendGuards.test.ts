@@ -57,12 +57,24 @@ describe('WPC door details are complete before sending', () => {
       'السماكة ٤٫٥ سم، اللون غير محدد',
       'السماكة ٤٫٥ سم، اللون حسب اختيار المالك',
       'السماكة ٤٫٥ سم، اللون حسب اختيار العميل',
+      'السماكة ٤٫٥ سم، اللون حسب رغبة العميل',
       'السماكة ٤٫٥ سم، اللون حسب المخطط',
     ]) {
       expect(wpcDoorSpecificationBlockers([item({ name: 'باب WPC', spec })])).toEqual([
         '«باب WPC»: حدّد اللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
       ])
     }
+  })
+
+  it('does not infer color from arbitrary English words', () => {
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', spec: 'thickness 45 mm, hardware required' }),
+    ])).toEqual([
+      '«باب WPC»: حدّد اللون قبل الإرسال، من تعديل وصف ومواصفات البند.',
+    ])
+    expect(wpcDoorSpecificationBlockers([
+      item({ name: 'باب WPC', spec: 'thickness 45 mm, finish red' }),
+    ])).toEqual([])
   })
 
   it('does not block non-WPC doors or WPC materials that are not doors', () => {
