@@ -2303,6 +2303,7 @@ export type PlatformWhatsAppArrivalDetail = {
     invite_id: string
     rfq_id: string
     company_id: string
+    company_name?: string | null
     project_name?: string | null
     request_reference?: string | null
     supplier_name_ar?: string | null
@@ -2313,9 +2314,10 @@ export type PlatformWhatsAppArrivalDetail = {
   }>
 }
 
-export async function listPlatformWhatsAppArrivals() {
-  return request<{ arrivals: PlatformWhatsAppArrivalSummary[]; has_more: boolean }>(
-    '/api/construction/inbox/platform/whatsapp/unresolved',
+export async function listPlatformWhatsAppArrivals(cursor?: string | null) {
+  const query = cursor ? `?${new URLSearchParams({ cursor }).toString()}` : ''
+  return request<{ arrivals: PlatformWhatsAppArrivalSummary[]; has_more: boolean; next_cursor: string | null }>(
+    `/api/construction/inbox/platform/whatsapp/unresolved${query}`,
   )
 }
 

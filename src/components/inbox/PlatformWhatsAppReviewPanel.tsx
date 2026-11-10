@@ -23,6 +23,8 @@ export default function PlatformWhatsAppReviewPanel() {
   const [open, setOpen] = useState(false)
   const [arrivals, setArrivals] = useState<PlatformWhatsAppArrivalSummary[]>([])
   const [hasMore, setHasMore] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [selected, setSelected] =
     useState<PlatformWhatsAppArrivalDetail | null>(null)
   const [loading, setLoading] = useState(false)
@@ -55,15 +57,34 @@ export default function PlatformWhatsAppReviewPanel() {
       const result = await listPlatformWhatsAppArrivals()
       setArrivals(result.arrivals || [])
       setHasMore(Boolean(result.has_more))
-      if (
-        selected &&
-        !result.arrivals?.some((row) => row.id === selected.arrival.id)
-      )
-        setSelected(null)
+      setNextCursor(result.next_cursor || null)
+      if (selected) {
+        if (!result.arrivals?.some((row) => row.id === selected.arrival.id)) {
+          setSelected(null)
+        } else {
+          setSelected(await getPlatformWhatsAppArrival(selected.arrival.id))
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذّر تحميل الرسائل")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    setError(null)
+    try {
+      const result = await listPlatformWhatsAppArrivals(nextCursor)
+      setArrivals((rows) => [...rows, ...(result.arrivals || [])])
+      setHasMore(Boolean(result.has_more))
+      setNextCursor(result.next_cursor || null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تعذّر تحميل بقية الرسائل")
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -190,8 +211,7 @@ export default function PlatformWhatsAppReviewPanel() {
             <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)]">
               <aside className="min-h-0 overflow-y-auto border-b border-neutral-200 bg-white lg:border-b-0 lg:border-s">
                 <div className="border-b border-neutral-100 px-4 py-3 text-xs font-bold text-neutral-600">
-                  {arrivals.length} رسالة تحتاج مراجعة
-                  {hasMore ? " · توجد رسائل إضافية" : ""}
+                  {arrivals.length} رسالة معروضة للمراجعة
                 </div>
                 {arrivals.map((row) => (
                   <button
@@ -220,6 +240,16 @@ export default function PlatformWhatsAppReviewPanel() {
                   <p className="px-4 py-6 text-sm text-neutral-500">
                     لا توجد رسائل تنتظر المراجعة.
                   </p>
+                )}
+                {hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => void loadMore()}
+                    disabled={loadingMore}
+                    className="w-full px-4 py-3 text-xs font-bold text-[#123F3A] hover:bg-[#F5F8F6] disabled:opacity-50"
+                  >
+                    {loadingMore ? "جارٍ تحميل المزيد…" : "تحميل رسائل أقدم"}
+                  </button>
                 )}
               </aside>
 
@@ -302,6 +332,15 @@ export default function PlatformWhatsAppReviewPanel() {
                                   {candidate.request_reference
                                     ? ` · ${candidate.request_reference}`
                                     : ""}
+                                </div>
+                                <div className="mt-1 text-[11px] font-semibold text-neutral-700">
+                                  {candidate.company_name || "شركة غير مسماة"}
+                                </div>
+                                <div
+                                  className="mt-0.5 truncate text-[10px] text-neutral-400"
+                                  dir="ltr"
+                                >
+                                  {candidate.company_id}
                                 </div>
                                 <div
                                   className={`mt-2 text-[11px] ${
