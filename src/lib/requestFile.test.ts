@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ConstructionInvitation, ConstructionRfq } from '../api/constructionClient'
 import {
   buildTimeline,
+  canRetryWhatsAppPaid,
   lowestPerLine,
   matrixTotals,
   nextLineSort,
@@ -95,6 +96,23 @@ describe('whatsapp delivery receipts', () => {
     ] })
     expect(supplierState(both).key).toBe('SENT')
     expect(supplierState(both).channel).toBe('البريد')
+  })
+
+  it('offers a paid Cloud retry only for an unanswered, unawarded failed invitation', () => {
+    const failed = invite({
+      id: 'retry',
+      response_status: 'AWAITING_QUOTE',
+      dispatch_attempts: [{
+        channel: 'WHATSAPP',
+        status: 'SENT',
+        sent_at: 't',
+        failure_code: null,
+        provider_delivery: { state: 'FAILED', at: 't', error_code: 131042 },
+      }],
+    })
+    expect(canRetryWhatsAppPaid(failed)).toBe(true)
+    expect(canRetryWhatsAppPaid({ ...failed, response_status: 'QUOTED' })).toBe(false)
+    expect(canRetryWhatsAppPaid(failed, failed.id)).toBe(false)
   })
 })
 

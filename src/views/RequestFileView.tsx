@@ -42,13 +42,14 @@ import SupplierPlanPanel from "../components/SupplierPlanPanel"
 import { SUPPLIER_MATCH_V2_SERVICE } from "../lib/supplierPlan"
 import { WEB_DISCOVERY_SERVICE } from "../lib/webAlternatives"
 import { EQUIVALENTS_SERVICE } from "../lib/brandEquivalence"
-import { latestDispatchAttempt, shouldRetryWhatsAppPaid } from "../lib/dispatchAttempt"
+import { latestDispatchAttempt } from "../lib/dispatchAttempt"
 import { useServices } from "../api/useServices"
 import MarketNameNote from "../components/MarketNameNote"
 import { bookletText, lineMarketName } from "../lib/marketName"
 import {
   CELL_LABEL,
   buildTimeline,
+  canRetryWhatsAppPaid,
   groupTimeline,
   formatEventTime,
   formatMoney,
@@ -442,8 +443,8 @@ export function RequestFileView({
     setResending(invite.id)
     setNotice(null)
     try {
-      if (invitePreferredChannel(invite) === "WHATSAPP" || shouldRetryWhatsAppPaid(invite)) {
-        if (shouldRetryWhatsAppPaid(invite)) {
+      if (invitePreferredChannel(invite) === "WHATSAPP" || canRetryWhatsAppPaid(invite, awardedInviteId)) {
+        if (canRetryWhatsAppPaid(invite, awardedInviteId)) {
           const updated = await sendConstructionRfqInvite(rfq.id, invite.id, {
             retry: true,
             sendConsent: false,
@@ -1145,7 +1146,7 @@ export function RequestFileView({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {(st.key === "FAILED" || st.key === "NOT_SENT" || shouldRetryWhatsAppPaid(invite)) && (
+                    {(st.key === "FAILED" || st.key === "NOT_SENT" || canRetryWhatsAppPaid(invite, awardedInviteId)) && (
                       <button
                         disabled={resending === invite.id}
                         onClick={() => resend(invite)}
@@ -1153,7 +1154,7 @@ export function RequestFileView({
                       >
                         {resending === invite.id
                           ? "جارٍ الإرسال…"
-                          : shouldRetryWhatsAppPaid(invite) ? "إعادة إرسال Cloud (قد تُحتسب)" : st.key === "NOT_SENT" ? "إرسال الطلب" : "إعادة الإرسال"}
+                          : canRetryWhatsAppPaid(invite, awardedInviteId) ? "إعادة إرسال Cloud (قد تُحتسب)" : st.key === "NOT_SENT" ? "إرسال الطلب" : "إعادة الإرسال"}
                       </button>
                     )}
                     <button
