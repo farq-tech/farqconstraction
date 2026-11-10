@@ -26,7 +26,7 @@ import {
   type TeamContext,
 } from '../api/teamClient'
 import { useFarqSession } from '../api/useFarqSession'
-import { whatsappDeliveryEvidenceLabel } from '../lib/whatsappDelivery'
+import { whatsappDeliveryEvidenceLabel, whatsappSendFailureMessage } from '../lib/whatsappDelivery'
 import { channelAvailability, whatsAppChannelDetail } from '../lib/channelAvailability'
 import { normalizeSaudiWhatsAppTestRecipient } from '../lib/whatsappTestRecipient'
 
@@ -193,6 +193,7 @@ export function SettingsView({ navigate }: NavProps) {
           whatsappStatus.receipts?.latest_send_state,
           whatsappStatus.last_outbound_attempt?.status,
           whatsappStatus.receipts?.tracking_available,
+          whatsappStatus.last_outbound_attempt?.delivery_error_code,
         )}.`,
       )
     } catch {
@@ -231,6 +232,11 @@ export function SettingsView({ navigate }: NavProps) {
         text: `قبلت Meta الرسالة للإرسال إلى ${result.recipient_masked}. المرجع: ${result.message_reference}. الحالة: ${whatsappDeliveryEvidenceLabel(result.delivery_state, 'SENT', true)}.`,
       })
     } catch (err) {
+      const providerErrorCode =
+        err && typeof err === 'object' && 'code' in err
+          ? String((err as { code?: unknown }).code || '')
+          : ''
+      const windowExpiredMessage = whatsappSendFailureMessage(providerErrorCode)
       const uncertain = Boolean(
         err && typeof err === 'object' && 'indeterminate' in err && (err as { indeterminate?: boolean }).indeterminate,
       ) || Boolean(err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === 'CONSTRUCTION_REQUEST_TIMEOUT')
@@ -238,7 +244,7 @@ export function SettingsView({ navigate }: NavProps) {
         kind: uncertain ? 'uncertain' : 'failed',
         text: uncertain
           ? 'تعذّر تأكيد النتيجة؛ قد تكون الرسالة أُرسلت. لا تعاود الإرسال الآن، وتحقق من سجل واتساب أولًا.'
-          : err instanceof Error ? err.message : 'تعذّر إرسال رسالة الاختبار.',
+          : windowExpiredMessage || (err instanceof Error ? err.message : 'تعذّر إرسال رسالة الاختبار.'),
       })
     } finally {
       setTestSending(false)
@@ -317,7 +323,7 @@ export function SettingsView({ navigate }: NavProps) {
               <div>آخر محاولة إرسال: {formatEvidenceTime(channels.whatsappStatus.last_outbound_attempt?.attempted_at)}{channels.whatsappStatus.last_outbound_attempt?.status ? ` · ${channels.whatsappStatus.last_outbound_attempt.status}` : ''}</div>
               {channels.whatsappStatus.last_outbound_attempt?.recipient_masked && <div>آخر مستلم: {channels.whatsappStatus.last_outbound_attempt.recipient_masked}</div>}
               {channels.whatsappStatus.last_outbound_attempt?.source === 'CLOUD_TEST' && channels.whatsappStatus.last_outbound_attempt?.message_reference && <div>مرجع Meta: {channels.whatsappStatus.last_outbound_attempt.message_reference}</div>}
-              <div>نتيجة أحدث إرسال: {whatsappDeliveryEvidenceLabel(channels.whatsappStatus.receipts?.latest_send_state, channels.whatsappStatus.last_outbound_attempt?.status, channels.whatsappStatus.receipts?.tracking_available)}</div>
+              <div>نتيجة أحدث إرسال: {whatsappDeliveryEvidenceLabel(channels.whatsappStatus.receipts?.latest_send_state, channels.whatsappStatus.last_outbound_attempt?.status, channels.whatsappStatus.receipts?.tracking_available, channels.whatsappStatus.last_outbound_attempt?.delivery_error_code)}</div>
               {channels.whatsappStatus.last_outbound_attempt?.delivery_error_code != null && <div>رمز خطأ الإيصال: {channels.whatsappStatus.last_outbound_attempt.delivery_error_code}</div>}
               <div>آخر إيصال من Meta: {formatEvidenceTime(channels.whatsappStatus.receipts?.last_received_at)}</div>
               <div>آخر رد مربوط: {formatEvidenceTime(channels.whatsappStatus.last_inbound_at)}</div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { presentWhatsAppDelivery, whatsappDeliveryEvidenceLabel } from './whatsappDelivery'
+import { presentWhatsAppDelivery, whatsappDeliveryEvidenceLabel, whatsappDeliveryFailureReason, whatsappSendFailureMessage } from './whatsappDelivery'
 
 describe('presentWhatsAppDelivery', () => {
   it.each([
@@ -29,5 +29,13 @@ describe('presentWhatsAppDelivery', () => {
     expect(whatsappDeliveryEvidenceLabel(undefined, 'SENT', false)).toBe('قبلته Meta؛ تتبع الإيصالات غير مهيّأ')
     expect(whatsappDeliveryEvidenceLabel(undefined, 'SENT', true)).toBe('قبلته Meta؛ لا يوجد تأكيد تسليم بعد')
     expect(whatsappDeliveryEvidenceLabel(undefined, undefined, true)).toBe('لا توجد محاولة إرسال مسجلة')
+  })
+
+  it('explains Meta 131047 as an unsent free-form message outside the 24-hour window', () => {
+    expect(whatsappDeliveryFailureReason(131047)).toContain('نافذة الـ24 ساعة')
+    expect(whatsappDeliveryEvidenceLabel('FAILED', 'NOT_SENT', true, 131047)).toContain('لم تصل — انتهت نافذة')
+    expect(whatsappSendFailureMessage('window_expired')).toContain('لم تُرسل رسالة الاختبار')
+    expect(whatsappSendFailureMessage('window_expired')).toContain('لا تعاود إرسال النص نفسه')
+    expect(whatsappSendFailureMessage('rate_limited')).toBeNull()
   })
 })

@@ -11,6 +11,20 @@ export type WhatsAppDeliveryPresentation = {
   detail: string
 }
 
+export function whatsappDeliveryFailureReason(errorCode?: number | string | null): string | null {
+  if (Number(errorCode) === 131047) {
+    return 'انتهت نافذة الـ24 ساعة للرسائل النصية الحرة؛ اطلب من المورد مراسلتك أولًا أو استخدم قالبًا معتمدًا من Meta.'
+  }
+  return null
+}
+
+/** The test endpoint sends free-form text, so Meta's closed-window response is actionable. */
+export function whatsappSendFailureMessage(errorCode?: number | string | null): string | null {
+  if (String(errorCode || '').toLowerCase() !== 'window_expired' && Number(errorCode) !== 131047) return null
+  const reason = whatsappDeliveryFailureReason(131047)
+  return `لم تُرسل رسالة الاختبار؛ رفضتها Meta بالرمز 131047. ${reason} لا تعاود إرسال النص نفسه.`
+}
+
 /**
  * Keep the send-progress row honest about the distinction between Meta
  * accepting a message and WhatsApp reporting delivery or read receipts.
@@ -43,10 +57,14 @@ export function whatsappDeliveryEvidenceLabel(
   state?: WhatsAppDeliveryState | null,
   attemptStatus?: string,
   trackingAvailable?: boolean,
+  deliveryErrorCode?: number | string | null,
 ): string {
   if (state === 'READ') return 'وصل وقرأه المورد'
   if (state === 'DELIVERED') return 'وصل إلى المورد'
-  if (state === 'FAILED') return 'فشل التسليم بحسب إيصال Meta'
+  if (state === 'FAILED') {
+    const reason = whatsappDeliveryFailureReason(deliveryErrorCode)
+    return reason ? `لم تصل — ${reason}` : 'فشل التسليم بحسب إيصال Meta'
+  }
   if (state === 'ACCEPTED') return 'قبلته Meta؛ لم يؤكد الوصول بعد'
   if (state === 'UNCONFIRMED') return 'لا يوجد إيصال حاسم'
   if (attemptStatus === 'SENT' && trackingAvailable === false) return 'قبلته Meta؛ تتبع الإيصالات غير مهيّأ'
