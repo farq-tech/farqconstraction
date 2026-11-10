@@ -4,7 +4,7 @@ export type DispatchAttemptEvidence = {
   sent_at?: string | null
   attempted_at?: string | null
   failure_code?: string | null
-  provider_delivery?: { state?: string; at?: string | null }
+  provider_delivery?: { state?: string; at?: string | null; error_code?: number | null }
 }
 
 /** Prevent a fast double click from starting two retry batches before React rerenders. */
@@ -54,6 +54,29 @@ export function inviteCanRetryDispatch(
     return latest.status === 'SENT' && latest.provider_delivery?.state === 'FAILED'
   }
   return !ACCEPTED_INVITE_DELIVERY_STATES.has(String(invite.delivery_status || '').toUpperCase())
+}
+
+/** Mirror the server retry gate: every accepted attempt must be a 131042 Cloud refusal. */
+export function shouldRetryWhatsAppPaid(invite: {
+  dispatch_attempts?: readonly DispatchAttemptEvidence[] | null
+}): boolean {
+  const attempts = (invite.dispatch_attempts || []).filter((attempt) => attempt.status === 'SENT')
+  return attempts.length > 0 && attempts.every((attempt) =>
+    attempt.channel === 'WHATSAPP'
+      && String(attempt.provider_delivery?.state || '').toUpperCase() === 'FAILED'
+      && Number(attempt.provider_delivery?.error_code) === 131042,
+  )
+}
+
+/** Meta's failed WhatsApp receipt overrides the provider's earlier acceptance. */
+export function deliveryAttemptReached(attempt: DispatchAttemptEvidence): boolean {
+  if (attempt.channel === 'WHATSAPP' && String(attempt.provider_delivery?.state || '').toUpperCase() === 'FAILED') return false
+  return ['SENT', 'DELIVERED'].includes(String(attempt.status || '').toUpperCase())
+}
+
+export function deliveryAttemptFailed(attempt: DispatchAttemptEvidence): boolean {
+  return ['FAILED', 'DELIVERY_FAILED'].includes(String(attempt.status || '').toUpperCase())
+    || (attempt.channel === 'WHATSAPP' && String(attempt.provider_delivery?.state || '').toUpperCase() === 'FAILED')
 }
 
 /** Return the newest recorded attempt for a channel, preserving API order for untimed legacy rows. */

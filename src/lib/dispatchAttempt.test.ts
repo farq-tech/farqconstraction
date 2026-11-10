@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acquireDispatchLock, bestAcceptedDispatchAttempt, dispatchJobAllowsRetry, dispatchPollTimedOut, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome } from './dispatchAttempt'
+import { acquireDispatchLock, bestAcceptedDispatchAttempt, deliveryAttemptFailed, deliveryAttemptReached, dispatchJobAllowsRetry, dispatchPollTimedOut, inviteCanRetryDispatch, inviteHasAcceptedDispatch, latestDispatchAttempt, recordedAttemptOutcome, shouldRetryWhatsAppPaid } from './dispatchAttempt'
 
 describe('dispatch attempt evidence', () => {
   it('allows only one retry batch until the active run releases its lock', () => {
@@ -52,6 +52,32 @@ describe('dispatch attempt evidence', () => {
     expect(bestAcceptedDispatchAttempt([whatsapp, email])).toBe(email)
     expect(bestAcceptedDispatchAttempt([email, whatsapp])).toBe(email)
     expect(bestAcceptedDispatchAttempt([whatsapp])).toBeUndefined()
+  })
+
+  it("treats a failed WhatsApp receipt as not reached in offer sorting and sent filters", () => {
+    const failed = { channel: "WHATSAPP", status: "SENT", provider_delivery: { state: "FAILED" } }
+    const delivered = { channel: "WHATSAPP", status: "SENT", provider_delivery: { state: "DELIVERED" } }
+    expect(deliveryAttemptReached(failed)).toBe(false)
+    expect(deliveryAttemptFailed(failed)).toBe(true)
+    expect(deliveryAttemptReached(delivered)).toBe(true)
+    expect(deliveryAttemptFailed(delivered)).toBe(false)
+  })
+
+  it("only offers a paid Cloud retry when all accepted attempts have a retryable Meta refusal", () => {
+    expect(shouldRetryWhatsAppPaid({ dispatch_attempts: [
+      { channel: "WHATSAPP", status: "SENT", sent_at: "2026-11-08T12:00:00Z", provider_delivery: { state: "FAILED", error_code: 131042 } },
+      { channel: "WHATSAPP", status: "SENT", sent_at: "2026-11-09T12:00:00Z", provider_delivery: { state: "DELIVERED" } },
+    ] })).toBe(false)
+    expect(shouldRetryWhatsAppPaid({ dispatch_attempts: [
+      { channel: "WHATSAPP", status: "SENT", sent_at: "2026-11-09T12:00:00Z", provider_delivery: { state: "FAILED", error_code: 131042 } },
+    ] })).toBe(true)
+    expect(shouldRetryWhatsAppPaid({ dispatch_attempts: [
+      { channel: "WHATSAPP", status: "SENT", provider_delivery: { state: "FAILED", error_code: 131026 } },
+    ] })).toBe(false)
+    expect(shouldRetryWhatsAppPaid({ dispatch_attempts: [
+      { channel: "EMAIL", status: "SENT" },
+      { channel: "WHATSAPP", status: "SENT", provider_delivery: { state: "FAILED", error_code: 131042 } },
+    ] })).toBe(false)
   })
 
   it('prefers confirmed delivery/read evidence over unconfirmed provider acceptance', () => {
