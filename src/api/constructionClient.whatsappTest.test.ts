@@ -6,7 +6,7 @@ import {
 } from './constructionClient'
 
 function installFetch(status: number, body: unknown) {
-  const fetchMock = vi.fn(async () => ({
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => ({
     ok: status >= 200 && status < 300,
     status,
     headers: { get: () => null },
@@ -29,10 +29,10 @@ describe('sendConstructionWhatsAppTest', () => {
       messageId: 'wamid.test-1',
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit]
-    expect(url).toContain('/admin/whatsapp/send')
-    expect(init.method).toBe('POST')
-    expect(JSON.parse(String(init.body))).toEqual({ to: '966501234567', body: 'اختبار فقط' })
+    const [input, init] = fetchMock.mock.calls[0]!
+    expect(String(input)).toContain('/admin/whatsapp/send')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({ to: '966501234567', body: 'اختبار فقط' })
   })
 
   it('marks an indeterminate provider result so the caller cannot retry it', async () => {
