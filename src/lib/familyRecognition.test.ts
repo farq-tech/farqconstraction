@@ -48,6 +48,7 @@ it.each([
  ['epoxy anchor adhesive', 'anchoring_epoxy', 'concrete_admixtures'],
  ['Epoxy anchor adhesive for threaded rod', 'anchoring_epoxy', 'concrete_admixtures'],
  ['Epoxy anchor adhesive for anchor bolt M16', 'anchoring_epoxy', 'concrete_admixtures'],
+ ['Epoxy anchor adhesive for anchor stud M16', 'anchoring_epoxy', 'concrete_admixtures'],
  ['Chemical anchor resin for anchor bolt M16', 'anchoring_epoxy', 'concrete_admixtures'],
  ['Resin anchor', 'anchoring_epoxy', 'concrete_admixtures'],
  ['Chemical anchor', 'anchoring_epoxy', 'concrete_admixtures'],
