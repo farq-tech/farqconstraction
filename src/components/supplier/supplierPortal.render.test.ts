@@ -12,7 +12,7 @@ import { timelineRows } from '../../lib/supplierPortal'
 import { QuoteForm } from './QuoteForm'
 import { RequestsList } from './RequestsList'
 import { StatusPanel, Timeline } from './StatusPanel'
-import { SupplierPortalView } from '../../views/SupplierPortalView'
+import { SupplierPortalView, WhatsAppTestLanding } from '../../views/SupplierPortalView'
 
 const NOW = Date.parse('2026-09-27T07:00:00Z')
 
@@ -165,5 +165,15 @@ describe('SupplierPortalView', () => {
     expect(html).toContain('افتح رابط الدعوة')
     // The buyer-side link is not offered to a supplier.
     expect(html).not.toContain('واجهة المشتري')
+  })
+})
+
+describe('WhatsApp operator test landing', () => {
+  it('clearly identifies the test and offers no quote action', () => {
+    const html = renderToStaticMarkup(createElement(WhatsAppTestLanding))
+    expect(html).toContain('هذه رسالة اختبار من فريق فرق')
+    expect(html).toContain('لا يوجد طلب شراء أو طلب عرض سعر')
+    expect(html).not.toContain('إرسال العرض')
+    expect(html).not.toContain('قدّم عرضك')
   })
 })
