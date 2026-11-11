@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
 import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter, sameMaterial, visibleSupplierCandidateCount } from './autoPick'
+import { sanitizeBoqLines } from './parseBoq'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
   id,
@@ -274,6 +275,19 @@ describe('autoPickConfident — all sure and near-certain matches on every chann
     })
     expect(autoPickConfident(item)).toEqual([])
     expect(autoPickFor(item).map(s => s.id)).toEqual(['confirmed'])
+  })
+  it('keeps edited-line auto-picks suppressed after session restore and page remount', () => {
+    const item = line(26, 'cement', [wa('confirmed', { evidence: 'دليل منتج' })], {
+      supplierSelectionMode: 'REVIEW_REQUIRED',
+    })
+    const restored = sanitizeBoqLines([item])[0]!
+    // ProposalsView's mount effect calls autoPickConfident again on restored lines.
+    expect(autoPickConfident(restored).map((s) => s.id)).toEqual([])
+    // Suggestions remain visible for the buyer to review and choose explicitly.
+    expect(autoPickFor(restored).map((s) => s.id)).toEqual(['confirmed'])
+    // After choosing or clearing manually, the mode changes to MANUAL but the
+    // mount effect must still leave the buyer's decision intact.
+    expect(autoPickConfident({ ...restored, supplierSelectionMode: 'MANUAL' })).toEqual([])
   })
   it('keeps historical evidence outside the delivery city for manual review', () => {
     const item = line(6, 'cement', [

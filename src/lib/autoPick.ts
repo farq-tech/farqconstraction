@@ -206,7 +206,7 @@ export function confidenceOf(s: Supplier): Confidence {
  * Broad family-only suggestions, rejected suppliers and work-only lines stay out.
  */
 export function autoPickConfident(item: BOQItem, context?: PickContext): Supplier[] {
-  if (item.workOnly) return []
+  if (item.workOnly || item.supplierSelectionMode) return []
   const all = autoPickFor(item, Number.POSITIVE_INFINITY, context)
   // 5 Oct 2026: the buyer explicitly wants EVERY sure or near-certain match,
   // including the system's named suggestions, regardless of channel or count.

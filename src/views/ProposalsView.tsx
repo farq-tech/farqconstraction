@@ -12,7 +12,7 @@ import {
   subscribeSession,
 } from '../store/session'
 import { matchSuppliersForItems, resolveBoqCardFields } from '../lib/parseBoq'
-import { clearSelectionAfterIdentityEdit, lineMatchStillCurrent, lineSupplierRequirementChanged, mergeMatched } from '../lib/rfqCart'
+import { clearSelectionAfterIdentityEdit, lineMatchStillCurrent, lineSupplierRequirementChanged, markSupplierSelectionManual, mergeMatched } from '../lib/rfqCart'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
@@ -1116,7 +1116,13 @@ export function ProposalsView({ navigate }: NavProps) {
     persistItems(
       currentItems.map((item) =>
         item.id === itemId
-          ? { ...item, specCard: next, ...(requirementsChanged ? { autoPickedSupplierIds: undefined } : {}) }
+          ? {
+              ...item,
+              specCard: next,
+              ...(requirementsChanged
+                ? { autoPickedSupplierIds: undefined, supplierSelectionMode: 'REVIEW_REQUIRED' as const }
+                : {}),
+            }
           : item,
       ),
     )
@@ -1173,7 +1179,7 @@ export function ProposalsView({ navigate }: NavProps) {
         if (!ids.has(it.id)) return it
         const suppliers = it.suppliers.filter((x) => x.id !== supplier.id)
         return {
-          ...it,
+          ...markSupplierSelectionManual(it),
           suppliers,
           supplierCount: suppliers.length,
           status: suppliers.length ? it.status : ('searching' as const),
@@ -1194,10 +1200,11 @@ export function ProposalsView({ navigate }: NavProps) {
     persistItems(
       items.map((item) => {
         if (!ids.has(item.id)) return item
-        if (item.suppliers.some((s) => s.id === supplier.id)) return item
+        const manualItem = markSupplierSelectionManual(item)
+        if (item.suppliers.some((s) => s.id === supplier.id)) return manualItem
         const suppliers = [...item.suppliers, supplier]
         return {
-          ...item,
+          ...manualItem,
           suppliers,
           supplierCount: suppliers.length,
           status: 'ready' as const,
@@ -1223,8 +1230,11 @@ export function ProposalsView({ navigate }: NavProps) {
     // Only lines that already list this supplier follow; a line is never given a
     // supplier here that its own card does not show.
     const ids = sameMaterialIds(itemId).filter((id) => id === itemId || items.find((i) => i.id === id)?.suppliers.some((s) => s.id === supplierId))
-    if (!turningOff) persistItems(items.map(item => ids.includes(item.id)
-      ? { ...item, autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => id !== supplierId) }
+    persistItems(items.map(item => ids.includes(item.id)
+      ? {
+          ...markSupplierSelectionManual(item),
+          autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => id !== supplierId),
+        }
       : item))
     setSelected((prev) => {
       const next = { ...prev }
@@ -1245,7 +1255,10 @@ export function ProposalsView({ navigate }: NavProps) {
     learn(item, chosen, 'CHOSEN')
     const ids = sameMaterialIds(itemId)
     persistItems(items.map(item => ids.includes(item.id)
-      ? { ...item, autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => !chosen.includes(id)) }
+      ? {
+          ...markSupplierSelectionManual(item),
+          autoPickedSupplierIds: (item.autoPickedSupplierIds || []).filter(id => !chosen.includes(id)),
+        }
       : item))
     setSelected((prev) => {
       const next = { ...prev }
@@ -1264,6 +1277,7 @@ export function ProposalsView({ navigate }: NavProps) {
     learn(items.find((i) => i.id === itemId), selected[itemId] || [], 'CLEARED')
     const cleared = new Set(selected[itemId] || [])
     const ids = sameMaterialIds(itemId)
+    persistItems(items.map((item) => ids.includes(item.id) ? markSupplierSelectionManual(item) : item))
     setSelected((prev) => {
       const next = { ...prev }
       for (const id of ids) next[id] = id === itemId ? [] : (next[id] || []).filter((x) => !cleared.has(x))
