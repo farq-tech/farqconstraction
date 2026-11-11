@@ -140,7 +140,7 @@ export function HomeView({ navigate }: NavProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,application/pdf"
+        accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         className="hidden"
         onChange={(e) => {
           setPendingUpload(e.target.files?.[0])
@@ -204,7 +204,7 @@ export function HomeView({ navigate }: NavProps) {
             </div>
             <div className="text-xl font-bold text-[#0D1F1D] mb-2">ارفع أول كراسة</div>
             <p className="text-neutral-500 text-sm text-center max-w-sm">
-              ملف PDF لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند عشرة موردين، وترسل لهم بضغطة.
+              ملف PDF أو DOCX لجدول الكميات. نقرأ البنود خلال دقائق، ونختار لكل بند عشرة موردين، وترسل لهم بضغطة.
             </p>
           </button>
           <InboxHint inbox={inbox} onOpen={() => navigate('inbox')} onRequests={() => navigate('rfq-list')} />

@@ -220,6 +220,7 @@ type ReadReport = {
 const SOURCE_LABEL: Record<string, string> = {
   'pdf-table': 'قراءة أعمدة الجدول بالإحداثيات',
   'pdf-text': 'قراءة نصية للأسطر',
+  docx: 'قراءة جدول Word على الخادم',
   spreadsheet: 'قراءة أعمدة جدول البنود',
   empty: 'لا مصدر',
 }
@@ -573,7 +574,7 @@ export function UploadView({ navigate }: NavProps) {
             setAsideNote: facts.setAsideNote,
             setAsideRows: facts.setAsideRows,
             matchApiFailed: false,
-            source: fileKind === 'csv' || fileKind === 'xlsx' ? 'spreadsheet' : 'pdf-table',
+            source: fileKind === 'csv' || fileKind === 'xlsx' ? 'spreadsheet' : fileKind === 'docx' ? 'docx' : 'pdf-table',
             descriptionColumnSuspect: facts.descriptionColumnSuspect,
             descriptionColumnDetail: facts.descriptionColumnDetail,
             codedItemsSuspect: facts.codedItemsSuspect,
@@ -761,7 +762,11 @@ export function UploadView({ navigate }: NavProps) {
       void runProcessing(file)
       return
     }
-    setErrorMsg('اختر كراسة بصيغة PDF أو جدول بنود بصيغة XLSX أو CSV.')
+    if (kind === 'docx') {
+      void runProcessing(file)
+      return
+    }
+    setErrorMsg('اختر كراسة بصيغة PDF أو DOCX أو جدول بنود بصيغة XLSX أو CSV.')
   }
 
   const retry = () => {
@@ -975,7 +980,7 @@ export function UploadView({ navigate }: NavProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
+        accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
         className="hidden"
         data-testid="booklet-file"
         onChange={(e) => {
@@ -1030,9 +1035,10 @@ export function UploadView({ navigate }: NavProps) {
               <UploadIcon className="w-8 h-8 text-[#123F3A]" />
             </div>
             <div className="text-xl font-bold mb-2 text-[#0D1F1D]">اختر ملفًا</div>
-            <p className="text-neutral-400 text-sm mb-6 text-center">PDF أو جدول بنود XLSX أو CSV · اسحب الملف أو اضغط للاختيار</p>
+            <p className="text-neutral-400 text-sm mb-6 text-center">PDF أو DOCX أو جدول بنود XLSX أو CSV · اسحب الملف أو اضغط للاختيار</p>
             <div className="flex gap-2">
               <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">PDF</span>
+              <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">DOCX</span>
               <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">XLSX</span>
               <span className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold">CSV</span>
             </div>
@@ -1055,7 +1061,7 @@ export function UploadView({ navigate }: NavProps) {
         <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden animate-fade-up">
           <div className="px-6 pt-6 pb-4 border-b border-neutral-50 flex items-center gap-4">
             <div className="w-10 h-12 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-              <span className="text-red-500 text-xs font-bold">{fileName.endsWith('.xlsx') || fileName.endsWith('.xls') ? 'XLS' : 'PDF'}</span>
+              <span className="text-red-500 text-xs font-bold">{fileName.toLowerCase().endsWith('.docx') ? 'DOCX' : fileName.endsWith('.xlsx') || fileName.endsWith('.xls') ? 'XLS' : 'PDF'}</span>
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-[#0D1F1D] text-sm truncate">{fileName}</div>
@@ -1269,7 +1275,7 @@ export function UploadView({ navigate }: NavProps) {
         <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden animate-fade-up">
           <div className="px-6 pt-6 pb-4 border-b border-neutral-50 flex items-center gap-4">
             <div className="w-10 h-12 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-              <span className="text-red-500 text-xs font-bold">PDF</span>
+              <span className="text-red-500 text-xs font-bold">{fileName.toLowerCase().endsWith('.docx') ? 'DOCX' : 'PDF'}</span>
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-[#0D1F1D] text-sm truncate">{fileName}</div>

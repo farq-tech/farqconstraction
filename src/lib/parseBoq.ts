@@ -866,7 +866,7 @@ export type ParseBoqResult = {
   projectName: string
   /** Content-hash / upload identity — lines are bound to this document only. */
   documentId: string
-  source: 'pdf-table' | 'pdf-text' | 'spreadsheet' | 'empty'
+  source: 'pdf-table' | 'pdf-text' | 'docx' | 'spreadsheet' | 'empty'
   rawLineCount: number
   /** True when Farq API was unreachable / returned no directory during match. */
   matchDegraded?: boolean
@@ -909,7 +909,7 @@ export function missingSpecificationWarning(
   total: number,
   demo: boolean,
 ): string {
-  if (source !== 'pdf-table' || pending <= 0) return ''
+  if ((source !== 'pdf-table' && source !== 'docx') || pending <= 0) return ''
   if (demo) {
     return `لم تُستخرج المواصفات الفنية لـ ${pending} من ${total} بندًا. استخراجها عبر خادم فرق يتطلب تسجيل الدخول. الكميات والوحدات قُرئت من الجدول؛ راجع المقاس والبراند قبل الإرسال.`
   }
@@ -1707,6 +1707,7 @@ async function parseBoqFileInner(
 
   const fileKind = boqFileKind(file)
   const isPdf = fileKind === 'pdf'
+  const isDocx = fileKind === 'docx'
   const isCsv = fileKind === 'csv'
   const isXlsx = fileKind === 'xlsx'
   let spreadsheetSheet: BoqSpreadsheetWorkbook['sheets'][number] | null = null
@@ -1724,6 +1725,11 @@ async function parseBoqFileInner(
     apiLines = spreadsheetSheet.lines
     work({ kind: 'start', leg: 'extract', opaque: true })
     work({ kind: 'end', leg: 'extract' })
+  } else if (isDocx) {
+    // DOCX is a ZIP package. It must go through the server's validated
+    // python-docx reader; interpreting its binary bytes as text can look like
+    // a successful empty read and hide a corrupt document.
+    extractError = 'تعذّرت قراءة ملف Word على الخادم.'
   } else try {
     // pdf.js resolves `getDocument().promise` only after the worker handshakes.
     // A worker chunk that 404s (or goes stale across an HMR reload) leaves that
@@ -1766,7 +1772,7 @@ async function parseBoqFileInner(
 
   // Optional API enrichment — capped wait so a hung job cannot strand UploadView.
   // Scanned PDFs: give Farq tender extract (OCR when enabled) more time before giving up.
-  if (isPdf) {
+  if (isPdf || isDocx) {
     let apiTimer: ReturnType<typeof setTimeout> | undefined
     let serverReadError = ''
     // A coded BOQ (MasterFormat, hierarchical) is one this browser cannot read:
@@ -1776,7 +1782,7 @@ async function parseBoqFileInner(
     // only chance of a real read. Waiting 12s and then serving the local read
     // is what showed «قراءة غير صالحة» while the server was on page 3 of 36.
     const codedBoq = countDistinctItemCodes(text) >= CODED_ITEMS_MIN
-    const apiWaitMs = codedBoq ? 840_000 : clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
+    const apiWaitMs = isDocx ? 120_000 : codedBoq ? 840_000 : clientLooksLikeScan ? 45_000 : tableIsComplete ? 6_000 : 12_000
     // A scan gets the longer wait because OCR is its only chance of any lines at
     // all — the owner must be told which of the two ceilings he is sitting under.
     work({ kind: 'start', leg: 'api-parse', opaque: true, capMs: apiWaitMs })
@@ -1804,6 +1810,9 @@ async function parseBoqFileInner(
       if (apiTimer) clearTimeout(apiTimer)
       work({ kind: 'end', leg: 'api-parse' })
     }
+    if (isDocx && apiLines.length === 0) {
+      throw new Error(serverReadError || 'لم نستطع استخراج بنود من ملف Word. تأكد أن الملف DOCX صالح ويحتوي جدول كميات ثم أعد المحاولة.')
+    }
     // A booklet that numbers its own items can only be read by the server. If
     // that read did not arrive, the local one is known in advance to be wrong
     // (20 rows of «ما بند» for 387 printed codes), so it is not shown at all:
@@ -1828,7 +1837,7 @@ async function parseBoqFileInner(
     fileName: file.name,
     spreadsheet: Boolean(spreadsheetSheet),
   })
-  const source: ParseBoqResult['source'] = spreadsheetSheet ? 'spreadsheet' : resolved.source
+  const source: ParseBoqResult['source'] = spreadsheetSheet ? 'spreadsheet' : isDocx ? 'docx' : resolved.source
   const { projectName, specsFromApi } = resolved
   // Lines read here in the browser (text, CSV, the local column reader) never
   // met the server's name memory: ask it — memory only, never a model — for

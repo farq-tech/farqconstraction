@@ -1,7 +1,9 @@
-export type BoqFileKind = "pdf" | "xlsx" | "csv" | "unsupported"
+export type BoqFileKind = "pdf" | "docx" | "xlsx" | "csv" | "unsupported"
 
 const XLSX_MIME =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+const DOCX_MIME =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 const CSV_MIMES = new Set(["text/csv", "application/csv"])
 
 /**
@@ -18,6 +20,7 @@ export function boqFileKind(file: Pick<File, "name" | "type">): BoqFileKind {
     ?.trim()
     .toLowerCase()
 
+  if (name.endsWith(".docx") || mime === DOCX_MIME) return "docx"
   if (name.endsWith(".xlsx") || mime === XLSX_MIME) return "xlsx"
   if (name.endsWith(".csv") || CSV_MIMES.has(mime || "")) return "csv"
   if (name.endsWith(".pdf") || mime === "application/pdf") return "pdf"

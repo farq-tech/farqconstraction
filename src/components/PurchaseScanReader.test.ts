@@ -10,6 +10,7 @@ describe('PurchaseScanReader CSV intake', () => {
   it('preserves scan support for images and Excel downloads with generic MIME types', () => {
     expect(purchaseScanFileKind({ name: 'photo', type: 'image/jpeg' })).toBe('image')
     expect(purchaseScanFileKind({ name: 'materials.XLSX', type: 'application/octet-stream' })).toBe('xlsx')
+    expect(purchaseScanFileKind({ name: 'spec.docx', type: 'application/octet-stream' })).toBe('unsupported')
   })
 
   it('reads CSV BOQ rows into the review draft shape', async () => {

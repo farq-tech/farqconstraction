@@ -3868,7 +3868,13 @@ export async function parseConstructionBoqPdf(file: File, onProgress?: (p: BoqRe
   const submitFile = () =>
     request<Submit>('/api/construction/boq/parse-pdf', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/pdf' },
+      headers: {
+        'Content-Type':
+          file.name.toLowerCase().endsWith('.docx') ||
+          file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : 'application/pdf',
+      },
       body: file,
       // A large booklet (the server takes up to 80 MB) cannot upload inside the
       // 45 s default on an ordinary connection.
