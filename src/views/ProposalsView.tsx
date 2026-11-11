@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefCallback } from 'react'
-import { autoPickConfident, buildPickContext, isPriorQuoter, sameMaterial } from '../lib/autoPick'
+import { autoPickConfident, buildPickContext, isPriorQuoter, sameMaterial, visibleSuggestionLanes } from '../lib/autoPick'
 import { PRIOR_QUOTER_TAG } from '../lib/supplierQuoteHistory'
 import type { NavProps, BOQItem, Supplier } from '../types'
 import {
@@ -284,6 +284,7 @@ function BOQCard({
     () => new Set([...locallyHidden, ...(item.rejectedSupplierIds || [])]),
     [locallyHidden, item.rejectedSupplierIds],
   )
+  const suggestionLanes = useMemo(() => visibleSuggestionLanes(item, hiddenIds), [item, hiddenIds])
   const boxedIds = useMemo(
     () =>
       new Set(
@@ -292,12 +293,12 @@ function BOQCard({
           ...(item.fitReviewSuggestion?.suppliers || []),
           ...(item.learnedSuggestion?.suppliers || []),
           ...(item.outcomeSuggestion?.suppliers || []),
-          ...(item.mapSuggestion?.suppliers || []),
-          ...(!item.mapSuggestion ? item.aiSuggestion?.suppliers || [] : []),
-          ...(!item.mapSuggestion && !item.aiSuggestion ? item.familySuggestion?.suppliers || [] : []),
+          ...(suggestionLanes.map ? item.mapSuggestion?.suppliers || [] : []),
+          ...(suggestionLanes.ai ? item.aiSuggestion?.suppliers || [] : []),
+          ...(suggestionLanes.family ? item.familySuggestion?.suppliers || [] : []),
         ].map((x) => x.id),
       ),
-    [item.preferredSuggestion, item.fitReviewSuggestion, item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion],
+    [item.preferredSuggestion, item.fitReviewSuggestion, item.learnedSuggestion, item.outcomeSuggestion, item.mapSuggestion, item.aiSuggestion, item.familySuggestion, suggestionLanes],
   )
   // Below the boxes: only suppliers that are not already listed in one.
   const listed = item.suppliers.filter((x) => !boxedIds.has(x.id) && !hiddenIds.has(x.id))
@@ -653,7 +654,7 @@ function BOQCard({
               registerViewedRow={registerViewedRow}
             />
           )}
-          {!item.mapSuggestion && !item.aiSuggestion && item.familySuggestion && (
+          {suggestionLanes.family && item.familySuggestion && (
             <SuggestionBox
               tone="grey"
               title={`غير مؤكد — على مستوى النشاط: «${familyLabelAr(item.familySuggestion.family)}»`}
@@ -667,7 +668,7 @@ function BOQCard({
               registerViewedRow={registerViewedRow}
             />
           )}
-          {!item.mapSuggestion && item.aiSuggestion && (
+          {suggestionLanes.ai && item.aiSuggestion && (
             <SuggestionBox
               tone="purple"
               title={`اقتراح آلي: قد تكون المادة «${intentLabelAr(item.aiSuggestion.intent)}»`}
