@@ -21,28 +21,16 @@ The product demo is deterministic and local, supports replay, and makes zero API
 
 SEO includes Arabic title/description, canonical URL, OpenGraph/Twitter image metadata and WebPage structured data. The OG image is a 1200×630 rendering of the same visual identity. The robots policy continues to exclude the application; only `/how-it-works` and its assets are allowed for indexing.
 
-## Analytics
+## No tracking
 
-All CTAs emit fixed names and locations, with no form values or identifying information:
-
-| Event                | Trigger                                                                 |
-| -------------------- | ----------------------------------------------------------------------- |
-| `hero_start_rfq`     | Hero buyer CTA                                                          |
-| `supplier_signup`    | Supplier join dialog opened; email prepared has a separate action value |
-| `watch_how_it_works` | Hero workflow anchor                                                    |
-| `demo_started`       | A real local demo run starts, not disabled-button clicks                |
-| `contractor_cta`     | Navbar, paths, final and mobile buyer CTA                               |
-| `supplier_cta`       | Supplier section, paths and final supplier CTA                          |
-| `faq_opened`         | FAQ expands; only question index is recorded                            |
-
-If `window.gtag` is installed, events are dispatched to it. Otherwise events are placed in `window.dataLayer`; a `farq:analytics` CustomEvent is always dispatched for integration. This project currently provides no analytics property ID, so this change **instruments events but does not configure an external analytics account or claim that events have reached one**. A tag manager can consume the data layer; another collector can subscribe to `farq:analytics`.
+The page carries no analytics, tags, pixels or ad targeting: no `gtag`, `dataLayer`, `data-event` attributes, third-party scripts or cookies, and nothing is left to be configured later. CTAs are plain links/buttons. `scripts/verify-construction-landing-no-tracking.py` fails if tracking globals or attributes come back, or if the page makes any external or procurement API request.
 
 ## Verification
 
-Run `npm ci && npm run build`. Serve `dist` (`python -m http.server 8765 --directory dist`), then run `python scripts/verify-construction-landing.py` and `python scripts/verify-construction-landing-events.py`. The optional verifier requires Python Playwright and Chromium (`pip install playwright && python -m playwright install chromium`).
+Run `npm ci && npm run build`. Serve `dist` (`python -m http.server 8765 --directory dist`), then run `python scripts/verify-construction-landing.py` and `python scripts/verify-construction-landing-no-tracking.py`. The optional verifier requires Python Playwright and Chromium (`pip install playwright && python -m playwright install chromium`).
 
-Browser verification covers 1440×1000, 768×1024, 390×844 and 320×640; all five scroll states; horizontal overflow; demo completion/replay; supplier dialog/Escape/focus; FAQ open/close and analytics; reduced motion; six-state hero completion/replay; and no JavaScript errors. Screenshots are generated locally under `artifacts/landing` and are not deployment assets.
+Browser verification covers 1440×1000, 768×1024, 390×844 and 320×640; all five scroll states; horizontal overflow; demo completion/replay; supplier dialog/Escape/focus; FAQ open/close; reduced motion; six-state hero completion/replay; and no JavaScript errors. Screenshots are generated locally under `artifacts/landing` and are not deployment assets.
 
 Accessibility is additionally audited with axe against WCAG 2 A/AA and WCAG 2.1 AA, including the supplier dialog. Lighthouse results are lab measurements on the local static build, not field Core Web Vitals guarantees.
 
-Final local mobile Lighthouse: Performance **97**, Accessibility **100**, SEO **100**, LCP **2.2 s**, TBT **0 ms**, CLS **0.007**. axe reported zero violations on desktop/mobile and with the supplier dialog open. Seven analytics events were verified; the demo made zero procurement API requests.
+Final local mobile Lighthouse: Performance **97**, Accessibility **100**, SEO **100**, LCP **2.2 s**, TBT **0 ms**, CLS **0.007**. axe reported zero violations on desktop/mobile and with the supplier dialog open. These figures were measured before tracking was removed. The page makes zero external and zero procurement API requests.
