@@ -126,6 +126,12 @@ export interface BOQItem {
   exposureId?: string
   /** The suppliers the screen ticked by itself (autoPickConfident), as opposed to the buyer's hand. */
   autoPickedSupplierIds?: string[]
+  /**
+   * Automatic picks stay disabled after a buyer changes this line's requirements.
+   * Any later buyer selection marks the line MANUAL; both states suppress picks
+   * on a page remount, while REVIEW_REQUIRED tells the UI the line needs review.
+   */
+  supplierSelectionMode?: 'REVIEW_REQUIRED' | 'MANUAL'
   /** The item code the booklet prints for this row. */
   itemCode?: string
   /**

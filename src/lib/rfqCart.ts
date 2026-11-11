@@ -65,6 +65,11 @@ export function quotaLabel(q: ProductSearchQuota | null | undefined): string {
 /** «أضف هذا المنتج» keeps the brand and model; «استخدم مواصفاته فقط» asks for any matching brand. */
 export type AddMode = 'product' | 'spec-only'
 
+/** An explicit buyer action takes the line out of review-required mode. */
+export function markSupplierSelectionManual(item: BOQItem): BOQItem {
+  return { ...item, supplierSelectionMode: 'MANUAL' }
+}
+
 /** The quick sheet: what the buyer fills after choosing a product. */
 export type QuickSheet = {
   qty: string

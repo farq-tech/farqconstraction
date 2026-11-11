@@ -13,6 +13,7 @@ import {
   linesToMatch,
   lineMatchStillCurrent,
   mergeMatched,
+  markSupplierSelectionManual,
   parseManualLine,
   parseManualText,
   quickSheetFor,
@@ -23,6 +24,14 @@ import {
   type ProductCard,
 } from './rfqCart'
 import { buildRfqLinesFromItems } from './rfqPackages'
+
+describe('supplier selection review mode', () => {
+  it('clears review-required when the buyer acts and keeps automatic picks suppressed', () => {
+    const item = { id: 1, name: 'اسمنت', qty: '1', unit: 'كيس', status: 'ready', supplierCount: 0, suppliers: [], supplierSelectionMode: 'REVIEW_REQUIRED' } as BOQItem
+    expect(markSupplierSelectionManual(item).supplierSelectionMode).toBe('MANUAL')
+    expect(markSupplierSelectionManual({ ...item, supplierSelectionMode: undefined }).supplierSelectionMode).toBe('MANUAL')
+  })
+})
 
 it('rejects invalid edits without changing the original quantity', () => {
   const items = [{ id: 1, name: 'حديد', qty: '100', unit: 'طن', suppliers: [] }] as unknown as BOQItem[]
