@@ -12,7 +12,7 @@ import {
   subscribeSession,
 } from '../store/session'
 import { matchSuppliersForItems, resolveBoqCardFields } from '../lib/parseBoq'
-import { lineMatchStillCurrent, mergeMatched } from '../lib/rfqCart'
+import { clearSelectionAfterIdentityEdit, lineMatchStillCurrent, lineSupplierRequirementChanged, mergeMatched } from '../lib/rfqCart'
 import { familyLabelAr, intentLabelAr } from '../lib/intentLabels'
 import { listConstructionSuppliers } from '../api/constructionSuppliers'
 import { farqSession } from '../api/farqSession'
@@ -1105,12 +1105,20 @@ export function ProposalsView({ navigate }: NavProps) {
   }
 
   const setSpecCard = (itemId: number, next: SpecCard | undefined) => {
+    const currentItems = getBoqItems()
+    const before = currentItems.find((item) => item.id === itemId)
+    const after = before ? { ...before, specCard: next } : undefined
+    const requirementsChanged = Boolean(before && after && lineSupplierRequirementChanged(before, after))
+    if (requirementsChanged && before && after) {
+      setSelected((previous) => clearSelectionAfterIdentityEdit(previous, itemId, before, after))
+      setEcho('تغيّرت مواصفة البند؛ راجع الموردين واخترهم مجددًا قبل الإرسال.')
+    }
     persistItems(
-      getBoqItems().map((item) => {
-        if (item.id !== itemId) return item
-        const { specCard: _old, ...rest } = item
-        return next ? { ...rest, specCard: next } : rest
-      }),
+      currentItems.map((item) =>
+        item.id === itemId
+          ? { ...item, specCard: next, ...(requirementsChanged ? { autoPickedSupplierIds: undefined } : {}) }
+          : item,
+      ),
     )
   }
 
