@@ -55,7 +55,7 @@ import { SupplierChat } from '../components/supplier/SupplierChat'
 import { AccountView } from '../components/supplier/AccountView'
 import PhoneLogin from '../components/supplier/PhoneLogin'
 
-type Phase = 'no-token' | 'loading' | 'expired' | 'error' | 'ready'
+type Phase = 'no-token' | 'loading' | 'expired' | 'error' | 'test' | 'ready'
 type Screen = 'list' | 'request' | 'account'
 
 /** Lets the header and the composer sit clear of the notch and the home bar. */
@@ -126,6 +126,24 @@ export function SupplierPortalView(_props: NavProps) {
   const [declineError, setDeclineError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    // Operator test links must validate against the backend test ledger, but
+    // must never start a supplier session or load an RFQ/quote form.
+    if (token.startsWith('operator-test-')) {
+      setPhase('loading')
+      setLoadError(null)
+      try {
+        const testInvite = await getPublicSupplierInvite(token)
+        if (testInvite.test_mode !== true) {
+          setPhase('expired')
+          return
+        }
+        setInvite(testInvite)
+        setPhase('test')
+      } catch {
+        setPhase('expired')
+      }
+      return
+    }
     if (!token) {
       const held = client.currentSession()
       if (!held) {
@@ -263,6 +281,22 @@ export function SupplierPortalView(_props: NavProps) {
   const viewport = useVisualViewport(chatActive)
 
   // ─── Screens that are not a request ────────────────────────────────────
+
+  if (phase === 'test') {
+    return (
+      <Frame>
+        <PortalHeader kind="home" title="بوابة المورد" subtitle="فرق للبناء" />
+        <Centered>
+          <Card className="text-center p-6">
+            <h1 className="text-xl font-black text-[#0D1F1D] mb-2">هذه رسالة اختبار من فريق فرق</h1>
+            <p className="text-sm text-neutral-600 leading-relaxed">
+              لا يوجد طلب شراء أو طلب عرض سعر. لا يلزمك الرد أو تقديم أي بيانات.
+            </p>
+          </Card>
+        </Centered>
+      </Frame>
+    )
+  }
 
   if (phase === 'no-token') {
     return (
