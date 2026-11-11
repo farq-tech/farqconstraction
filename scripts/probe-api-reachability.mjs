@@ -8,8 +8,9 @@
  *   FARQ_EMAIL=… FARQ_PASSWORD=… node scripts/probe-api-reachability.mjs <url>
  */
 import { chromium } from 'playwright-core'
+import { CONSTRUCTION_APP_URL } from './app-url.mjs'
 
-const URL = process.argv[2] || 'https://farq-construction.vercel.app'
+const URL = process.argv[2] || CONSTRUCTION_APP_URL
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 
 async function probe(label, signIn) {

@@ -7,8 +7,9 @@
  *   FARQ_EMAIL=… FARQ_PASSWORD=… node scripts/smoke-signed-in.mjs <url> <pdf>
  */
 import { chromium } from 'playwright-core'
+import { CONSTRUCTION_APP_URL } from './app-url.mjs'
 
-const URL = process.argv[2] || 'https://farq-construction.vercel.app'
+const URL = process.argv[2] || CONSTRUCTION_APP_URL
 const PDF = process.argv[3]
 const EMAIL = process.env.FARQ_EMAIL
 const PASSWORD = process.env.FARQ_PASSWORD
