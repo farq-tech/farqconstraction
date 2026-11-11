@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BOQItem, Supplier } from '../types'
-import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter, sameMaterial, visibleSupplierCandidateCount } from './autoPick'
+import { autoPickConfident, autoPickFor, buildPickContext, isPriorQuoter, sameMaterial, visibleSuggestionLanes, visibleSupplierCandidateCount } from './autoPick'
 import { sanitizeBoqLines } from './parseBoq'
 
 const sup = (id: string, evidence: Supplier['evidence'] = 'خريطة فرق'): Supplier => ({
@@ -377,11 +377,32 @@ describe('visible supplier candidate count', () => {
     expect(visibleSupplierCandidateCount(item)).toBe(3)
   })
 
-  it('shows the family fallback only when neither map nor AI suggestion is displayed', () => {
+  it('shows a family fallback when the stronger map and AI lanes have no suppliers', () => {
     const family = line(21, 'pipes_fittings', [], {
-      mapSuggestion: undefined,
+      mapSuggestion: { intent: 'pipe', family: 'pipes_fittings', supplierCount: 0, suppliers: [] },
       familySuggestion: { suppliers: [sup('family-only')], family: 'pipes_fittings' },
     })
     expect(visibleSupplierCandidateCount(family)).toBe(1)
+    expect(visibleSuggestionLanes(family)).toEqual({ map: true, ai: false, family: true })
+  })
+
+  it('shows the AI fallback when map results are empty and the family lane is weaker', () => {
+    const item = line(22, 'pipes_fittings', [], {
+      mapSuggestion: { intent: 'pipe', family: 'pipes_fittings', supplierCount: 0, suppliers: [] },
+      aiSuggestion: { intent: 'ppr_pipe', family: 'pipes_fittings', supplierCount: 1, suppliers: [sup('ai-only', 'تسمية آلية')] },
+      familySuggestion: { suppliers: [sup('family-only', 'على مستوى النشاط')], family: 'pipes_fittings' },
+    })
+    expect(visibleSuggestionLanes(item)).toEqual({ map: true, ai: true, family: false })
+    expect(visibleSupplierCandidateCount(item)).toBe(1)
+  })
+
+  it('reveals fallback lanes when all suppliers in the stronger lane were rejected', () => {
+    const item = line(23, 'pipes_fittings', [], {
+      mapSuggestion: { intent: 'pipe', family: 'pipes_fittings', supplierCount: 1, suppliers: [sup('rejected')] },
+      familySuggestion: { suppliers: [sup('family-only', 'على مستوى النشاط')], family: 'pipes_fittings' },
+      rejectedSupplierIds: ['rejected'],
+    })
+    expect(visibleSuggestionLanes(item)).toEqual({ map: true, ai: false, family: true })
+    expect(visibleSupplierCandidateCount(item)).toBe(1)
   })
 })

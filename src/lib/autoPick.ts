@@ -263,6 +263,29 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
   return chosen
 }
 
+type SuggestionLaneVisibility = Record<'map' | 'ai' | 'family', boolean>
+
+/**
+ * Which suggestion lanes have visible suppliers on the proposal card.
+ * A stronger lane with suppliers suppresses weaker alternatives. If every
+ * supplier in that lane was rejected (or the lane is empty), keep the next
+ * useful fallback visible so the line does not become a dead end.
+ */
+export function visibleSuggestionLanes(
+  item: BOQItem,
+  hiddenSupplierIds: Iterable<string> = item.rejectedSupplierIds || [],
+): SuggestionLaneVisibility {
+  const rejected = new Set(hiddenSupplierIds)
+  const hasAvailable = (suppliers: Supplier[] | undefined) => Boolean(suppliers?.some((s) => s?.id && !rejected.has(s.id)))
+  const hasMap = hasAvailable(item.mapSuggestion?.suppliers)
+  const hasAi = hasAvailable(item.aiSuggestion?.suppliers)
+  return {
+    map: Boolean(item.mapSuggestion),
+    ai: Boolean(item.aiSuggestion) && !hasMap,
+    family: Boolean(item.familySuggestion) && !hasMap && !hasAi,
+  }
+}
+
 /**
  * Count unique suppliers shown on the proposal card, not only the automatic
  * pick lane. Personal preferences are visible for manual choice, while AI and
@@ -270,14 +293,15 @@ export function autoPickFor(item: BOQItem, limit = AUTO_PICK, context?: PickCont
  */
 export function visibleSupplierCandidateCount(item: BOQItem): number {
   const rejected = new Set(item.rejectedSupplierIds || [])
+  const lanes = visibleSuggestionLanes(item)
   const boxed = [
     item.preferredSuggestion?.suppliers || [],
     item.fitReviewSuggestion?.suppliers || [],
     item.learnedSuggestion?.suppliers || [],
     item.outcomeSuggestion?.suppliers || [],
-    item.mapSuggestion?.suppliers || [],
-    ...(!item.mapSuggestion ? [item.aiSuggestion?.suppliers || []] : []),
-    ...(!item.mapSuggestion && !item.aiSuggestion ? [item.familySuggestion?.suppliers || []] : []),
+    ...(lanes.map ? [item.mapSuggestion?.suppliers || []] : []),
+    ...(lanes.ai ? [item.aiSuggestion?.suppliers || []] : []),
+    ...(lanes.family ? [item.familySuggestion?.suppliers || []] : []),
   ]
   const boxedIds = new Set(boxed.flatMap((lane) => lane.map((supplier) => supplier?.id).filter((id): id is string => Boolean(id))))
   const visibleIds = new Set<string>()
