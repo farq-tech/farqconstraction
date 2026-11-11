@@ -398,6 +398,8 @@ export type ConstructionProject = {
 }
 
 export type PublicSupplierInvite = {
+  /** Validated inert WhatsApp operator test link; never an RFQ or quote session. */
+  test_mode?: boolean
   invite_id: string
   rfq_id: string
   rfq_version_id: string
