@@ -433,16 +433,47 @@ export function editCartLine(
   })
 }
 
+function specCardIdentity(card: BOQItem['specCard']): string {
+  if (!card) return ''
+  return JSON.stringify([
+    card.brand?.trim() || '',
+    card.any_approved_brand === true,
+    card.standard?.trim() || '',
+    card.grade?.trim() || '',
+    card.dimensions?.trim() || '',
+    card.thickness?.trim() || '',
+    card.length?.trim() || '',
+    card.material?.trim() || '',
+    card.finish?.trim() || '',
+    [...(card.sale_units || [])]
+      .map((unit) => ({ unit: unit.unit, pack_size: unit.pack_size ?? null }))
+      .sort((a, b) => a.unit.localeCompare(b.unit) || Number(a.pack_size || 0) - Number(b.pack_size || 0)),
+    card.notes?.trim() || '',
+    card.reference_photo_url?.trim() || '',
+    [...(card.reference_photo_urls || [])].sort(),
+    card.reference_photos_reviewed === true,
+  ])
+}
+
+/** Whether the line's supplier-facing material requirements changed. */
+export function lineSupplierRequirementChanged(
+  before: Pick<BOQItem, 'name' | 'spec' | 'specCard'>,
+  after: Pick<BOQItem, 'name' | 'spec' | 'specCard'>,
+): boolean {
+  return before.name !== after.name
+    || (before.spec || '') !== (after.spec || '')
+    || specCardIdentity(before.specCard) !== specCardIdentity(after.specCard)
+}
+
 /** Drop a line's old supplier ticks when its material identity changes. */
 export function clearSelectionAfterIdentityEdit(
   selections: Record<number, string[]>,
   id: number,
-  before: Pick<BOQItem, 'name' | 'spec'> | undefined,
-  after: Pick<BOQItem, 'name' | 'spec'> | undefined,
+  before: Pick<BOQItem, 'name' | 'spec' | 'specCard'> | undefined,
+  after: Pick<BOQItem, 'name' | 'spec' | 'specCard'> | undefined,
 ): Record<number, string[]> {
   if (!before || !after || !selections[id]?.length) return selections
-  const identityChanged = before.name !== after.name || (before.spec || '') !== (after.spec || '')
-  if (!identityChanged) return selections
+  if (!lineSupplierRequirementChanged(before, after)) return selections
   const next = { ...selections }
   delete next[id]
   return next

@@ -5,6 +5,7 @@ import {
   appendToCart,
   cartCountLabel,
   clearSelectionAfterIdentityEdit,
+  lineSupplierRequirementChanged,
   cleanQty,
   editCartLine,
   lineFromProduct,
@@ -270,6 +271,16 @@ it('clears only this line’s old supplier ticks when its name or spec changes',
     8: ['other-line-supplier'],
   })
   expect(clearSelectionAfterIdentityEdit(selections, 7, before, { ...before })).toBe(selections)
+})
+
+it('clears supplier ticks when a structured requirement changes even if line text stays the same', () => {
+  const selections = { 7: ['supplier-a'], 8: ['other-line-supplier'] }
+  const before = { name: 'ماسورة PPR', spec: 'PN20', specCard: { dimensions: '25 مم', brand: 'A' } }
+  const after = { ...before, specCard: { dimensions: '50 مم', brand: 'A' } }
+
+  expect(lineSupplierRequirementChanged(before, after)).toBe(true)
+  expect(clearSelectionAfterIdentityEdit(selections, 7, before, after)).toEqual({ 8: ['other-line-supplier'] })
+  expect(lineSupplierRequirementChanged(before, { ...before })).toBe(false)
 })
 
 it('keeps visible records for retained manual selections when a new city has different candidates', () => {
